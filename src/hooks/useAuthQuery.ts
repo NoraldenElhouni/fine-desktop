@@ -1,23 +1,24 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AxiosError } from "axios";
+import { loginApi, fetchMeApi, logoutApi } from "../api/auth";
+import { useAuthStore } from "../stores/authStore";
+import { ApiMessageResponse, AuthResponse, User } from "../types/auth/types";
 import {
-  loginApi,
-  fetchMeApi,
-  logoutApi,
-  LoginCredentials,
-  AuthResponse,
-  ApiMessageResponse,
-} from "../api/auth";
-import { useAuthStore, User } from "../stores/authStore";
-
-export const AUTH_QUERY_KEY = ["auth", "me"];
+  AUTH_QUERY_KEY,
+  AUTH_STALE_TIME_MS,
+} from "../constants/auth/constants";
+import { LoginCredentials } from "../types/auth/schemas";
 
 export const useLoginMutation = () => {
   const queryClient = useQueryClient();
   const setAuth = useAuthStore((state) => state.setAuth);
 
-  return useMutation<AuthResponse, AxiosError<{ message?: string }>, LoginCredentials>({
-    mutationFn: (credentials: LoginCredentials) => loginApi(credentials),
+  return useMutation<
+    AuthResponse,
+    AxiosError<{ message?: string }>,
+    LoginCredentials
+  >({
+    mutationFn: (credentials) => loginApi(credentials),
     onSuccess: (data) => {
       setAuth(data.access_token, data.user);
       queryClient.setQueryData(AUTH_QUERY_KEY, data.user);
@@ -41,7 +42,7 @@ export const useUserQuery = () => {
       }
     },
     enabled: Boolean(token),
-    staleTime: 5 * 60 * 1000,
+    staleTime: AUTH_STALE_TIME_MS,
     retry: false,
   });
 };

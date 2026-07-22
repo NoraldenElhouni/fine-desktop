@@ -1,23 +1,6 @@
-import { z } from "zod";
+import { LoginCredentials } from "../types/auth/schemas";
+import { ApiMessageResponse, AuthResponse, User } from "../types/auth/types";
 import apiClient from "./client";
-import { User } from "../stores/authStore";
-
-export const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(1, "Password is required"),
-});
-
-export type LoginCredentials = z.infer<typeof loginSchema>;
-
-export interface AuthResponse {
-  access_token: string;
-  token_type: string;
-  user: User;
-}
-
-export interface ApiMessageResponse {
-  message: string;
-}
 
 export const loginApi = async (
   credentials: LoginCredentials,
