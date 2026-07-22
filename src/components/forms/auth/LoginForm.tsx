@@ -32,13 +32,13 @@ export const LoginForm: React.FC = () => {
 
   const errorMessage =
     loginMutation.error?.response?.data?.message ||
-    (loginMutation.isError ? "Unable to connect to backend server." : null);
+    (loginMutation.isError ? "تعذّر الاتصال بالخادم." : null);
 
   return (
     <>
       {errorMessage && (
-        <div className="mb-4 p-3 rounded-lg bg-red-950/40 border border-red-900/60 text-red-300 text-xs flex items-start gap-2.5">
-          <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+        <div className="mb-4 p-3 rounded-app-md bg-app-status-danger/10 border border-app-status-danger/30 text-app-status-danger text-xs flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <div className="leading-relaxed">{errorMessage}</div>
         </div>
       )}
@@ -47,12 +47,12 @@ export const LoginForm: React.FC = () => {
         <div>
           <label
             htmlFor="email"
-            className="block text-xs font-medium text-zinc-300 mb-1.5"
+            className="block text-xs font-medium mb-1.5 text-app-label-primary"
           >
-            Email address
+            البريد الإلكتروني
           </label>
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-app-label-tertiary">
               <Mail className="w-4 h-4" />
             </div>
             <input
@@ -61,16 +61,17 @@ export const LoginForm: React.FC = () => {
               placeholder="operator@company.com"
               autoComplete="email"
               disabled={loginMutation.isPending}
+              dir="ltr"
               {...register("email")}
-              className={`w-full pl-9 pr-3 py-2 bg-zinc-950 border ${
+              className={`w-full pl-9 pr-3 py-2 border text-left bg-app-bg-primary text-app-label-primary ${
                 errors.email
-                  ? "border-red-500/80 focus:border-red-500 focus:ring-1 focus:ring-red-500"
-                  : "border-zinc-800 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
-              } rounded-lg text-xs text-zinc-100 placeholder-zinc-500 outline-none transition-colors disabled:opacity-50`}
+                  ? "border-app-status-danger/80 focus:border-app-status-danger focus:ring-1 focus:ring-app-status-danger"
+                  : "border-app-separator focus:border-app-accent focus:ring-1 focus:ring-app-accent"
+              } rounded-lg text-xs placeholder-app-label-tertiary outline-none transition-colors disabled:opacity-50`}
             />
           </div>
           {errors.email && (
-            <p className="text-[11px] text-red-400 mt-1 font-normal">
+            <p className="text-[11px] text-app-status-danger mt-1 font-normal">
               {errors.email.message}
             </p>
           )}
@@ -79,9 +80,9 @@ export const LoginForm: React.FC = () => {
         <div>
           <label
             htmlFor="password"
-            className="block text-xs font-medium text-zinc-300 mb-1.5"
+            className="block text-xs font-medium mb-1.5 text-app-label-primary"
           >
-            Password
+            كلمة المرور
           </label>
           <PasswordInput
             id="password"
@@ -96,15 +97,15 @@ export const LoginForm: React.FC = () => {
         <button
           type="submit"
           disabled={loginMutation.isPending}
-          className="w-full py-2 px-4 bg-zinc-100 hover:bg-white active:bg-zinc-200 text-zinc-950 text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer mt-2"
+          className="w-full py-2 px-4 bg-app-accent hover:bg-app-accent-hover active:bg-app-accent-hover text-white text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer mt-2"
         >
           {loginMutation.isPending ? (
             <>
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              <span>Signing in...</span>
+              <span>جارٍ تسجيل الدخول...</span>
             </>
           ) : (
-            <span>Sign in</span>
+            <span>تسجيل الدخول</span>
           )}
         </button>
       </form>

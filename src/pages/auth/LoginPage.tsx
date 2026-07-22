@@ -1,24 +1,37 @@
 import React from "react";
 import { LoginForm } from "../../components/forms/auth/LoginForm";
+import { cn } from "../../lib/utils/utils";
+import { tokens } from "../../lib/tokens";
 
 const LoginPage: React.FC = () => {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-zinc-950 text-zinc-100 p-4 select-none">
-      <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-xl">
+    <div className="min-h-screen w-full flex items-center justify-center bg-app-bg-primary text-app-label-primary p-4">
+      <div className="w-full max-w-sm bg-app-bg-secondary border border-app-separator rounded-app-xl p-6 shadow-xl">
         <div className="mb-6">
-          <h1 className="text-xl font-semibold text-zinc-100 tracking-tight">
-            Fine Desktop
+          <h1
+            className={cn(
+              tokens.typography.webUI.largeTitleEmphasized,
+              "text-app-label-primary tracking-tight",
+            )}
+          >
+            فاين ديسكتوب
           </h1>
-          <p className="text-xs text-zinc-400 mt-1">
-            Sign in to access your workstation
+
+          <p
+            className={cn(
+              tokens.typography.webUI.c1Regular,
+              "text-app-label-secondary",
+            )}
+          >
+            سجّل الدخول للوصول إلى محطة العمل الخاصة بك
           </p>
         </div>
 
         <LoginForm />
 
-        <div className="mt-6 pt-4 border-t border-zinc-800/60 text-center">
-          <p className="text-[11px] text-zinc-500">
-            Fine Desktop Client • Enterprise ERP
+        <div className="mt-6 pt-4 border-t border-app-separator text-center">
+          <p className="text-[11px] text-app-label-tertiary">
+            عميل فاين ديسكتوب • نظام تخطيط موارد المؤسسات
           </p>
         </div>
       </div>

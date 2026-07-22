@@ -10,6 +10,12 @@ module.exports = {
             secondary: "var(--app-bg-secondary)",
             tertiary: "var(--app-bg-tertiary)",
           },
+          accent: {
+            DEFAULT: "var(--app-accent-primary)",
+            hover: "var(--app-accent-hover)",
+            subtle: "var(--app-accent-subtle)",
+            tint: "var(--app-accent-tint)",
+          },
           label: {
             primary: "var(--app-label-primary)",
             secondary: "var(--app-label-secondary)",

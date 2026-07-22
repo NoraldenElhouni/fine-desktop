@@ -1,13 +1,15 @@
-// Generated to match the CSS variables defined in src/index.css
-// Single source of truth for design tokens used outside of className strings
-// (e.g. passing raw colors into Recharts, canvas, or inline styles)
-
 export const tokens = {
   color: {
     background: {
       primary: "var(--app-bg-primary)",
       secondary: "var(--app-bg-secondary)",
       tertiary: "var(--app-bg-tertiary)",
+    },
+    accent: {
+      primary: "var(--app-accent-primary)",
+      hover: "var(--app-accent-hover)",
+      subtle: "var(--app-accent-subtle)",
+      tint: "var(--app-accent-tint)",
     },
     label: {
       primary: "var(--app-label-primary)",
@@ -47,9 +49,6 @@ export const tokens = {
     "3xl": "32px",
   },
 
-  // Typography presets — bundles size + weight + line-height so components
-  // use `typography.webUI.t2Regular` instead of writing text-[16px] font-normal
-  // leading-[24px] by hand every time. Use as a className string via cn().
   typography: {
     webUI: {
       largeTitleEmphasized: "text-[20px] font-semibold leading-[30px]",

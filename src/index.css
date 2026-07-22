@@ -9,6 +9,11 @@
   --app-bg-secondary: #f5f5f7;
   --app-bg-tertiary: #eeeeee;
 
+  --app-accent-primary: #3f8d7f; /* teal - logo, primary buttons */
+  --app-accent-hover: #357667; /* darker teal for hover states */
+  --app-accent-subtle: #dcece7; /* light mint - section backgrounds */
+  --app-accent-tint: #eef6f4; /* even lighter mint - subtle card bg */
+
   --app-label-primary: #1a1a1a;
   --app-label-secondary: #6b7280;
   --app-label-tertiary: #9ca3af;
@@ -26,10 +31,8 @@
 
   --app-separator: #e5e7eb;
 }
-
 body {
-  @apply font-sans bg-zinc-950 text-zinc-100 antialiased;
+  @apply font-sans antialiased;
   margin: 0;
   -webkit-font-smoothing: antialiased;
 }
-

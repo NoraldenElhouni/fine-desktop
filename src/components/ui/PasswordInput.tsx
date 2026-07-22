@@ -15,17 +15,17 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
           <input
             ref={ref}
             type={visible ? "text" : "password"}
-            className={`w-full pl-9 pr-9 py-2 bg-zinc-950 border ${
+            className={`w-full ps-9 pe-9 py-2 border text-end bg-app-bg-primary text-app-label-primary ${
               error
-                ? "border-red-500/80 focus:border-red-500 focus:ring-1 focus:ring-red-500"
-                : "border-zinc-800 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
-            } rounded-lg text-xs text-zinc-100 placeholder-zinc-500 outline-none transition-colors disabled:opacity-50 ${className ?? ""}`}
+                ? "border-app-status-danger/80 focus:border-app-status-danger focus:ring-1 focus:ring-app-status-danger"
+                : "border-app-separator focus:border-app-accent focus:ring-1 focus:ring-app-accent"
+            } rounded-lg text-xs placeholder-app-label-tertiary outline-none transition-colors disabled:opacity-50 ${className ?? ""}`}
             {...props}
           />
           <button
             type="button"
             onClick={() => setVisible((v) => !v)}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-500 hover:text-zinc-300 focus:outline-none"
+            className="absolute inset-y-0 end-0 pe-3 flex items-center text-app-label-tertiary hover:text-app-label-secondary focus:outline-none"
             tabIndex={-1}
           >
             {visible ? (
@@ -36,7 +36,9 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
           </button>
         </div>
         {error && (
-          <p className="text-[11px] text-red-400 mt-1 font-normal">{error}</p>
+          <p className="text-[11px] text-app-status-danger mt-1 font-normal">
+            {error}
+          </p>
         )}
       </div>
     );
