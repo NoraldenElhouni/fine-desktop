@@ -1,7 +1,17 @@
+export interface UserRole {
+  id: number;
+  name: string;
+  slug: string;
+}
+
 export interface User {
-  id: string;
+  id: number;
   name: string;
   email: string;
+  is_active: boolean;
+  roles?: UserRole[];
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface AuthResponse {
