@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "skills": {
+    "electron-development": {
+      "source": "Nick-800/skills",
+      "sourceType": "github",
+      "skillPath": "skills/electron-development/SKILL.md",
+      "computedHash": "4c305f693e78d89e4b45a83aca716d78d2e358e28c698e83f46ff9981669b3c3"
+    },
+    "impeccable": {
+      "source": "pbakaus/impeccable",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/impeccable/SKILL.md",
+      "computedHash": "0b6c52a8ee5da32494adc3c5d49a3eeb1284357df75786199132683c416a587e"
+    },
+    "ui-ux-pro-max": {
+      "source": "nextlevelbuilder/ui-ux-pro-max-skill",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/ui-ux-pro-max/SKILL.md",
+      "computedHash": "ce0af583006d2fd4731663adc50c0a5df1121f0d49a5bb9c308eca4ee295c60a"
+    },
+    "web-design-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/web-design-guidelines/SKILL.md",
+      "computedHash": "f3bc47f890f42a44db1007ab390709ec368e4b8c089baee6b0007182236ac474"
+    }
+  }
+}
