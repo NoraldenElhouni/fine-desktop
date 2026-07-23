@@ -25,21 +25,24 @@ export const NavigationBar: React.FC = () => {
         <span className="font-semibold tracking-tight text-xs uppercase text-app-label-primary">
           فاين ديسكتوب
         </span>
-        <div className="flex gap-1 text-xs font-medium">
-          <Link
-            to="/"
-            className="px-2.5 py-1 rounded text-app-label-tertiary hover:text-app-label-primary hover:bg-app-fill-f1 transition-colors"
-          >
-            لوحة التحكم
-          </Link>
-          <Link
-            to="/users"
-            className="px-2.5 py-1 rounded text-app-label-tertiary hover:text-app-label-primary hover:bg-app-fill-f1 transition-colors"
-          >
-            المستخدمون
-          </Link>
-        </div>
+        {!user?.must_change_password && (
+          <div className="flex gap-1 text-xs font-medium">
+            <Link
+              to="/"
+              className="px-2.5 py-1 rounded text-app-label-tertiary hover:text-app-label-primary hover:bg-app-fill-f1 transition-colors"
+            >
+              لوحة التحكم
+            </Link>
+            <Link
+              to="/users"
+              className="px-2.5 py-1 rounded text-app-label-tertiary hover:text-app-label-primary hover:bg-app-fill-f1 transition-colors"
+            >
+              المستخدمون
+            </Link>
+          </div>
+        )}
       </div>
+
 
       <div className="flex items-center gap-3">
         {user && (

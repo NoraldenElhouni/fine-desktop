@@ -1,5 +1,10 @@
-import { LoginCredentials } from "../types/auth/schemas";
-import { ApiMessageResponse, AuthResponse, User } from "../types/auth/types";
+import { ChangePasswordCredentials, LoginCredentials } from "../types/auth/schemas";
+import {
+  ApiMessageResponse,
+  AuthResponse,
+  ChangePasswordResponse,
+  User,
+} from "../types/auth/types";
 import apiClient from "./client";
 
 export const loginApi = async (
@@ -21,3 +26,14 @@ export const logoutApi = async (): Promise<ApiMessageResponse> => {
   const response = await apiClient.post<ApiMessageResponse>("/auth/logout");
   return response.data;
 };
+
+export const changePasswordApi = async (
+  credentials: ChangePasswordCredentials,
+): Promise<ChangePasswordResponse> => {
+  const response = await apiClient.post<ChangePasswordResponse>(
+    "/auth/change-password",
+    credentials,
+  );
+  return response.data;
+};
+

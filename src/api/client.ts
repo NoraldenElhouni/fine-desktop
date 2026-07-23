@@ -30,9 +30,21 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       useAuthStore.getState().logout();
+    } else if (
+      error.response?.status === 403 &&
+      error.response?.data?.code === "MUST_CHANGE_PASSWORD"
+    ) {
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser && !currentUser.must_change_password) {
+        useAuthStore.getState().setUser({
+          ...currentUser,
+          must_change_password: true,
+        });
+      }
     }
     return Promise.reject(error);
   },
 );
+
 
 export default apiClient;

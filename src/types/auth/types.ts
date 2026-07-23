@@ -9,6 +9,7 @@ export interface User {
   name: string;
   email: string;
   is_active: boolean;
+  must_change_password?: boolean;
   roles?: UserRole[];
   created_at?: string;
   updated_at?: string;
@@ -23,3 +24,9 @@ export interface AuthResponse {
 export interface ApiMessageResponse {
   message: string;
 }
+
+export interface ChangePasswordResponse {
+  message: string;
+  user: User;
+}
+

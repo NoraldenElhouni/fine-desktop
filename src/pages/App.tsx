@@ -1,6 +1,7 @@
 import { HashRouter as Router, Routes, Route } from "react-router-dom";
 import { NavigationBar } from "../components/layout/NavigationBar";
 import LoginPage from "./auth/LoginPage";
+import ChangePasswordPage from "./auth/ChangePasswordPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import UsersPage from "./users/UsersPage";
 import Dashboard from "./Dashboard";
@@ -13,6 +14,14 @@ const App = () => {
         <main className="flex-1">
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route
+              path="/change-password"
+              element={
+                <ProtectedRoute>
+                  <ChangePasswordPage />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/"
               element={
@@ -37,3 +46,4 @@ const App = () => {
 };
 
 export default App;
+

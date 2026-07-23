@@ -1,13 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AxiosError } from "axios";
-import { loginApi, fetchMeApi, logoutApi } from "../api/auth";
+import { loginApi, fetchMeApi, logoutApi, changePasswordApi } from "../api/auth";
 import { useAuthStore } from "../stores/authStore";
-import { ApiMessageResponse, AuthResponse, User } from "../types/auth/types";
+import {
+  ApiMessageResponse,
+  AuthResponse,
+  ChangePasswordResponse,
+  User,
+} from "../types/auth/types";
 import {
   AUTH_QUERY_KEY,
   AUTH_STALE_TIME_MS,
 } from "../constants/auth/constants";
-import { LoginCredentials } from "../types/auth/schemas";
+import { ChangePasswordCredentials, LoginCredentials } from "../types/auth/schemas";
+
 
 export const useLoginMutation = () => {
   const queryClient = useQueryClient();
@@ -59,3 +65,21 @@ export const useLogoutMutation = () => {
     },
   });
 };
+
+export const useChangePasswordMutation = () => {
+  const queryClient = useQueryClient();
+  const setUser = useAuthStore((state) => state.setUser);
+
+  return useMutation<
+    ChangePasswordResponse,
+    AxiosError<{ message?: string }>,
+    ChangePasswordCredentials
+  >({
+    mutationFn: (credentials) => changePasswordApi(credentials),
+    onSuccess: (data) => {
+      setUser(data.user);
+      queryClient.setQueryData(AUTH_QUERY_KEY, data.user);
+    },
+  });
+};
+
