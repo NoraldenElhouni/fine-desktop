@@ -6,6 +6,8 @@ import { Mail, AlertCircle, Loader2 } from "lucide-react";
 import { useLoginMutation } from "../../../hooks/useAuthQuery";
 import { LoginCredentials, loginSchema } from "../../../types/auth/schemas";
 import { PasswordInput } from "../../ui/PasswordInput";
+import { cn } from "../../../lib/utils/utils";
+import { tokens } from "../../../lib/tokens";
 
 export const LoginForm: React.FC = () => {
   const navigate = useNavigate();
@@ -37,7 +39,12 @@ export const LoginForm: React.FC = () => {
   return (
     <>
       {errorMessage && (
-        <div className="mb-4 p-3 rounded-app-md bg-app-status-danger/10 border border-app-status-danger/30 text-app-status-danger text-xs flex items-start gap-2">
+        <div
+          className={cn(
+            tokens.typography.webUI.c1Regular,
+            "mb-4 flex items-start gap-2 rounded-app-lg border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-app-status-danger",
+          )}
+        >
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <div className="leading-relaxed">{errorMessage}</div>
         </div>
@@ -47,7 +54,10 @@ export const LoginForm: React.FC = () => {
         <div>
           <label
             htmlFor="email"
-            className="block text-xs font-medium mb-1.5 text-app-label-primary"
+            className={cn(
+              tokens.typography.webUI.b2Emphasized,
+              "block mb-1.5 text-app-label-primary",
+            )}
           >
             البريد الإلكتروني
           </label>
@@ -63,15 +73,23 @@ export const LoginForm: React.FC = () => {
               disabled={loginMutation.isPending}
               dir="ltr"
               {...register("email")}
-              className={`w-full pl-9 pr-3 py-2 border text-left bg-app-bg-primary text-app-label-primary ${
+              className={cn(
+                tokens.typography.webUI.b2Regular,
+                "w-full pl-9 pr-3 py-2.5 border text-left bg-app-bg-primary text-app-label-primary",
                 errors.email
                   ? "border-app-status-danger/80 focus:border-app-status-danger focus:ring-1 focus:ring-app-status-danger"
-                  : "border-app-separator focus:border-app-accent focus:ring-1 focus:ring-app-accent"
-              } rounded-lg text-xs placeholder-app-label-tertiary outline-none transition-colors disabled:opacity-50`}
+                  : "border-app-separator focus:border-app-accent focus:ring-1 focus:ring-app-accent",
+                "rounded-app-lg placeholder-app-label-tertiary outline-none transition-colors disabled:opacity-50",
+              )}
             />
           </div>
           {errors.email && (
-            <p className="text-[11px] text-app-status-danger mt-1 font-normal">
+            <p
+              className={cn(
+                tokens.typography.webUI.c1Regular,
+                "text-app-status-danger mt-1",
+              )}
+            >
               {errors.email.message}
             </p>
           )}
@@ -80,7 +98,10 @@ export const LoginForm: React.FC = () => {
         <div>
           <label
             htmlFor="password"
-            className="block text-xs font-medium mb-1.5 text-app-label-primary"
+            className={cn(
+              tokens.typography.webUI.b2Emphasized,
+              "block mb-1.5 text-app-label-primary",
+            )}
           >
             كلمة المرور
           </label>
@@ -97,11 +118,14 @@ export const LoginForm: React.FC = () => {
         <button
           type="submit"
           disabled={loginMutation.isPending}
-          className="w-full py-2 px-4 bg-app-accent hover:bg-app-accent-hover active:bg-app-accent-hover text-white text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer mt-2"
+          className={cn(
+            tokens.typography.webUI.b2Emphasized,
+            "w-full py-2.5 px-4 bg-app-accent hover:bg-app-accent-hover active:bg-app-accent-hover text-white rounded-app-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer mt-2",
+          )}
         >
           {loginMutation.isPending ? (
             <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" />
               <span>جارٍ تسجيل الدخول...</span>
             </>
           ) : (

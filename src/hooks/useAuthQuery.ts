@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AxiosError } from "axios";
-import { loginApi, fetchMeApi, logoutApi, changePasswordApi } from "../api/auth";
+import {
+  loginApi,
+  fetchMeApi,
+  logoutApi,
+  changePasswordApi,
+} from "../api/auth";
 import { useAuthStore } from "../stores/authStore";
 import {
   ApiMessageResponse,
@@ -12,8 +17,10 @@ import {
   AUTH_QUERY_KEY,
   AUTH_STALE_TIME_MS,
 } from "../constants/auth/constants";
-import { ChangePasswordCredentials, LoginCredentials } from "../types/auth/schemas";
-
+import {
+  ChangePasswordCredentials,
+  LoginCredentials,
+} from "../types/auth/schemas";
 
 export const useLoginMutation = () => {
   const queryClient = useQueryClient();
@@ -43,7 +50,10 @@ export const useUserQuery = () => {
         setUser(user);
         return user;
       } catch (err) {
-        logout();
+        const status = (err as AxiosError)?.response?.status;
+        if (status === 401 || status === 403) {
+          logout();
+        }
         throw err;
       }
     },
@@ -82,4 +92,3 @@ export const useChangePasswordMutation = () => {
     },
   });
 };
-

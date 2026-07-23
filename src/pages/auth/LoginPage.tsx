@@ -14,7 +14,7 @@ const LoginPage: React.FC = () => {
               "text-app-label-primary tracking-tight",
             )}
           >
-            فاين ديسكتوب
+            فاين
           </h1>
 
           <p
@@ -31,7 +31,7 @@ const LoginPage: React.FC = () => {
 
         <div className="mt-6 pt-4 border-t border-app-separator text-center">
           <p className="text-[11px] text-app-label-tertiary">
-            عميل فاين ديسكتوب • نظام تخطيط موارد المؤسسات
+            عميل ديسكتوب • نظام تخطيط موارد
           </p>
         </div>
       </div>

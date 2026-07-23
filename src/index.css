@@ -36,3 +36,11 @@ body {
   margin: 0;
   -webkit-font-smoothing: antialiased;
 }
+
+.icon-chevron-forward {
+  transition: transform 0.2s ease;
+}
+
+[dir="rtl"] .icon-chevron-forward {
+  transform: scaleX(-1);
+}
