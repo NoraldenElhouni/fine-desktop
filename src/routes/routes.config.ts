@@ -2,10 +2,13 @@ import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
   Boxes,
+  Briefcase,
+  Building2,
   Factory,
   LayoutGrid,
   Package,
   ShoppingCart,
+  UserCheck,
   Users,
 } from "lucide-react";
 
@@ -23,7 +26,10 @@ export interface BreadcrumbEntry {
 
 export const navItems: AppNavItem[] = [
   { id: "dashboard", path: "/", label: "لوحة التحكم", icon: LayoutGrid },
+  { id: "entities", path: "/entities", label: "الكيانات والشركاء", icon: Building2 },
+  { id: "employees", path: "/employees", label: "الموظفون والعمالة", icon: UserCheck },
   { id: "clients", path: "/clients", label: "العملاء", icon: Users },
+  { id: "external-employers", path: "/external-employers", label: "الجهات المشغلة", icon: Briefcase },
   { id: "orders", path: "/orders", label: "الطلبات", icon: ShoppingCart },
   { id: "inventory", path: "/inventory", label: "المخزون", icon: Boxes },
   {
@@ -64,7 +70,8 @@ export const getBreadcrumbEntries = (
 
   if (
     normalizedPath.startsWith("/clients/") ||
-    normalizedPath.startsWith("/orders/")
+    normalizedPath.startsWith("/orders/") ||
+    normalizedPath.startsWith("/entities/")
   ) {
     entries.push({ path: normalizedPath, label: dynamicLabel });
   }

@@ -1,17 +1,10 @@
 import { Routes, Route } from "react-router-dom";
+import ClientsPage from "../pages/clients/ClientsPage";
 import PlaceholderPage from "../pages/PlaceholderPage";
 
 const ClientsRoutes = () => (
   <Routes>
-    <Route
-      index
-      element={
-        <PlaceholderPage
-          title="العملاء"
-          description="سوف تُضاف هنا شاشة إدارة العملاء مع المحافظ والاتفاقيات والملفات ذات الصلة."
-        />
-      }
-    />
+    <Route index element={<ClientsPage />} />
     <Route
       path=":id"
       element={

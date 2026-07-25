@@ -8,6 +8,9 @@ import PlaceholderPage from "./PlaceholderPage";
 import OrdersRoutes from "../routes/OrdersRoutes";
 import UsersRoutes from "../routes/UsersRoutes";
 import ClientsRoutes from "../routes/ClientsRoutes";
+import { EntitiesListPage } from "./entities/EntitiesListPage";
+import { EmployeesPage } from "./employees/EmployeesPage";
+import { ExternalEmployersPage } from "./entities/ExternalEmployersPage";
 
 const App = () => {
   return (
@@ -20,7 +23,10 @@ const App = () => {
 
           <Route path="/" element={<Layout />}>
             <Route index element={<Dashboard />} />
+            <Route path="entities/*" element={<EntitiesListPage />} />
+            <Route path="employees/*" element={<EmployeesPage />} />
             <Route path="clients/*" element={<ClientsRoutes />} />
+            <Route path="external-employers/*" element={<ExternalEmployersPage />} />
             <Route path="orders/*" element={<OrdersRoutes />} />
             <Route path="users/*" element={<UsersRoutes />} />
             <Route
