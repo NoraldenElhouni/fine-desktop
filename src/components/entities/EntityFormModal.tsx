@@ -57,16 +57,20 @@ export const EntityFormModal: React.FC<EntityFormModalProps> = ({
       roles: roles.map((r) => ({ role_type: r })),
     };
 
-    await onSubmit(payload);
-    // Reset form
-    setName("");
-    setTaxNumber("");
-    setContactName("");
-    setEmail("");
-    setPhone("");
-    setAddress("");
-    setRoles([]);
-    onClose();
+    try {
+      await onSubmit(payload);
+      // Reset form on success
+      setName("");
+      setTaxNumber("");
+      setContactName("");
+      setEmail("");
+      setPhone("");
+      setAddress("");
+      setRoles([]);
+      onClose();
+    } catch {
+      // Keep form inputs intact on error
+    }
   };
 
   return (

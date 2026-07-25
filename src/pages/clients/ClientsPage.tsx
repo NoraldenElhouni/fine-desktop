@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { Users, Plus, RefreshCw, CreditCard, ShieldAlert } from "lucide-react";
-import { Client, Entity, ClientStatus } from "../../types/entities";
+import { Users, Plus, RefreshCw, CreditCard } from "lucide-react";
+import { isAxiosError } from "axios";
+import { Client, Entity, ClientStatus, OperatingUnit } from "../../types/entities";
 import { getClients, createClient } from "../../api/endpoints/clients";
 import { getEntities } from "../../api/endpoints/entities";
+import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
 
 export const ClientsPage: React.FC = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
+  const [operatingUnits, setOperatingUnits] = useState<OperatingUnit[]>([]);
+  const [selectedOperatingUnitId, setSelectedOperatingUnitId] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,11 +25,22 @@ export const ClientsPage: React.FC = () => {
     try {
       setIsLoading(true);
       setError(null);
-      const [clientData, entData] = await Promise.all([getClients(), getEntities()]);
+      const [clientData, entData, unitData] = await Promise.all([
+        getClients(),
+        getEntities(),
+        getOperatingUnits(),
+      ]);
       setClients(clientData);
       setEntities(entData);
-    } catch (err: any) {
-      setError(err.response?.data?.message || "تعذر تحميل سجلات العملاء");
+      setOperatingUnits(unitData);
+      if (unitData.length > 0 && !selectedOperatingUnitId) {
+        setSelectedOperatingUnitId(unitData[0].id);
+      }
+    } catch (err: unknown) {
+      const message = isAxiosError(err)
+        ? err.response?.data?.message
+        : null;
+      setError(message || "تعذر تحميل سجلات العملاء");
     } finally {
       setIsLoading(false);
     }
@@ -37,13 +52,17 @@ export const ClientsPage: React.FC = () => {
 
   const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedEntityId) return;
+    const unitId = selectedOperatingUnitId || operatingUnits[0]?.id;
+    if (!selectedEntityId || !unitId) {
+      alert("يرجى اختيار الكيان والوحدة التشغيلية");
+      return;
+    }
 
     try {
       setIsSubmitting(true);
       const newClient = await createClient({
         entity_id: selectedEntityId,
-        operating_unit_id: "00000000-0000-0000-0000-000000000000",
+        operating_unit_id: unitId,
         credit_limit: creditLimit,
         payment_terms_days: paymentTermsDays,
         status: "active" as ClientStatus,
@@ -52,8 +71,11 @@ export const ClientsPage: React.FC = () => {
       setClients((prev) => [newClient, ...prev]);
       setIsModalOpen(false);
       setSelectedEntityId("");
-    } catch (err: any) {
-      alert(err.response?.data?.message || "خطأ أثناء إضافة العميل");
+    } catch (err: unknown) {
+      const message = isAxiosError(err)
+        ? err.response?.data?.message
+        : null;
+      alert(message || "خطأ أثناء إضافة العميل");
     } finally {
       setIsSubmitting(false);
     }
@@ -150,6 +172,25 @@ export const ClientsPage: React.FC = () => {
           <div className="w-full max-w-lg rounded-2xl border border-app-separator bg-app-bg-primary p-6 shadow-xl" dir="rtl">
             <h3 className="text-lg font-bold text-app-label-primary mb-4">إضافة عميل جديد</h3>
             <form onSubmit={handleAddClient} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                  الوحدة التشغيلية <span className="text-red-500">*</span>
+                </label>
+                <select
+                  required
+                  value={selectedOperatingUnitId}
+                  onChange={(e) => setSelectedOperatingUnitId(e.target.value)}
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                >
+                  <option value="">-- اختر الوحدة التشغيلية --</option>
+                  {operatingUnits.map((unit) => (
+                    <option key={unit.id} value={unit.id}>
+                      {unit.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary mb-1">
                   اختر الكيان <span className="text-red-500">*</span>

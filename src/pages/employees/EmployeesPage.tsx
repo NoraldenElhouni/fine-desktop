@@ -1,13 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { UserCheck, Plus, RefreshCw, Briefcase, Building, Calendar, DollarSign } from "lucide-react";
-import { Employee, Entity, PayType, EmployeeStatus } from "../../types/entities";
+import { isAxiosError } from "axios";
+import { Employee, Entity, PayType, EmployeeStatus, OperatingUnit } from "../../types/entities";
 import { getEmployees, createEmployee } from "../../api/endpoints/employees";
 import { getEntities } from "../../api/endpoints/entities";
+import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
 
 export const EmployeesPage: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
   const [externalEmployers, setExternalEmployers] = useState<Entity[]>([]);
+  const [operatingUnits, setOperatingUnits] = useState<OperatingUnit[]>([]);
+  const [selectedOperatingUnitId, setSelectedOperatingUnitId] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,17 +28,30 @@ export const EmployeesPage: React.FC = () => {
     try {
       setIsLoading(true);
       setError(null);
-      const [empData, entData] = await Promise.all([getEmployees(), getEntities()]);
+      const [empData, entData, unitData] = await Promise.all([
+        getEmployees(),
+        getEntities(),
+        getOperatingUnits(),
+      ]);
       setEmployees(empData);
       setEntities(entData);
+      setOperatingUnits(unitData);
+      if (unitData.length > 0 && !selectedOperatingUnitId) {
+        setSelectedOperatingUnitId(unitData[0].id);
+      }
 
       // Filter external employer agencies
-      const employersList = entData.filter((e) =>
-        e.roles?.some((r) => r.role_type === "external_employer")
+      const employersList = entData.filter(
+        (e) =>
+          e.roles?.some((r) => r.role_type === "external_employer") ||
+          Boolean(e.external_employer)
       );
       setExternalEmployers(employersList);
-    } catch (err: any) {
-      setError(err.response?.data?.message || "تعذر تحميل سجلات الموظفين");
+    } catch (err: unknown) {
+      const message = isAxiosError(err)
+        ? err.response?.data?.message
+        : null;
+      setError(message || "تعذر تحميل سجلات الموظفين");
     } finally {
       setIsLoading(false);
     }
@@ -46,14 +63,23 @@ export const EmployeesPage: React.FC = () => {
 
   const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedEntityId || !jobTitle) return;
+    const unitId = selectedOperatingUnitId || operatingUnits[0]?.id;
+    if (!selectedEntityId || !jobTitle || !unitId) {
+      alert("يرجى تعبئة كافة الحقول المطلوبة والوحدة التشغيلية");
+      return;
+    }
+
+    const validEmployerEntityId =
+      employerEntityId.trim() && employerEntityId !== selectedEntityId
+        ? employerEntityId.trim()
+        : undefined;
 
     try {
       setIsSubmitting(true);
       const newEmp = await createEmployee({
         entity_id: selectedEntityId,
-        operating_unit_id: "00000000-0000-0000-0000-000000000000", // Will be assigned by backend unit scope
-        employer_entity_id: employerEntityId || null,
+        operating_unit_id: unitId,
+        employer_entity_id: validEmployerEntityId,
         job_title: jobTitle,
         pay_type: payType,
         hire_date: hireDate,
@@ -66,8 +92,11 @@ export const EmployeesPage: React.FC = () => {
       setSelectedEntityId("");
       setJobTitle("");
       setEmployerEntityId("");
-    } catch (err: any) {
-      alert(err.response?.data?.message || "خطأ أثناء إضافات الموظف");
+    } catch (err: unknown) {
+      const message = isAxiosError(err)
+        ? err.response?.data?.message
+        : null;
+      alert(message || "خطأ أثناء إضافات الموظف");
     } finally {
       setIsSubmitting(false);
     }
@@ -193,6 +222,25 @@ export const EmployeesPage: React.FC = () => {
             <form onSubmit={handleAddEmployee} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                  الوحدة التشغيلية <span className="text-red-500">*</span>
+                </label>
+                <select
+                  required
+                  value={selectedOperatingUnitId}
+                  onChange={(e) => setSelectedOperatingUnitId(e.target.value)}
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                >
+                  <option value="">-- اختر الوحدة التشغيلية --</option>
+                  {operatingUnits.map((unit) => (
+                    <option key={unit.id} value={unit.id}>
+                      {unit.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
                   اختر الكيان (الشخص) <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -263,11 +311,13 @@ export const EmployeesPage: React.FC = () => {
                   className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
                 >
                   <option value="">-- تعيين مباشر (بدون جهة مشغلة) --</option>
-                  {externalEmployers.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.name} (جهة مشغلة)
-                    </option>
-                  ))}
+                  {externalEmployers
+                    .filter((emp) => emp.id !== selectedEntityId)
+                    .map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.name} (جهة مشغلة)
+                      </option>
+                    ))}
                 </select>
               </div>
 

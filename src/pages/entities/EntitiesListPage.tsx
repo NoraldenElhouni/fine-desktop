@@ -11,7 +11,8 @@ import {
   ShieldCheck,
   RefreshCw,
 } from "lucide-react";
-import { Entity, CreateEntityPayload, EntityRoleType } from "../../types/entities";
+import { isAxiosError } from "axios";
+import { Entity, CreateEntityPayload } from "../../types/entities";
 import { getEntities, createEntity, provisionUserAccount } from "../../api/endpoints/entities";
 import { EntityFormModal } from "../../components/entities/EntityFormModal";
 
@@ -32,6 +33,7 @@ export const EntitiesListPage: React.FC = () => {
   // Provisioning Modal State
   const [provisioningEntity, setProvisioningEntity] = useState<Entity | null>(null);
   const [provisionEmail, setProvisionEmail] = useState("");
+  const [provisionPassword, setProvisionPassword] = useState("");
   const [isProvisioning, setIsProvisioning] = useState(false);
   const [provisionSuccessMsg, setProvisionSuccessMsg] = useState<string | null>(null);
 
@@ -41,8 +43,11 @@ export const EntitiesListPage: React.FC = () => {
       setError(null);
       const data = await getEntities();
       setEntities(data);
-    } catch (err: any) {
-      setError(err.response?.data?.message || "تعذر تحميل قائمة الكيانات");
+    } catch (err: unknown) {
+      const message = isAxiosError(err)
+        ? err.response?.data?.message
+        : null;
+      setError(message || "تعذر تحميل قائمة الكيانات");
     } finally {
       setIsLoading(false);
     }
@@ -57,8 +62,12 @@ export const EntitiesListPage: React.FC = () => {
       setIsSubmitting(true);
       const newEntity = await createEntity(payload);
       setEntities((prev) => [newEntity, ...prev]);
-    } catch (err: any) {
-      alert(err.response?.data?.message || "خطأ أثناء إنشاء الكيان");
+    } catch (err: unknown) {
+      const message = isAxiosError(err)
+        ? err.response?.data?.message
+        : null;
+      alert(message || "خطأ أثناء إنشاء الكيان");
+      throw err;
     } finally {
       setIsSubmitting(false);
     }
@@ -68,7 +77,11 @@ export const EntitiesListPage: React.FC = () => {
     if (!provisioningEntity) return;
     try {
       setIsProvisioning(true);
-      const res = await provisionUserAccount(provisioningEntity.id, provisionEmail.trim() || undefined);
+      const res = await provisionUserAccount(
+        provisioningEntity.id,
+        provisionEmail.trim() || undefined,
+        provisionPassword.trim() || undefined
+      );
       setEntities((prev) =>
         prev.map((item) => (item.id === res.data.id ? res.data : item))
       );
@@ -77,9 +90,13 @@ export const EntitiesListPage: React.FC = () => {
         setProvisionSuccessMsg(null);
         setProvisioningEntity(null);
         setProvisionEmail("");
+        setProvisionPassword("");
       }, 2000);
-    } catch (err: any) {
-      alert(err.response?.data?.message || "خطأ أثناء تزويد حساب النظام");
+    } catch (err: unknown) {
+      const message = isAxiosError(err)
+        ? err.response?.data?.message
+        : null;
+      alert(message || "خطأ أثناء تزويد حساب النظام");
     } finally {
       setIsProvisioning(false);
     }
@@ -341,7 +358,7 @@ export const EntitiesListPage: React.FC = () => {
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                    البريد الإلكتروني للحساب
+                    البريد الإلكتروني للحساب <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="email"
@@ -351,6 +368,23 @@ export const EntitiesListPage: React.FC = () => {
                     placeholder="user@company.com"
                     className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                    كلمة المرور المؤقتة (اختياري - يترك فارغاً للإنشاء التلقائي)
+                  </label>
+                  <input
+                    type="password"
+                    minLength={8}
+                    value={provisionPassword}
+                    onChange={(e) => setProvisionPassword(e.target.value)}
+                    placeholder="أدخل كلمة مرور مؤقتة (8 أحرف على الأقل)"
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
+                  />
+                  <p className="text-[10px] text-app-label-secondary mt-1">
+                    سيُطلب من المستخدم تغيير هذه كلمة المرور فور تسجيل الدخول الأول.
+                  </p>
                 </div>
 
                 <div className="flex items-center justify-end gap-3 pt-3 border-t border-app-separator">

@@ -8,9 +8,9 @@ import PlaceholderPage from "./PlaceholderPage";
 import OrdersRoutes from "../routes/OrdersRoutes";
 import UsersRoutes from "../routes/UsersRoutes";
 import ClientsRoutes from "../routes/ClientsRoutes";
-import { EntitiesListPage } from "./entities/EntitiesListPage";
-import { EmployeesPage } from "./employees/EmployeesPage";
-import { ExternalEmployersPage } from "./entities/ExternalEmployersPage";
+import EntitiesRoutes from "../routes/EntitiesRoutes";
+import EmployeesRoutes from "../routes/EmployeesRoutes";
+import ExternalEmployersRoutes from "../routes/ExternalEmployersRoutes";
 
 const App = () => {
   return (
@@ -23,10 +23,10 @@ const App = () => {
 
           <Route path="/" element={<Layout />}>
             <Route index element={<Dashboard />} />
-            <Route path="entities/*" element={<EntitiesListPage />} />
-            <Route path="employees/*" element={<EmployeesPage />} />
+            <Route path="entities/*" element={<EntitiesRoutes />} />
+            <Route path="employees/*" element={<EmployeesRoutes />} />
             <Route path="clients/*" element={<ClientsRoutes />} />
-            <Route path="external-employers/*" element={<ExternalEmployersPage />} />
+            <Route path="external-employers/*" element={<ExternalEmployersRoutes />} />
             <Route path="orders/*" element={<OrdersRoutes />} />
             <Route path="users/*" element={<UsersRoutes />} />
             <Route

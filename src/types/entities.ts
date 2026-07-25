@@ -8,6 +8,18 @@ export type EmployeeStatus = 'active' | 'terminated' | 'on_leave';
 
 export type ClientStatus = 'active' | 'suspended' | 'blacklisted';
 
+export interface OperatingUnit {
+  id: string;
+  company_id?: string;
+  blueprint_id?: string;
+  name: string;
+  unit_type?: string;
+  currency?: string;
+  status?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface EntityContact {
   id?: string;
   contact_name?: string | null;

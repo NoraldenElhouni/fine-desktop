@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Building, Plus, RefreshCw, FileText, Percent } from "lucide-react";
+import { isAxiosError } from "axios";
 import { ExternalEmployer, Entity } from "../../types/entities";
 import { getExternalEmployers, createExternalEmployer } from "../../api/endpoints/externalEmployers";
 import { getEntities } from "../../api/endpoints/entities";
@@ -24,8 +25,11 @@ export const ExternalEmployersPage: React.FC = () => {
       const [empData, entData] = await Promise.all([getExternalEmployers(), getEntities()]);
       setEmployers(empData);
       setEntities(entData);
-    } catch (err: any) {
-      setError(err.response?.data?.message || "تعذر تحميل سجلات الجهات المشغلة");
+    } catch (err: unknown) {
+      const message = isAxiosError(err)
+        ? err.response?.data?.message
+        : null;
+      setError(message || "تعذر تحميل سجلات الجهات المشغلة");
     } finally {
       setIsLoading(false);
     }
@@ -51,8 +55,11 @@ export const ExternalEmployersPage: React.FC = () => {
       setIsModalOpen(false);
       setSelectedEntityId("");
       setContractRef("");
-    } catch (err: any) {
-      alert(err.response?.data?.message || "خطأ أثناء إضافة الجهة المشغلة");
+    } catch (err: unknown) {
+      const message = isAxiosError(err)
+        ? err.response?.data?.message
+        : null;
+      alert(message || "خطأ أثناء إضافة الجهة المشغلة");
     } finally {
       setIsSubmitting(false);
     }

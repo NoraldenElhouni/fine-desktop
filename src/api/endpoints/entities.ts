@@ -36,10 +36,12 @@ export const deleteEntity = async (id: string): Promise<{ message: string }> => 
 
 export const provisionUserAccount = async (
   id: string,
-  email?: string
+  email?: string,
+  password?: string
 ): Promise<{ data: Entity; message?: string }> => {
   const response = await apiClient.post<{ data: Entity }>(`/entities/${id}/provision-user`, {
     email,
+    password,
   });
   return response.data;
 };

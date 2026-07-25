@@ -1,5 +1,5 @@
 import { Routes, Route } from "react-router-dom";
-import ClientsPage from "../pages/clients/ClientsPage";
+import { ClientsPage } from "../pages/clients/ClientsPage";
 import PlaceholderPage from "../pages/PlaceholderPage";
 
 const ClientsRoutes = () => (
