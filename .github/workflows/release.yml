@@ -8,6 +8,8 @@ on:
 
 jobs:
   publish:
+    permissions:
+      contents: write # <-- required to create releases/upload assets
     strategy:
       fail-fast: false
       matrix:
