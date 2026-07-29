@@ -3,7 +3,7 @@ import { useAuthStore } from "../stores/authStore";
 
 const API_BASE_URL =
   (import.meta as unknown as { env: Record<string, string> }).env
-    ?.VITE_API_URL || "http://localhost:8000/api/v1";
+    ?.VITE_API_URL || "https://api.fine.shards.ly/api/v1";
 
 const apiClient = create({
   baseURL: API_BASE_URL,

@@ -53,14 +53,15 @@ const createWindow = () => {
 // Set up security headers & CSP
 app.on("ready", () => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        "Content-Security-Policy": [
-          "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' http: https: ws:",
-        ],
-      },
-    });
+    const responseHeaders = { ...details.responseHeaders };
+    responseHeaders["Access-Control-Allow-Origin"] = ["*"];
+    responseHeaders["Access-Control-Allow-Headers"] = ["*"];
+    responseHeaders["Access-Control-Allow-Methods"] = ["GET, POST, PUT, DELETE, OPTIONS"];
+    responseHeaders["Content-Security-Policy"] = [
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' http: https: ws:",
+    ];
+
+    callback({ responseHeaders });
   });
 
   createWindow();
