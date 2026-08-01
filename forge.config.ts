@@ -16,6 +16,15 @@ const config: ForgeConfig = {
     // AutoUnpackNativesPlugin won't catch them — copy them out of the asar
     // explicitly so drizzle's migrator can read them from a packaged build.
     extraResource: ["src/db/migrations"],
+    ignore: (file) => {
+      if (!file) return false;
+      if (file.startsWith("/.vite")) return false;
+      if (file === "/package.json") return false;
+      // keep node_modules so that better-sqlite3 and its native bindings are included.
+      // electron-packager will automatically prune devDependencies.
+      if (file.startsWith("/node_modules")) return false;
+      return true;
+    },
   },
   rebuildConfig: {},
   makers: [
