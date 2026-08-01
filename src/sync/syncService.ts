@@ -1,7 +1,7 @@
 // src/main/sync/syncService.ts
 import { ipcMain } from "electron";
 import { eq } from "drizzle-orm";
-import { create } from "axios";
+import { create, isAxiosError } from "axios";
 import { db } from "../db/client";
 import { workOrders, inventoryMovements, syncState } from "../db/schema";
 import { getPending, markSynced } from "./outbox";
@@ -113,9 +113,16 @@ export async function runSyncCycle() {
     // Node's connect errors surface as an AggregateError whose own
     // `.message` is empty, so prefer `.code` (e.g. ECONNREFUSED) and fall
     // back to `.message` for HTTP-level failures (4xx/5xx from axios).
-    const reason = (err as { code?: string; message?: string }).code ??
-      (err as Error).message;
-    console.error("[sync] cycle failed:", reason);
+    if (isAxiosError(err) && err.response) {
+      console.error(
+        `[sync] cycle failed with response: ${err.response.status}`,
+        JSON.stringify(err.response.data)
+      );
+    } else {
+      const reason = (err as { code?: string; message?: string }).code ??
+        (err as Error).message;
+      console.error("[sync] cycle failed:", reason);
+    }
   }
 }
 
