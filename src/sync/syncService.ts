@@ -41,7 +41,7 @@ syncClient.interceptors.request.use(
 function getSyncState() {
   const row = db.select().from(syncState).where(eq(syncState.id, 1)).get();
   if (row) return row;
-  const initial = { id: 1, lastPulledVersion: 0 };
+  const initial = { id: 1, lastPulledVersion: null as string | null };
   db.insert(syncState).values(initial).run();
   return initial;
 }
@@ -76,8 +76,14 @@ async function pushPending() {
 
 async function pullChanges() {
   const state = getSyncState();
+  
+  // Omit the 'since' param if it's not a valid timestamp (e.g. null, or fallback '0')
+  const params = state.lastPulledVersion && state.lastPulledVersion !== "0"
+    ? { since: state.lastPulledVersion }
+    : {};
+
   const { data } = await syncClient.get(`${API_ORIGIN}/api/v1/sync/pull`, {
-    params: { since: state.lastPulledVersion },
+    params,
   });
 
   // Server is expected to echo rows back in the same camelCase shape the
@@ -97,7 +103,7 @@ async function pullChanges() {
   }
 
   db.update(syncState)
-    .set({ lastPulledVersion: data.serverVersion ?? state.lastPulledVersion })
+    .set({ lastPulledVersion: data.server_timestamp ?? state.lastPulledVersion })
     .where(eq(syncState.id, 1))
     .run();
 }

@@ -31,5 +31,5 @@ export const outbox = sqliteTable("outbox", {
 
 export const syncState = sqliteTable("sync_state", {
   id: integer("id").primaryKey(),
-  lastPulledVersion: integer("last_pulled_version").notNull().default(0),
+  lastPulledVersion: text("last_pulled_version"), // Nullable text (ISO 8601 string)
 });
