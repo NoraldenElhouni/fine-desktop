@@ -12,9 +12,12 @@ sqlite.pragma("journal_mode = WAL"); // safer for concurrent read/write
 
 export const db = drizzle(sqlite, { schema });
 
-// TODO: __dirname here resolves inside the asar archive once packaged
-// (`npm run make`), and better-sqlite3/drizzle can't read migration files
-// from inside an asar. This will need an app.isPackaged branch pointing at
-// an unpacked resource path (e.g. via asarUnpack + process.resourcesPath)
-// before shipping a packaged build.
-migrate(db, { migrationsFolder: path.join(__dirname, "migrations") });
+// In dev, migrations sit next to the bundled main.js (copied there by
+// vite-plugin-static-copy, see vite.main.config.ts). In a packaged build
+// __dirname resolves inside app.asar, so forge.config.ts's `extraResource`
+// copies the same folder to Contents/Resources instead, outside the asar.
+const migrationsFolder = app.isPackaged
+  ? path.join(process.resourcesPath, "migrations")
+  : path.join(__dirname, "migrations");
+
+migrate(db, { migrationsFolder });

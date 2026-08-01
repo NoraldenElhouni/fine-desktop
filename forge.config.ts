@@ -5,14 +5,17 @@ import { MakerDeb } from "@electron-forge/maker-deb";
 import { MakerRpm } from "@electron-forge/maker-rpm";
 import { VitePlugin } from "@electron-forge/plugin-vite";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
+import { AutoUnpackNativesPlugin } from "@electron-forge/plugin-auto-unpack-natives";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
 import { PublisherGithub } from "@electron-forge/publisher-github";
 
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
-    // macOS: required if you ever want notarization/updates to work cleanly
-    osxSign: {},
+    // better-sqlite3's migration .sql files aren't inside node_modules, so
+    // AutoUnpackNativesPlugin won't catch them — copy them out of the asar
+    // explicitly so drizzle's migrator can read them from a packaged build.
+    extraResource: ["src/db/migrations"],
   },
   rebuildConfig: {},
   makers: [
@@ -32,6 +35,9 @@ const config: ForgeConfig = {
     }),
   ],
   plugins: [
+    // better-sqlite3 ships a native .node binding that can't be dlopen'd from
+    // inside app.asar — this unpacks it (and any other native deps) automatically.
+    new AutoUnpackNativesPlugin({}),
     new VitePlugin({
       // `build` can specify multiple entry builds, which can be Main process, Preload scripts, Worker process, etc.
       // If you are familiar with Vite configuration, it will look really familiar.
