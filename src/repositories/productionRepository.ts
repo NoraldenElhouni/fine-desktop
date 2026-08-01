@@ -61,4 +61,12 @@ export const ProductionRepository = {
       .all();
     return rows.reduce((sum, r) => sum + r.quantityDelta, 0);
   },
+
+  getOpenOrders() {
+    return db
+      .select()
+      .from(workOrders)
+      .where(eq(workOrders.status, "open"))
+      .all();
+  },
 };

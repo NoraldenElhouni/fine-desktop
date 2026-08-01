@@ -55,14 +55,21 @@ const createWindow = () => {
 // Set up security headers & CSP
 app.on("ready", () => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    // Only apply CSP to local development and local file URLs
+    const isLocal =
+      details.url.startsWith("http://localhost:") ||
+      details.url.startsWith("file://");
+
+    if (!isLocal) {
+      callback({ responseHeaders: details.responseHeaders });
+      return;
+    }
+
     const responseHeaders = { ...details.responseHeaders };
-    responseHeaders["Access-Control-Allow-Origin"] = ["*"];
-    responseHeaders["Access-Control-Allow-Headers"] = ["*"];
-    responseHeaders["Access-Control-Allow-Methods"] = [
-      "GET, POST, PUT, DELETE, OPTIONS",
-    ];
+
+    // Set a strict CSP for the renderer
     responseHeaders["Content-Security-Policy"] = [
-      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' http: https: ws:",
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http: https: ws:",
     ];
 
     callback({ responseHeaders });

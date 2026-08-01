@@ -8,6 +8,13 @@
       "when": 1785399946075,
       "tag": "0000_steep_black_cat",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1785600000000,
+      "tag": "0001_fix_sync_state_last_pulled_version",
+      "breakpoints": true
     }
   ]
 }

@@ -15,4 +15,8 @@ export function registerProductionHandlers() {
   ipcMain.handle("production:getStock", (_e, sku: string) =>
     ProductionRepository.getStock(sku),
   );
+
+  ipcMain.handle("production:getOpenOrders", () =>
+    ProductionRepository.getOpenOrders(),
+  );
 }

@@ -26,10 +26,18 @@ declare global {
           createdAt: string;
         }>;
         getStock: (sku: string) => Promise<number>;
+        getOpenOrders: () => Promise<Array<{
+          id: string;
+          productSku: string;
+          quantity: number;
+          status: string;
+          createdAt: string;
+        }>>;
       };
       sync: {
         syncNow: () => Promise<void>;
         setToken: (token: string | null) => Promise<void>;
+        getLastSyncTime: () => Promise<string | null>;
       };
       getAppVersion: () => Promise<string>;
       checkForUpdates: () => Promise<unknown>;
