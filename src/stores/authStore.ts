@@ -45,6 +45,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (e) {
       console.error("Failed to save auth state to localStorage:", e);
     }
+    window.electronAPI?.sync?.setToken(token);
     set({ token, user, isAuthenticated: true });
   },
 
@@ -64,6 +65,13 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (e) {
       console.error("Failed to remove auth state from localStorage:", e);
     }
+    window.electronAPI?.sync?.setToken(null);
     set({ token: null, user: null, isAuthenticated: false });
   },
 }));
+
+// Initialize the main process with the loaded token on startup
+if (initialToken) {
+  window.electronAPI?.sync?.setToken(initialToken);
+}
+
