@@ -56,13 +56,27 @@ const createWindow = () => {
 app.on("ready", () => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const responseHeaders = { ...details.responseHeaders };
+
+    // Remove any case-insensitive duplicates of the headers we are setting
+    for (const key of Object.keys(responseHeaders)) {
+      const lowerKey = key.toLowerCase();
+      if (
+        lowerKey === "access-control-allow-origin" ||
+        lowerKey === "access-control-allow-headers" ||
+        lowerKey === "access-control-allow-methods" ||
+        lowerKey === "content-security-policy"
+      ) {
+        delete responseHeaders[key];
+      }
+    }
+
     responseHeaders["Access-Control-Allow-Origin"] = ["*"];
     responseHeaders["Access-Control-Allow-Headers"] = ["*"];
     responseHeaders["Access-Control-Allow-Methods"] = [
       "GET, POST, PUT, DELETE, OPTIONS",
     ];
     responseHeaders["Content-Security-Policy"] = [
-      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' http: https: ws:",
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http: https: ws:",
     ];
 
     callback({ responseHeaders });
