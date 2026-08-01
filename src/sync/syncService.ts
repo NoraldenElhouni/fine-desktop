@@ -49,9 +49,13 @@ function getSyncState() {
 async function pushPending() {
   const pending = getPending();
   if (pending.length === 0) return;
+  console.log(pending);
 
   const outbox = pending.map((row) => {
-    const record = JSON.parse(row.payload) as { id: string; syncVersion?: number };
+    const record = JSON.parse(row.payload) as {
+      id: string;
+      syncVersion?: number;
+    };
     return {
       action_id: row.id,
       table: row.tableName,
@@ -76,11 +80,12 @@ async function pushPending() {
 
 async function pullChanges() {
   const state = getSyncState();
-  
+
   // Omit the 'since' param if it's not a valid timestamp (e.g. null, or fallback '0')
-  const params = state.lastPulledVersion && state.lastPulledVersion !== "0"
-    ? { since: state.lastPulledVersion }
-    : {};
+  const params =
+    state.lastPulledVersion && state.lastPulledVersion !== "0"
+      ? { since: state.lastPulledVersion }
+      : {};
 
   const { data } = await syncClient.get(`${API_ORIGIN}/api/v1/sync/pull`, {
     params,
@@ -103,7 +108,9 @@ async function pullChanges() {
   }
 
   db.update(syncState)
-    .set({ lastPulledVersion: data.server_timestamp ?? state.lastPulledVersion })
+    .set({
+      lastPulledVersion: data.server_timestamp ?? state.lastPulledVersion,
+    })
     .where(eq(syncState.id, 1))
     .run();
 }
@@ -111,7 +118,10 @@ async function pullChanges() {
 export async function runSyncCycle() {
   try {
     await pushPending();
+    console.log("ok pushPending");
+
     await pullChanges();
+    console.log("ok pullChanges");
   } catch (err) {
     // The Laravel endpoints may not exist yet, or the host may be
     // unreachable while offline — sync is best-effort and must never
@@ -122,10 +132,11 @@ export async function runSyncCycle() {
     if (isAxiosError(err) && err.response) {
       console.error(
         `[sync] cycle failed with response: ${err.response.status}`,
-        JSON.stringify(err.response.data)
+        JSON.stringify(err.response.data),
       );
     } else {
-      const reason = (err as { code?: string; message?: string }).code ??
+      const reason =
+        (err as { code?: string; message?: string }).code ??
         (err as Error).message;
       console.error("[sync] cycle failed:", reason);
     }
@@ -138,4 +149,3 @@ export function registerSyncHandlers() {
     setAuthToken(token);
   });
 }
-
