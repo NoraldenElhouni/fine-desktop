@@ -9,10 +9,12 @@ const api = {
     completeOrder: (id: string, sku: string, qty: number) =>
       ipcRenderer.invoke("production:completeOrder", id, sku, qty),
     getStock: (sku: string) => ipcRenderer.invoke("production:getStock", sku),
+    getOpenOrders: () => ipcRenderer.invoke("production:getOpenOrders"),
   },
   sync: {
     syncNow: () => ipcRenderer.invoke("sync:now"),
     setToken: (token: string | null) => ipcRenderer.invoke("sync:setToken", token),
+    getLastSyncTime: () => ipcRenderer.invoke("sync:getLastSyncTime"),
   },
 
   // App lifecycle

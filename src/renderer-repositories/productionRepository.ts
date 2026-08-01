@@ -7,4 +7,6 @@ export const ProductionRepository = {
     window.electronAPI.production.completeOrder(id, sku, qty),
 
   getStock: (sku: string) => window.electronAPI.production.getStock(sku),
+
+  getOpenOrders: () => window.electronAPI.production.getOpenOrders(),
 };
