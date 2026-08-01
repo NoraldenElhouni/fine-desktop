@@ -164,4 +164,7 @@ export function registerSyncHandlers() {
   ipcMain.handle("sync:setToken", (_e, token: string | null) => {
     setAuthToken(token);
   });
+  ipcMain.handle("sync:getLastSyncTime", () => {
+    return getSyncState().lastPulledVersion;
+  });
 }
