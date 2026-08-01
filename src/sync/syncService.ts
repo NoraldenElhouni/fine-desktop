@@ -1,7 +1,7 @@
 // src/main/sync/syncService.ts
 import { ipcMain } from "electron";
 import { eq } from "drizzle-orm";
-import axios from "axios";
+import { create } from "axios";
 import { db } from "../db/client";
 import { workOrders, inventoryMovements, syncState } from "../db/schema";
 import { getPending, markSynced } from "./outbox";
@@ -14,6 +14,29 @@ const API_ORIGIN = new URL(
   (import.meta as unknown as { env: Record<string, string> }).env
     ?.VITE_API_URL || "http://localhost:8000/api/v1",
 ).origin;
+
+let authToken: string | null = null;
+
+export function setAuthToken(token: string | null) {
+  authToken = token;
+}
+
+const syncClient = create({
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  },
+});
+
+syncClient.interceptors.request.use(
+  (config) => {
+    if (authToken && config.headers) {
+      config.headers.Authorization = `Bearer ${authToken}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error),
+);
 
 function getSyncState() {
   const row = db.select().from(syncState).where(eq(syncState.id, 1)).get();
@@ -39,7 +62,7 @@ async function pushPending() {
     };
   });
 
-  const { data } = await axios.post(`${API_ORIGIN}/api/v1/sync/push`, {
+  const { data } = await syncClient.post(`${API_ORIGIN}/api/v1/sync/push`, {
     device_id: "electron-client",
     outbox,
   });
@@ -53,7 +76,7 @@ async function pushPending() {
 
 async function pullChanges() {
   const state = getSyncState();
-  const { data } = await axios.get(`${API_ORIGIN}/api/v1/sync/pull`, {
+  const { data } = await syncClient.get(`${API_ORIGIN}/api/v1/sync/pull`, {
     params: { since: state.lastPulledVersion },
   });
 
@@ -98,4 +121,8 @@ export async function runSyncCycle() {
 
 export function registerSyncHandlers() {
   ipcMain.handle("sync:now", () => runSyncCycle());
+  ipcMain.handle("sync:setToken", (_e, token: string | null) => {
+    setAuthToken(token);
+  });
 }
+

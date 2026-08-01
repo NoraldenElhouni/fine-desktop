@@ -29,6 +29,7 @@ declare global {
       };
       sync: {
         syncNow: () => Promise<void>;
+        setToken: (token: string | null) => Promise<void>;
       };
       getAppVersion: () => Promise<string>;
       checkForUpdates: () => Promise<unknown>;

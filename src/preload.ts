@@ -12,6 +12,7 @@ const api = {
   },
   sync: {
     syncNow: () => ipcRenderer.invoke("sync:now"),
+    setToken: (token: string | null) => ipcRenderer.invoke("sync:setToken", token),
   },
 
   // App lifecycle
