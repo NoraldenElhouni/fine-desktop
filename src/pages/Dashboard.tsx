@@ -4,6 +4,14 @@ import { ProductionRepository } from "../renderer-repositories/productionReposit
 const Dashboard = () => {
   const [stock, setStock] = useState<number | null>(null);
 
+  const fetchStock = async () => {
+    setStock(await ProductionRepository.getStock("WIDGET-X"));
+  };
+
+  React.useEffect(() => {
+    fetchStock();
+  }, []);
+
   return (
     <div>
       {/* TEST/TEMPORARY: scratch panel to verify the local-first write path
@@ -13,13 +21,16 @@ const Dashboard = () => {
         onClick={async () => {
           const order = await ProductionRepository.createOrder("WIDGET-X", 50);
           await ProductionRepository.completeOrder(order.id, "RAW-Y", 100);
-          setStock(await ProductionRepository.getStock("WIDGET-X"));
+          await fetchStock();
         }}
       >
         Create + complete production order
       </button>
       <button onClick={() => window.electronAPI.sync.syncNow()}>
         Sync now
+      </button>
+      <button onClick={fetchStock}>
+        Refresh Stock
       </button>
       {stock !== null && <p>Widget-X stock: {stock}</p>}
     </div>
