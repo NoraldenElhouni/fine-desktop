@@ -24,15 +24,23 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: npm
+
+      # Windows: ensure MSVC build tools are available for node-gyp (required by better-sqlite3)
+      - name: Setup MSVC Build Tools (Windows)
+        if: runner.os == 'Windows'
+        uses: microsoft/setup-msbuild@v2
 
       - name: Install dependencies
         run: npm ci
+
+      # Rebuild native modules (e.g. better-sqlite3) against the specific Electron version
+      - name: Rebuild native modules for Electron
+        run: npx @electron/rebuild
 
       - name: Publish
         run: npm run publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
-          
