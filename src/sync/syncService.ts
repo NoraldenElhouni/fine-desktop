@@ -27,23 +27,33 @@ async function pushPending() {
   const pending = getPending();
   if (pending.length === 0) return;
 
-  const operations = pending.map((row) => ({
-    id: row.id,
-    table: row.tableName,
-    operation: row.operation,
-    payload: JSON.parse(row.payload),
-  }));
-
-  const { data } = await axios.post(`${API_ORIGIN}/api/sync/push`, {
-    operations,
+  const outbox = pending.map((row) => {
+    const record = JSON.parse(row.payload) as { id: string; syncVersion?: number };
+    return {
+      action_id: row.id,
+      table: row.tableName,
+      record_id: record.id,
+      operation: row.operation,
+      base_version: record.syncVersion ?? 1,
+      data: record,
+    };
   });
 
-  markSynced(data.confirmedIds ?? []);
+  const { data } = await axios.post(`${API_ORIGIN}/api/v1/sync/push`, {
+    device_id: "electron-client",
+    outbox,
+  });
+
+  const confirmedIds = (data.results ?? [])
+    .filter((res: { status: string }) => res.status === "synced")
+    .map((res: { action_id: string }) => res.action_id);
+
+  markSynced(confirmedIds);
 }
 
 async function pullChanges() {
   const state = getSyncState();
-  const { data } = await axios.get(`${API_ORIGIN}/api/sync/pull`, {
+  const { data } = await axios.get(`${API_ORIGIN}/api/v1/sync/pull`, {
     params: { since: state.lastPulledVersion },
   });
 
