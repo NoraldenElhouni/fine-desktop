@@ -48,8 +48,11 @@ function getSyncState() {
 
 async function pushPending() {
   const pending = getPending();
-  if (pending.length === 0) return;
-  console.log(pending);
+  if (pending.length === 0) {
+    console.log("[sync] push: nothing pending");
+    return;
+  }
+  console.log(`[sync] push: sending ${pending.length} outbox row(s)`);
 
   const outbox = pending.map((row) => {
     const record = JSON.parse(row.payload) as {
@@ -76,6 +79,9 @@ async function pushPending() {
     .map((res: { action_id: string }) => res.action_id);
 
   markSynced(confirmedIds);
+  console.log(
+    `[sync] push: confirmed ${confirmedIds.length}/${outbox.length} row(s)`,
+  );
 }
 
 async function pullChanges() {
@@ -86,10 +92,18 @@ async function pullChanges() {
     state.lastPulledVersion && state.lastPulledVersion !== "0"
       ? { since: state.lastPulledVersion }
       : {};
+  console.log(
+    `[sync] pull: requesting changes since=${params.since ?? "<full sync>"}`,
+  );
 
   const { data } = await syncClient.get(`${API_ORIGIN}/api/v1/sync/pull`, {
     params,
   });
+  console.log(
+    `[sync] pull: received ${data.changes?.workOrders?.length ?? 0} workOrders, ${
+      data.changes?.inventoryMovements?.length ?? 0
+    } inventoryMovements`,
+  );
 
   // Server is expected to echo rows back in the same camelCase shape the
   // outbox payloads were pushed in (see productionRepository.ts), so they
@@ -113,15 +127,17 @@ async function pullChanges() {
     })
     .where(eq(syncState.id, 1))
     .run();
+  console.log(
+    `[sync] pull: applied, lastPulledVersion=${data.server_timestamp ?? state.lastPulledVersion}`,
+  );
 }
 
 export async function runSyncCycle() {
+  console.log("[sync] cycle: starting");
   try {
     await pushPending();
-    console.log("ok pushPending");
-
     await pullChanges();
-    console.log("ok pullChanges");
+    console.log("[sync] cycle: complete");
   } catch (err) {
     // The Laravel endpoints may not exist yet, or the host may be
     // unreachable while offline — sync is best-effort and must never
