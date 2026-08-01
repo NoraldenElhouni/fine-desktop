@@ -55,6 +55,15 @@ const createWindow = () => {
 // Set up security headers & CSP
 app.on("ready", () => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const isLocal =
+      details.url.startsWith("http://localhost:5173") ||
+      details.url.startsWith("file://");
+
+    if (!isLocal) {
+      callback({});
+      return;
+    }
+
     const responseHeaders = { ...details.responseHeaders };
 
     // Remove any case-insensitive duplicates of the headers we are setting
