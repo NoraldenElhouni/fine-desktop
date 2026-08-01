@@ -100,21 +100,21 @@ async function pullChanges() {
     params,
   });
   console.log(
-    `[sync] pull: received ${data.changes?.workOrders?.length ?? 0} workOrders, ${
-      data.changes?.inventoryMovements?.length ?? 0
+    `[sync] pull: received ${(data.changes as any)?.work_orders?.length ?? 0} workOrders, ${
+      (data.changes as any)?.inventory_movements?.length ?? 0
     } inventoryMovements`,
   );
 
   // Server is expected to echo rows back in the same camelCase shape the
   // outbox payloads were pushed in (see productionRepository.ts), so they
   // can be upserted directly against the drizzle schema.
-  for (const row of data.changes?.workOrders ?? []) {
+  for (const row of (data.changes as any)?.work_orders ?? []) {
     db.insert(workOrders)
       .values(row)
       .onConflictDoUpdate({ target: workOrders.id, set: row })
       .run();
   }
-  for (const row of data.changes?.inventoryMovements ?? []) {
+  for (const row of (data.changes as any)?.inventory_movements ?? []) {
     db.insert(inventoryMovements)
       .values(row)
       .onConflictDoUpdate({ target: inventoryMovements.id, set: row })
