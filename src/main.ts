@@ -1,6 +1,8 @@
 import { app, BrowserWindow, shell, session } from "electron";
 import path from "node:path";
 import started from "electron-squirrel-startup";
+import { registerProductionHandlers } from "./ipc/productionHandlers";
+import { runSyncCycle, registerSyncHandlers } from "./sync/syncService";
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -56,14 +58,18 @@ app.on("ready", () => {
     const responseHeaders = { ...details.responseHeaders };
     responseHeaders["Access-Control-Allow-Origin"] = ["*"];
     responseHeaders["Access-Control-Allow-Headers"] = ["*"];
-    responseHeaders["Access-Control-Allow-Methods"] = ["GET, POST, PUT, DELETE, OPTIONS"];
+    responseHeaders["Access-Control-Allow-Methods"] = [
+      "GET, POST, PUT, DELETE, OPTIONS",
+    ];
     responseHeaders["Content-Security-Policy"] = [
       "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' http: https: ws:",
     ];
 
     callback({ responseHeaders });
   });
-
+  registerProductionHandlers();
+  registerSyncHandlers();
+  setInterval(runSyncCycle, 30_000);
   createWindow();
 });
 
