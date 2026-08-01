@@ -55,35 +55,19 @@ const createWindow = () => {
 // Set up security headers & CSP
 app.on("ready", () => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    // Only apply CSP to local development and local file URLs
     const isLocal =
-      details.url.startsWith("http://localhost:5173") ||
+      details.url.startsWith("http://localhost:") ||
       details.url.startsWith("file://");
 
     if (!isLocal) {
-      callback({});
+      callback({ responseHeaders: details.responseHeaders });
       return;
     }
 
     const responseHeaders = { ...details.responseHeaders };
 
-    // Remove any case-insensitive duplicates of the headers we are setting
-    for (const key of Object.keys(responseHeaders)) {
-      const lowerKey = key.toLowerCase();
-      if (
-        lowerKey === "access-control-allow-origin" ||
-        lowerKey === "access-control-allow-headers" ||
-        lowerKey === "access-control-allow-methods" ||
-        lowerKey === "content-security-policy"
-      ) {
-        delete responseHeaders[key];
-      }
-    }
-
-    responseHeaders["Access-Control-Allow-Origin"] = ["*"];
-    responseHeaders["Access-Control-Allow-Headers"] = ["*"];
-    responseHeaders["Access-Control-Allow-Methods"] = [
-      "GET, POST, PUT, DELETE, OPTIONS",
-    ];
+    // Set a strict CSP for the renderer
     responseHeaders["Content-Security-Policy"] = [
       "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http: https: ws:",
     ];
