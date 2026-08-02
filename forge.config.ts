@@ -1,6 +1,9 @@
+import fs from "fs";
+import path from "path";
 import type { ForgeConfig } from "@electron-forge/shared-types";
 import { MakerSquirrel } from "@electron-forge/maker-squirrel";
 import { MakerZIP } from "@electron-forge/maker-zip";
+import { MakerDMG } from "@electron-forge/maker-dmg";
 import { MakerDeb } from "@electron-forge/maker-deb";
 import { MakerRpm } from "@electron-forge/maker-rpm";
 import { VitePlugin } from "@electron-forge/plugin-vite";
@@ -8,6 +11,16 @@ import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { AutoUnpackNativesPlugin } from "@electron-forge/plugin-auto-unpack-natives";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
 import { PublisherGithub } from "@electron-forge/publisher-github";
+
+// @electron-forge/plugin-vite only copies the `.vite/` build output into the
+// packaged app (see its packagerConfig.ignore) since Vite/Rollup is expected
+// to bundle every dependency. better-sqlite3 is a native module though, so
+// vite.main.config.ts marks it `external` instead of bundling it — which
+// means nothing ever copies the actual module into the package, and
+// `require("better-sqlite3")` fails at runtime with "Cannot find module".
+// Copy it in by hand here; AutoUnpackNativesPlugin then takes care of
+// pulling its .node binary out of the asar archive.
+const NATIVE_MODULES_TO_COPY = ["better-sqlite3"];
 
 const config: ForgeConfig = {
   packagerConfig: {
@@ -30,6 +43,7 @@ const config: ForgeConfig = {
   makers: [
     new MakerSquirrel({}), // Windows
     new MakerZIP({}, ["darwin"]), // macOS
+    new MakerDMG({}, ["darwin"]), // macOS installer
     new MakerRpm({}), // only actually runs on linux runners
     new MakerDeb({}), // only actually runs on linux runners
   ],
@@ -72,6 +86,18 @@ const config: ForgeConfig = {
       [FuseV1Options.OnlyLoadAppFromAsar]: true,
     }),
   ],
+  hooks: {
+    packageAfterCopy: async (_forgeConfig, buildPath) => {
+      // Copy the whole module, including binding.gyp/deps/src — Forge's own
+      // rebuildConfig step (electron-rebuild) needs the full source tree to
+      // recompile the native addon against the packaged Electron ABI.
+      for (const moduleName of NATIVE_MODULES_TO_COPY) {
+        const srcDir = path.resolve(__dirname, "node_modules", moduleName);
+        const destDir = path.join(buildPath, "node_modules", moduleName);
+        fs.cpSync(srcDir, destDir, { recursive: true });
+      }
+    },
+  },
 };
 
 export default config;
