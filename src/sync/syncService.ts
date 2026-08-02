@@ -12,8 +12,7 @@ import { getPending, markSynced } from "./outbox";
 // from the versioned REST API the renderer talks to.
 const API_ORIGIN = new URL(
   (import.meta as unknown as { env: Record<string, string> }).env
-    ?.VITE_API_URL || "http://localhost:8000/api/v1",
-).origin;
+    ?.VITE_API_URL || "https://api.fine.shards.ly/api/v1",).origin;
 
 let authToken: string | null = null;
 
