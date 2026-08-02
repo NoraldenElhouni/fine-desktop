@@ -27,17 +27,6 @@ jobs:
           node-version: 22
           cache: npm
 
-      # Windows: ensure Visual Studio 2022 and C++ workload are configured for node-gyp
-      - name: Setup Visual Studio (Windows)
-        if: runner.os == 'Windows'
-        uses: visualstudio/setup-vs@v2
-        with:
-          version: '2022'
-          components: |
-            Microsoft.VisualStudio.Workload.NativeDesktop
-            Microsoft.VisualStudio.Component.VC.Tools.x86.x64
-
-      # ensure node-gyp will target the installed VS
       - name: Configure node-gyp / npm for MSVC
         if: runner.os == 'Windows'
         shell: bash
