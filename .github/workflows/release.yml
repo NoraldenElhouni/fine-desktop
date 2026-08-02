@@ -27,11 +27,10 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Configure node-gyp / npm for MSVC
+      - name: Configure node-gyp for MSVC
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          npm config set msvs_version 2022 --global
           echo "GYP_MSVS_VERSION=2022" >> $GITHUB_ENV
           echo "npm_config_build_from_source=false" >> $GITHUB_ENV
 
