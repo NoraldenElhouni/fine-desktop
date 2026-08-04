@@ -144,7 +144,7 @@ const Dashboard = () => {
                   className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-200 disabled:text-neutral-400 text-white font-medium rounded-xl transition-all shadow-sm disabled:shadow-none active:scale-[0.98]"
                 >
                   <Plus className="w-4 h-4" />
-                  إنشاء الأمر (Direct REST)
+                  إنشاء الأمر 
                 </button>
               </div>
             </div>

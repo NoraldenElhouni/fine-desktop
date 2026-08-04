@@ -25,7 +25,13 @@ apiClient.interceptors.request.use(
     }
 
     // Attach Operating Unit Scoping Header
-    const operatingUnitId = useServerConfigStore.getState().operatingUnitId;
+    const user = useAuthStore.getState().user as any;
+    const operatingUnitId =
+      useServerConfigStore.getState().operatingUnitId ||
+      user?.operating_unit_id ||
+      user?.operating_units?.[0]?.id ||
+      user?.unit_id;
+
     if (operatingUnitId && config.headers) {
       config.headers["X-Operating-Unit-ID"] = operatingUnitId;
     }

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Sidebar from "./Sidebar/Sidebar";
 import Navbar from "./Navbar/Navbar";
@@ -7,6 +7,8 @@ import { ServerSettingsModal } from "../settings/ServerSettingsModal";
 import { useSidebarCollapsed } from "../../hooks/useSidebarCollapsed";
 import { useAuthStore } from "../../stores/authStore";
 import { useLogoutMutation } from "../../hooks/useAuthQuery";
+import { useServerConfigStore } from "../../stores/serverConfigStore";
+import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
 
 interface AppShellProps {
   children: ReactNode;
@@ -16,9 +18,25 @@ const AppShell = ({ children }: AppShellProps) => {
   const { isCollapsed, setIsCollapsed } = useSidebarCollapsed();
   const [isServerSettingsOpen, setIsServerSettingsOpen] = useState(false);
   const { user } = useAuthStore();
+  const { operatingUnitId, setOperatingUnitId, serverUrl } = useServerConfigStore();
   const logoutMutation = useLogoutMutation();
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    // If no operating unit ID is set, attempt to auto-fetch available units and select the first one
+    if (!operatingUnitId) {
+      getOperatingUnits()
+        .then((units) => {
+          if (units && units.length > 0) {
+            setOperatingUnitId(units[0].id);
+          }
+        })
+        .catch(() => {
+          // Ignore if server is currently unreachable
+        });
+    }
+  }, [operatingUnitId, serverUrl]);
 
   const handleLogout = () => {
     logoutMutation.mutate(undefined, {
