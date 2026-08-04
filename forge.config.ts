@@ -34,14 +34,14 @@ const config: ForgeConfig = {
   plugins: [
     new VitePlugin({
       build: [
-        { entry: "src/main.ts", config: "vite.main.config.mts", target: "main" },
+        { entry: "src/main.ts", config: "vite.main.config.ts", target: "main" },
         {
           entry: "src/preload.ts",
-          config: "vite.preload.config.mts",
+          config: "vite.preload.config.ts",
           target: "preload",
         },
       ],
-      renderer: [{ name: "main_window", config: "vite.renderer.config.mts" }],
+      renderer: [{ name: "main_window", config: "vite.renderer.config.ts" }],
     }),
     new FusesPlugin({
       version: FuseVersion.V1,
