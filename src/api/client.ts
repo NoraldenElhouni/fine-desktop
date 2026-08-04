@@ -1,12 +1,8 @@
-import { create } from "axios";
+import axios from "axios";
 import { useAuthStore } from "../stores/authStore";
+import { useServerConfigStore } from "../stores/serverConfigStore";
 
-const API_BASE_URL =
-  (import.meta as unknown as { env: Record<string, string> }).env
-    ?.VITE_API_URL || "https://api.fine.shards.ly/api/v1";
-
-const apiClient = create({
-  baseURL: API_BASE_URL,
+const apiClient = axios.create({
   headers: {
     "Content-Type": "application/json",
     Accept: "application/json",
@@ -16,18 +12,42 @@ const apiClient = create({
 
 apiClient.interceptors.request.use(
   (config) => {
+    // Dynamically set baseURL from store
+    const serverUrl = useServerConfigStore.getState().serverUrl;
+    if (serverUrl) {
+      config.baseURL = serverUrl;
+    }
+
+    // Attach Auth Token
     const token = useAuthStore.getState().token;
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Attach Operating Unit Scoping Header
+    const operatingUnitId = useServerConfigStore.getState().operatingUnitId;
+    if (operatingUnitId && config.headers) {
+      config.headers["X-Operating-Unit-ID"] = operatingUnitId;
+    }
+
     return config;
   },
   (error) => Promise.reject(error),
 );
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // If request succeeded, mark server as connected
+    useServerConfigStore.getState().setServerConnected(true, null);
+    return response;
+  },
   (error) => {
+    // Handle server connection / network errors
+    if (!error.response || error.code === "ERR_NETWORK" || error.code === "ECONNREFUSED" || error.response?.status >= 502) {
+      const errMsg = error.message || "Network error / Server unreachable";
+      useServerConfigStore.getState().setServerConnected(false, errMsg);
+    }
+
     if (error.response?.status === 401) {
       useAuthStore.getState().logout();
     } else if (
@@ -45,6 +65,5 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   },
 );
-
 
 export default apiClient;

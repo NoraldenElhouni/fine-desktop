@@ -2,7 +2,6 @@ import { app, BrowserWindow, shell, session } from "electron";
 import path from "node:path";
 import started from "electron-squirrel-startup";
 import { registerProductionHandlers } from "./ipc/productionHandlers";
-import { runSyncCycle, registerSyncHandlers } from "./sync/syncService";
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -75,8 +74,6 @@ app.on("ready", () => {
     callback({ responseHeaders });
   });
   registerProductionHandlers();
-  registerSyncHandlers();
-  setInterval(runSyncCycle, 30_000);
   createWindow();
 });
 
@@ -96,6 +93,3 @@ app.on("activate", () => {
     createWindow();
   }
 });
-
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and import them here.

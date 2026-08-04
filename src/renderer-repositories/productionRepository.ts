@@ -1,12 +1,19 @@
-// src/renderer/repositories/productionRepository.ts
+import { workOrdersApi } from "../api/endpoints/workOrders";
+
 export const ProductionRepository = {
-  createOrder: (sku: string, qty: number) =>
-    window.electronAPI.production.createOrder(sku, qty),
+  createOrder(productSku: string, quantity: number) {
+    return workOrdersApi.createOrder(productSku, quantity);
+  },
 
-  completeOrder: (id: string, sku: string, qty: number) =>
-    window.electronAPI.production.completeOrder(id, sku, qty),
+  completeOrder(orderId: string, consumedSku: string, consumedQty: number) {
+    return workOrdersApi.completeOrder(orderId, consumedSku, consumedQty);
+  },
 
-  getStock: (sku: string) => window.electronAPI.production.getStock(sku),
+  getStock(sku: string) {
+    return workOrdersApi.getStock(sku);
+  },
 
-  getOpenOrders: () => window.electronAPI.production.getOpenOrders(),
+  getOpenOrders() {
+    return workOrdersApi.getOpenOrders();
+  },
 };
