@@ -5,8 +5,10 @@ import { Client, Entity, ClientStatus, OperatingUnit, EntityType } from "../../t
 import { getClients, createClient, splitClientEntity } from "../../api/endpoints/clients";
 import { getEntities } from "../../api/endpoints/entities";
 import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
+import { useServerConfigStore } from "../../stores/serverConfigStore";
 
 export const ClientsPage: React.FC = () => {
+  const { allowManualEntitySelection } = useServerConfigStore();
   const [clients, setClients] = useState<Client[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
   const [operatingUnits, setOperatingUnits] = useState<OperatingUnit[]>([]);
@@ -238,95 +240,140 @@ export const ClientsPage: React.FC = () => {
                 </select>
               </div>
 
-              {/* Entity Selection Mode Toggle */}
-              <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-3 space-y-3">
-                <label className="block text-xs font-bold text-app-label-primary">
-                  الكيان المرتبط بالعميل
-                </label>
-                <div className="flex items-center gap-4 text-xs font-semibold text-app-label-primary">
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="entityMode"
-                      checked={entityMode === "auto"}
-                      onChange={() => setEntityMode("auto")}
-                      className="text-app-accent"
-                    />
-                    <span>إنشاء كيان جديد تلقائياً</span>
+              {/* Entity Information (Auto-create by default, or Manual Toggle if enabled in Settings) */}
+              {allowManualEntitySelection ? (
+                <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-3 space-y-3">
+                  <label className="block text-xs font-bold text-app-label-primary">
+                    الكيان المرتبط بالعميل
                   </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="entityMode"
-                      checked={entityMode === "existing"}
-                      onChange={() => setEntityMode("existing")}
-                      className="text-app-accent"
-                    />
-                    <span>اختيار كيان حالي</span>
-                  </label>
-                </div>
-
-                {entityMode === "auto" ? (
-                  <div className="space-y-2 pt-1">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
-                        اسم العميل / الشركة <span className="text-red-500">*</span>
-                      </label>
+                  <div className="flex items-center gap-4 text-xs font-semibold text-app-label-primary">
+                    <label className="flex items-center gap-1.5 cursor-pointer">
                       <input
-                        type="text"
-                        required
-                        value={clientName}
-                        onChange={(e) => setClientName(e.target.value)}
-                        placeholder="مثال: شركة الصحراء للمقاولات"
-                        className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
+                        type="radio"
+                        name="entityMode"
+                        checked={entityMode === "auto"}
+                        onChange={() => setEntityMode("auto")}
+                        className="text-app-accent"
                       />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
+                      <span>إنشاء كيان جديد تلقائياً</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="entityMode"
+                        checked={entityMode === "existing"}
+                        onChange={() => setEntityMode("existing")}
+                        className="text-app-accent"
+                      />
+                      <span>اختيار كيان حالي</span>
+                    </label>
+                  </div>
+
+                  {entityMode === "auto" ? (
+                    <div className="space-y-2 pt-1">
                       <div>
                         <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
-                          نوع الكيان
-                        </label>
-                        <select
-                          value={entityType}
-                          onChange={(e) => setEntityType(e.target.value as EntityType)}
-                          className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
-                        >
-                          <option value="organization">شركة / مؤسسة</option>
-                          <option value="individual">فرد</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
-                          الرقم الضريبي (اختياري)
+                          اسم العميل / الشركة <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
-                          value={taxNumber}
-                          onChange={(e) => setTaxNumber(e.target.value)}
-                          placeholder="مثال: TAX-900800"
+                          required
+                          value={clientName}
+                          onChange={(e) => setClientName(e.target.value)}
+                          placeholder="مثال: شركة الصحراء للمقاولات"
                           className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
                         />
                       </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
+                            نوع الكيان
+                          </label>
+                          <select
+                            value={entityType}
+                            onChange={(e) => setEntityType(e.target.value as EntityType)}
+                            className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
+                          >
+                            <option value="organization">شركة / مؤسسة</option>
+                            <option value="individual">فرد</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
+                            الرقم الضريبي (اختياري)
+                          </label>
+                          <input
+                            type="text"
+                            value={taxNumber}
+                            onChange={(e) => setTaxNumber(e.target.value)}
+                            placeholder="مثال: TAX-900800"
+                            className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="pt-1">
+                      <select
+                        required
+                        value={selectedEntityId}
+                        onChange={(e) => setSelectedEntityId(e.target.value)}
+                        className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
+                      >
+                        <option value="">-- اختر كيان --</option>
+                        {entities.map((ent) => (
+                          <option key={ent.id} value={ent.id}>
+                            {ent.name} ({ent.entity_type === "organization" ? "شركة" : "فرد"})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                      اسم العميل / الشركة <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={clientName}
+                      onChange={(e) => setClientName(e.target.value)}
+                      placeholder="مثال: شركة الصحراء للمقاولات"
+                      className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                        نوع الكيان
+                      </label>
+                      <select
+                        value={entityType}
+                        onChange={(e) => setEntityType(e.target.value as EntityType)}
+                        className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                      >
+                        <option value="organization">شركة / مؤسسة</option>
+                        <option value="individual">فرد</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                        الرقم الضريبي (اختياري)
+                      </label>
+                      <input
+                        type="text"
+                        value={taxNumber}
+                        onChange={(e) => setTaxNumber(e.target.value)}
+                        placeholder="مثال: TAX-900800"
+                        className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                      />
                     </div>
                   </div>
-                ) : (
-                  <div className="pt-1">
-                    <select
-                      required
-                      value={selectedEntityId}
-                      onChange={(e) => setSelectedEntityId(e.target.value)}
-                      className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
-                    >
-                      <option value="">-- اختر كيان --</option>
-                      {entities.map((ent) => (
-                        <option key={ent.id} value={ent.id}>
-                          {ent.name} ({ent.entity_type === "organization" ? "شركة" : "فرد"})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

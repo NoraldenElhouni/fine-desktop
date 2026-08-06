@@ -4,8 +4,10 @@ import { isAxiosError } from "axios";
 import { ExternalEmployer, Entity, EntityType } from "../../types/entities";
 import { getExternalEmployers, createExternalEmployer, splitExternalEmployerEntity } from "../../api/endpoints/externalEmployers";
 import { getEntities } from "../../api/endpoints/entities";
+import { useServerConfigStore } from "../../stores/serverConfigStore";
 
 export const ExternalEmployersPage: React.FC = () => {
+  const { allowManualEntitySelection } = useServerConfigStore();
   const [employers, setEmployers] = useState<ExternalEmployer[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -198,95 +200,140 @@ export const ExternalEmployersPage: React.FC = () => {
           <div className="w-full max-w-lg rounded-2xl border border-app-separator bg-app-bg-primary p-6 shadow-xl" dir="rtl">
             <h3 className="text-lg font-bold text-app-label-primary mb-4">إضافة جهة مشغلة للعمالة</h3>
             <form onSubmit={handleAddEmployer} className="space-y-4">
-              {/* Entity Selection Mode Toggle */}
-              <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-3 space-y-3">
-                <label className="block text-xs font-bold text-app-label-primary">
-                  الكيان المرتبط بالجهة المشغلة
-                </label>
-                <div className="flex items-center gap-4 text-xs font-semibold text-app-label-primary">
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="entityMode"
-                      checked={entityMode === "auto"}
-                      onChange={() => setEntityMode("auto")}
-                      className="text-app-accent"
-                    />
-                    <span>إنشاء كيان جديد تلقائياً</span>
+              {/* Entity Information (Auto-create by default, or Manual Toggle if enabled in Settings) */}
+              {allowManualEntitySelection ? (
+                <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-3 space-y-3">
+                  <label className="block text-xs font-bold text-app-label-primary">
+                    الكيان المرتبط بالجهة المشغلة
                   </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="entityMode"
-                      checked={entityMode === "existing"}
-                      onChange={() => setEntityMode("existing")}
-                      className="text-app-accent"
-                    />
-                    <span>اختيار كيان حالي</span>
-                  </label>
-                </div>
-
-                {entityMode === "auto" ? (
-                  <div className="space-y-2 pt-1">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
-                        اسم الشركة / مكتب التعاقد <span className="text-red-500">*</span>
-                      </label>
+                  <div className="flex items-center gap-4 text-xs font-semibold text-app-label-primary">
+                    <label className="flex items-center gap-1.5 cursor-pointer">
                       <input
-                        type="text"
-                        required
-                        value={employerName}
-                        onChange={(e) => setEmployerName(e.target.value)}
-                        placeholder="مثال: شركة النجم لخدمات التوظيف"
-                        className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
+                        type="radio"
+                        name="entityMode"
+                        checked={entityMode === "auto"}
+                        onChange={() => setEntityMode("auto")}
+                        className="text-app-accent"
                       />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
+                      <span>إنشاء كيان جديد تلقائياً</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="entityMode"
+                        checked={entityMode === "existing"}
+                        onChange={() => setEntityMode("existing")}
+                        className="text-app-accent"
+                      />
+                      <span>اختيار كيان حالي</span>
+                    </label>
+                  </div>
+
+                  {entityMode === "auto" ? (
+                    <div className="space-y-2 pt-1">
                       <div>
                         <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
-                          نوع الكيان
-                        </label>
-                        <select
-                          value={entityType}
-                          onChange={(e) => setEntityType(e.target.value as EntityType)}
-                          className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
-                        >
-                          <option value="organization">شركة / مؤسسة</option>
-                          <option value="individual">فرد / مكاتب شخصية</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
-                          الرقم الضريبي (اختياري)
+                          اسم الشركة / مكتب التعاقد <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
-                          value={taxNumber}
-                          onChange={(e) => setTaxNumber(e.target.value)}
-                          placeholder="مثال: TAX-700600"
+                          required
+                          value={employerName}
+                          onChange={(e) => setEmployerName(e.target.value)}
+                          placeholder="مثال: شركة النجم لخدمات التوظيف"
                           className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
                         />
                       </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
+                            نوع الكيان
+                          </label>
+                          <select
+                            value={entityType}
+                            onChange={(e) => setEntityType(e.target.value as EntityType)}
+                            className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
+                          >
+                            <option value="organization">شركة / مؤسسة</option>
+                            <option value="individual">فرد / مكاتب شخصية</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
+                            الرقم الضريبي (اختياري)
+                          </label>
+                          <input
+                            type="text"
+                            value={taxNumber}
+                            onChange={(e) => setTaxNumber(e.target.value)}
+                            placeholder="مثال: TAX-700600"
+                            className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="pt-1">
+                      <select
+                        required
+                        value={selectedEntityId}
+                        onChange={(e) => setSelectedEntityId(e.target.value)}
+                        className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
+                      >
+                        <option value="">-- اختر كيان شركة / مكتب عمالة --</option>
+                        {entities.map((ent) => (
+                          <option key={ent.id} value={ent.id}>
+                            {ent.name} ({ent.entity_type === "organization" ? "شركة" : "فرد"})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                      اسم الشركة / مكتب التعاقد <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={employerName}
+                      onChange={(e) => setEmployerName(e.target.value)}
+                      placeholder="مثال: شركة النجم لخدمات التوظيف"
+                      className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                        نوع الكيان
+                      </label>
+                      <select
+                        value={entityType}
+                        onChange={(e) => setEntityType(e.target.value as EntityType)}
+                        className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                      >
+                        <option value="organization">شركة / مؤسسة</option>
+                        <option value="individual">فرد / مكاتب شخصية</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                        الرقم الضريبي (اختياري)
+                      </label>
+                      <input
+                        type="text"
+                        value={taxNumber}
+                        onChange={(e) => setTaxNumber(e.target.value)}
+                        placeholder="مثال: TAX-700600"
+                        className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                      />
                     </div>
                   </div>
-                ) : (
-                  <div className="pt-1">
-                    <select
-                      required
-                      value={selectedEntityId}
-                      onChange={(e) => setSelectedEntityId(e.target.value)}
-                      className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
-                    >
-                      <option value="">-- اختر كيان شركة / مكتب عمالة --</option>
-                      {entities.map((ent) => (
-                        <option key={ent.id} value={ent.id}>
-                          {ent.name} ({ent.entity_type === "organization" ? "شركة" : "فرد"})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

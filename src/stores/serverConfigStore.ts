@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 const SERVER_URL_KEY = "fine_server_url";
 const OPERATING_UNIT_ID_KEY = "fine_operating_unit_id";
+const ALLOW_MANUAL_ENTITY_SELECTION_KEY = "fine_allow_manual_entity_selection";
 
 // Default fallback API URL if none is configured in localStorage
 const DEFAULT_SERVER_URL =
@@ -37,14 +38,27 @@ const getInitialOperatingUnitId = (): string | null => {
   return null;
 };
 
+const getInitialAllowManualEntitySelection = (): boolean => {
+  if (isLocalStorageAvailable()) {
+    try {
+      return localStorage.getItem(ALLOW_MANUAL_ENTITY_SELECTION_KEY) === "true";
+    } catch (e) {
+      console.error("Failed to read manual entity selection setting", e);
+    }
+  }
+  return false;
+};
+
 interface ServerConfigState {
   serverUrl: string;
   operatingUnitId: string | null;
+  allowManualEntitySelection: boolean;
   isServerConnected: boolean;
   isReconnecting: boolean;
   lastConnectionError: string | null;
   setServerUrl: (url: string) => void;
   setOperatingUnitId: (unitId: string | null) => void;
+  setAllowManualEntitySelection: (enabled: boolean) => void;
   setServerConnected: (connected: boolean, error?: string | null) => void;
   setReconnecting: (reconnecting: boolean) => void;
 }
@@ -52,6 +66,7 @@ interface ServerConfigState {
 export const useServerConfigStore = create<ServerConfigState>((set) => ({
   serverUrl: getInitialServerUrl(),
   operatingUnitId: getInitialOperatingUnitId(),
+  allowManualEntitySelection: getInitialAllowManualEntitySelection(),
   isServerConnected: true,
   isReconnecting: false,
   lastConnectionError: null,
@@ -81,6 +96,17 @@ export const useServerConfigStore = create<ServerConfigState>((set) => ({
       }
     }
     set({ operatingUnitId: unitId });
+  },
+
+  setAllowManualEntitySelection: (enabled: boolean) => {
+    if (isLocalStorageAvailable()) {
+      try {
+        localStorage.setItem(ALLOW_MANUAL_ENTITY_SELECTION_KEY, String(enabled));
+      } catch (e) {
+        console.error("Failed to save manual entity selection setting", e);
+      }
+    }
+    set({ allowManualEntitySelection: enabled });
   },
 
   setServerConnected: (connected: boolean, error: string | null = null) => {
