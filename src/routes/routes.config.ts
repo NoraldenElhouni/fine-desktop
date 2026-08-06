@@ -10,6 +10,8 @@ import {
   ShoppingCart,
   UserCheck,
   Users,
+  Truck,
+  Wallet,
 } from "lucide-react";
 
 export interface AppNavItem {
@@ -27,6 +29,9 @@ export interface BreadcrumbEntry {
 export const navItems: AppNavItem[] = [
   { id: "dashboard", path: "/", label: "لوحة التحكم", icon: LayoutGrid },
   { id: "entities", path: "/entities", label: "الكيانات والشركاء", icon: Building2 },
+  { id: "suppliers", path: "/suppliers", label: "الموردون", icon: Truck },
+  { id: "import-orders", path: "/import-orders", label: "أوامر الاستيراد", icon: Package },
+  { id: "treasury", path: "/treasury", label: "الخزينة وسعر الصرف", icon: Wallet },
   { id: "employees", path: "/employees", label: "الموظفون والعمالة", icon: UserCheck },
   { id: "clients", path: "/clients", label: "العملاء", icon: Users },
   { id: "external-employers", path: "/external-employers", label: "الجهات المشغلة", icon: Briefcase },

@@ -12,6 +12,10 @@ import EntitiesRoutes from "../routes/EntitiesRoutes";
 import EmployeesRoutes from "../routes/EmployeesRoutes";
 import ExternalEmployersRoutes from "../routes/ExternalEmployersRoutes";
 
+import SuppliersPage from "./procurement/SuppliersPage";
+import ImportOrdersPage from "./procurement/ImportOrdersPage";
+import TreasuryPage from "./treasury/TreasuryPage";
+
 const App = () => {
   return (
     <Router>
@@ -24,6 +28,9 @@ const App = () => {
           <Route path="/" element={<Layout />}>
             <Route index element={<Dashboard />} />
             <Route path="entities/*" element={<EntitiesRoutes />} />
+            <Route path="suppliers" element={<SuppliersPage />} />
+            <Route path="import-orders" element={<ImportOrdersPage />} />
+            <Route path="treasury" element={<TreasuryPage />} />
             <Route path="employees/*" element={<EmployeesRoutes />} />
             <Route path="clients/*" element={<ClientsRoutes />} />
             <Route path="external-employers/*" element={<ExternalEmployersRoutes />} />
