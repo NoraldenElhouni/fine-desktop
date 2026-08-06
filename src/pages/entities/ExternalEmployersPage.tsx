@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Building, Plus, RefreshCw, FileText, Percent } from "lucide-react";
+import { Building, Plus, RefreshCw, FileText, Percent, Scissors } from "lucide-react";
 import { isAxiosError } from "axios";
-import { ExternalEmployer, Entity } from "../../types/entities";
-import { getExternalEmployers, createExternalEmployer } from "../../api/endpoints/externalEmployers";
+import { ExternalEmployer, Entity, EntityType } from "../../types/entities";
+import { getExternalEmployers, createExternalEmployer, splitExternalEmployerEntity } from "../../api/endpoints/externalEmployers";
 import { getEntities } from "../../api/endpoints/entities";
 
 export const ExternalEmployersPage: React.FC = () => {
@@ -13,6 +13,10 @@ export const ExternalEmployersPage: React.FC = () => {
 
   // Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [entityMode, setEntityMode] = useState<"auto" | "existing">("auto");
+  const [employerName, setEmployerName] = useState("");
+  const [entityType, setEntityType] = useState<EntityType>("organization");
+  const [taxNumber, setTaxNumber] = useState("");
   const [selectedEntityId, setSelectedEntityId] = useState("");
   const [contractRef, setContractRef] = useState("");
   const [multiplier, setMultiplier] = useState<number>(1.15);
@@ -41,18 +45,33 @@ export const ExternalEmployersPage: React.FC = () => {
 
   const handleAddEmployer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedEntityId) return;
+
+    if (entityMode === "existing" && !selectedEntityId) {
+      alert("يرجى اختيار الكيان الحالي");
+      return;
+    }
+
+    if (entityMode === "auto" && !employerName.trim()) {
+      alert("يرجى إدخال اسم الجهة المشغلة لإنشاء الكيان التلقائي");
+      return;
+    }
 
     try {
       setIsSubmitting(true);
-      const newEmployer = await createExternalEmployer({
-        entity_id: selectedEntityId,
+      const payload = {
         contract_reference: contractRef.trim() || undefined,
         billing_rate_multiplier: multiplier,
-      });
+        ...(entityMode === "existing"
+          ? { entity_id: selectedEntityId }
+          : { name: employerName.trim(), entity_type: entityType, tax_number: taxNumber.trim() || undefined }),
+      };
+
+      const newEmployer = await createExternalEmployer(payload);
 
       setEmployers((prev) => [newEmployer, ...prev]);
       setIsModalOpen(false);
+      setEmployerName("");
+      setTaxNumber("");
       setSelectedEntityId("");
       setContractRef("");
     } catch (err: unknown) {
@@ -62,6 +81,20 @@ export const ExternalEmployersPage: React.FC = () => {
       alert(message || "خطأ أثناء إضافة الجهة المشغلة");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSplitEntity = async (emp: ExternalEmployer) => {
+    const newName = prompt(`فصل الجهة المشغلة (${emp.entity?.name}) في كيان مستقل.\nأدخل الاسم الجديد للكيان (أو اتركه فارغاً للاحتفاظ بالاسم الحالي):`, emp.entity?.name || "");
+    if (newName === null) return;
+
+    try {
+      await splitExternalEmployerEntity(emp.id, { new_name: newName.trim() || undefined });
+      alert("تم فصل الجهة المشغلة في كيان جديد بنجاح");
+      fetchData();
+    } catch (err: unknown) {
+      const message = isAxiosError(err) ? err.response?.data?.message : null;
+      alert(message || "حدث خطأ أثناء فصل الكيان");
     }
   };
 
@@ -120,6 +153,7 @@ export const ExternalEmployersPage: React.FC = () => {
                 <th className="px-4 py-3 text-start font-bold">اسم الجهة المشغلة</th>
                 <th className="px-4 py-3 text-start font-bold">رقم مرجع العقد</th>
                 <th className="px-4 py-3 text-start font-bold">معامل احتساب تكلفة العمالة</th>
+                <th className="px-4 py-3 text-end font-bold">إجراءات</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-app-separator text-app-label-primary">
@@ -140,6 +174,17 @@ export const ExternalEmployersPage: React.FC = () => {
                       <span>{emp.billing_rate_multiplier}x (تكلفة إضافية)</span>
                     </div>
                   </td>
+                  <td className="px-4 py-3 text-end">
+                    <button
+                      type="button"
+                      onClick={() => handleSplitEntity(emp)}
+                      title="فصل الكيان إلى كيان جديد مستقل"
+                      className="inline-flex items-center gap-1 rounded-lg border border-app-separator bg-app-bg-secondary px-2.5 py-1 text-[11px] font-semibold text-app-label-primary hover:bg-app-fill-f1"
+                    >
+                      <Scissors className="h-3 w-3 text-app-accent" />
+                      <span>فصل الكيان</span>
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -153,23 +198,94 @@ export const ExternalEmployersPage: React.FC = () => {
           <div className="w-full max-w-lg rounded-2xl border border-app-separator bg-app-bg-primary p-6 shadow-xl" dir="rtl">
             <h3 className="text-lg font-bold text-app-label-primary mb-4">إضافة جهة مشغلة للعمالة</h3>
             <form onSubmit={handleAddEmployer} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                  اختر الكيان <span className="text-red-500">*</span>
+              {/* Entity Selection Mode Toggle */}
+              <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-3 space-y-3">
+                <label className="block text-xs font-bold text-app-label-primary">
+                  الكيان المرتبط بالجهة المشغلة
                 </label>
-                <select
-                  required
-                  value={selectedEntityId}
-                  onChange={(e) => setSelectedEntityId(e.target.value)}
-                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-                >
-                  <option value="">-- اختر كيان شركة / مكتب عمالة --</option>
-                  {entities.map((ent) => (
-                    <option key={ent.id} value={ent.id}>
-                      {ent.name} ({ent.entity_type === "organization" ? "شركة" : "فرد"})
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-4 text-xs font-semibold text-app-label-primary">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="entityMode"
+                      checked={entityMode === "auto"}
+                      onChange={() => setEntityMode("auto")}
+                      className="text-app-accent"
+                    />
+                    <span>إنشاء كيان جديد تلقائياً</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="entityMode"
+                      checked={entityMode === "existing"}
+                      onChange={() => setEntityMode("existing")}
+                      className="text-app-accent"
+                    />
+                    <span>اختيار كيان حالي</span>
+                  </label>
+                </div>
+
+                {entityMode === "auto" ? (
+                  <div className="space-y-2 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
+                        اسم الشركة / مكتب التعاقد <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={employerName}
+                        onChange={(e) => setEmployerName(e.target.value)}
+                        placeholder="مثال: شركة النجم لخدمات التوظيف"
+                        className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
+                          نوع الكيان
+                        </label>
+                        <select
+                          value={entityType}
+                          onChange={(e) => setEntityType(e.target.value as EntityType)}
+                          className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
+                        >
+                          <option value="organization">شركة / مؤسسة</option>
+                          <option value="individual">فرد / مكاتب شخصية</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
+                          الرقم الضريبي (اختياري)
+                        </label>
+                        <input
+                          type="text"
+                          value={taxNumber}
+                          onChange={(e) => setTaxNumber(e.target.value)}
+                          placeholder="مثال: TAX-700600"
+                          className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="pt-1">
+                    <select
+                      required
+                      value={selectedEntityId}
+                      onChange={(e) => setSelectedEntityId(e.target.value)}
+                      className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
+                    >
+                      <option value="">-- اختر كيان شركة / مكتب عمالة --</option>
+                      {entities.map((ent) => (
+                        <option key={ent.id} value={ent.id}>
+                          {ent.name} ({ent.entity_type === "organization" ? "شركة" : "فرد"})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -211,7 +327,11 @@ export const ExternalEmployersPage: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || !selectedEntityId}
+                  disabled={
+                    isSubmitting ||
+                    (entityMode === "existing" && !selectedEntityId) ||
+                    (entityMode === "auto" && !employerName.trim())
+                  }
                   className="rounded-xl bg-app-accent px-5 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
                 >
                   {isSubmitting ? "جاري الحفظ..." : "حفظ الجهة المشغلة"}

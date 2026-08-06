@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { UserCheck, Plus, RefreshCw, Briefcase, Building, Calendar, DollarSign } from "lucide-react";
+import { UserCheck, Plus, RefreshCw, Briefcase, Building, Calendar, DollarSign, Scissors } from "lucide-react";
 import { isAxiosError } from "axios";
 import { Employee, Entity, PayType, EmployeeStatus, OperatingUnit } from "../../types/entities";
-import { getEmployees, createEmployee } from "../../api/endpoints/employees";
+import { getEmployees, createEmployee, splitEmployeeEntity } from "../../api/endpoints/employees";
 import { getEntities } from "../../api/endpoints/entities";
 import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
 
@@ -17,6 +17,9 @@ export const EmployeesPage: React.FC = () => {
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [entityMode, setEntityMode] = useState<"auto" | "existing">("auto");
+  const [employeeName, setEmployeeName] = useState("");
+  const [taxNumber, setTaxNumber] = useState("");
   const [selectedEntityId, setSelectedEntityId] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [payType, setPayType] = useState<PayType>("monthly");
@@ -64,7 +67,18 @@ export const EmployeesPage: React.FC = () => {
   const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     const unitId = selectedOperatingUnitId || operatingUnits[0]?.id;
-    if (!selectedEntityId || !jobTitle || !unitId) {
+    
+    if (entityMode === "existing" && !selectedEntityId) {
+      alert("يرجى اختيار الكيان الحالي");
+      return;
+    }
+
+    if (entityMode === "auto" && !employeeName.trim()) {
+      alert("يرجى إدخال اسم الموظف لإنشاء الكيان التلقائي");
+      return;
+    }
+
+    if (!jobTitle || !unitId) {
       alert("يرجى تعبئة كافة الحقول المطلوبة والوحدة التشغيلية");
       return;
     }
@@ -76,19 +90,25 @@ export const EmployeesPage: React.FC = () => {
 
     try {
       setIsSubmitting(true);
-      const newEmp = await createEmployee({
-        entity_id: selectedEntityId,
+      const payload = {
         operating_unit_id: unitId,
         employer_entity_id: validEmployerEntityId,
         job_title: jobTitle,
         pay_type: payType,
         hire_date: hireDate,
         status: "active" as EmployeeStatus,
-      });
+        ...(entityMode === "existing"
+          ? { entity_id: selectedEntityId }
+          : { name: employeeName.trim(), entity_type: "individual" as const, tax_number: taxNumber.trim() || undefined }),
+      };
+
+      const newEmp = await createEmployee(payload);
 
       setEmployees((prev) => [newEmp, ...prev]);
       setIsModalOpen(false);
       // Reset
+      setEmployeeName("");
+      setTaxNumber("");
       setSelectedEntityId("");
       setJobTitle("");
       setEmployerEntityId("");
@@ -99,6 +119,20 @@ export const EmployeesPage: React.FC = () => {
       alert(message || "خطأ أثناء إضافات الموظف");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSplitEntity = async (emp: Employee) => {
+    const newName = prompt(`فصل الموظف (${emp.entity?.name || emp.job_title}) في كيان مستقل.\nأدخل الاسم الجديد للكيان (أو اتركه فارغاً للاحتفاظ بالاسم الحالي):`, emp.entity?.name || "");
+    if (newName === null) return;
+
+    try {
+      await splitEmployeeEntity(emp.id, { new_name: newName.trim() || undefined });
+      alert("تم فصل الموظف في كيان جديد بنجاح");
+      fetchData();
+    } catch (err: unknown) {
+      const message = isAxiosError(err) ? err.response?.data?.message : null;
+      alert(message || "حدث خطأ أثناء فصل الكيان");
     }
   };
 
@@ -160,6 +194,7 @@ export const EmployeesPage: React.FC = () => {
                 <th className="px-4 py-3 text-start font-bold">نظام الأجر</th>
                 <th className="px-4 py-3 text-start font-bold">تاريخ التعيين</th>
                 <th className="px-4 py-3 text-start font-bold">الحالة</th>
+                <th className="px-4 py-3 text-end font-bold">إجراءات</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-app-separator text-app-label-primary">
@@ -207,6 +242,17 @@ export const EmployeesPage: React.FC = () => {
                       {emp.status === "active" ? "نشط" : emp.status}
                     </span>
                   </td>
+                  <td className="px-4 py-3 text-end">
+                    <button
+                      type="button"
+                      onClick={() => handleSplitEntity(emp)}
+                      title="فصل الكيان إلى كيان جديد مستقل"
+                      className="inline-flex items-center gap-1 rounded-lg border border-app-separator bg-app-bg-secondary px-2.5 py-1 text-[11px] font-semibold text-app-label-primary hover:bg-app-fill-f1"
+                    >
+                      <Scissors className="h-3 w-3 text-app-accent" />
+                      <span>فصل الكيان</span>
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -239,23 +285,79 @@ export const EmployeesPage: React.FC = () => {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                  اختر الكيان (الشخص) <span className="text-red-500">*</span>
+              {/* Entity Selection Mode Toggle */}
+              <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-3 space-y-3">
+                <label className="block text-xs font-bold text-app-label-primary">
+                  الكيان المرتبط بالموظف
                 </label>
-                <select
-                  required
-                  value={selectedEntityId}
-                  onChange={(e) => setSelectedEntityId(e.target.value)}
-                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-                >
-                  <option value="">-- اختر كيان شخصي --</option>
-                  {entities.map((ent) => (
-                    <option key={ent.id} value={ent.id}>
-                      {ent.name} ({ent.entity_type === "individual" ? "فرد" : "شركة"})
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-4 text-xs font-semibold text-app-label-primary">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="entityMode"
+                      checked={entityMode === "auto"}
+                      onChange={() => setEntityMode("auto")}
+                      className="text-app-accent"
+                    />
+                    <span>إنشاء كيان جديد تلقائياً</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="entityMode"
+                      checked={entityMode === "existing"}
+                      onChange={() => setEntityMode("existing")}
+                      className="text-app-accent"
+                    />
+                    <span>اختيار كيان حالي</span>
+                  </label>
+                </div>
+
+                {entityMode === "auto" ? (
+                  <div className="space-y-2 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
+                        اسم الموظف الكامل <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={employeeName}
+                        onChange={(e) => setEmployeeName(e.target.value)}
+                        placeholder="مثال: ناصر الدين أحمد"
+                        className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
+                        الرقم الضريبي / الوطني (اختياري)
+                      </label>
+                      <input
+                        type="text"
+                        value={taxNumber}
+                        onChange={(e) => setTaxNumber(e.target.value)}
+                        placeholder="مثال: TAX-100200"
+                        className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="pt-1">
+                    <select
+                      required
+                      value={selectedEntityId}
+                      onChange={(e) => setSelectedEntityId(e.target.value)}
+                      className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
+                    >
+                      <option value="">-- اختر كيان شخصي --</option>
+                      {entities.map((ent) => (
+                        <option key={ent.id} value={ent.id}>
+                          {ent.name} ({ent.entity_type === "individual" ? "فرد" : "شركة"})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -331,7 +433,12 @@ export const EmployeesPage: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || !selectedEntityId || !jobTitle}
+                  disabled={
+                    isSubmitting ||
+                    !jobTitle ||
+                    (entityMode === "existing" && !selectedEntityId) ||
+                    (entityMode === "auto" && !employeeName.trim())
+                  }
                   className="rounded-xl bg-app-accent px-5 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
                 >
                   {isSubmitting ? "جاري الحفظ..." : "حفظ الموظف"}

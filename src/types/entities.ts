@@ -118,7 +118,10 @@ export interface CreateEntityPayload {
 }
 
 export interface CreateEmployeePayload {
-  entity_id: string;
+  entity_id?: string;
+  name?: string;
+  entity_type?: EntityType;
+  tax_number?: string;
   operating_unit_id: string;
   employer_entity_id?: string | null;
   job_title: string;
@@ -128,7 +131,10 @@ export interface CreateEmployeePayload {
 }
 
 export interface CreateClientPayload {
-  entity_id: string;
+  entity_id?: string;
+  name?: string;
+  entity_type?: EntityType;
+  tax_number?: string;
   operating_unit_id: string;
   credit_limit?: number;
   payment_terms_days?: number;
@@ -137,8 +143,20 @@ export interface CreateClientPayload {
 }
 
 export interface CreateExternalEmployerPayload {
-  entity_id: string;
+  entity_id?: string;
+  name?: string;
+  entity_type?: EntityType;
+  tax_number?: string;
+  operating_unit_id?: string;
   contract_reference?: string;
   billing_rate_multiplier?: number;
   account_id?: string | null;
+}
+
+export interface SplitEntityPayload {
+  new_name?: string;
+}
+
+export interface RelinkEntityPayload {
+  target_entity_id: string;
 }
