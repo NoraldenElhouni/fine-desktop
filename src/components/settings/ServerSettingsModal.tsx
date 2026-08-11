@@ -16,13 +16,16 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
   const {
     serverUrl,
     operatingUnitId,
+    allowManualEntitySelection,
     setServerUrl,
     setOperatingUnitId,
+    setAllowManualEntitySelection,
     setServerConnected,
   } = useServerConfigStore();
 
   const [inputUrl, setInputUrl] = useState(serverUrl);
   const [selectedUnit, setSelectedUnit] = useState<string>(operatingUnitId || "");
+  const [manualEntityEnabled, setManualEntityEnabled] = useState<boolean>(allowManualEntitySelection);
   const [units, setUnits] = useState<OperatingUnit[]>([]);
   const [loadingUnits, setLoadingUnits] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -30,7 +33,8 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
   useEffect(() => {
     setInputUrl(serverUrl);
     setSelectedUnit(operatingUnitId || "");
-  }, [serverUrl, operatingUnitId, isOpen]);
+    setManualEntityEnabled(allowManualEntitySelection);
+  }, [serverUrl, operatingUnitId, allowManualEntitySelection, isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -59,6 +63,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
 
     setServerUrl(inputUrl.trim());
     setOperatingUnitId(selectedUnit || null);
+    setAllowManualEntitySelection(manualEntityEnabled);
     setServerConnected(true, null);
     setStatusMsg({ type: "success", text: "تم حفظ إعدادات الاتصال بالسيرفر بنجاح" });
     
@@ -132,6 +137,25 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
             <p className="text-xs text-neutral-400 mt-1">
               يتم إرسال معرف وحدة التشغيل كـ <code className="bg-neutral-100 px-1 rounded">X-Operating-Unit-ID</code> مع كافة الطلبات.
             </p>
+          </div>
+
+          <div className="pt-2 border-t border-neutral-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-xs font-bold text-neutral-800">
+                  السماح بالاختيار اليدوي للكيانات
+                </label>
+                <p className="text-[11px] text-neutral-400 mt-0.5">
+                  عند التعطيل (الافتراضي)، يتم إنشاء الكيان تلقائياً في استمارات الموظفين والعملاء.
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={manualEntityEnabled}
+                onChange={(e) => setManualEntityEnabled(e.target.checked)}
+                className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900 cursor-pointer"
+              />
+            </div>
           </div>
 
           {statusMsg && (

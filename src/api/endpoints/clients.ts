@@ -33,3 +33,19 @@ export const deleteClient = async (id: string): Promise<{ message: string }> => 
   const response = await apiClient.delete<{ message: string }>(`/clients/${id}`);
   return response.data;
 };
+
+export const splitClientEntity = async (
+  id: string,
+  payload?: { new_name?: string }
+): Promise<Client> => {
+  const response = await apiClient.post<{ data: Client }>(`/clients/${id}/split-entity`, payload || {});
+  return response.data.data;
+};
+
+export const relinkClientEntity = async (
+  id: string,
+  payload: { target_entity_id: string }
+): Promise<Client> => {
+  const response = await apiClient.post<{ data: Client }>(`/clients/${id}/relink-entity`, payload);
+  return response.data.data;
+};

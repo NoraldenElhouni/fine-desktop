@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ProductionRepository } from "../renderer-repositories/productionRepository";
+import { ProductionRepository } from "../repositories/productionRepository";
 import { Plus, Minus, CheckCircle, Database, Package, ListChecks, Server, Activity } from "lucide-react";
 import { useServerConfigStore } from "../stores/serverConfigStore";
 
