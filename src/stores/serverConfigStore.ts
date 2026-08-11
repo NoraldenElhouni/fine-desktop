@@ -9,6 +9,20 @@ const DEFAULT_SERVER_URL =
   (import.meta as unknown as { env?: Record<string, string> }).env
     ?.VITE_API_URL || "http://localhost:8000/api/v1";
 
+export const normalizeServerUrl = (url: string): string => {
+  let formatted = url.trim().replace(/\/+$/, "");
+  if (!formatted) {
+    return DEFAULT_SERVER_URL;
+  }
+  if (!formatted.startsWith("http://") && !formatted.startsWith("https://")) {
+    formatted = "http://" + formatted;
+  }
+  if (!formatted.endsWith("/api/v1")) {
+    formatted = formatted + "/api/v1";
+  }
+  return formatted;
+};
+
 const isLocalStorageAvailable = (): boolean => {
   return typeof window !== "undefined" && typeof localStorage !== "undefined";
 };
@@ -18,13 +32,13 @@ const getInitialServerUrl = (): string => {
     try {
       const saved = localStorage.getItem(SERVER_URL_KEY);
       if (saved && saved.trim()) {
-        return saved.trim();
+        return normalizeServerUrl(saved);
       }
     } catch (e) {
       console.error("Failed to read server URL from localStorage", e);
     }
   }
-  return DEFAULT_SERVER_URL;
+  return normalizeServerUrl(DEFAULT_SERVER_URL);
 };
 
 const getInitialOperatingUnitId = (): string | null => {
@@ -72,7 +86,7 @@ export const useServerConfigStore = create<ServerConfigState>((set) => ({
   lastConnectionError: null,
 
   setServerUrl: (url: string) => {
-    const formatted = url.trim().replace(/\/+$/, "");
+    const formatted = normalizeServerUrl(url);
     if (isLocalStorageAvailable()) {
       try {
         localStorage.setItem(SERVER_URL_KEY, formatted);

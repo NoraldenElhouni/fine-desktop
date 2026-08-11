@@ -11,6 +11,8 @@ import ClientsRoutes from "../routes/ClientsRoutes";
 import EntitiesRoutes from "../routes/EntitiesRoutes";
 import EmployeesRoutes from "../routes/EmployeesRoutes";
 import ExternalEmployersRoutes from "../routes/ExternalEmployersRoutes";
+import { InventoryRoutes } from "../routes/InventoryRoutes";
+import { ManufacturingRoutes } from "../routes/ManufacturingRoutes";
 
 import SuppliersPage from "./procurement/SuppliersPage";
 import ImportOrdersPage from "./procurement/ImportOrdersPage";
@@ -36,24 +38,8 @@ const App = () => {
             <Route path="external-employers/*" element={<ExternalEmployersRoutes />} />
             <Route path="orders/*" element={<OrdersRoutes />} />
             <Route path="users/*" element={<UsersRoutes />} />
-            <Route
-              path="inventory"
-              element={
-                <PlaceholderPage
-                  title="المخزون"
-                  description="سوف تُضاف هنا شاشة إدارة المواد الخام والمنتجات نصف المصنعة."
-                />
-              }
-            />
-            <Route
-              path="manufacturing"
-              element={
-                <PlaceholderPage
-                  title="التصنيع"
-                  description="سوف تُضاف هنا متابعة خطوط الإنتاج والعمليات والمهام."
-                />
-              }
-            />
+            <Route path="inventory/*" element={<InventoryRoutes />} />
+            <Route path="manufacturing/*" element={<ManufacturingRoutes />} />
             <Route
               path="sales"
               element={

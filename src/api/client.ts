@@ -1,6 +1,6 @@
 import axios from "axios";
 import { useAuthStore } from "../stores/authStore";
-import { useServerConfigStore } from "../stores/serverConfigStore";
+import { useServerConfigStore, normalizeServerUrl } from "../stores/serverConfigStore";
 
 const apiClient = axios.create({
   headers: {
@@ -12,10 +12,17 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   (config) => {
-    // Dynamically set baseURL from store
-    const serverUrl = useServerConfigStore.getState().serverUrl;
-    if (serverUrl) {
-      config.baseURL = serverUrl;
+    // Dynamically resolve base URL and avoid Axios root-relative URL stripping
+    const rawServerUrl = useServerConfigStore.getState().serverUrl;
+    if (rawServerUrl) {
+      const cleanBase = normalizeServerUrl(rawServerUrl);
+      if (config.url && !config.url.startsWith("http://") && !config.url.startsWith("https://")) {
+        const relativeUrl = config.url.replace(/^\/+/, "");
+        config.url = `${cleanBase}/${relativeUrl}`;
+        delete config.baseURL;
+      } else {
+        config.baseURL = cleanBase;
+      }
     }
 
     // Attach Auth Token

@@ -36,10 +36,10 @@ export const navItems: AppNavItem[] = [
   { id: "clients", path: "/clients", label: "العملاء", icon: Users },
   { id: "external-employers", path: "/external-employers", label: "الجهات المشغلة", icon: Briefcase },
   { id: "orders", path: "/orders", label: "الطلبات", icon: ShoppingCart },
-  { id: "inventory", path: "/inventory", label: "المخزون", icon: Boxes },
+  { id: "inventory", path: "/inventory/items", label: "المخزون والقطع", icon: Boxes },
   {
     id: "manufacturing",
-    path: "/manufacturing",
+    path: "/manufacturing/batches",
     label: "التصنيع",
     icon: Factory,
   },
@@ -76,7 +76,9 @@ export const getBreadcrumbEntries = (
   if (
     normalizedPath.startsWith("/clients/") ||
     normalizedPath.startsWith("/orders/") ||
-    normalizedPath.startsWith("/entities/")
+    normalizedPath.startsWith("/entities/") ||
+    normalizedPath.startsWith("/inventory/") ||
+    normalizedPath.startsWith("/manufacturing/batches/")
   ) {
     entries.push({ path: normalizedPath, label: dynamicLabel });
   }
