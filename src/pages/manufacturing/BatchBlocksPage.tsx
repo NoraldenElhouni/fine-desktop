@@ -73,6 +73,7 @@ export const BatchBlocksPage: React.FC = () => {
   const { data: blocks, isLoading: blocksLoading } = useBatchBlocks(batchId);
   const { data: itemData } = useInventoryItems({ item_type: "foam_block" });
   const { data: chemicalData } = useInventoryItems({ item_type: "raw_material" });
+  const { data: scrapItems } = useInventoryItems({ item_type: "byproduct_fill" });
   const { data: warehouses } = useWarehouses();
   const { data: consumption } = useConsumptionReport(batchId);
   const registerMutation = useRegisterBlocks();
@@ -83,6 +84,7 @@ export const BatchBlocksPage: React.FC = () => {
 
   const [rows, setRows] = useState<DraftRow[]>([newRow()]);
   const [itemId, setItemId] = useState("");
+  const [scrapItemId, setScrapItemId] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -106,10 +108,13 @@ export const BatchBlocksPage: React.FC = () => {
   const updateRow = (key: string, patch: Partial<DraftRow>) =>
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
 
+  const hasScrapRow = rows.some((r) => r.kind === "scrap");
+
   const canSubmit =
     acceptsBlocks &&
     Boolean(itemId) &&
     Boolean(warehouseId) &&
+    (!hasScrapRow || Boolean(scrapItemId)) &&
     rows.length > 0 &&
     rows.every(
       (r) =>
@@ -130,6 +135,9 @@ export const BatchBlocksPage: React.FC = () => {
             count: num(r.count),
             length_m: num(r.length_m),
             height_m: num(r.height_m),
+            // Scrap enters stock as a zero-cost byproduct, so it needs a home too.
+            inventory_item_id: scrapItemId,
+            warehouse_id: warehouseId,
           }
         : {
             kind: "block",
@@ -353,7 +361,7 @@ export const BatchBlocksPage: React.FC = () => {
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-app-bg-secondary border-b border-app-separator">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-app-bg-secondary border-b border-app-separator">
           <div>
             <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
               Block Product
@@ -371,6 +379,29 @@ export const BatchBlocksPage: React.FC = () => {
               ))}
             </select>
           </div>
+          <div>
+            <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+              Scrap Product
+            </label>
+            <select
+              value={scrapItemId}
+              onChange={(e) => setScrapItemId(e.target.value)}
+              className="w-full px-3 py-2 border border-app-separator rounded-xl bg-app-bg-primary text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
+            >
+              <option value="">
+                {hasScrapRow ? "Select scrap item…" : "Only needed for scrap rows"}
+              </option>
+              {scrapItems?.data.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name} ({item.sku})
+                </option>
+              ))}
+            </select>
+            <p className="text-[10px] text-app-label-tertiary mt-1">
+              Scrap enters stock at zero cost
+            </p>
+          </div>
+
           <div>
             <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
               Warehouse

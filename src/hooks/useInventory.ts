@@ -21,7 +21,7 @@ export function useCreateInventoryItem() {
   });
 }
 
-export function useStockLots(params?: { category_id?: string; status?: string; grade?: string; warehouse_id?: string; page?: number; attrs?: Record<string, any> }) {
+export function useStockLots(params?: { category_id?: string; status?: string; grade?: string; warehouse_id?: string; inventory_item_id?: string; page?: number; attrs?: Record<string, any> }) {
   return useQuery({
     queryKey: ["stockLots", params],
     queryFn: async () => {
@@ -63,6 +63,26 @@ export function useRefillTank() {
     }) => inventoryApi.refillTank(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tankStocks"] });
+      queryClient.invalidateQueries({ queryKey: ["inventoryValuation"] });
+    },
+  });
+}
+
+/**
+ * Pour a source lot into the tank. Unlike the adjustment path this moves real
+ * stock, so the source lot and any recovered empties change too.
+ */
+export function useRefillFromLot() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      source_stock_lot_id: string;
+      draw_quantity?: number;
+      draw_containers?: number;
+    }) => inventoryApi.refillFromLot(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tankStocks"] });
+      queryClient.invalidateQueries({ queryKey: ["stockLots"] });
       queryClient.invalidateQueries({ queryKey: ["inventoryValuation"] });
     },
   });

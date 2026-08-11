@@ -1,7 +1,14 @@
 import React, { useState } from "react";
-import { useTankStocks, useRefillTank, useInventoryItems } from "../../hooks/useInventory";
+import {
+  useTankStocks,
+  useRefillTank,
+  useRefillFromLot,
+  useInventoryItems,
+  useStockLots,
+} from "../../hooks/useInventory";
 import { TankStock, InventoryItem } from "../../api/endpoints/inventory";
-import { Database, Plus, AlertCircle } from "lucide-react";
+import { apiErrorPayload } from "../../api/endpoints/production";
+import { Database, Plus, AlertCircle, PackageOpen } from "lucide-react";
 
 export const TankStockPage: React.FC = () => {
   const { data: tanks, isLoading, refetch } = useTankStocks();
@@ -12,11 +19,51 @@ export const TankStockPage: React.FC = () => {
   const [operatingUnitId, setOperatingUnitId] = useState("");
   const [refillQty, setRefillQty] = useState(1000);
   const [refillCost, setRefillCost] = useState(15.0);
+  const [error, setError] = useState<string | null>(null);
+
+  // Sourced refill: draw from a real lot so stock moves rather than appearing.
+  const [sourceLotId, setSourceLotId] = useState("");
+  const [drawMode, setDrawMode] = useState<"containers" | "quantity">("containers");
+  const [drawContainers, setDrawContainers] = useState(1);
+  const [drawQuantity, setDrawQuantity] = useState(0);
 
   const refillMutation = useRefillTank();
+  const refillFromLotMutation = useRefillFromLot();
+
+  const { data: sourceLots } = useStockLots({
+    inventory_item_id: selectedChemicalId || undefined,
+    status: "available",
+  });
+
+  const chemical = items?.data.find((i) => i.id === selectedChemicalId);
+  const capacity = chemical?.container_capacity ? Number(chemical.container_capacity) : null;
+  const selectedLot = sourceLots?.data.find((l) => l.id === sourceLotId);
+
+  const handleRefillFromLot = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    refillFromLotMutation.mutate(
+      {
+        source_stock_lot_id: sourceLotId,
+        ...(drawMode === "containers"
+          ? { draw_containers: drawContainers }
+          : { draw_quantity: drawQuantity }),
+      },
+      {
+        onSuccess: () => {
+          setIsRefillOpen(false);
+          setSourceLotId("");
+          refetch();
+        },
+        onError: (err: unknown) =>
+          setError(apiErrorPayload(err)?.message ?? "Could not pour from that lot."),
+      },
+    );
+  };
 
   const handleRefillSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     refillMutation.mutate(
       {
         chemical_inventory_item_id: selectedChemicalId,
@@ -29,6 +76,8 @@ export const TankStockPage: React.FC = () => {
           setIsRefillOpen(false);
           refetch();
         },
+        onError: (err: unknown) =>
+          setError(apiErrorPayload(err)?.message ?? "Could not adjust the tank."),
       }
     );
   };
@@ -121,6 +170,123 @@ export const TankStockPage: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-app-bg-primary rounded-2xl max-w-md w-full p-6 border border-app-separator shadow-xl space-y-4">
             <h3 className="text-lg font-bold text-app-label-primary">Tank Refill & WAC Entry</h3>
+
+            {error && (
+              <div className="flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {/* Sourced pour: the balanced path. Stock moves out of a real lot,
+                the cost comes with it, and drained containers come back. */}
+            {selectedChemicalId && (sourceLots?.data.length ?? 0) > 0 && (
+              <form
+                onSubmit={handleRefillFromLot}
+                className="space-y-3 rounded-xl border border-app-accent/40 bg-app-accent-tint p-4"
+              >
+                <div className="flex items-center gap-2 text-xs font-bold text-app-accent">
+                  <PackageOpen className="w-4 h-4" /> Pour from stock
+                </div>
+
+                <select
+                  value={sourceLotId}
+                  onChange={(e) => setSourceLotId(e.target.value)}
+                  className="w-full px-3 py-2 border border-app-separator rounded-xl bg-app-bg-primary text-xs focus:border-app-accent focus:outline-none"
+                >
+                  <option value="">Select source lot…</option>
+                  {sourceLots?.data.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.lot_number} — {l.quantity} {chemical?.secondary_uom ?? ""}
+                      {l.container_quantity ? ` across ${l.container_quantity} ${chemical?.primary_uom ?? "container"}(s)` : ""}
+                      {" @ "}{l.unit_cost}
+                    </option>
+                  ))}
+                </select>
+
+                {sourceLotId && (
+                  <>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setDrawMode("containers")}
+                        disabled={!capacity}
+                        className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold border transition-all disabled:opacity-40 ${
+                          drawMode === "containers"
+                            ? "border-app-accent bg-app-accent text-white"
+                            : "border-app-separator bg-app-bg-primary text-app-label-secondary"
+                        }`}
+                      >
+                        Whole {chemical?.primary_uom ?? "containers"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDrawMode("quantity")}
+                        className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
+                          drawMode === "quantity"
+                            ? "border-app-accent bg-app-accent text-white"
+                            : "border-app-separator bg-app-bg-primary text-app-label-secondary"
+                        }`}
+                      >
+                        Partial {chemical?.secondary_uom ?? "amount"}
+                      </button>
+                    </div>
+
+                    {drawMode === "containers" ? (
+                      <div>
+                        <input
+                          type="number"
+                          min="1"
+                          value={drawContainers}
+                          onChange={(e) => setDrawContainers(parseInt(e.target.value) || 1)}
+                          className="w-full px-3 py-2 border border-app-separator rounded-xl bg-app-bg-primary text-xs font-mono focus:border-app-accent focus:outline-none"
+                        />
+                        {capacity && (
+                          <p className="text-[10px] text-app-label-tertiary mt-1">
+                            = {(drawContainers * capacity).toFixed(2)} {chemical?.secondary_uom}
+                            {" · "}empties recovered: {drawContainers}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          max={selectedLot ? Number(selectedLot.quantity) : undefined}
+                          value={drawQuantity}
+                          onChange={(e) => setDrawQuantity(parseFloat(e.target.value) || 0)}
+                          className="w-full px-3 py-2 border border-app-separator rounded-xl bg-app-bg-primary text-xs font-mono focus:border-app-accent focus:outline-none"
+                        />
+                        <p className="text-[10px] text-app-label-tertiary mt-1">
+                          A part-drawn container stays on the floor and is still counted.
+                        </p>
+                      </div>
+                    )}
+
+                    <p className="text-[10px] text-app-label-secondary">
+                      Cost is taken from the lot ({selectedLot?.unit_cost}), not entered.
+                    </p>
+
+                    <button
+                      type="submit"
+                      disabled={refillFromLotMutation.isPending}
+                      className="w-full px-4 py-2 text-xs font-bold text-white bg-app-accent rounded-xl shadow-sm hover:opacity-90 disabled:opacity-50"
+                    >
+                      {refillFromLotMutation.isPending ? "Pouring..." : "Pour into Tank"}
+                    </button>
+                  </>
+                )}
+              </form>
+            )}
+
+            <div className="pt-2 border-t border-app-separator">
+              <p className="text-[10px] font-semibold uppercase text-app-label-tertiary mb-2">
+                Manual adjustment — opening balances and corrections only
+              </p>
+            </div>
+
             <form onSubmit={handleRefillSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">

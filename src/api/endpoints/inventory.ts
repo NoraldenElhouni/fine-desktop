@@ -20,6 +20,10 @@ export interface InventoryItem {
   unit_of_measure: "each" | "m3" | "kg" | "meter" | "liter" | string;
   primary_uom?: string;
   secondary_uom?: string;
+  /** How much secondary_uom one primary_uom holds — 40 for a 40L barrel. */
+  container_capacity?: number;
+  /** The item representing this product's empty container, credited when one drains. */
+  empty_container_item_id?: string;
   default_attributes?: Record<string, any>;
   attribute_definitions?: InventoryAttributeDefinition[];
   attribute_definition_ids?: string[];
@@ -103,8 +107,20 @@ export const inventoryApi = {
   updateItem: (id: string, data: Partial<InventoryItem>) =>
     apiClient.put<InventoryItem>(`/inventory-items/${id}`, data),
 
+  /**
+   * Pour a source lot into the tank — the balanced refill.
+   *
+   * Cost comes from the lot, so no cost is sent. Provide exactly one of
+   * draw_quantity (measure UOM) or draw_containers (whole barrels).
+   */
+  refillFromLot: (data: {
+    source_stock_lot_id: string;
+    draw_quantity?: number;
+    draw_containers?: number;
+  }) => apiClient.post<{ tank: TankStock; source_lot: StockLot }>("/tank-stocks/refill-from-lot", data),
+
   // Stock Lots
-  getLots: (params?: { category_id?: string; status?: string; grade?: string; warehouse_id?: string; page?: number; attrs?: Record<string, any> }) =>
+  getLots: (params?: { category_id?: string; status?: string; grade?: string; warehouse_id?: string; inventory_item_id?: string; page?: number; attrs?: Record<string, any> }) =>
     apiClient.get<{ data: StockLot[]; current_page: number; last_page: number }>("/stock-lots", { params }),
 
   getAvailableForCutting: (params?: { min_volume_m3?: number; grade?: string }) =>
