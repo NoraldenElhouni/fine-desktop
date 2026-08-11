@@ -103,7 +103,59 @@ export interface ApiErrorPayload {
 export const apiErrorPayload = (err: unknown): ApiErrorPayload | undefined =>
   (err as { response?: { data?: ApiErrorPayload } } | undefined)?.response?.data;
 
+/** Blocks are keyed in from the completed sheet, so only these states accept them. */
+export const BLOCK_ENTRY_STATES: ProductionBatchStatus[] = ["ready_for_grading", "graded"];
+
+/** The lifecycle is strictly linear (Phase 04 §4.4) — one step, no branching. */
+export const NEXT_STATUS: Record<ProductionBatchStatus, ProductionBatchStatus | null> = {
+  planned: "configured",
+  configured: "running",
+  running: "consumed",
+  consumed: "curing",
+  curing: "ready_for_grading",
+  ready_for_grading: "graded",
+  graded: "closed",
+  closed: null,
+};
+
+export interface ConsumptionLineInput {
+  chemical_inventory_item_id: string;
+  quantity_consumed: number;
+}
+
+export interface ConsumptionLine {
+  id: string;
+  chemical_inventory_item_id: string;
+  quantity_consumed: number;
+  unit_cost_at_consumption: number;
+  chemical_item?: { id: string; name: string; sku: string };
+}
+
+export interface ConsumptionReport {
+  id: string;
+  production_batch_id: string;
+  reported_at: string;
+  lines: ConsumptionLine[];
+}
+
+/** The machine's physical pour width (FOAM-01). */
+export const MAX_BUN_WIDTH_M = 2.4;
+
 export const productionApi = {
+  transition: (id: string, status: ProductionBatchStatus) =>
+    apiClient.post<ProductionBatch>(`/production-batches/${id}/transition`, { status }),
+
+  getConsumptionReport: (batchId: string) =>
+    apiClient.get<{ report: ConsumptionReport; material_cost: number }>(
+      `/production-batches/${batchId}/consumption-report`,
+    ),
+
+  recordConsumption: (batchId: string, lines: ConsumptionLineInput[]) =>
+    apiClient.post<{ report: ConsumptionReport; material_cost: number; batch: ProductionBatch }>(
+      `/production-batches/${batchId}/consumption-report`,
+      { lines },
+    ),
+
   getBatches: (params?: { status?: string; page?: number; per_page?: number }) =>
     apiClient.get<{ data: ProductionBatch[]; current_page: number; last_page: number }>(
       "/production-batches",

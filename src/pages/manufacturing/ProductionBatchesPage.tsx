@@ -12,6 +12,7 @@ import {
   ProductionBatch,
   isNonSequentialError,
   apiErrorPayload,
+  MAX_BUN_WIDTH_M,
   NonSequentialOperationError,
 } from "../../api/endpoints/production";
 
@@ -261,11 +262,15 @@ export const ProductionBatchesPage: React.FC = () => {
                     type="number"
                     step="0.001"
                     min="0.001"
+                    max={MAX_BUN_WIDTH_M}
                     required
                     value={form.bun_width_m}
                     onChange={(e) => setForm({ ...form, bun_width_m: e.target.value })}
                     className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
                   />
+                  <p className="text-[10px] text-app-label-tertiary mt-1">
+                    Machine limit {MAX_BUN_WIDTH_M} m
+                  </p>
                 </div>
               </div>
 

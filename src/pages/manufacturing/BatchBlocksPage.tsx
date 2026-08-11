@@ -1,11 +1,40 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, Boxes, Plus, Trash2, AlertTriangle, Save } from "lucide-react";
-import { useProductionBatch, useBatchBlocks, useRegisterBlocks } from "../../hooks/useProduction";
+import { ArrowRight, Boxes, Plus, Trash2, AlertTriangle, Save, Beaker, ChevronLeft } from "lucide-react";
+import {
+  useProductionBatch,
+  useBatchBlocks,
+  useRegisterBlocks,
+  useTransitionBatch,
+  useConsumptionReport,
+  useRecordConsumption,
+} from "../../hooks/useProduction";
 import { useInventoryItems } from "../../hooks/useInventory";
 import { useWarehouses } from "../../hooks/useWarehouses";
-import { BlockGroupInput, apiErrorPayload } from "../../api/endpoints/production";
+import {
+  BlockGroupInput,
+  ConsumptionLineInput,
+  apiErrorPayload,
+  BLOCK_ENTRY_STATES,
+  NEXT_STATUS,
+} from "../../api/endpoints/production";
 import { StockLot } from "../../api/endpoints/inventory";
+
+const STATUS_ORDER = [
+  "planned", "configured", "running", "consumed",
+  "curing", "ready_for_grading", "graded", "closed",
+] as const;
+
+const STATUS_LABEL: Record<string, string> = {
+  planned: "Planned",
+  configured: "Configured",
+  running: "Running",
+  consumed: "Consumed",
+  curing: "Curing",
+  ready_for_grading: "Ready for Grading",
+  graded: "Graded",
+  closed: "Closed",
+};
 
 interface DraftRow {
   key: string;
@@ -43,8 +72,14 @@ export const BatchBlocksPage: React.FC = () => {
   const { data: batch, isLoading: batchLoading } = useProductionBatch(batchId);
   const { data: blocks, isLoading: blocksLoading } = useBatchBlocks(batchId);
   const { data: itemData } = useInventoryItems({ item_type: "foam_block" });
+  const { data: chemicalData } = useInventoryItems({ item_type: "raw_material" });
   const { data: warehouses } = useWarehouses();
+  const { data: consumption } = useConsumptionReport(batchId);
   const registerMutation = useRegisterBlocks();
+  const transitionMutation = useTransitionBatch();
+  const consumptionMutation = useRecordConsumption();
+
+  const [chemLines, setChemLines] = useState<Record<string, string>>({});
 
   const [rows, setRows] = useState<DraftRow[]>([newRow()]);
   const [itemId, setItemId] = useState("");
@@ -52,6 +87,8 @@ export const BatchBlocksPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const bunWidth = batch ? Number(batch.bun_width_m) : 0;
+  const acceptsBlocks = batch ? BLOCK_ENTRY_STATES.includes(batch.status) : false;
+  const nextStatus = batch ? NEXT_STATUS[batch.status] : null;
 
   const rowVolume = (row: DraftRow) => bunWidth * num(row.length_m) * num(row.height_m);
   const rowTotal = (row: DraftRow) => rowVolume(row) * num(row.count);
@@ -70,6 +107,7 @@ export const BatchBlocksPage: React.FC = () => {
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
 
   const canSubmit =
+    acceptsBlocks &&
     Boolean(itemId) &&
     Boolean(warehouseId) &&
     rows.length > 0 &&
@@ -117,6 +155,38 @@ export const BatchBlocksPage: React.FC = () => {
     );
   };
 
+  const advance = () => {
+    if (!batchId || !nextStatus) return;
+    setError(null);
+    transitionMutation.mutate(
+      { id: batchId, status: nextStatus },
+      {
+        onError: (err: unknown) =>
+          setError(apiErrorPayload(err)?.message ?? "Could not advance the batch."),
+      },
+    );
+  };
+
+  const submitConsumption = () => {
+    if (!batchId) return;
+    setError(null);
+
+    const lines: ConsumptionLineInput[] = Object.entries(chemLines)
+      .filter(([, v]) => v !== "")
+      .map(([id, v]) => ({ chemical_inventory_item_id: id, quantity_consumed: num(v) }));
+
+    if (lines.length === 0) return;
+
+    consumptionMutation.mutate(
+      { id: batchId, lines },
+      {
+        onSuccess: () => setChemLines({}),
+        onError: (err: unknown) =>
+          setError(apiErrorPayload(err)?.message ?? "Could not record consumption."),
+      },
+    );
+  };
+
   if (batchLoading || !batch) {
     return (
       <div className="flex h-64 items-center justify-center text-xs text-app-label-secondary">
@@ -157,14 +227,130 @@ export const BatchBlocksPage: React.FC = () => {
         </div>
       )}
 
-      {/* Registration form — mirrors the paper production report */}
+      {/* Lifecycle */}
+      <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {STATUS_ORDER.map((s) => {
+            const reached = STATUS_ORDER.indexOf(s) <= STATUS_ORDER.indexOf(batch.status);
+            const current = s === batch.status;
+            return (
+              <span
+                key={s}
+                className={`px-2 py-1 rounded-full text-[11px] font-semibold ${
+                  current
+                    ? "bg-app-accent text-white"
+                    : reached
+                      ? "bg-app-accent-subtle text-app-accent"
+                      : "bg-app-fill-f1 text-app-label-tertiary"
+                }`}
+              >
+                {STATUS_LABEL[s]}
+              </span>
+            );
+          })}
+
+          {nextStatus && (
+            <button
+              onClick={advance}
+              disabled={transitionMutation.isPending}
+              className="ms-auto flex items-center gap-1.5 rounded-xl bg-app-accent px-3 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              {transitionMutation.isPending ? "Advancing..." : `Advance to ${STATUS_LABEL[nextStatus]}`}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Chemical consumption */}
       <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
+        <div className="border-b border-app-separator px-4 py-3 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-bold text-app-label-primary">Chemical Consumption</h2>
+            <p className="text-xs text-app-label-secondary mt-0.5">
+              Drawn from tank stock at the tank's current average cost, snapshotted at this moment.
+            </p>
+          </div>
+          {consumption && (
+            <span className="text-xs font-mono text-app-label-secondary">
+              Material cost: {Number(consumption.material_cost).toLocaleString()} LYD
+            </span>
+          )}
+        </div>
+
+        {consumption ? (
+          <table className="w-full text-start text-xs">
+            <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
+              <tr>
+                <th className="px-4 py-2 text-start">Chemical</th>
+                <th className="px-4 py-2 text-start">Consumed</th>
+                <th className="px-4 py-2 text-start">Unit Cost at Consumption</th>
+                <th className="px-4 py-2 text-end">Line Cost</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-app-separator">
+              {consumption.report.lines.map((l) => (
+                <tr key={l.id}>
+                  <td className="px-4 py-2">{l.chemical_item?.name ?? l.chemical_item?.sku ?? "—"}</td>
+                  <td className="px-4 py-2 font-mono">{l.quantity_consumed}</td>
+                  <td className="px-4 py-2 font-mono">{l.unit_cost_at_consumption}</td>
+                  <td className="px-4 py-2 text-end font-mono">
+                    {(Number(l.quantity_consumed) * Number(l.unit_cost_at_consumption)).toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="p-4 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {chemicalData?.data.map((c) => (
+                <div key={c.id} className="flex items-center gap-2">
+                  <label className="flex-1 text-xs text-app-label-primary">
+                    {c.name} <span className="text-app-label-tertiary font-mono">({c.sku})</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0"
+                    value={chemLines[c.id] ?? ""}
+                    onChange={(e) => setChemLines({ ...chemLines, [c.id]: e.target.value })}
+                    className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
+                  />
+                </div>
+              ))}
+              {chemicalData?.data.length === 0 && (
+                <p className="text-xs text-app-label-tertiary">No raw material items defined yet.</p>
+              )}
+            </div>
+            <button
+              onClick={submitConsumption}
+              disabled={consumptionMutation.isPending || Object.values(chemLines).every((v) => v === "")}
+              className="flex items-center gap-1.5 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+            >
+              <Beaker className="w-4 h-4" />
+              {consumptionMutation.isPending ? "Recording..." : "Record Consumption"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Registration form — mirrors the paper production report */}
+      <div className={`rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm ${acceptsBlocks ? "" : "opacity-60"}`}>
         <div className="border-b border-app-separator px-4 py-3">
           <h2 className="text-sm font-bold text-app-label-primary">Register Output</h2>
           <p className="text-xs text-app-label-secondary mt-0.5">
             Enter rows as they appear on the production report. Each block row becomes that many
             individually labelled blocks; scrap rows record volume only.
           </p>
+          {!acceptsBlocks && (
+            <p className="mt-2 flex items-start gap-1.5 text-xs text-app-status-yellow">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              Blocks are keyed in after grading. Advance the batch to{" "}
+              <strong>Ready for Grading</strong> first.
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-app-bg-secondary border-b border-app-separator">
