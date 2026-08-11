@@ -128,7 +128,8 @@ export const inventoryApi = {
 
   refillTank: (data: {
     chemical_inventory_item_id: string;
-    operating_unit_id: string;
+    /** @deprecated Ignored by the server — the unit comes from the X-Operating-Unit-ID header. */
+    operating_unit_id?: string;
     refill_quantity: number;
     refill_unit_cost: number;
   }) => apiClient.post<TankStock>("/tank-stocks/refill", data),
@@ -138,7 +139,8 @@ export const inventoryApi = {
     apiClient.get<{ data: StockAdjustmentRequest[] }>("/stock-adjustment-requests", { params }),
 
   createAdjustment: (data: {
-    operating_unit_id: string;
+    /** @deprecated Ignored by the server — the unit comes from the X-Operating-Unit-ID header. */
+    operating_unit_id?: string;
     stock_lot_id: string;
     reason_code: string;
     quantity_delta: number;
