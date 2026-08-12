@@ -7,6 +7,7 @@ import {
   Factory,
   LayoutGrid,
   Package,
+  Scissors,
   ShoppingCart,
   UserCheck,
   Users,
@@ -43,6 +44,7 @@ export const navItems: AppNavItem[] = [
     label: "التصنيع",
     icon: Factory,
   },
+  { id: "cutter", path: "/cutter/orders", label: "التقطيع", icon: Scissors },
   { id: "sales", path: "/sales", label: "المبيعات", icon: Package },
   { id: "reports", path: "/reports", label: "التقارير", icon: BarChart3 },
 ];
@@ -78,7 +80,8 @@ export const getBreadcrumbEntries = (
     normalizedPath.startsWith("/orders/") ||
     normalizedPath.startsWith("/entities/") ||
     normalizedPath.startsWith("/inventory/") ||
-    normalizedPath.startsWith("/manufacturing/batches/")
+    normalizedPath.startsWith("/manufacturing/batches/") ||
+    normalizedPath.startsWith("/cutter/orders/")
   ) {
     entries.push({ path: normalizedPath, label: dynamicLabel });
   }

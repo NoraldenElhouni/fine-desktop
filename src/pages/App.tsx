@@ -13,6 +13,7 @@ import EmployeesRoutes from "../routes/EmployeesRoutes";
 import ExternalEmployersRoutes from "../routes/ExternalEmployersRoutes";
 import { InventoryRoutes } from "../routes/InventoryRoutes";
 import { ManufacturingRoutes } from "../routes/ManufacturingRoutes";
+import { CutterRoutes } from "../routes/CutterRoutes";
 
 import SuppliersPage from "./procurement/SuppliersPage";
 import ImportOrdersPage from "./procurement/ImportOrdersPage";
@@ -40,6 +41,7 @@ const App = () => {
             <Route path="users/*" element={<UsersRoutes />} />
             <Route path="inventory/*" element={<InventoryRoutes />} />
             <Route path="manufacturing/*" element={<ManufacturingRoutes />} />
+            <Route path="cutter/*" element={<CutterRoutes />} />
             <Route
               path="sales"
               element={
