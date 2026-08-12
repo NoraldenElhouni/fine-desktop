@@ -15,6 +15,7 @@ import { InventoryRoutes } from "../routes/InventoryRoutes";
 import { ManufacturingRoutes } from "../routes/ManufacturingRoutes";
 import { CutterRoutes } from "../routes/CutterRoutes";
 import { FurnitureRoutes } from "../routes/FurnitureRoutes";
+import { SalesRoutes } from "../routes/SalesRoutes";
 
 import SuppliersPage from "./procurement/SuppliersPage";
 import ImportOrdersPage from "./procurement/ImportOrdersPage";
@@ -44,15 +45,7 @@ const App = () => {
             <Route path="manufacturing/*" element={<ManufacturingRoutes />} />
             <Route path="cutter/*" element={<CutterRoutes />} />
             <Route path="furniture/*" element={<FurnitureRoutes />} />
-            <Route
-              path="sales"
-              element={
-                <PlaceholderPage
-                  title="المبيعات"
-                  description="سوف تُضاف هنا شاشة المبيعات والطلبات المؤكدة والتسعير."
-                />
-              }
-            />
+            <Route path="sales/*" element={<SalesRoutes />} />
             <Route
               path="reports"
               element={

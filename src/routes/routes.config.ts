@@ -10,6 +10,7 @@ import {
   Package,
   Scissors,
   ShoppingCart,
+  Store,
   UserCheck,
   Users,
   Truck,
@@ -47,7 +48,9 @@ export const navItems: AppNavItem[] = [
   },
   { id: "cutter", path: "/cutter/orders", label: "التقطيع", icon: Scissors },
   { id: "furniture", path: "/furniture/orders", label: "الأثاث", icon: Armchair },
-  { id: "sales", path: "/sales", label: "المبيعات", icon: Package },
+  { id: "sales", path: "/sales/orders", label: "المبيعات", icon: ShoppingCart },
+  { id: "pos", path: "/sales/pos", label: "نقطة البيع", icon: Store },
+  { id: "restock", path: "/sales/restock", label: "التزويد الداخلي", icon: Truck },
   { id: "reports", path: "/reports", label: "التقارير", icon: BarChart3 },
 ];
 
@@ -84,7 +87,8 @@ export const getBreadcrumbEntries = (
     normalizedPath.startsWith("/inventory/") ||
     normalizedPath.startsWith("/manufacturing/batches/") ||
     normalizedPath.startsWith("/cutter/orders/") ||
-    normalizedPath.startsWith("/furniture/orders/")
+    normalizedPath.startsWith("/furniture/orders/") ||
+    normalizedPath.startsWith("/sales/orders/")
   ) {
     entries.push({ path: normalizedPath, label: dynamicLabel });
   }
