@@ -61,6 +61,23 @@ apiClient.interceptors.response.use(
       useServerConfigStore.getState().setServerConnected(false, errMsg);
     }
 
+    // A stored unit id from a different (or reseeded) database makes every
+    // request fail identically. Drop it so the next attempt goes through
+    // unscoped — company-wide roles recover immediately, and unit-scoped users
+    // get a clear "pick a unit" prompt instead of an endless retry loop.
+    if (
+      error.response?.status === 400 &&
+      error.response?.data?.code === "INVALID_OPERATING_UNIT"
+    ) {
+      const { operatingUnitId, setOperatingUnitId } = useServerConfigStore.getState();
+      if (operatingUnitId) {
+        console.warn(
+          `[api] Clearing stale operating unit ${operatingUnitId} — the server does not recognise it.`,
+        );
+        setOperatingUnitId(null);
+      }
+    }
+
     if (error.response?.status === 401) {
       useAuthStore.getState().logout();
     } else if (

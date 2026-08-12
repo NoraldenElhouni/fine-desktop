@@ -33,7 +33,9 @@ export interface ProductionBatch {
   scrap_volume_m3: number;
   next_sequence: number;
   record_version: number;
-  stock_lots_count?: number;
+  /** Serialized blocks only — scrap is counted separately, not folded in. */
+  blocks_count?: number;
+  scrap_lots_count?: number;
   operating_unit?: { id: string; name: string };
   created_at: string;
   updated_at: string;

@@ -173,9 +173,14 @@ export const ProductionBatchesPage: React.FC = () => {
                     {" · "}
                     {batch.formula_params?.conveyor_speed ?? "—"}
                   </td>
-                  <td className="px-4 py-3 font-bold">{batch.stock_lots_count ?? 0}</td>
+                  <td className="px-4 py-3 font-bold">{batch.blocks_count ?? 0}</td>
                   <td className="px-4 py-3 font-mono text-app-label-secondary">
                     {Number(batch.scrap_volume_m3).toFixed(3)} m³
+                    {(batch.scrap_lots_count ?? 0) > 0 && (
+                      <span className="text-app-label-tertiary">
+                        {" "}({batch.scrap_lots_count} lot{batch.scrap_lots_count === 1 ? "" : "s"})
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span className="px-2 py-1 text-xs font-semibold rounded-full bg-app-accent-subtle text-app-accent">
@@ -190,7 +195,7 @@ export const ProductionBatchesPage: React.FC = () => {
                       >
                         <Boxes className="w-3.5 h-3.5" /> Blocks
                       </button>
-                      {(batch.stock_lots_count ?? 0) === 0 && (
+                      {(batch.blocks_count ?? 0) === 0 && (batch.scrap_lots_count ?? 0) === 0 && (
                         <button
                           onClick={() => handleDelete(batch)}
                           className="inline-flex items-center gap-1 rounded-xl border border-app-separator px-2.5 py-1 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 transition-colors"
