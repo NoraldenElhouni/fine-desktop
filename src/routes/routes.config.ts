@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  Armchair,
   BarChart3,
   Boxes,
   Briefcase,
@@ -45,6 +46,7 @@ export const navItems: AppNavItem[] = [
     icon: Factory,
   },
   { id: "cutter", path: "/cutter/orders", label: "التقطيع", icon: Scissors },
+  { id: "furniture", path: "/furniture/orders", label: "الأثاث", icon: Armchair },
   { id: "sales", path: "/sales", label: "المبيعات", icon: Package },
   { id: "reports", path: "/reports", label: "التقارير", icon: BarChart3 },
 ];
@@ -81,7 +83,8 @@ export const getBreadcrumbEntries = (
     normalizedPath.startsWith("/entities/") ||
     normalizedPath.startsWith("/inventory/") ||
     normalizedPath.startsWith("/manufacturing/batches/") ||
-    normalizedPath.startsWith("/cutter/orders/")
+    normalizedPath.startsWith("/cutter/orders/") ||
+    normalizedPath.startsWith("/furniture/orders/")
   ) {
     entries.push({ path: normalizedPath, label: dynamicLabel });
   }

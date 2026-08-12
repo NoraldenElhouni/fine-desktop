@@ -14,6 +14,7 @@ import ExternalEmployersRoutes from "../routes/ExternalEmployersRoutes";
 import { InventoryRoutes } from "../routes/InventoryRoutes";
 import { ManufacturingRoutes } from "../routes/ManufacturingRoutes";
 import { CutterRoutes } from "../routes/CutterRoutes";
+import { FurnitureRoutes } from "../routes/FurnitureRoutes";
 
 import SuppliersPage from "./procurement/SuppliersPage";
 import ImportOrdersPage from "./procurement/ImportOrdersPage";
@@ -42,6 +43,7 @@ const App = () => {
             <Route path="inventory/*" element={<InventoryRoutes />} />
             <Route path="manufacturing/*" element={<ManufacturingRoutes />} />
             <Route path="cutter/*" element={<CutterRoutes />} />
+            <Route path="furniture/*" element={<FurnitureRoutes />} />
             <Route
               path="sales"
               element={
