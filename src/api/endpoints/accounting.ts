@@ -126,29 +126,41 @@ export interface ManualJournalPayload {
   }[];
 }
 
+/**
+ * The desktop shell always pins a unit context, so accounting reads from a
+ * company-wide role pass company_wide=1 to see the whole ledger. The backend
+ * ignores the flag for unit-scoped users.
+ */
 export const accountingApi = {
   getAccounts: () => apiClient.get<{ data: Account[] }>("/accounts"),
 
-  getAccountLedger: (accountId: string, page = 1) =>
-    apiClient.get<Paginated<JournalLine>>(`/accounts/${accountId}/ledger`, { params: { page } }),
+  getAccountLedger: (accountId: string, page = 1, companyWide = false) =>
+    apiClient.get<Paginated<JournalLine>>(`/accounts/${accountId}/ledger`, {
+      params: { page, company_wide: companyWide || undefined },
+    }),
 
-  getJournalEntries: (params?: { from?: string; to?: string; manual_only?: boolean; page?: number }) =>
-    apiClient.get<Paginated<JournalEntry>>("/journal-entries", { params }),
+  getJournalEntries: (params?: {
+    from?: string;
+    to?: string;
+    manual_only?: boolean;
+    page?: number;
+    company_wide?: boolean;
+  }) => apiClient.get<Paginated<JournalEntry>>("/journal-entries", { params }),
 
   getJournalEntry: (id: string) => apiClient.get<JournalEntry>(`/journal-entries/${id}`),
 
   createManualEntry: (payload: ManualJournalPayload) =>
     apiClient.post<JournalEntry>("/journal-entries", payload),
 
-  getTrialBalance: (params?: { operating_unit_id?: string }) =>
+  getTrialBalance: (params?: { operating_unit_id?: string; company_wide?: boolean }) =>
     apiClient.get<TrialBalance>("/reports/trial-balance", { params }),
 
-  getIncomeStatement: (params?: { from?: string; to?: string }) =>
+  getIncomeStatement: (params?: { from?: string; to?: string; company_wide?: boolean }) =>
     apiClient.get<IncomeStatement>("/reports/income-statement", { params }),
 
-  getBalanceSheet: (params?: { as_of?: string }) =>
+  getBalanceSheet: (params?: { as_of?: string; company_wide?: boolean }) =>
     apiClient.get<BalanceSheet>("/reports/balance-sheet", { params }),
 
-  getUnitProfitability: (params?: { from?: string; to?: string }) =>
+  getUnitProfitability: (params?: { from?: string; to?: string; company_wide?: boolean }) =>
     apiClient.get<UnitProfitability>("/reports/unit-profitability", { params }),
 };

@@ -1,5 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { accountingApi } from "../api/endpoints/accounting";
+import { useAuthStore } from "../stores/authStore";
+
+interface RoleWithPivot {
+  pivot?: { operating_unit_id: string | null };
+}
+
+/**
+ * A role bound to no unit (owner, accounting manager) sees the whole company.
+ * The desktop shell always pins a unit context, so accounting queries from
+ * such users pass company_wide=1 — the backend refuses the flag for anyone
+ * else.
+ */
+export function useIsCompanyWide(): boolean {
+  const user = useAuthStore((s) => s.user) as { roles?: RoleWithPivot[] } | null;
+  return Boolean(user?.roles?.some((r) => r.pivot && r.pivot.operating_unit_id === null));
+}
 
 export function useAccounts() {
   return useQuery({
@@ -9,9 +25,11 @@ export function useAccounts() {
 }
 
 export function useAccountLedger(accountId?: string, page = 1) {
+  const companyWide = useIsCompanyWide();
   return useQuery({
-    queryKey: ["accountLedger", accountId, page],
-    queryFn: async () => (await accountingApi.getAccountLedger(accountId as string, page)).data,
+    queryKey: ["accountLedger", accountId, page, companyWide],
+    queryFn: async () =>
+      (await accountingApi.getAccountLedger(accountId as string, page, companyWide)).data,
     enabled: Boolean(accountId),
   });
 }
@@ -22,9 +40,11 @@ export function useJournalEntries(params?: {
   manual_only?: boolean;
   page?: number;
 }) {
+  const companyWide = useIsCompanyWide();
   return useQuery({
-    queryKey: ["journalEntries", params],
-    queryFn: async () => (await accountingApi.getJournalEntries(params)).data,
+    queryKey: ["journalEntries", params, companyWide],
+    queryFn: async () =>
+      (await accountingApi.getJournalEntries({ ...params, company_wide: companyWide || undefined })).data,
   });
 }
 
@@ -44,37 +64,46 @@ export function useCreateManualEntry() {
       qc.invalidateQueries({ queryKey: ["journalEntries"] });
       qc.invalidateQueries({ queryKey: ["accounts"] });
       qc.invalidateQueries({ queryKey: ["trialBalance"] });
+      qc.invalidateQueries({ queryKey: ["accountLedger"] });
     },
   });
 }
 
 export function useTrialBalance(operatingUnitId?: string) {
+  const companyWide = useIsCompanyWide();
   return useQuery({
-    queryKey: ["trialBalance", operatingUnitId],
+    queryKey: ["trialBalance", operatingUnitId, companyWide],
     queryFn: async () =>
-      (await accountingApi.getTrialBalance(
-        operatingUnitId ? { operating_unit_id: operatingUnitId } : undefined,
-      )).data,
+      (await accountingApi.getTrialBalance({
+        operating_unit_id: operatingUnitId,
+        company_wide: (!operatingUnitId && companyWide) || undefined,
+      })).data,
   });
 }
 
 export function useIncomeStatement(params?: { from?: string; to?: string }) {
+  const companyWide = useIsCompanyWide();
   return useQuery({
-    queryKey: ["incomeStatement", params],
-    queryFn: async () => (await accountingApi.getIncomeStatement(params)).data,
+    queryKey: ["incomeStatement", params, companyWide],
+    queryFn: async () =>
+      (await accountingApi.getIncomeStatement({ ...params, company_wide: companyWide || undefined })).data,
   });
 }
 
 export function useBalanceSheet(asOf?: string) {
+  const companyWide = useIsCompanyWide();
   return useQuery({
-    queryKey: ["balanceSheet", asOf],
-    queryFn: async () => (await accountingApi.getBalanceSheet(asOf ? { as_of: asOf } : undefined)).data,
+    queryKey: ["balanceSheet", asOf, companyWide],
+    queryFn: async () =>
+      (await accountingApi.getBalanceSheet({ as_of: asOf, company_wide: companyWide || undefined })).data,
   });
 }
 
 export function useUnitProfitability(params?: { from?: string; to?: string }) {
+  const companyWide = useIsCompanyWide();
   return useQuery({
-    queryKey: ["unitProfitability", params],
-    queryFn: async () => (await accountingApi.getUnitProfitability(params)).data,
+    queryKey: ["unitProfitability", params, companyWide],
+    queryFn: async () =>
+      (await accountingApi.getUnitProfitability({ ...params, company_wide: companyWide || undefined })).data,
   });
 }
