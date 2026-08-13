@@ -5,7 +5,9 @@ import {
   BookOpenText,
   Boxes,
   Briefcase,
+  Building,
   Building2,
+  Droplets,
   Factory,
   LayoutGrid,
   ListTree,
@@ -57,6 +59,8 @@ export const navItems: AppNavItem[] = [
   { id: "journal", path: "/accounting/journal", label: "دفتر اليومية", icon: BookOpenText },
   { id: "accounts", path: "/accounting/accounts", label: "شجرة الحسابات", icon: ListTree },
   { id: "trial-balance", path: "/accounting/trial-balance", label: "ميزان المراجعة", icon: Scale },
+  { id: "overhead", path: "/accounting/overhead", label: "المصاريف العمومية", icon: Droplets },
+  { id: "fixed-assets", path: "/accounting/assets", label: "الأصول الثابتة", icon: Building },
   { id: "reports", path: "/reports", label: "التقارير المالية", icon: BarChart3 },
 ];
 
