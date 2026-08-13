@@ -4,7 +4,9 @@ import LoginPage from "./auth/LoginPage";
 import ChangePasswordPage from "./auth/ChangePasswordPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import Dashboard from "./Dashboard";
+import { OwnerDashboardPage } from "./OwnerDashboardPage";
 import { FinancialReportsPage } from "./accounting/FinancialReportsPage";
+import { useIsCompanyWide } from "../hooks/useAccounting";
 import OrdersRoutes from "../routes/OrdersRoutes";
 import UsersRoutes from "../routes/UsersRoutes";
 import ClientsRoutes from "../routes/ClientsRoutes";
@@ -23,6 +25,16 @@ import SuppliersPage from "./procurement/SuppliersPage";
 import ImportOrdersPage from "./procurement/ImportOrdersPage";
 import TreasuryPage from "./treasury/TreasuryPage";
 
+/**
+ * The landing screen depends on who is looking: a company-wide role gets the
+ * owner oversight dashboard, unit staff keep their operational one.
+ */
+const HomeDashboard = () => {
+  const isCompanyWide = useIsCompanyWide();
+
+  return isCompanyWide ? <OwnerDashboardPage /> : <Dashboard />;
+};
+
 const App = () => {
   return (
     <Router>
@@ -33,7 +45,7 @@ const App = () => {
           <Route path="/change-password" element={<ChangePasswordPage />} />
 
           <Route path="/" element={<Layout />}>
-            <Route index element={<Dashboard />} />
+            <Route index element={<HomeDashboard />} />
             <Route path="entities/*" element={<EntitiesRoutes />} />
             <Route path="suppliers" element={<SuppliersPage />} />
             <Route path="import-orders" element={<ImportOrdersPage />} />
