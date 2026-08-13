@@ -17,6 +17,7 @@ import { CutterRoutes } from "../routes/CutterRoutes";
 import { FurnitureRoutes } from "../routes/FurnitureRoutes";
 import { SalesRoutes } from "../routes/SalesRoutes";
 import { AccountingRoutes } from "../routes/AccountingRoutes";
+import { HrRoutes } from "../routes/HrRoutes";
 
 import SuppliersPage from "./procurement/SuppliersPage";
 import ImportOrdersPage from "./procurement/ImportOrdersPage";
@@ -48,6 +49,7 @@ const App = () => {
             <Route path="furniture/*" element={<FurnitureRoutes />} />
             <Route path="sales/*" element={<SalesRoutes />} />
             <Route path="accounting/*" element={<AccountingRoutes />} />
+            <Route path="hr/*" element={<HrRoutes />} />
             <Route path="reports" element={<FinancialReportsPage />} />
           </Route>
         </Route>
