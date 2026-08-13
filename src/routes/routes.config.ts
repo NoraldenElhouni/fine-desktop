@@ -2,12 +2,15 @@ import type { LucideIcon } from "lucide-react";
 import {
   Armchair,
   BarChart3,
+  BookOpenText,
   Boxes,
   Briefcase,
   Building2,
   Factory,
   LayoutGrid,
+  ListTree,
   Package,
+  Scale,
   Scissors,
   ShoppingCart,
   Store,
@@ -51,7 +54,10 @@ export const navItems: AppNavItem[] = [
   { id: "sales", path: "/sales/orders", label: "المبيعات", icon: ShoppingCart },
   { id: "pos", path: "/sales/pos", label: "نقطة البيع", icon: Store },
   { id: "restock", path: "/sales/restock", label: "التزويد الداخلي", icon: Truck },
-  { id: "reports", path: "/reports", label: "التقارير", icon: BarChart3 },
+  { id: "journal", path: "/accounting/journal", label: "دفتر اليومية", icon: BookOpenText },
+  { id: "accounts", path: "/accounting/accounts", label: "شجرة الحسابات", icon: ListTree },
+  { id: "trial-balance", path: "/accounting/trial-balance", label: "ميزان المراجعة", icon: Scale },
+  { id: "reports", path: "/reports", label: "التقارير المالية", icon: BarChart3 },
 ];
 
 export const getBreadcrumbEntries = (

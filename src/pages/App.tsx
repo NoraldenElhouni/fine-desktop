@@ -4,7 +4,7 @@ import LoginPage from "./auth/LoginPage";
 import ChangePasswordPage from "./auth/ChangePasswordPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import Dashboard from "./Dashboard";
-import PlaceholderPage from "./PlaceholderPage";
+import { FinancialReportsPage } from "./accounting/FinancialReportsPage";
 import OrdersRoutes from "../routes/OrdersRoutes";
 import UsersRoutes from "../routes/UsersRoutes";
 import ClientsRoutes from "../routes/ClientsRoutes";
@@ -16,6 +16,7 @@ import { ManufacturingRoutes } from "../routes/ManufacturingRoutes";
 import { CutterRoutes } from "../routes/CutterRoutes";
 import { FurnitureRoutes } from "../routes/FurnitureRoutes";
 import { SalesRoutes } from "../routes/SalesRoutes";
+import { AccountingRoutes } from "../routes/AccountingRoutes";
 
 import SuppliersPage from "./procurement/SuppliersPage";
 import ImportOrdersPage from "./procurement/ImportOrdersPage";
@@ -46,15 +47,8 @@ const App = () => {
             <Route path="cutter/*" element={<CutterRoutes />} />
             <Route path="furniture/*" element={<FurnitureRoutes />} />
             <Route path="sales/*" element={<SalesRoutes />} />
-            <Route
-              path="reports"
-              element={
-                <PlaceholderPage
-                  title="التقارير"
-                  description="سوف تُعرض هنا مؤشرات الأداء الرئيسية والبيانات التشغيلية."
-                />
-              }
-            />
+            <Route path="accounting/*" element={<AccountingRoutes />} />
+            <Route path="reports" element={<FinancialReportsPage />} />
           </Route>
         </Route>
       </Routes>

@@ -1,0 +1,330 @@
+import React, { useState } from "react";
+import { BookOpenText, Plus, AlertTriangle, Trash2, ChevronDown, ChevronUp, PencilLine } from "lucide-react";
+import { useJournalEntries, useCreateManualEntry, useAccounts } from "../../hooks/useAccounting";
+import { apiErrorPayload } from "../../api/endpoints/production";
+import type { JournalEntry } from "../../api/endpoints/accounting";
+
+const fmt = (v: number | string) =>
+  Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+const num = (v: string): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+interface FormLine {
+  key: string;
+  account_code: string;
+  side: "debit" | "credit";
+  amount: string;
+  memo: string;
+}
+
+const emptyLine = (side: "debit" | "credit"): FormLine => ({
+  key: Math.random().toString(36).slice(2),
+  account_code: "",
+  side,
+  amount: "",
+  memo: "",
+});
+
+export const JournalEntriesPage: React.FC = () => {
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [manualOnly, setManualOnly] = useState(false);
+  const [page, setPage] = useState(1);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [description, setDescription] = useState("");
+  const [entryDate, setEntryDate] = useState("");
+  const [lines, setLines] = useState<FormLine[]>([emptyLine("debit"), emptyLine("credit")]);
+
+  const { data: entries, isLoading } = useJournalEntries({
+    from: from || undefined,
+    to: to || undefined,
+    manual_only: manualOnly || undefined,
+    page,
+  });
+  const { data: accounts } = useAccounts();
+  const createMutation = useCreateManualEntry();
+
+  const totalDebit = lines.reduce((s, l) => s + (l.side === "debit" ? num(l.amount) : 0), 0);
+  const totalCredit = lines.reduce((s, l) => s + (l.side === "credit" ? num(l.amount) : 0), 0);
+  const isBalanced = Math.abs(totalDebit - totalCredit) < 0.0001 && totalDebit > 0;
+
+  const patchLine = (key: string, patch: Partial<FormLine>) =>
+    setLines(lines.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    createMutation.mutate(
+      {
+        description,
+        entry_date: entryDate || undefined,
+        lines: lines.map((l) => ({
+          account_code: l.account_code,
+          [l.side]: num(l.amount),
+          memo: l.memo || undefined,
+        })),
+      },
+      {
+        onSuccess: () => {
+          setShowForm(false);
+          setDescription("");
+          setEntryDate("");
+          setLines([emptyLine("debit"), emptyLine("credit")]);
+        },
+        onError: (err) => setError(apiErrorPayload(err)?.message ?? "تعذر ترحيل القيد."),
+      },
+    );
+  };
+
+  const sourceLabel = (entry: JournalEntry) =>
+    entry.is_manual ? "قيد يدوي" : entry.source_document_type ?? "—";
+
+  return (
+    <div className="space-y-6 p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-app-label-primary flex items-center gap-2">
+            <BookOpenText className="w-7 h-7 text-app-accent" />
+            دفتر اليومية (Journal)
+          </h1>
+          <p className="text-xs text-app-label-secondary mt-1">
+            كل قيد هنا مُرحّل تلقائيًا من عملية تشغيلية أو مُدخل يدويًا كتسوية. القيود المؤتمتة للقراءة فقط.
+          </p>
+        </div>
+        <button
+          onClick={() => { setShowForm(true); setError(null); }}
+          className="flex items-center gap-1.5 rounded-xl bg-app-accent px-3 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90"
+        >
+          <PencilLine className="w-4 h-4" /> قيد تسوية يدوي
+        </button>
+      </div>
+
+      {error && !showForm && (
+        <div className="flex items-start gap-2 rounded-2xl border border-app-status-danger/30 bg-app-status-danger/10 p-4 text-xs text-app-status-danger">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-xs text-app-label-secondary">
+          من
+          <input
+            type="date" value={from}
+            onChange={(e) => { setFrom(e.target.value); setPage(1); }}
+            className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
+          />
+        </label>
+        <label className="flex items-center gap-2 text-xs text-app-label-secondary">
+          إلى
+          <input
+            type="date" value={to}
+            onChange={(e) => { setTo(e.target.value); setPage(1); }}
+            className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
+          />
+        </label>
+        <label className="flex items-center gap-1.5 text-xs font-semibold text-app-label-secondary">
+          <input
+            type="checkbox" checked={manualOnly}
+            onChange={(e) => { setManualOnly(e.target.checked); setPage(1); }}
+            className="accent-app-accent"
+          />
+          القيود اليدوية فقط
+        </label>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
+        {isLoading ? (
+          <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">جارٍ التحميل…</div>
+        ) : (
+          <div className="divide-y divide-app-separator">
+            {entries?.data.map((entry) => (
+              <div key={entry.id}>
+                <button
+                  onClick={() => setExpanded(expanded === entry.id ? null : entry.id)}
+                  className="w-full flex flex-wrap items-center gap-3 p-4 text-start hover:bg-app-fill-f1"
+                >
+                  <span className="font-mono font-bold text-app-accent text-sm">{entry.reference}</span>
+                  <span className="text-xs font-mono text-app-label-secondary">{entry.entry_date?.slice(0, 10)}</span>
+                  <span className="text-xs text-app-label-primary">{entry.description}</span>
+                  <span className={`px-2 py-1 text-[10px] font-bold rounded-full ${entry.is_manual ? "bg-app-status-yellow/15 text-app-status-yellow" : "bg-app-accent-subtle text-app-accent"}`}>
+                    {sourceLabel(entry)}
+                  </span>
+                  <span className="ms-auto text-app-label-tertiary">
+                    {expanded === entry.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </span>
+                </button>
+
+                {expanded === entry.id && (
+                  <div className="px-4 pb-4">
+                    <table className="w-full text-xs">
+                      <thead className="text-app-label-secondary border-b border-app-separator">
+                        <tr>
+                          <th className="px-2 py-1.5 text-start font-bold">الحساب</th>
+                          <th className="px-2 py-1.5 text-start font-bold">البيان</th>
+                          <th className="px-2 py-1.5 text-end font-bold">مدين</th>
+                          <th className="px-2 py-1.5 text-end font-bold">دائن</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-app-separator">
+                        {entry.lines?.map((line) => (
+                          <tr key={line.id}>
+                            <td className="px-2 py-1.5">
+                              <span className="font-mono font-bold">{line.account?.account_code}</span>
+                              <span className="ms-2 text-app-label-secondary">{line.account?.name}</span>
+                            </td>
+                            <td className="px-2 py-1.5 text-app-label-secondary">{line.memo ?? ""}</td>
+                            <td className="px-2 py-1.5 text-end font-mono">{Number(line.debit) > 0 ? fmt(line.debit) : ""}</td>
+                            <td className="px-2 py-1.5 text-end font-mono">{Number(line.credit) > 0 ? fmt(line.credit) : ""}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ))}
+            {entries?.data.length === 0 && (
+              <div className="p-10 text-center text-xs text-app-label-tertiary">لا توجد قيود في هذه الفترة.</div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {entries && entries.last_page > 1 && (
+        <div className="flex items-center justify-center gap-3 text-xs">
+          <button
+            disabled={page <= 1}
+            onClick={() => setPage(page - 1)}
+            className="rounded-xl border border-app-separator px-3 py-1.5 font-semibold text-app-label-secondary hover:bg-app-fill-f1 disabled:opacity-40"
+          >
+            السابق
+          </button>
+          <span className="font-mono text-app-label-secondary">{page} / {entries.last_page}</span>
+          <button
+            disabled={page >= entries.last_page}
+            onClick={() => setPage(page + 1)}
+            className="rounded-xl border border-app-separator px-3 py-1.5 font-semibold text-app-label-secondary hover:bg-app-fill-f1 disabled:opacity-40"
+          >
+            التالي
+          </button>
+        </div>
+      )}
+
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-app-bg-primary rounded-2xl max-w-2xl w-full p-6 border border-app-separator shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-app-label-primary">قيد تسوية يدوي</h3>
+            <p className="text-xs text-app-label-secondary">
+              للتصحيحات فقط (ACC-04). لن يُقبل القيد ما لم يتساوَ طرفاه.
+            </p>
+
+            {error && (
+              <div className="flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <form onSubmit={submit} className="space-y-3">
+              <input
+                type="text" required placeholder="وصف القيد — سبب التسوية"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs border-app-separator focus:border-app-accent focus:outline-none"
+              />
+              <label className="flex items-center gap-2 text-xs text-app-label-secondary">
+                تاريخ القيد (اختياري — اليوم افتراضيًا)
+                <input
+                  type="date" value={entryDate} max={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => setEntryDate(e.target.value)}
+                  className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
+                />
+              </label>
+
+              {lines.map((l) => (
+                <div key={l.key} className="flex gap-2 items-center">
+                  <select
+                    required value={l.account_code}
+                    onChange={(e) => patchLine(l.key, { account_code: e.target.value })}
+                    className="flex-1 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
+                  >
+                    <option value="">الحساب…</option>
+                    {accounts?.map((a) => (
+                      <option key={a.id} value={a.account_code}>{a.account_code} — {a.name}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={l.side}
+                    onChange={(e) => patchLine(l.key, { side: e.target.value as FormLine["side"] })}
+                    className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
+                  >
+                    <option value="debit">مدين</option>
+                    <option value="credit">دائن</option>
+                  </select>
+                  <input
+                    type="number" step="0.0001" min="0.0001" required placeholder="المبلغ"
+                    value={l.amount}
+                    onChange={(e) => patchLine(l.key, { amount: e.target.value })}
+                    className="w-28 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
+                  />
+                  <input
+                    type="text" placeholder="بيان"
+                    value={l.memo}
+                    onChange={(e) => patchLine(l.key, { memo: e.target.value })}
+                    className="w-32 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
+                  />
+                  {lines.length > 2 && (
+                    <button
+                      type="button"
+                      onClick={() => setLines(lines.filter((x) => x.key !== l.key))}
+                      className="p-1 text-app-label-tertiary hover:text-app-status-danger"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setLines([...lines, emptyLine("credit")])}
+                className="flex items-center gap-1 text-xs font-semibold text-app-accent hover:opacity-80"
+              >
+                <Plus className="w-3.5 h-3.5" /> إضافة سطر
+              </button>
+
+              <div className={`flex justify-between rounded-xl px-4 py-2 text-xs font-bold font-mono ${isBalanced ? "bg-app-status-positive/10 text-app-status-positive" : "bg-app-status-yellow/15 text-app-status-yellow"}`}>
+                <span>مدين: {fmt(totalDebit)}</span>
+                <span>دائن: {fmt(totalCredit)}</span>
+                <span>{isBalanced ? "متوازن" : "غير متوازن"}</span>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-app-separator">
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  disabled={createMutation.isPending || !isBalanced || lines.some((l) => !l.account_code)}
+                  className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
+                >
+                  {createMutation.isPending ? "جارٍ الترحيل…" : "ترحيل القيد"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
