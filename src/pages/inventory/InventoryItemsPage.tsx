@@ -2,13 +2,15 @@ import React, { useState } from "react";
 import { useInventoryItems, useCreateInventoryItem } from "../../hooks/useInventory";
 import { useItemCategories, useAttributeLibrary } from "../../hooks/useCategories";
 import { InventoryItem } from "../../api/endpoints/inventory";
-import { Package, Plus, Search, Filter, Tags, Sliders } from "lucide-react";
+import { Package, PackagePlus, Plus, Search, Filter, Tags, Sliders } from "lucide-react";
+import { StockIntakeModal } from "./StockIntakeModal";
 
 export const InventoryItemsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isIntakeOpen, setIsIntakeOpen] = useState(false);
 
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
@@ -72,12 +74,20 @@ export const InventoryItemsPage: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all active:scale-95"
-        >
-          <Plus className="w-4 h-4" /> Add Inventory Item
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsIntakeOpen(true)}
+            className="flex items-center gap-2 rounded-xl border border-app-accent px-4 py-2 text-xs font-bold text-app-accent hover:bg-app-accent-subtle transition-all active:scale-95"
+          >
+            <PackagePlus className="w-4 h-4" /> استلام مخزون
+          </button>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all active:scale-95"
+          >
+            <Plus className="w-4 h-4" /> Add Inventory Item
+          </button>
+        </div>
       </div>
 
       {/* Filter Bar */}
@@ -347,6 +357,10 @@ export const InventoryItemsPage: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {isIntakeOpen && (
+        <StockIntakeModal items={itemData?.data ?? []} onClose={() => setIsIntakeOpen(false)} />
       )}
     </div>
   );

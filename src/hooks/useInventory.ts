@@ -31,6 +31,20 @@ export function useStockLots(params?: { category_id?: string; status?: string; g
   });
 }
 
+export function useStockIntake() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Parameters<typeof inventoryApi.intakeLot>[0]) => inventoryApi.intakeLot(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["stockLots"] });
+      queryClient.invalidateQueries({ queryKey: ["inventoryValuation"] });
+      queryClient.invalidateQueries({ queryKey: ["journalEntries"] });
+      queryClient.invalidateQueries({ queryKey: ["trialBalance"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+    },
+  });
+}
+
 export function useAvailableForCutting(params?: { min_volume_m3?: number; grade?: string }) {
   return useQuery({
     queryKey: ["availableForCutting", params],

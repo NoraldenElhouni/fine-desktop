@@ -129,6 +129,17 @@ export const inventoryApi = {
   createLot: (data: Partial<StockLot>) =>
     apiClient.post<StockLot>("/stock-lots", data),
 
+  /** Goods intake: creates the lot, the INV-06 movement and the journal. */
+  intakeLot: (data: {
+    inventory_item_id: string;
+    warehouse_id: string;
+    lot_number: string;
+    quantity: number;
+    unit_cost: number;
+    source: "opening_balance" | "purchase_cash" | "purchase_credit" | "import_receipt";
+    import_order_id?: string;
+  }) => apiClient.post<StockLot>("/stock-lots/intake", data),
+
   processCutRemnant: (
     id: string,
     data: {
