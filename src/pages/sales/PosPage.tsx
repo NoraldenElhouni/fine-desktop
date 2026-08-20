@@ -15,6 +15,7 @@ import { usePosCheckout, usePosDailyReport } from "../../hooks/useSales";
 import { useInventoryItems } from "../../hooks/useInventory";
 import { SalesOrder } from "../../api/endpoints/sales";
 import { apiErrorPayload } from "../../api/endpoints/production";
+import { toast } from "../../stores/toastStore";
 import { PosReceiptModal } from "../../components/pos/PosReceiptModal";
 import { PosDailyCloseModal } from "../../components/pos/PosDailyCloseModal";
 
@@ -96,6 +97,7 @@ export const PosPage: React.FC = () => {
           setLastCashReceived(method === "cash" && paidAmount > 0 ? paidAmount : undefined);
           setCart([]);
           setCashReceived("");
+          toast.success(`تمت عملية البيع ${res.data.order_number} بنجاح`);
         },
         onError: (err: unknown) =>
           setError(apiErrorPayload(err)?.message ?? "تعذر إتمام عملية البيع."),

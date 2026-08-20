@@ -116,7 +116,7 @@ export const Dashboard: React.FC = () => {
 
         {/* Active Production Batches */}
         <div
-          onClick={() => navigate("/manufacturing/foam/batches")}
+          onClick={() => navigate("/manufacturing/batches")}
           className="group cursor-pointer rounded-2xl border border-app-separator bg-app-bg-primary p-5 shadow-sm hover:border-app-accent/40 transition-all"
         >
           <div className="flex items-center justify-between">
@@ -139,7 +139,7 @@ export const Dashboard: React.FC = () => {
 
         {/* Available Stock Lots */}
         <div
-          onClick={() => navigate("/inventory/lots")}
+          onClick={() => navigate("/inventory/ledger")}
           className="group cursor-pointer rounded-2xl border border-app-separator bg-app-bg-primary p-5 shadow-sm hover:border-app-accent/40 transition-all"
         >
           <div className="flex items-center justify-between">
@@ -162,7 +162,7 @@ export const Dashboard: React.FC = () => {
 
         {/* Pending Restock Requests */}
         <div
-          onClick={() => navigate("/sales/restock-requests")}
+          onClick={() => navigate("/sales/restock")}
           className="group cursor-pointer rounded-2xl border border-app-separator bg-app-bg-primary p-5 shadow-sm hover:border-app-accent/40 transition-all"
         >
           <div className="flex items-center justify-between">
@@ -204,7 +204,7 @@ export const Dashboard: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => navigate("/manufacturing/foam/batches")}
+            onClick={() => navigate("/manufacturing/batches")}
             className="flex flex-col items-center text-center p-4 rounded-2xl border border-app-separator bg-app-bg-primary hover:border-app-accent hover:bg-app-fill-f1 transition-all group"
           >
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-app-status-info/15 text-app-status-info group-hover:scale-110 transition-transform mb-3">
@@ -216,7 +216,7 @@ export const Dashboard: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => navigate("/cutter/work-orders")}
+            onClick={() => navigate("/cutter/orders")}
             className="flex flex-col items-center text-center p-4 rounded-2xl border border-app-separator bg-app-bg-primary hover:border-app-accent hover:bg-app-fill-f1 transition-all group"
           >
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-app-status-warning/15 text-app-status-warning group-hover:scale-110 transition-transform mb-3">
@@ -228,7 +228,7 @@ export const Dashboard: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => navigate("/inventory/movements")}
+            onClick={() => navigate("/inventory/ledger")}
             className="flex flex-col items-center text-center p-4 rounded-2xl border border-app-separator bg-app-bg-primary hover:border-app-accent hover:bg-app-fill-f1 transition-all group"
           >
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-app-status-positive/15 text-app-status-positive group-hover:scale-110 transition-transform mb-3">
@@ -265,7 +265,7 @@ export const Dashboard: React.FC = () => {
           </div>
           <button
             type="button"
-            onClick={() => navigate("/manufacturing/foam/batches")}
+            onClick={() => navigate("/manufacturing/batches")}
             className="flex items-center gap-1 text-xs font-bold text-app-accent hover:underline"
           >
             <span>عرض كافة التشغيلات</span>
@@ -278,7 +278,7 @@ export const Dashboard: React.FC = () => {
             recentBatches.map((batch) => (
               <div
                 key={batch.id}
-                onClick={() => navigate(`/manufacturing/foam/batches/${batch.id}`)}
+                onClick={() => navigate(`/manufacturing/batches/${batch.id}`)}
                 className="flex items-center justify-between py-3.5 px-2 hover:bg-app-fill-f1 rounded-xl cursor-pointer transition-colors"
               >
                 <div className="flex items-center gap-3">

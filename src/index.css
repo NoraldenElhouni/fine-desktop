@@ -37,6 +37,39 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Printing a POS receipt or Z-report must emit ONLY the .print-area content —
+   never the app chrome behind the modal. Visibility (not display) keeps the
+   area's layout intact while everything else vanishes. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+
+  .print-area {
+    position: absolute !important;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* The app behind the receipt must not add height (blank pages). */
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+}
+
 .icon-chevron-forward {
   transition: transform 0.2s ease;
 }

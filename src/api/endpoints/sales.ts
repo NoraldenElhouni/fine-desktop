@@ -85,6 +85,19 @@ export interface PosDailyReport {
   by_method: Record<string, { count: number; total: number }>;
 }
 
+export interface PosDailyClose {
+  id: string;
+  close_date: string;
+  expected_cash: string;
+  counted_cash: string;
+  difference: string;
+  sales_count: number;
+  total_sales: string;
+  notes?: string | null;
+  closed_by?: { id: string; name: string } | null;
+  created_at: string;
+}
+
 export const salesApi = {
   getOrders: (params?: { status?: string; channel?: string; buyer_type?: string; page?: number }) =>
     apiClient.get<{ data: SalesOrder[]; total: number }>("/sales-orders", { params }),
@@ -127,6 +140,12 @@ export const salesApi = {
 
   posDailyReport: (date?: string) =>
     apiClient.get<PosDailyReport>("/pos/daily-report", { params: { date } }),
+
+  posDailyClose: (date?: string) =>
+    apiClient.get<{ data: PosDailyClose | null }>("/pos/daily-close", { params: { date } }),
+
+  savePosDailyClose: (data: { counted_cash: number; date?: string; notes?: string }) =>
+    apiClient.post<PosDailyClose>("/pos/daily-close", data),
 };
 
 export interface RestockRequest {

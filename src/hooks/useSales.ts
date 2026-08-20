@@ -92,6 +92,22 @@ export function usePosDailyReport(date?: string) {
   });
 }
 
+export function usePosDailyClose(date?: string, enabled = true) {
+  return useQuery({
+    queryKey: ["posDailyClose", date],
+    queryFn: async () => (await salesApi.posDailyClose(date)).data.data,
+    enabled,
+  });
+}
+
+export function useSavePosDailyClose() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: salesApi.savePosDailyClose,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["posDailyClose"] }),
+  });
+}
+
 export function useRestockRequests(status?: string) {
   return useQuery({
     queryKey: ["restockRequests", status],

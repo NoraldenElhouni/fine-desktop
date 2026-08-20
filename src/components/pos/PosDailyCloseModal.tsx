@@ -1,6 +1,9 @@
 import React, { useState } from "react";
-import { DollarSign, Printer, X, CheckCircle2, AlertCircle, TrendingUp, CreditCard, Banknote } from "lucide-react";
+import { DollarSign, Printer, X, CheckCircle2, AlertCircle, TrendingUp, CreditCard, Banknote, Save } from "lucide-react";
 import { PosDailyReport } from "../../api/endpoints/sales";
+import { usePosDailyClose, useSavePosDailyClose } from "../../hooks/useSales";
+import { apiErrorPayload } from "../../api/endpoints/production";
+import { toast } from "../../stores/toastStore";
 
 interface PosDailyCloseModalProps {
   isOpen: boolean;
@@ -17,6 +20,9 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
 }) => {
   const [countedCash, setCountedCash] = useState<string>("");
 
+  const { data: savedClose } = usePosDailyClose(undefined, isOpen);
+  const saveClose = useSavePosDailyClose();
+
   if (!isOpen) {
     return null;
   }
@@ -28,9 +34,25 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
   const cashMethod = report?.by_method?.["cash"] || { count: 0, total: 0 };
   const cardMethod = report?.by_method?.["card"] || { count: 0, total: 0 };
 
-  const expectedCash = Number(cashMethod.total || 0);
-  const counted = countedCash.trim() !== "" ? Number(countedCash) : null;
+  const expectedCash = savedClose ? Number(savedClose.expected_cash) : Number(cashMethod.total || 0);
+  const counted = savedClose
+    ? Number(savedClose.counted_cash)
+    : countedCash.trim() !== "" ? Number(countedCash) : null;
   const difference = counted !== null ? counted - expectedCash : null;
+
+  const handleSave = () => {
+    if (counted === null || savedClose || saveClose.isPending) {
+      return;
+    }
+    saveClose.mutate(
+      { counted_cash: counted },
+      { onSuccess: () => toast.success("تم حفظ إغلاق الصندوق اليومي") },
+    );
+  };
+
+  const saveError = saveClose.isError
+    ? apiErrorPayload(saveClose.error)?.message || "تعذر حفظ إغلاق الصندوق"
+    : null;
 
   return (
     <div
@@ -65,7 +87,7 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-5 print:p-0">
+        <div className="print-area flex-1 overflow-y-auto p-5 space-y-5 print:p-0">
           {isLoading ? (
             <div className="py-12 text-center text-xs text-app-label-secondary">
               جاري تحميل تقرير الصندوق...
@@ -154,17 +176,40 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
                     <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
                       النقد الفعلي المعدود بالدرج
                     </label>
-                    <input
-                      type="number"
-                      step="1"
-                      min="0"
-                      placeholder="أدخل المبلغ المعدود..."
-                      value={countedCash}
-                      onChange={(e) => setCountedCash(e.target.value)}
-                      className="w-full rounded-xl border border-app-separator bg-app-bg-primary px-3 py-2 text-xs font-mono text-app-label-primary focus:border-app-accent focus:outline-none"
-                    />
+                    {savedClose ? (
+                      <div className="w-full rounded-xl border border-app-separator bg-app-bg-primary px-3 py-2 text-xs font-mono font-bold text-app-label-primary">
+                        {Number(savedClose.counted_cash).toLocaleString()} د.ل
+                      </div>
+                    ) : (
+                      <input
+                        type="number"
+                        step="1"
+                        min="0"
+                        placeholder="أدخل المبلغ المعدود..."
+                        value={countedCash}
+                        onChange={(e) => setCountedCash(e.target.value)}
+                        className="w-full rounded-xl border border-app-separator bg-app-bg-primary px-3 py-2 text-xs font-mono text-app-label-primary focus:border-app-accent focus:outline-none"
+                      />
+                    )}
                   </div>
                 </div>
+
+                {/* Saved-close confirmation / save error */}
+                {savedClose && (
+                  <div className="flex items-center gap-2 rounded-xl bg-app-status-info/15 border border-app-status-info/30 p-3 text-xs font-bold text-app-status-info print:hidden">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    <span>
+                      تم إغلاق صندوق اليوم وحفظه
+                      {savedClose.closed_by?.name ? ` بواسطة ${savedClose.closed_by.name}` : ""}.
+                    </span>
+                  </div>
+                )}
+                {saveError && (
+                  <div className="flex items-center gap-2 rounded-xl bg-app-status-danger/15 border border-app-status-danger/30 p-3 text-xs font-bold text-app-status-danger print:hidden">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <span>{saveError}</span>
+                  </div>
+                )}
 
                 {/* Difference Status */}
                 {difference !== null && (
@@ -207,6 +252,17 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
           >
             إغلاق
           </button>
+          {!savedClose && (
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={counted === null || saveClose.isPending}
+              className="flex items-center gap-2 rounded-xl bg-app-status-positive px-5 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Save className="h-4 w-4" />
+              {saveClose.isPending ? "جاري الحفظ..." : "تأكيد وحفظ الإغلاق"}
+            </button>
+          )}
           <button
             type="button"
             onClick={handlePrint}

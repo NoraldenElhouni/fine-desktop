@@ -53,7 +53,7 @@ export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({
         {/* Printable Receipt Paper Container */}
         <div
           id="pos-receipt-print-area"
-          className="flex-1 overflow-y-auto p-6 bg-white text-black font-mono text-xs space-y-4 print:p-0 print:m-0 print:overflow-visible"
+          className="print-area flex-1 overflow-y-auto p-6 bg-white text-black font-mono text-xs space-y-4 print:p-0 print:m-0 print:overflow-visible"
         >
           {/* Receipt Header */}
           <div className="text-center space-y-1 border-b border-dashed border-gray-300 pb-3">
