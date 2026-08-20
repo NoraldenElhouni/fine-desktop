@@ -29,6 +29,7 @@ import {
   executePaymentRequest,
 } from "../../api/endpoints/procurement";
 import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
+import { PayablesPanel } from "./PayablesPanel";
 
 export const TreasuryPage: React.FC = () => {
   const [cashAccounts, setCashAccounts] = useState<CashAccount[]>([]);
@@ -260,6 +261,8 @@ export const TreasuryPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      <PayablesPanel />
 
       {/* Bank Holds Summary Table */}
       <div className="rounded-2xl border border-app-separator bg-app-bg-primary p-5 shadow-sm space-y-4">

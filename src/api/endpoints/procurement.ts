@@ -124,6 +124,41 @@ export const createFxRate = async (payload: CreateFxRatePayload): Promise<FxRate
   return response.data.data;
 };
 
+// Payable settlements (2100 AP / 2210 payroll deductions / 2300 landed cost clearing)
+export interface PayableOutstanding {
+  account_code: "2100" | "2210" | "2300";
+  outstanding: number;
+}
+
+export interface PayableSettlement {
+  id: string;
+  account_code: string;
+  amount: string;
+  reference: string | null;
+  settled_at: string;
+  settled_by?: { id: string; name: string } | null;
+  operating_unit?: { id: string; name: string } | null;
+}
+
+export const getPayableOutstanding = async (): Promise<PayableOutstanding[]> => {
+  const response = await apiClient.get<{ data: PayableOutstanding[] }>("/payable-settlements/outstanding");
+  return response.data.data;
+};
+
+export const getPayableSettlements = async (): Promise<PayableSettlement[]> => {
+  const response = await apiClient.get<{ data: PayableSettlement[] }>("/payable-settlements");
+  return response.data.data;
+};
+
+export const settlePayable = async (payload: {
+  account_code: string;
+  amount: number;
+  reference?: string;
+}): Promise<PayableSettlement> => {
+  const response = await apiClient.post<PayableSettlement>("/payable-settlements", payload);
+  return response.data;
+};
+
 export const getCashAccounts = async (operating_unit_id?: string): Promise<CashAccount[]> => {
   const response = await apiClient.get<{ data: CashAccount[] }>("/cash-accounts", {
     params: { operating_unit_id },
