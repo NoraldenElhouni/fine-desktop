@@ -24,7 +24,10 @@ export const EmployeesPage: React.FC = () => {
   const [taxNumber, setTaxNumber] = useState("");
   const [selectedEntityId, setSelectedEntityId] = useState("");
   const [jobTitle, setJobTitle] = useState("");
+  const [laborRole, setLaborRole] = useState("");
   const [payType, setPayType] = useState<PayType>("monthly");
+  const [monthlySalary, setMonthlySalary] = useState<string>("");
+  const [hourlyRate, setHourlyRate] = useState<string>("");
   const [hireDate, setHireDate] = useState(new Date().toISOString().split("T")[0]);
   const [employerEntityId, setEmployerEntityId] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -96,7 +99,10 @@ export const EmployeesPage: React.FC = () => {
         operating_unit_id: unitId,
         employer_entity_id: validEmployerEntityId,
         job_title: jobTitle,
+        labor_role: laborRole.trim() || undefined,
         pay_type: payType,
+        monthly_salary: payType === "monthly" && monthlySalary ? Number(monthlySalary) : undefined,
+        hourly_rate: payType === "hourly" && hourlyRate ? Number(hourlyRate) : undefined,
         hire_date: hireDate,
         status: "active" as EmployeeStatus,
         ...(entityMode === "existing"
@@ -113,6 +119,9 @@ export const EmployeesPage: React.FC = () => {
       setTaxNumber("");
       setSelectedEntityId("");
       setJobTitle("");
+      setLaborRole("");
+      setMonthlySalary("");
+      setHourlyRate("");
       setEmployerEntityId("");
     } catch (err: unknown) {
       const message = isAxiosError(err)
@@ -174,7 +183,7 @@ export const EmployeesPage: React.FC = () => {
           <RefreshCw className="h-6 w-6 animate-spin text-app-accent" />
         </div>
       ) : error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-center text-xs text-red-600">
+        <div className="rounded-2xl border border-app-status-danger/30 bg-app-status-danger/10 p-4 text-center text-xs text-app-status-danger">
           {error}
         </div>
       ) : employees.length === 0 ? (
@@ -191,9 +200,9 @@ export const EmployeesPage: React.FC = () => {
             <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary">
               <tr>
                 <th className="px-4 py-3 text-start font-bold">اسم الموظف والكيان</th>
-                <th className="px-4 py-3 text-start font-bold">المسمى الوظيفي</th>
+                <th className="px-4 py-3 text-start font-bold">المسمى الوظيفي والدور</th>
                 <th className="px-4 py-3 text-start font-bold">نوع التوظيف والجهة المشغلة</th>
-                <th className="px-4 py-3 text-start font-bold">نظام الأجر</th>
+                <th className="px-4 py-3 text-start font-bold">نظام الأجر والمعدل</th>
                 <th className="px-4 py-3 text-start font-bold">تاريخ التعيين</th>
                 <th className="px-4 py-3 text-start font-bold">الحالة</th>
                 <th className="px-4 py-3 text-end font-bold">إجراءات</th>
@@ -206,31 +215,44 @@ export const EmployeesPage: React.FC = () => {
                     {emp.entity?.name || "كيان غير معرف"}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <Briefcase className="h-3.5 w-3.5 text-app-accent" />
-                      <span>{emp.job_title}</span>
+                      <span className="font-semibold">{emp.job_title}</span>
+                      {emp.labor_role && (
+                        <span className="rounded-md bg-app-fill-f2 px-1.5 py-0.5 text-[10px] font-mono text-app-label-secondary border border-app-separator">
+                          {emp.labor_role}
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3">
                     {emp.employer_entity_id ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700 border border-blue-200">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-app-status-info/10 px-2.5 py-1 text-[11px] font-bold text-app-status-info border border-app-status-info/20">
                         <Building className="h-3 w-3" />
                         عبر: {emp.employer_entity?.name || "جهة مشغلة خارجية"}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 border border-emerald-200">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-app-status-positive/10 px-2.5 py-1 text-[11px] font-bold text-app-status-positive border border-app-status-positive/20">
                         تعيين مباشر
                       </span>
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-1 text-app-label-secondary font-semibold">
-                      <DollarSign className="h-3 w-3 text-app-accent" />
-                      <span>
-                        {emp.pay_type === "monthly" && "شهري"}
-                        {emp.pay_type === "hourly" && "بالساعة"}
-                        {emp.pay_type === "piece_rate" && "بالقطعة"}
-                      </span>
+                    <div className="flex items-center gap-1 font-mono">
+                      <DollarSign className="h-3.5 w-3.5 text-app-accent" />
+                      {emp.pay_type === "monthly" && (
+                        <span>
+                          {emp.monthly_salary ? `${Number(emp.monthly_salary).toLocaleString()} د.ل / شهر` : "راتب شهري"}
+                        </span>
+                      )}
+                      {emp.pay_type === "hourly" && (
+                        <span>
+                          {emp.hourly_rate ? `${Number(emp.hourly_rate).toLocaleString()} د.ل / ساعة` : "أجر بالساعة"}
+                        </span>
+                      )}
+                      {emp.pay_type === "piece_rate" && (
+                        <span className="font-sans text-app-label-secondary">بالقطعة</span>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3 font-mono text-app-label-secondary">
@@ -240,8 +262,14 @@ export const EmployeesPage: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                      {emp.status === "active" ? "نشط" : emp.status}
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                      emp.status === "active"
+                        ? "bg-app-status-positive/15 text-app-status-positive"
+                        : emp.status === "on_leave"
+                        ? "bg-app-status-warning/15 text-app-status-warning"
+                        : "bg-app-status-danger/15 text-app-status-danger"
+                    }`}>
+                      {emp.status === "active" ? "نشط" : emp.status === "on_leave" ? "إجازة" : emp.status === "terminated" ? "منتهي" : emp.status}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-end">
@@ -270,7 +298,7 @@ export const EmployeesPage: React.FC = () => {
             <form onSubmit={handleAddEmployee} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                  الوحدة التشغيلية <span className="text-red-500">*</span>
+                  الوحدة التشغيلية <span className="text-app-status-danger">*</span>
                 </label>
                 <select
                   required
@@ -320,7 +348,7 @@ export const EmployeesPage: React.FC = () => {
                     <div className="space-y-2 pt-1">
                       <div>
                         <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
-                          اسم الموظف الكامل <span className="text-red-500">*</span>
+                          اسم الموظف الكامل <span className="text-app-status-danger">*</span>
                         </label>
                         <input
                           type="text"
@@ -366,7 +394,7 @@ export const EmployeesPage: React.FC = () => {
                 <div className="space-y-3">
                   <div>
                     <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                      اسم الموظف الكامل <span className="text-red-500">*</span>
+                      اسم الموظف الكامل <span className="text-app-status-danger">*</span>
                     </label>
                     <input
                       type="text"
@@ -392,18 +420,32 @@ export const EmployeesPage: React.FC = () => {
                 </div>
               )}
 
-              <div>
-                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                  المسمى الوظيفي <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={jobTitle}
-                  onChange={(e) => setJobTitle(e.target.value)}
-                  placeholder="مثال: فني قوالب إسفنج / محاسب"
-                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                    المسمى الوظيفي <span className="text-app-status-danger">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={jobTitle}
+                    onChange={(e) => setJobTitle(e.target.value)}
+                    placeholder="مثال: فني قوالب / خياط / نجار"
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                    الدور المهني / الحرفي (اختياري)
+                  </label>
+                  <input
+                    type="text"
+                    value={laborRole}
+                    onChange={(e) => setLaborRole(e.target.value)}
+                    placeholder="مثال: tailor / carpenter / operator"
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary font-mono focus:outline-none"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -422,8 +464,56 @@ export const EmployeesPage: React.FC = () => {
                   </select>
                 </div>
                 <div>
+                  {payType === "monthly" ? (
+                    <div>
+                      <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                        الراتب الشهري الأساسي (LYD)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="50"
+                        value={monthlySalary}
+                        onChange={(e) => setMonthlySalary(e.target.value)}
+                        placeholder="مثال: 2000"
+                        className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                      />
+                    </div>
+                  ) : payType === "hourly" ? (
+                    <div>
+                      <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                        الأجر الأساسي بالساعة (LYD)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        value={hourlyRate}
+                        onChange={(e) => setHourlyRate(e.target.value)}
+                        placeholder="مثال: 15"
+                        className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                        ملاحظات الأجر بالقطعة
+                      </label>
+                      <input
+                        type="text"
+                        disabled
+                        placeholder="يحدد بأمر الإنتاج"
+                        className="w-full rounded-xl border border-app-separator bg-app-bg-secondary/50 px-3 py-2 text-xs text-app-label-secondary"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
                   <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                    تاريخ التعيين
+                    تاريخ التعيين <span className="text-app-status-danger">*</span>
                   </label>
                   <input
                     type="date"
@@ -433,26 +523,25 @@ export const EmployeesPage: React.FC = () => {
                     className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                  الجهة المشغلة (اختياري - للعمالة الخارجية)
-                </label>
-                <select
-                  value={employerEntityId}
-                  onChange={(e) => setEmployerEntityId(e.target.value)}
-                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-                >
-                  <option value="">-- تعيين مباشر (بدون جهة مشغلة) --</option>
-                  {externalEmployers
-                    .filter((emp) => emp.id !== selectedEntityId)
-                    .map((emp) => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.name} (جهة مشغلة)
-                      </option>
-                    ))}
-                </select>
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                    الجهة المشغلة (اختياري - للعمالة الخارجية)
+                  </label>
+                  <select
+                    value={employerEntityId}
+                    onChange={(e) => setEmployerEntityId(e.target.value)}
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                  >
+                    <option value="">-- تعيين مباشر (بدون جهة مشغلة) --</option>
+                    {externalEmployers
+                      .filter((emp) => emp.id !== selectedEntityId)
+                      .map((emp) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.name} (جهة مشغلة)
+                        </option>
+                      ))}
+                  </select>
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-app-separator">

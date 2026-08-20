@@ -154,7 +154,7 @@ export const ClientsPage: React.FC = () => {
           <RefreshCw className="h-6 w-6 animate-spin text-app-accent" />
         </div>
       ) : error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-center text-xs text-red-600">
+        <div className="rounded-2xl border border-app-status-danger/30 bg-app-status-danger/10 p-4 text-center text-xs text-app-status-danger">
           {error}
         </div>
       ) : clients.length === 0 ? (
@@ -172,44 +172,80 @@ export const ClientsPage: React.FC = () => {
               <tr>
                 <th className="px-4 py-3 text-start font-bold">اسم العميل / الكيان</th>
                 <th className="px-4 py-3 text-start font-bold">الحد الائتماني (LYD)</th>
+                <th className="px-4 py-3 text-start font-bold">الرصيد المستحق (LYD)</th>
+                <th className="px-4 py-3 text-start font-bold">المتبقي من الائتمان</th>
                 <th className="px-4 py-3 text-start font-bold">فترة السداد الآجل</th>
                 <th className="px-4 py-3 text-start font-bold">الحالة</th>
                 <th className="px-4 py-3 text-end font-bold">إجراءات</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-app-separator text-app-label-primary">
-              {clients.map((client) => (
-                <tr key={client.id} className="hover:bg-app-fill-f1 transition-colors">
-                  <td className="px-4 py-3 font-bold">
-                    {client.entity?.name || "كيان عميل"}
-                  </td>
-                  <td className="px-4 py-3 font-mono">
-                    <div className="flex items-center gap-1">
-                      <CreditCard className="h-3.5 w-3.5 text-app-accent" />
-                      <span>{Number(client.credit_limit).toLocaleString()} د.ل</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 font-semibold text-app-label-secondary">
-                    {client.payment_terms_days} يوم
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                      {client.status === "active" ? "نشط" : client.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-end">
-                    <button
-                      type="button"
-                      onClick={() => handleSplitEntity(client)}
-                      title="فصل الكيان إلى كيان جديد مستقل"
-                      className="inline-flex items-center gap-1 rounded-lg border border-app-separator bg-app-bg-secondary px-2.5 py-1 text-[11px] font-semibold text-app-label-primary hover:bg-app-fill-f1"
-                    >
-                      <Scissors className="h-3 w-3 text-app-accent" />
-                      <span>فصل الكيان</span>
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {clients.map((client) => {
+                const creditLimit = Number(client.credit_limit || 0);
+                const currentBalance = Number(client.current_balance || 0);
+                const headroom = creditLimit - currentBalance;
+                const isOverLimit = currentBalance > creditLimit;
+                const isNearLimit = !isOverLimit && creditLimit > 0 && (currentBalance / creditLimit) >= 0.8;
+
+                return (
+                  <tr key={client.id} className="hover:bg-app-fill-f1 transition-colors">
+                    <td className="px-4 py-3 font-bold">
+                      {client.entity?.name || "كيان عميل"}
+                    </td>
+                    <td className="px-4 py-3 font-mono">
+                      <div className="flex items-center gap-1">
+                        <CreditCard className="h-3.5 w-3.5 text-app-accent" />
+                        <span>{creditLimit.toLocaleString()} د.ل</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 font-mono font-bold">
+                      <span className={currentBalance > 0 ? (isOverLimit ? "text-app-status-danger" : "text-app-label-primary") : "text-app-label-secondary"}>
+                        {currentBalance.toLocaleString()} د.ل
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-mono">
+                      {isOverLimit ? (
+                        <span className="inline-flex items-center rounded-full bg-app-status-danger/15 px-2 py-0.5 text-[10px] font-bold text-app-status-danger">
+                          تجاوز {Math.abs(headroom).toLocaleString()} د.ل
+                        </span>
+                      ) : isNearLimit ? (
+                        <span className="inline-flex items-center rounded-full bg-app-status-warning/15 px-2 py-0.5 text-[10px] font-bold text-app-status-warning">
+                          {headroom.toLocaleString()} د.ل (متبقي)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-app-status-positive/15 px-2 py-0.5 text-[10px] font-bold text-app-status-positive">
+                          {headroom.toLocaleString()} د.ل (متبقي)
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-app-label-secondary">
+                      {client.payment_terms_days} يوم
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        client.status === "active"
+                          ? "bg-app-status-positive/15 text-app-status-positive"
+                          : client.status === "suspended"
+                          ? "bg-app-status-warning/15 text-app-status-warning"
+                          : "bg-app-status-danger/15 text-app-status-danger"
+                      }`}>
+                        {client.status === "active" ? "نشط" : client.status === "suspended" ? "موقوف" : client.status === "blacklisted" ? "محظور" : client.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-end">
+                      <button
+                        type="button"
+                        onClick={() => handleSplitEntity(client)}
+                        title="فصل الكيان إلى كيان جديد مستقل"
+                        className="inline-flex items-center gap-1 rounded-lg border border-app-separator bg-app-bg-secondary px-2.5 py-1 text-[11px] font-semibold text-app-label-primary hover:bg-app-fill-f1"
+                      >
+                        <Scissors className="h-3 w-3 text-app-accent" />
+                        <span>فصل الكيان</span>
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -223,7 +259,7 @@ export const ClientsPage: React.FC = () => {
             <form onSubmit={handleAddClient} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                  الوحدة التشغيلية <span className="text-red-500">*</span>
+                  الوحدة التشغيلية <span className="text-app-status-danger">*</span>
                 </label>
                 <select
                   required
@@ -273,7 +309,7 @@ export const ClientsPage: React.FC = () => {
                     <div className="space-y-2 pt-1">
                       <div>
                         <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
-                          اسم العميل / الشركة <span className="text-red-500">*</span>
+                          اسم العميل / الشركة <span className="text-app-status-danger">*</span>
                         </label>
                         <input
                           type="text"
@@ -334,7 +370,7 @@ export const ClientsPage: React.FC = () => {
                 <div className="space-y-3">
                   <div>
                     <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                      اسم العميل / الشركة <span className="text-red-500">*</span>
+                      اسم العميل / الشركة <span className="text-app-status-danger">*</span>
                     </label>
                     <input
                       type="text"

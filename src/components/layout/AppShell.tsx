@@ -4,6 +4,8 @@ import Sidebar from "./Sidebar/Sidebar";
 import Navbar from "./Navbar/Navbar";
 import { ServerConnectionBanner } from "./ServerConnectionBanner";
 import { ServerSettingsModal } from "../settings/ServerSettingsModal";
+import { ConflictModal } from "../ui/ConflictModal";
+import { ToastContainer } from "../ui/Toast";
 import { useSidebarCollapsed } from "../../hooks/useSidebarCollapsed";
 import { useAuthStore } from "../../stores/authStore";
 import { useLogoutMutation } from "../../hooks/useAuthQuery";
@@ -71,6 +73,9 @@ const AppShell = ({ children }: AppShellProps) => {
         isOpen={isServerSettingsOpen}
         onClose={() => setIsServerSettingsOpen(false)}
       />
+
+      <ConflictModal />
+      <ToastContainer />
     </div>
   );
 };

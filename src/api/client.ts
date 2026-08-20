@@ -1,6 +1,7 @@
 import axios from "axios";
 import { useAuthStore } from "../stores/authStore";
 import { useServerConfigStore, normalizeServerUrl } from "../stores/serverConfigStore";
+import { useConflictStore } from "../stores/conflictStore";
 
 const apiClient = axios.create({
   headers: {
@@ -91,6 +92,14 @@ apiClient.interceptors.response.use(
           must_change_password: true,
         });
       }
+    } else if (error.response?.status === 409) {
+      const message =
+        error.response?.data?.message ||
+        "تم تعديل هذا السجل بواسطة مستخدم آخر بالتزامن.";
+      useConflictStore.getState().triggerConflict({
+        message,
+        endpoint: error.config?.url,
+      });
     }
     return Promise.reject(error);
   },

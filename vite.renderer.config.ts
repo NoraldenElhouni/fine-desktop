@@ -9,6 +9,7 @@ export default defineConfig({
     },
   },
   server: {
+    port: 5174,
     proxy: {
       "/api": {
         target: "https://api.fine.shards.ly",

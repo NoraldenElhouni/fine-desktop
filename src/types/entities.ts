@@ -63,7 +63,10 @@ export interface Employee {
   operating_unit_id: string;
   employer_entity_id?: string | null;
   job_title: string;
+  labor_role?: string | null;
   pay_type: PayType;
+  monthly_salary?: string | number | null;
+  hourly_rate?: string | number | null;
   hire_date: string;
   status: EmployeeStatus;
   record_version?: number;
@@ -78,6 +81,7 @@ export interface Client {
   entity_id: string;
   operating_unit_id: string;
   credit_limit: string | number;
+  current_balance?: string | number;
   payment_terms_days: number;
   account_id?: string | null;
   status: ClientStatus;
@@ -125,7 +129,10 @@ export interface CreateEmployeePayload {
   operating_unit_id: string;
   employer_entity_id?: string | null;
   job_title: string;
+  labor_role?: string | null;
   pay_type: PayType;
+  monthly_salary?: number | null;
+  hourly_rate?: number | null;
   hire_date: string;
   status?: EmployeeStatus;
 }
