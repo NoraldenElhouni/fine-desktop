@@ -18,6 +18,7 @@ import {
   Package,
   Scale,
   Scissors,
+  ShieldCheck,
   ShoppingCart,
   Store,
   UserCheck,
@@ -70,6 +71,7 @@ export const navItems: AppNavItem[] = [
   { id: "overhead", path: "/accounting/overhead", label: "المصاريف العمومية", icon: Droplets },
   { id: "fixed-assets", path: "/accounting/assets", label: "الأصول الثابتة", icon: Building },
   { id: "reports", path: "/reports", label: "التقارير المالية", icon: BarChart3 },
+  { id: "users", path: "/users", label: "المستخدمون والصلاحيات", icon: ShieldCheck },
 ];
 
 export const getBreadcrumbEntries = (

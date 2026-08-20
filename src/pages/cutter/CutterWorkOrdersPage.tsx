@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Scissors, Plus, RefreshCw, AlertTriangle, Building2, Home } from "lucide-react";
 import { useCutterOrders, useCreateCutterOrder } from "../../hooks/useCutter";
+import { getClients } from "../../api/endpoints/clients";
 import {
   CUTTER_STATUS_ORDER,
   CUTTER_STATUS_LABEL,
@@ -15,8 +17,11 @@ export const CutterWorkOrdersPage: React.FC = () => {
   const [internalOnly, setInternalOnly] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
+  const [clientId, setClientId] = useState("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: () => getClients() });
 
   const { data, isLoading, refetch } = useCutterOrders({
     status: statusFilter || undefined,
@@ -30,11 +35,12 @@ export const CutterWorkOrdersPage: React.FC = () => {
     e.preventDefault();
     setError(null);
     createMutation.mutate(
-      { order_number: orderNumber, notes: notes || undefined },
+      { order_number: orderNumber, client_id: clientId || undefined, notes: notes || undefined },
       {
         onSuccess: (res) => {
           setShowForm(false);
           setOrderNumber("");
+          setClientId("");
           setNotes("");
           navigate(`/cutter/orders/${res.data.id}`);
         },
@@ -224,6 +230,24 @@ export const CutterWorkOrdersPage: React.FC = () => {
                   placeholder="CWO-1042"
                   className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                  Client
+                </label>
+                <select
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
+                >
+                  <option value="">Internal (from another unit)</option>
+                  {clients?.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {(c as { entity?: { name?: string } }).entity?.name ?? c.id}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>

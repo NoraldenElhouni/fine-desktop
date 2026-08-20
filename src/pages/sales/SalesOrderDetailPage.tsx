@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowRight, ShoppingCart, AlertTriangle, Send, PackageCheck, Banknote, CheckCircle2,
-  ShieldAlert, FileText,
+  ShieldAlert, FileText, Printer,
 } from "lucide-react";
 import {
   useSalesOrder, useSubmitOrder, useFulfillOrder, useRecordPayment, useCompleteOrder,
@@ -186,6 +186,15 @@ export const SalesOrderDetailPage: React.FC = () => {
           </button>
         )}
 
+        {invoiceEnabled && showInvoice && invoice && (
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 rounded-xl bg-app-accent px-3 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90"
+          >
+            <Printer className="w-4 h-4" /> Print / PDF
+          </button>
+        )}
+
         {order.status === "paid" && (
           <span className="flex items-center gap-1 text-xs font-semibold text-app-status-positive">
             <CheckCircle2 className="w-4 h-4" /> Settled in full
@@ -193,9 +202,10 @@ export const SalesOrderDetailPage: React.FC = () => {
         )}
       </div>
 
-      {/* Invoice */}
+      {/* Invoice — the .print-area rules isolate it when printing, so the
+          browser's Save-as-PDF produces a clean invoice document. */}
       {showInvoice && invoice && (
-        <div className="rounded-2xl border border-app-accent/40 bg-app-accent-tint p-5 space-y-3">
+        <div className="print-area rounded-2xl border border-app-accent/40 bg-app-accent-tint p-5 space-y-3 print:border-0 print:bg-white print:text-black">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm font-bold text-app-label-primary font-mono">{invoice.invoice_number}</div>
