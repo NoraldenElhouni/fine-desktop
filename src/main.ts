@@ -1,7 +1,6 @@
 import { app, BrowserWindow, shell, session } from "electron";
 import path from "node:path";
 import started from "electron-squirrel-startup";
-import { registerProductionHandlers } from "./ipc/productionHandlers";
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -73,7 +72,6 @@ app.on("ready", () => {
 
     callback({ responseHeaders });
   });
-  registerProductionHandlers();
   createWindow();
 });
 

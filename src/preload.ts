@@ -1,15 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 
 const api = {
-  production: {
-    createOrder: (sku: string, qty: number) =>
-      ipcRenderer.invoke("production:createOrder", sku, qty),
-    completeOrder: (id: string, sku: string, qty: number) =>
-      ipcRenderer.invoke("production:completeOrder", id, sku, qty),
-    getStock: (sku: string) => ipcRenderer.invoke("production:getStock", sku),
-    getOpenOrders: () => ipcRenderer.invoke("production:getOpenOrders"),
-  },
-
   // App lifecycle
   getAppVersion: () => ipcRenderer.invoke("app:get-version"),
   checkForUpdates: () => ipcRenderer.invoke("app:check-updates"),
