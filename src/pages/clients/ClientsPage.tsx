@@ -1,22 +1,31 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Users, Plus, RefreshCw, CreditCard, Scissors } from "lucide-react";
 import { isAxiosError } from "axios";
-import { Client, Entity, ClientStatus, OperatingUnit, EntityType } from "../../types/entities";
-import { getClients, createClient, splitClientEntity } from "../../api/endpoints/clients";
-import { getEntities } from "../../api/endpoints/entities";
-import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
+import { Client, EntityType } from "../../types/entities";
+import { useClients, useCreateClient, useSplitClientEntity } from "../../hooks/useClients";
+import { useEntities, useOperatingUnits } from "../../hooks/usePartners";
 import { useServerConfigStore } from "../../stores/serverConfigStore";
+import { toast } from "../../stores/toastStore";
+import { apiErrorPayload } from "../../api/endpoints/production";
+import { Modal } from "../../components/ui/Modal";
 
 export const ClientsPage: React.FC = () => {
   const { allowManualEntitySelection } = useServerConfigStore();
-  const [clients, setClients] = useState<Client[]>([]);
-  const [entities, setEntities] = useState<Entity[]>([]);
-  const [operatingUnits, setOperatingUnits] = useState<OperatingUnit[]>([]);
   const [selectedOperatingUnitId, setSelectedOperatingUnitId] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  // Modal
+  // TanStack Query Hooks
+  const {
+    data: clients = [],
+    isLoading,
+    error: queryError,
+    refetch,
+  } = useClients();
+  const { data: entities = [] } = useEntities();
+  const { data: operatingUnits = [] } = useOperatingUnits();
+  const createClientMutation = useCreateClient();
+  const splitClientMutation = useSplitClientEntity();
+
+  // Add Client Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [entityMode, setEntityMode] = useState<"auto" | "existing">("auto");
   const [clientName, setClientName] = useState("");
@@ -25,98 +34,103 @@ export const ClientsPage: React.FC = () => {
   const [selectedEntityId, setSelectedEntityId] = useState("");
   const [creditLimit, setCreditLimit] = useState<number>(10000);
   const [paymentTermsDays, setPaymentTermsDays] = useState<number>(30);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const fetchData = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const [clientData, entData, unitData] = await Promise.all([
-        getClients(),
-        getEntities(),
-        getOperatingUnits(),
-      ]);
-      setClients(clientData);
-      setEntities(entData);
-      setOperatingUnits(unitData);
-      if (unitData.length > 0 && !selectedOperatingUnitId) {
-        setSelectedOperatingUnitId(unitData[0].id);
-      }
-    } catch (err: unknown) {
-      const message = isAxiosError(err)
-        ? err.response?.data?.message
-        : null;
-      setError(message || "تعذر تحميل سجلات العملاء");
-    } finally {
-      setIsLoading(false);
-    }
+  // Split Entity Modal
+  const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
+  const [splitTargetClient, setSplitTargetClient] = useState<Client | null>(null);
+  const [splitNewName, setSplitNewName] = useState("");
+
+  const resetForm = () => {
+    setClientName("");
+    setTaxNumber("");
+    setSelectedEntityId("");
+    setCreditLimit(10000);
+    setPaymentTermsDays(30);
+    setEntityMode("auto");
   };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
     const unitId = selectedOperatingUnitId || operatingUnits[0]?.id;
 
     if (entityMode === "existing" && !selectedEntityId) {
-      alert("يرجى اختيار الكيان الحالي");
+      toast.error("يرجى اختيار الكيان الحالي");
       return;
     }
 
     if (entityMode === "auto" && !clientName.trim()) {
-      alert("يرجى إدخال اسم العميل/الشركة لإنشاء الكيان التلقائي");
+      toast.error("يرجى إدخال اسم العميل/الشركة لإنشاء الكيان التلقائي");
       return;
     }
 
     if (!unitId) {
-      alert("يرجى اختيار الوحدة التشغيلية");
+      toast.error("يرجى اختيار الوحدة التشغيلية");
       return;
     }
 
-    try {
-      setIsSubmitting(true);
-      const payload = {
-        operating_unit_id: unitId,
-        credit_limit: creditLimit,
-        payment_terms_days: paymentTermsDays,
-        status: "active" as ClientStatus,
-        ...(entityMode === "existing"
-          ? { entity_id: selectedEntityId }
-          : { name: clientName.trim(), entity_type: entityType, tax_number: taxNumber.trim() || undefined }),
-      };
+    const payload = {
+      operating_unit_id: unitId,
+      entity_id: entityMode === "existing" ? selectedEntityId : undefined,
+      auto_create_entity: entityMode === "auto",
+      entity_name: entityMode === "auto" ? clientName.trim() : undefined,
+      entity_type: entityMode === "auto" ? entityType : undefined,
+      tax_number: entityMode === "auto" && taxNumber.trim() ? taxNumber.trim() : undefined,
+      credit_limit: creditLimit,
+      payment_terms_days: paymentTermsDays,
+    };
 
-      const newClient = await createClient(payload);
-
-      setClients((prev) => [newClient, ...prev]);
-      setIsModalOpen(false);
-      setClientName("");
-      setTaxNumber("");
-      setSelectedEntityId("");
-    } catch (err: unknown) {
-      const message = isAxiosError(err)
-        ? err.response?.data?.message
-        : null;
-      alert(message || "خطأ أثناء إضافة العميل");
-    } finally {
-      setIsSubmitting(false);
-    }
+    createClientMutation.mutate(payload, {
+      onSuccess: () => {
+        toast.success("تمت إضافة العميل بنجاح");
+        setIsModalOpen(false);
+        resetForm();
+      },
+      onError: (err: unknown) => {
+        const payloadErr = apiErrorPayload(err);
+        const message = payloadErr?.message || (isAxiosError(err) ? err.response?.data?.message : null);
+        toast.error(message || "تعذر إضافة العميل");
+      },
+    });
   };
 
-  const handleSplitEntity = async (client: Client) => {
-    const newName = prompt(`فصل العميل (${client.entity?.name}) في كيان مستقل.\nأدخل الاسم الجديد للكيان (أو اتركه فارغاً للاحتفاظ بالاسم الحالي):`, client.entity?.name || "");
-    if (newName === null) return;
-
-    try {
-      await splitClientEntity(client.id, { new_name: newName.trim() || undefined });
-      alert("تم فصل العميل في كيان جديد بنجاح");
-      fetchData();
-    } catch (err: unknown) {
-      const message = isAxiosError(err) ? err.response?.data?.message : null;
-      alert(message || "حدث خطأ أثناء فصل الكيان");
-    }
+  const openSplitModal = (client: Client) => {
+    setSplitTargetClient(client);
+    setSplitNewName(client.entity?.name || "");
+    setIsSplitModalOpen(true);
   };
+
+  const handleConfirmSplit = () => {
+    if (!splitTargetClient) return;
+
+    splitClientMutation.mutate(
+      {
+        id: splitTargetClient.id,
+        payload: { new_name: splitNewName.trim() || undefined },
+      },
+      {
+        onSuccess: () => {
+          toast.success("تم فصل العميل في كيان جديد بنجاح");
+          setIsSplitModalOpen(false);
+          setSplitTargetClient(null);
+        },
+        onError: (err: unknown) => {
+          const payloadErr = apiErrorPayload(err);
+          const message = payloadErr?.message || (isAxiosError(err) ? err.response?.data?.message : null);
+          toast.error(message || "حدث خطأ أثناء فصل الكيان");
+        },
+      }
+    );
+  };
+
+  const totalCreditExposure = clients.reduce((acc, c) => acc + Number(c.credit_limit || 0), 0);
+  const totalOutstandingBalance = clients.reduce((acc, c) => acc + Number(c.current_balance || 0), 0);
+  const totalActiveClients = clients.filter((c) => c.status === "active").length;
+
+  const errorMessage = queryError
+    ? apiErrorPayload(queryError)?.message ||
+      (isAxiosError(queryError) ? queryError.response?.data?.message : null) ||
+      "تعذر تحميل سجلات العملاء"
+    : null;
 
   return (
     <div className="space-y-6 p-6" dir="rtl">
@@ -131,7 +145,7 @@ export const ClientsPage: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={fetchData}
+            onClick={() => refetch()}
             className="flex items-center gap-2 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
@@ -148,14 +162,45 @@ export const ClientsPage: React.FC = () => {
         </div>
       </div>
 
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border border-app-separator bg-app-bg-primary p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-app-label-secondary">إجمالي سقف الائتمان</span>
+            <CreditCard className="h-4 w-4 text-app-accent" />
+          </div>
+          <p className="mt-2 text-xl font-bold text-app-label-primary">
+            {totalCreditExposure.toLocaleString()} <span className="text-xs font-normal">د.ل</span>
+          </p>
+        </div>
+        <div className="rounded-2xl border border-app-separator bg-app-bg-primary p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-app-label-secondary">إجمالي المديونية المستحقة</span>
+            <Users className="h-4 w-4 text-app-status-danger" />
+          </div>
+          <p className="mt-2 text-xl font-bold text-app-status-danger">
+            {totalOutstandingBalance.toLocaleString()} <span className="text-xs font-normal">د.ل</span>
+          </p>
+        </div>
+        <div className="rounded-2xl border border-app-separator bg-app-bg-primary p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-app-label-secondary">العملاء النشطون</span>
+            <Users className="h-4 w-4 text-app-status-positive" />
+          </div>
+          <p className="mt-2 text-xl font-bold text-app-label-primary">
+            {totalActiveClients} <span className="text-xs font-normal">عميل</span>
+          </p>
+        </div>
+      </div>
+
       {/* Main Table */}
       {isLoading ? (
         <div className="flex h-48 items-center justify-center rounded-2xl border border-app-separator bg-app-bg-primary">
           <RefreshCw className="h-6 w-6 animate-spin text-app-accent" />
         </div>
-      ) : error ? (
+      ) : errorMessage ? (
         <div className="rounded-2xl border border-app-status-danger/30 bg-app-status-danger/10 p-4 text-center text-xs text-app-status-danger">
-          {error}
+          {errorMessage}
         </div>
       ) : clients.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-app-separator bg-app-bg-primary p-12 text-center">
@@ -185,18 +230,22 @@ export const ClientsPage: React.FC = () => {
                 const currentBalance = Number(client.current_balance || 0);
                 const headroom = creditLimit - currentBalance;
                 const isOverLimit = currentBalance > creditLimit;
-                const isNearLimit = !isOverLimit && creditLimit > 0 && (currentBalance / creditLimit) >= 0.8;
+                const isNearLimit = !isOverLimit && headroom <= creditLimit * 0.15;
 
                 return (
-                  <tr key={client.id} className="hover:bg-app-fill-f1 transition-colors">
-                    <td className="px-4 py-3 font-bold">
-                      {client.entity?.name || "كيان عميل"}
+                  <tr key={client.id} className="hover:bg-app-bg-secondary/50">
+                    <td className="px-4 py-3 font-semibold">
+                      <div className="flex flex-col">
+                        <span className="text-app-label-primary font-bold">
+                          {client.entity?.name || "بدون اسم"}
+                        </span>
+                        <span className="text-[10px] text-app-label-secondary">
+                          {client.entity?.tax_number ? `ضريبي: ${client.entity.tax_number}` : "بدون رقم ضريبي"}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-4 py-3 font-mono">
-                      <div className="flex items-center gap-1">
-                        <CreditCard className="h-3.5 w-3.5 text-app-accent" />
-                        <span>{creditLimit.toLocaleString()} د.ل</span>
-                      </div>
+                      {creditLimit.toLocaleString()} د.ل
                     </td>
                     <td className="px-4 py-3 font-mono font-bold">
                       <span className={currentBalance > 0 ? (isOverLimit ? "text-app-status-danger" : "text-app-label-primary") : "text-app-label-secondary"}>
@@ -235,7 +284,7 @@ export const ClientsPage: React.FC = () => {
                     <td className="px-4 py-3 text-end">
                       <button
                         type="button"
-                        onClick={() => handleSplitEntity(client)}
+                        onClick={() => openSplitModal(client)}
                         title="فصل الكيان إلى كيان جديد مستقل"
                         className="inline-flex items-center gap-1 rounded-lg border border-app-separator bg-app-bg-secondary px-2.5 py-1 text-[11px] font-semibold text-app-label-primary hover:bg-app-fill-f1"
                       >
@@ -252,124 +301,64 @@ export const ClientsPage: React.FC = () => {
       )}
 
       {/* Add Client Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl border border-app-separator bg-app-bg-primary p-6 shadow-xl" dir="rtl">
-            <h3 className="text-lg font-bold text-app-label-primary mb-4">إضافة عميل جديد</h3>
-            <form onSubmit={handleAddClient} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                  الوحدة التشغيلية <span className="text-app-status-danger">*</span>
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="إضافة عميل جديد"
+        size="lg"
+      >
+        <form onSubmit={handleAddClient} className="space-y-4" dir="rtl">
+          <div>
+            <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+              الوحدة التشغيلية <span className="text-app-status-danger">*</span>
+            </label>
+            <select
+              required
+              value={selectedOperatingUnitId}
+              onChange={(e) => setSelectedOperatingUnitId(e.target.value)}
+              className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+            >
+              <option value="">-- اختر الوحدة التشغيلية --</option>
+              {operatingUnits.map((unit) => (
+                <option key={unit.id} value={unit.id}>
+                  {unit.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {allowManualEntitySelection ? (
+            <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-3 space-y-3">
+              <label className="block text-xs font-bold text-app-label-primary">
+                الكيان المرتبط بالعميل
+              </label>
+              <div className="flex items-center gap-4 text-xs font-semibold text-app-label-primary">
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="entityMode"
+                    checked={entityMode === "auto"}
+                    onChange={() => setEntityMode("auto")}
+                    className="text-app-accent"
+                  />
+                  <span>إنشاء كيان جديد تلقائياً</span>
                 </label>
-                <select
-                  required
-                  value={selectedOperatingUnitId}
-                  onChange={(e) => setSelectedOperatingUnitId(e.target.value)}
-                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-                >
-                  <option value="">-- اختر الوحدة التشغيلية --</option>
-                  {operatingUnits.map((unit) => (
-                    <option key={unit.id} value={unit.id}>
-                      {unit.name}
-                    </option>
-                  ))}
-                </select>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="entityMode"
+                    checked={entityMode === "existing"}
+                    onChange={() => setEntityMode("existing")}
+                    className="text-app-accent"
+                  />
+                  <span>اختيار كيان حالي</span>
+                </label>
               </div>
 
-              {/* Entity Information (Auto-create by default, or Manual Toggle if enabled in Settings) */}
-              {allowManualEntitySelection ? (
-                <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-3 space-y-3">
-                  <label className="block text-xs font-bold text-app-label-primary">
-                    الكيان المرتبط بالعميل
-                  </label>
-                  <div className="flex items-center gap-4 text-xs font-semibold text-app-label-primary">
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="entityMode"
-                        checked={entityMode === "auto"}
-                        onChange={() => setEntityMode("auto")}
-                        className="text-app-accent"
-                      />
-                      <span>إنشاء كيان جديد تلقائياً</span>
-                    </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="entityMode"
-                        checked={entityMode === "existing"}
-                        onChange={() => setEntityMode("existing")}
-                        className="text-app-accent"
-                      />
-                      <span>اختيار كيان حالي</span>
-                    </label>
-                  </div>
-
-                  {entityMode === "auto" ? (
-                    <div className="space-y-2 pt-1">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
-                          اسم العميل / الشركة <span className="text-app-status-danger">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={clientName}
-                          onChange={(e) => setClientName(e.target.value)}
-                          placeholder="مثال: شركة الصحراء للمقاولات"
-                          className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
-                            نوع الكيان
-                          </label>
-                          <select
-                            value={entityType}
-                            onChange={(e) => setEntityType(e.target.value as EntityType)}
-                            className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
-                          >
-                            <option value="organization">شركة / مؤسسة</option>
-                            <option value="individual">فرد</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
-                            الرقم الضريبي (اختياري)
-                          </label>
-                          <input
-                            type="text"
-                            value={taxNumber}
-                            onChange={(e) => setTaxNumber(e.target.value)}
-                            placeholder="مثال: TAX-900800"
-                            className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="pt-1">
-                      <select
-                        required
-                        value={selectedEntityId}
-                        onChange={(e) => setSelectedEntityId(e.target.value)}
-                        className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
-                      >
-                        <option value="">-- اختر كيان --</option>
-                        {entities.map((ent) => (
-                          <option key={ent.id} value={ent.id}>
-                            {ent.name} ({ent.entity_type === "organization" ? "شركة" : "فرد"})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-3">
+              {entityMode === "auto" ? (
+                <div className="space-y-2 pt-1">
                   <div>
-                    <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                    <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
                       اسم العميل / الشركة <span className="text-app-status-danger">*</span>
                     </label>
                     <input
@@ -378,25 +367,25 @@ export const ClientsPage: React.FC = () => {
                       value={clientName}
                       onChange={(e) => setClientName(e.target.value)}
                       placeholder="مثال: شركة الصحراء للمقاولات"
-                      className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                      className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                      <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
                         نوع الكيان
                       </label>
                       <select
                         value={entityType}
                         onChange={(e) => setEntityType(e.target.value as EntityType)}
-                        className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                        className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
                       >
                         <option value="organization">شركة / مؤسسة</option>
                         <option value="individual">فرد</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                      <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
                         الرقم الضريبي (اختياري)
                       </label>
                       <input
@@ -404,65 +393,167 @@ export const ClientsPage: React.FC = () => {
                         value={taxNumber}
                         onChange={(e) => setTaxNumber(e.target.value)}
                         placeholder="مثال: TAX-900800"
-                        className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                        className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
                       />
                     </div>
                   </div>
                 </div>
+              ) : (
+                <div className="pt-1">
+                  <select
+                    required
+                    value={selectedEntityId}
+                    onChange={(e) => setSelectedEntityId(e.target.value)}
+                    className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
+                  >
+                    <option value="">-- اختر كيان --</option>
+                    {entities.map((ent) => (
+                      <option key={ent.id} value={ent.id}>
+                        {ent.name} ({ent.entity_type === "organization" ? "شركة" : "فرد"})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               )}
-
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                  اسم العميل / الشركة <span className="text-app-status-danger">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                  placeholder="مثال: شركة الصحراء للمقاولات"
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                />
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                    الحد الائتماني المسموح (LYD)
+                    نوع الكيان
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1000"
-                    value={creditLimit}
-                    onChange={(e) => setCreditLimit(Number(e.target.value))}
+                  <select
+                    value={entityType}
+                    onChange={(e) => setEntityType(e.target.value as EntityType)}
                     className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-                  />
+                  >
+                    <option value="organization">شركة / مؤسسة</option>
+                    <option value="individual">فرد</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                    فترة السداد الآجل (أيام)
+                    الرقم الضريبي (اختياري)
                   </label>
                   <input
-                    type="number"
-                    min="0"
-                    value={paymentTermsDays}
-                    onChange={(e) => setPaymentTermsDays(Number(e.target.value))}
+                    type="text"
+                    value={taxNumber}
+                    onChange={(e) => setTaxNumber(e.target.value)}
+                    placeholder="مثال: TAX-900800"
                     className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
                   />
                 </div>
               </div>
+            </div>
+          )}
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-app-separator">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-xl px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  disabled={
-                    isSubmitting ||
-                    (entityMode === "existing" && !selectedEntityId) ||
-                    (entityMode === "auto" && !clientName.trim())
-                  }
-                  className="rounded-xl bg-app-accent px-5 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
-                >
-                  {isSubmitting ? "جاري الحفظ..." : "حفظ العميل"}
-                </button>
-              </div>
-            </form>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                الحد الائتماني المسموح (LYD)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="1000"
+                value={creditLimit}
+                onChange={(e) => setCreditLimit(Number(e.target.value))}
+                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                فترة السداد الآجل (أيام)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={paymentTermsDays}
+                onChange={(e) => setPaymentTermsDays(Number(e.target.value))}
+                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-app-separator">
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="rounded-xl px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              disabled={
+                createClientMutation.isPending ||
+                (entityMode === "existing" && !selectedEntityId) ||
+                (entityMode === "auto" && !clientName.trim())
+              }
+              className="rounded-xl bg-app-accent px-5 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+            >
+              {createClientMutation.isPending ? "جاري الحفظ..." : "حفظ العميل"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Split Client Entity Modal */}
+      <Modal
+        isOpen={isSplitModalOpen}
+        onClose={() => setIsSplitModalOpen(false)}
+        title="فصل العميل إلى كيان مستقل"
+        size="md"
+      >
+        <div className="space-y-4" dir="rtl">
+          <p className="text-xs text-app-label-secondary">
+            فصل العميل ({splitTargetClient?.entity?.name}) في كيان جديد مستقل.
+          </p>
+          <div>
+            <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+              الاسم الجديد للكيان (أو اتركه فارغاً للاحتفاظ بالاسم الحالي)
+            </label>
+            <input
+              type="text"
+              value={splitNewName}
+              onChange={(e) => setSplitNewName(e.target.value)}
+              placeholder="اسم الكيان الجديد"
+              className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+            />
+          </div>
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-app-separator">
+            <button
+              type="button"
+              onClick={() => setIsSplitModalOpen(false)}
+              className="rounded-xl px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
+            >
+              إلغاء
+            </button>
+            <button
+              type="button"
+              disabled={splitClientMutation.isPending}
+              onClick={handleConfirmSplit}
+              className="rounded-xl bg-app-accent px-5 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+            >
+              {splitClientMutation.isPending ? "جاري الفصل..." : "تأكيد الفصل"}
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 };
