@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   FileCheck,
   Plus,
@@ -21,24 +21,23 @@ import { isAxiosError } from "axios";
 import {
   ImportOrder,
   ImportOrderStatus,
-  Supplier,
   CreateImportOrderPayload,
+  TransitionImportOrderPayload,
   PaymentRoute,
-  LandedCostLine,
   LandedCostType,
 } from "../../types/procurement";
-import { OperatingUnit } from "../../types/entities";
 import {
-  getImportOrders,
-  getImportOrder,
-  createImportOrder,
-  transitionImportOrder,
-  getSuppliers,
-  getLandedCostLines,
-  createLandedCostLine,
-  confirmLandedCostLine,
-} from "../../api/endpoints/procurement";
-import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
+  useImportOrders,
+  useSuppliers,
+  useCreateImportOrder,
+  useTransitionImportOrder,
+  useLandedCostLines,
+  useCreateLandedCostLine,
+} from "../../hooks/useProcurement";
+import { useOperatingUnits } from "../../hooks/usePartners";
+import { toast } from "../../stores/toastStore";
+import { apiErrorPayload } from "../../api/endpoints/production";
+import { Modal } from "../../components/ui/Modal";
 
 const STAGES: { key: ImportOrderStatus; label: string; icon: React.FC<{ className?: string }> }[] = [
   { key: "draft", label: "مسودة", icon: Clock },
@@ -54,20 +53,22 @@ const STAGES: { key: ImportOrderStatus; label: string; icon: React.FC<{ classNam
 ];
 
 export const ImportOrdersPage: React.FC = () => {
-  const [orders, setOrders] = useState<ImportOrder[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [operatingUnits, setOperatingUnits] = useState<OperatingUnit[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: orders = [], isLoading, error: queryError, refetch } = useImportOrders();
+  const { data: suppliers = [] } = useSuppliers();
+  const { data: operatingUnits = [] } = useOperatingUnits();
+
+  const createOrderMutation = useCreateImportOrder();
+  const transitionMutation = useTransitionImportOrder();
+  const createLandedCostMutation = useCreateLandedCostLine();
+
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Detail Modal & Stepper State
   const [selectedOrder, setSelectedOrder] = useState<ImportOrder | null>(null);
-  const [landedCosts, setLandedCosts] = useState<LandedCostLine[]>([]);
-  const [isLoadingCosts, setIsLoadingCosts] = useState(false);
+  const { data: landedCosts = [], isLoading: isLoadingCosts, refetch: refetchCosts } = useLandedCostLines(selectedOrder?.id);
+  const isSubmitting = createOrderMutation.isPending || transitionMutation.isPending || createLandedCostMutation.isPending;
 
   // Transition Form State
-  const [transitionAction, setTransitionAction] = useState<string>("");
   const [transitionRoute, setTransitionRoute] = useState<PaymentRoute>("bank");
   const [heldAmountLyd, setHeldAmountLyd] = useState<number>(0);
   const [amountRequested, setAmountRequested] = useState<number>(0);
@@ -86,165 +87,135 @@ export const ImportOrdersPage: React.FC = () => {
   const [negotiatedPrice, setNegotiatedPrice] = useState<number>(0);
   const [quantity, setQuantity] = useState<number>(0);
 
-  const fetchData = async () => {
-    try {
-      setIsLoading(true);
-      const [ordersData, suppliersData, unitsData] = await Promise.all([
-        getImportOrders(),
-        getSuppliers(),
-        getOperatingUnits(),
-      ]);
-      setOrders(ordersData);
-      setSuppliers(suppliersData);
-      setOperatingUnits(unitsData);
-      if (unitsData.length > 0 && !selectedUnitId) {
-        setSelectedUnitId(unitsData[0].id);
-      }
-    } catch (error) {
-      console.error("Failed to fetch import orders data:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const openOrderDetail = async (order: ImportOrder) => {
-    try {
-      setSelectedOrder(order);
-      setAmountRequested(Number(order.negotiated_price) * Number(order.quantity));
-      setReceivedQty(Number(order.quantity));
-      setIsLoadingCosts(true);
-      const costs = await getLandedCostLines(order.id);
-      setLandedCosts(costs);
-    } catch (e) {
-      console.error("Failed to load order costs:", e);
-    } finally {
-      setIsLoadingCosts(false);
-    }
+  const openOrderDetail = (order: ImportOrder) => {
+    setSelectedOrder(order);
+    setAmountRequested(Number(order.negotiated_price) * Number(order.quantity));
+    setReceivedQty(Number(order.quantity));
   };
 
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedUnitId || !selectedSupplierId || negotiatedPrice <= 0 || quantity <= 0) {
-      alert("يرجى تعبئة كافة الحقول المطلوبة بمقادير صحيحة");
+    const unitId = selectedUnitId || operatingUnits[0]?.id;
+    if (!unitId || !selectedSupplierId || negotiatedPrice <= 0 || quantity <= 0) {
+      toast.error("يرجى تعبئة كافة الحقول المطلوبة بمقادير صحيحة");
       return;
     }
 
-    try {
-      setIsSubmitting(true);
-      const payload: CreateImportOrderPayload = {
-        operating_unit_id: selectedUnitId,
-        supplier_id: selectedSupplierId,
-        currency,
-        negotiated_price: negotiatedPrice,
-        quantity,
-      };
+    const payload: CreateImportOrderPayload = {
+      operating_unit_id: unitId,
+      supplier_id: selectedSupplierId,
+      currency,
+      negotiated_price: negotiatedPrice,
+      quantity,
+    };
 
-      await createImportOrder(payload);
-      setIsModalOpen(false);
-      setNegotiatedPrice(0);
-      setQuantity(0);
-      fetchData();
-    } catch (error) {
-      if (isAxiosError(error) && error.response?.data?.message) {
-        alert(`خطأ: ${error.response.data.message}`);
-      } else {
-        alert("حدث خطأ أثناء إيقاف الأمر");
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
+    createOrderMutation.mutate(payload, {
+      onSuccess: () => {
+        toast.success("تم إنشاء أمر الاستيراد بنجاح");
+        setIsModalOpen(false);
+        setNegotiatedPrice(0);
+        setQuantity(0);
+      },
+      onError: (err: unknown) => {
+        const payloadErr = apiErrorPayload(err);
+        const message = payloadErr?.message || (isAxiosError(err) ? err.response?.data?.message : null);
+        toast.error(message || "حدث خطأ أثناء إنشاء أمر الاستيراد");
+      },
+    });
   };
 
-  const handleApplyTransition = async (action: string) => {
+  const handleApplyTransition = async (action: any) => {
     if (!selectedOrder) return;
 
-    try {
-      setIsSubmitting(true);
-      let payload: any = { action };
+    let payload: TransitionImportOrderPayload = { action };
 
-      if (action === "select_route") {
-        payload = {
-          action,
-          route: transitionRoute,
-          amount_requested: amountRequested,
-          held_amount_lyd: transitionRoute === "bank" ? heldAmountLyd : undefined,
-          invoice_ref: invoiceRef || undefined,
-        };
-      } else if (action === "receive_goods") {
-        payload = {
-          action,
-          warehouse_id: warehouseId || (operatingUnits[0]?.id || undefined),
-          received_qty: receivedQty,
-        };
-      }
-
-      const res = await transitionImportOrder(selectedOrder.id, payload);
-      setSelectedOrder(res.data);
-      setTransitionAction("");
-      fetchData();
-      alert("تم تنفيذ المرحلة بنجاح!");
-    } catch (error) {
-      if (isAxiosError(error) && error.response?.data?.message) {
-        alert(`خطأ: ${error.response.data.message}`);
-      } else {
-        alert("فشل تنفيذ المرحلة المالية/اللوجستية");
-      }
-    } finally {
-      setIsSubmitting(false);
+    if (action === "select_route") {
+      payload = {
+        action,
+        route: transitionRoute,
+        amount_requested: amountRequested,
+        held_amount_lyd: transitionRoute === "bank" ? heldAmountLyd : undefined,
+        invoice_ref: invoiceRef || undefined,
+      };
+    } else if (action === "receive_goods") {
+      payload = {
+        action,
+        warehouse_id: warehouseId || (operatingUnits[0]?.id || undefined),
+        received_qty: receivedQty,
+      };
     }
+
+    transitionMutation.mutate(
+      { id: selectedOrder.id, payload },
+      {
+        onSuccess: (res) => {
+          setSelectedOrder(res.data);
+          toast.success("تم تنفيذ المرحلة بنجاح!");
+        },
+        onError: (err: unknown) => {
+          const payloadErr = apiErrorPayload(err);
+          const message = payloadErr?.message || (isAxiosError(err) ? err.response?.data?.message : null);
+          toast.error(message || "فشل تنفيذ المرحلة المالية/اللوجستية");
+        },
+      }
+    );
   };
 
   const handleAddLandedCost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedOrder || costAmount <= 0) return;
 
-    try {
-      setIsSubmitting(true);
-      await createLandedCostLine(selectedOrder.id, {
-        type: costType,
-        amount: costAmount,
-        currency: "LYD",
-        is_confirmed: true,
-      });
-      setCostAmount(0);
-      const updatedCosts = await getLandedCostLines(selectedOrder.id);
-      setLandedCosts(updatedCosts);
-    } catch (error) {
-      alert("فشل إضافة خط التكلفة");
-    } finally {
-      setIsSubmitting(false);
-    }
+    createLandedCostMutation.mutate(
+      {
+        orderId: selectedOrder.id,
+        payload: {
+          type: costType,
+          amount: costAmount,
+          currency: "LYD",
+          is_confirmed: true,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success("تمت إضافة التكلفة الإضافية بنجاح");
+          setCostAmount(0);
+          refetchCosts();
+        },
+        onError: (err: unknown) => {
+          const payloadErr = apiErrorPayload(err);
+          const message = payloadErr?.message || (isAxiosError(err) ? err.response?.data?.message : null);
+          toast.error(message || "فشل إضافة خط التكلفة");
+        },
+      }
+    );
   };
 
   const getStatusBadge = (status: ImportOrderStatus) => {
     switch (status) {
       case "draft":
-        return <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-700">مسودة</span>;
+        return <span className="rounded-full bg-app-bg-secondary px-2.5 py-1 text-[10px] font-bold text-app-label-secondary">مسودة</span>;
       case "pending_payment":
-        return <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold text-amber-800">في انتظار الدفع</span>;
+        return <span className="rounded-full bg-app-status-warning/15 px-2.5 py-1 text-[10px] font-bold text-app-status-warning">في انتظار الدفع</span>;
       case "awaiting_bank_approval":
-        return <span className="rounded-full bg-blue-100 px-2.5 py-1 text-[10px] font-bold text-blue-800">حجز بنكي</span>;
+        return <span className="rounded-full bg-app-accent/15 px-2.5 py-1 text-[10px] font-bold text-app-accent">حجز بنكي</span>;
       case "paid":
-        return <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold text-emerald-800">مدفوع</span>;
+        return <span className="rounded-full bg-app-status-positive/15 px-2.5 py-1 text-[10px] font-bold text-app-status-positive">مدفوع</span>;
       case "in_transit":
-        return <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-[10px] font-bold text-indigo-800">في الشحن</span>;
+        return <span className="rounded-full bg-app-accent/15 px-2.5 py-1 text-[10px] font-bold text-app-accent">في الشحن</span>;
       case "at_port":
-        return <span className="rounded-full bg-purple-100 px-2.5 py-1 text-[10px] font-bold text-purple-800">وصل الميناء</span>;
+        return <span className="rounded-full bg-app-bg-secondary px-2.5 py-1 text-[10px] font-bold text-app-label-primary">وصل الميناء</span>;
       case "received":
-        return <span className="rounded-full bg-teal-100 px-2.5 py-1 text-[10px] font-bold text-teal-800">مستلم</span>;
+        return <span className="rounded-full bg-app-status-positive/15 px-2.5 py-1 text-[10px] font-bold text-app-status-positive">مستلم</span>;
       case "complete":
-        return <span className="rounded-full bg-emerald-200 px-2.5 py-1 text-[10px] font-extrabold text-emerald-900">مكتمل ومحسوب</span>;
+        return <span className="rounded-full bg-app-status-positive/25 px-2.5 py-1 text-[10px] font-extrabold text-app-status-positive">مكتمل ومحسوب</span>;
       default:
-        return <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-bold text-gray-700">{status}</span>;
+        return <span className="rounded-full bg-app-bg-secondary px-2.5 py-1 text-[10px] font-bold text-app-label-secondary">{status}</span>;
     }
   };
 
+
   return (
-    <div className="space-y-6" dir="rtl">
+<div className="space-y-6" dir="rtl">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -258,7 +229,7 @@ export const ImportOrdersPage: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={fetchData}
+            onClick={() => refetch()}
             disabled={isLoading}
             className="flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1 transition-colors"
           >
@@ -347,7 +318,7 @@ export const ImportOrdersPage: React.FC = () => {
             <form onSubmit={handleCreateOrder} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                  الوحدة التشغيلية <span className="text-red-500">*</span>
+                  الوحدة التشغيلية <span className="text-app-status-danger">*</span>
                 </label>
                 <select
                   required
@@ -366,7 +337,7 @@ export const ImportOrdersPage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                  المورد الخارجي <span className="text-red-500">*</span>
+                  المورد الخارجي <span className="text-app-status-danger">*</span>
                 </label>
                 <select
                   required
@@ -398,7 +369,7 @@ export const ImportOrdersPage: React.FC = () => {
                 </div>
                 <div className="col-span-2">
                   <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                    السعر المتفق عليه للوحدة <span className="text-red-500">*</span>
+                    السعر المتفق عليه للوحدة <span className="text-app-status-danger">*</span>
                   </label>
                   <input
                     type="number"
@@ -415,7 +386,7 @@ export const ImportOrdersPage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                  الكمية المتعاقد عليها <span className="text-red-500">*</span>
+                  الكمية المتعاقد عليها <span className="text-app-status-danger">*</span>
                 </label>
                 <input
                   type="number"
@@ -524,7 +495,7 @@ export const ImportOrdersPage: React.FC = () => {
                   </p>
                   <button
                     onClick={() => handleApplyTransition("pending_payment")}
-                    disabled={isSubmitting}
+                    disabled={createOrderMutation.isPending || transitionMutation.isPending}
                     className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white hover:opacity-90"
                   >
                     إرسال للمالية للموافقة
@@ -578,7 +549,7 @@ export const ImportOrdersPage: React.FC = () => {
                   <p className="text-xs text-app-label-secondary">تأكيد تم انطلاق الشحنة في البحر</p>
                   <button
                     onClick={() => handleApplyTransition("shipment")}
-                    disabled={isSubmitting}
+                    disabled={createOrderMutation.isPending || transitionMutation.isPending}
                     className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white hover:opacity-90"
                   >
                     تأكيد الانطلاق والشحن
@@ -591,7 +562,7 @@ export const ImportOrdersPage: React.FC = () => {
                   <p className="text-xs text-app-label-secondary">تأكيد وصول السفينة إلى الميناء الخارجي / المحلي</p>
                   <button
                     onClick={() => handleApplyTransition("arrive_port")}
-                    disabled={isSubmitting}
+                    disabled={createOrderMutation.isPending || transitionMutation.isPending}
                     className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white hover:opacity-90"
                   >
                     تأكيد الوصول للميناء
@@ -604,7 +575,7 @@ export const ImportOrdersPage: React.FC = () => {
                   <p className="text-xs text-app-label-secondary">بدء إجراءات النقل والشحن الداخلي لمخازن الشركة</p>
                   <button
                     onClick={() => handleApplyTransition("transport_warehouse")}
-                    disabled={isSubmitting}
+                    disabled={createOrderMutation.isPending || transitionMutation.isPending}
                     className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white hover:opacity-90"
                   >
                     بدء النقل للمخازن
@@ -617,7 +588,7 @@ export const ImportOrdersPage: React.FC = () => {
                   <p className="text-xs text-app-label-secondary">فحص واستلام البضاعة بالكامل بالمركز الرئيسي</p>
                   <button
                     onClick={() => handleApplyTransition("receive_goods")}
-                    disabled={isSubmitting}
+                    disabled={createOrderMutation.isPending || transitionMutation.isPending}
                     className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white hover:opacity-90"
                   >
                     تأكيد الاستلام بالمخزن
@@ -630,7 +601,7 @@ export const ImportOrdersPage: React.FC = () => {
                   <p className="text-xs text-app-label-secondary">إغلاق وتكتمل التكاليف الرأسمالية كاملة</p>
                   <button
                     onClick={() => handleApplyTransition("complete")}
-                    disabled={isSubmitting}
+                    disabled={createOrderMutation.isPending || transitionMutation.isPending}
                     className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:opacity-90"
                   >
                     إغلاق أمر الاستيراد

@@ -1,81 +1,67 @@
-import React, { useEffect, useState } from "react";
-import { Truck, Plus, RefreshCw, Building, Globe, MapPin } from "lucide-react";
+import React, { useState } from "react";
+import { Truck, Plus, RefreshCw, Building, MapPin } from "lucide-react";
 import { isAxiosError } from "axios";
-import { Supplier, CreateSupplierPayload } from "../../types/procurement";
-import { OperatingUnit } from "../../types/entities";
-import { getSuppliers, createSupplier } from "../../api/endpoints/procurement";
-import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
+import { CreateSupplierPayload } from "../../types/procurement";
+import { useSuppliers, useCreateSupplier } from "../../hooks/useProcurement";
+import { useOperatingUnits } from "../../hooks/usePartners";
+import { toast } from "../../stores/toastStore";
+import { apiErrorPayload } from "../../api/endpoints/production";
+import { Modal } from "../../components/ui/Modal";
 
 export const SuppliersPage: React.FC = () => {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [operatingUnits, setOperatingUnits] = useState<OperatingUnit[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { data: suppliers = [], isLoading, error: queryError, refetch } = useSuppliers();
+  const { data: operatingUnits = [] } = useOperatingUnits();
+  const createSupplierMutation = useCreateSupplier();
 
-  // Form State
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUnitId, setSelectedUnitId] = useState("");
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [defaultCurrency, setDefaultCurrency] = useState("USD");
   const [address, setAddress] = useState("");
 
-  const fetchData = async () => {
-    try {
-      setIsLoading(true);
-      const [suppliersData, unitsData] = await Promise.all([
-        getSuppliers(),
-        getOperatingUnits(),
-      ]);
-      setSuppliers(suppliersData);
-      setOperatingUnits(unitsData);
-      if (unitsData.length > 0 && !selectedUnitId) {
-        setSelectedUnitId(unitsData[0].id);
-      }
-    } catch (error) {
-      console.error("Failed to fetch suppliers:", error);
-    } finally {
-      setIsLoading(false);
-    }
+  const resetForm = () => {
+    setName("");
+    setContact("");
+    setAddress("");
+    setDefaultCurrency("USD");
   };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   const handleCreateSupplier = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !selectedUnitId) {
-      alert("يرجى تعبئة اسم المورد والوحدة التشغيلية");
+    const unitId = selectedUnitId || operatingUnits[0]?.id;
+    if (!name.trim() || !unitId) {
+      toast.error("يرجى تعبئة اسم المورد والوحدة التشغيلية");
       return;
     }
 
-    try {
-      setIsSubmitting(true);
-      const payload: CreateSupplierPayload = {
-        operating_unit_id: selectedUnitId,
-        name: name.trim(),
-        contact: contact.trim() || undefined,
-        default_currency: defaultCurrency,
-        address: address.trim() || undefined,
-      };
+    const payload: CreateSupplierPayload = {
+      operating_unit_id: unitId,
+      name: name.trim(),
+      contact: contact.trim() || undefined,
+      default_currency: defaultCurrency,
+      address: address.trim() || undefined,
+    };
 
-      await createSupplier(payload);
-      setIsModalOpen(false);
-      setName("");
-      setContact("");
-      setAddress("");
-      fetchData();
-    } catch (error) {
-      if (isAxiosError(error) && error.response?.data?.message) {
-        alert(`خطأ: ${error.response.data.message}`);
-      } else {
-        alert("حدث خطأ أثناء حفظ بيانات المورد");
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
+    createSupplierMutation.mutate(payload, {
+      onSuccess: () => {
+        toast.success("تمت إضافة المورد بنجاح");
+        setIsModalOpen(false);
+        resetForm();
+      },
+      onError: (err: unknown) => {
+        const payloadErr = apiErrorPayload(err);
+        const message = payloadErr?.message || (isAxiosError(err) ? err.response?.data?.message : null);
+        toast.error(message || "حدث خطأ أثناء حفظ بيانات المورد");
+      },
+    });
   };
+
+  const errorMessage = queryError
+    ? apiErrorPayload(queryError)?.message ||
+      (isAxiosError(queryError) ? queryError.response?.data?.message : null) ||
+      "تعذر تحميل قائمة الموردين"
+    : null;
 
   return (
     <div className="space-y-6" dir="rtl">
@@ -92,7 +78,7 @@ export const SuppliersPage: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={fetchData}
+            onClick={() => refetch()}
             disabled={isLoading}
             className="flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1 transition-colors"
           >
@@ -113,6 +99,10 @@ export const SuppliersPage: React.FC = () => {
       {isLoading ? (
         <div className="flex h-40 items-center justify-center rounded-2xl border border-app-separator bg-app-bg-primary">
           <RefreshCw className="h-6 w-6 animate-spin text-app-accent" />
+        </div>
+      ) : errorMessage ? (
+        <div className="rounded-2xl border border-app-status-danger/30 bg-app-status-danger/10 p-4 text-center text-xs text-app-status-danger">
+          {errorMessage}
         </div>
       ) : suppliers.length === 0 ? (
         <div className="flex h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-app-separator bg-app-bg-primary p-6 text-center">
@@ -164,107 +154,107 @@ export const SuppliersPage: React.FC = () => {
       )}
 
       {/* Add Supplier Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-app-separator bg-app-bg-primary p-6 shadow-xl" dir="rtl">
-            <h3 className="text-lg font-bold text-app-label-primary mb-4">إضافة مورد خارجي جديد</h3>
-            <form onSubmit={handleCreateSupplier} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                  الوحدة التشغيلية <span className="text-red-500">*</span>
-                </label>
-                <select
-                  required
-                  value={selectedUnitId}
-                  onChange={(e) => setSelectedUnitId(e.target.value)}
-                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-                >
-                  <option value="">-- اختر الوحدة --</option>
-                  {operatingUnits.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                  اسم الشركة الموردة <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="مثال: Global Steel Trading Corp"
-                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                    العملة الافتراضية
-                  </label>
-                  <select
-                    value={defaultCurrency}
-                    onChange={(e) => setDefaultCurrency(e.target.value)}
-                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-                  >
-                    <option value="USD">USD (دولار أمريكي)</option>
-                    <option value="EUR">EUR (يورو)</option>
-                    <option value="LYD">LYD (دينار ليبي)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                    معلومات الاتصال / البريد
-                  </label>
-                  <input
-                    type="text"
-                    value={contact}
-                    onChange={(e) => setContact(e.target.value)}
-                    placeholder="sales@globalsteel.com"
-                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                  العنوان / بلد المورد
-                </label>
-                <input
-                  type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Istanbul Port, Turkey"
-                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-app-separator">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-xl px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || !name.trim() || !selectedUnitId}
-                  className="rounded-xl bg-app-accent px-5 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
-                >
-                  {isSubmitting ? "جاري الحفظ..." : "حفظ المورد"}
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="إضافة مورد خارجي جديد"
+        size="md"
+      >
+        <form onSubmit={handleCreateSupplier} className="space-y-4" dir="rtl">
+          <div>
+            <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+              الوحدة التشغيلية <span className="text-app-status-danger">*</span>
+            </label>
+            <select
+              required
+              value={selectedUnitId}
+              onChange={(e) => setSelectedUnitId(e.target.value)}
+              className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+            >
+              <option value="">-- اختر الوحدة --</option>
+              {operatingUnits.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
-      )}
+
+          <div>
+            <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+              اسم الشركة الموردة <span className="text-app-status-danger">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="مثال: Global Steel Trading Corp"
+              className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                العملة المعتمدة
+              </label>
+              <select
+                value={defaultCurrency}
+                onChange={(e) => setDefaultCurrency(e.target.value)}
+                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+              >
+                <option value="USD">الدولار الأمريكي (USD)</option>
+                <option value="EUR">اليورو الأوروبي (EUR)</option>
+                <option value="LYD">الدينار الليبي (LYD)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                جهة / هاتف الاتصال
+              </label>
+              <input
+                type="text"
+                value={contact}
+                onChange={(e) => setContact(e.target.value)}
+                placeholder="هاتف أو بريد أو مسؤول المبيعات"
+                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+              العنوان الجغرافي / الدولة والميناء
+            </label>
+            <textarea
+              rows={2}
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="مثال: إسطنبول، تركيا - ميناء أمبارلي"
+              className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-app-separator">
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="rounded-xl border border-app-separator bg-app-bg-secondary px-4 py-2 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              disabled={createSupplierMutation.isPending || !name.trim()}
+              className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+            >
+              {createSupplierMutation.isPending ? "جاري الحفظ..." : "حفظ المورد"}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };
