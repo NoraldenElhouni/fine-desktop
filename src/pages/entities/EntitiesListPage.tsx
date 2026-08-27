@@ -1,10 +1,9 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Building2,
   UserCheck,
   UserPlus,
   Search,
-  Plus,
   UserX,
   Mail,
   Phone,
@@ -13,13 +12,21 @@ import {
 } from "lucide-react";
 import { isAxiosError } from "axios";
 import { Entity, CreateEntityPayload } from "../../types/entities";
-import { getEntities, createEntity, provisionUserAccount } from "../../api/endpoints/entities";
+import { useEntities, useCreateEntity, useProvisionUserAccount } from "../../hooks/usePartners";
 import { EntityFormModal } from "../../components/entities/EntityFormModal";
+import { toast } from "../../stores/toastStore";
+import { apiErrorPayload } from "../../api/endpoints/production";
 
 export const EntitiesListPage: React.FC = () => {
-  const [entities, setEntities] = useState<Entity[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // TanStack Query Hooks
+  const {
+    data: entities = [],
+    isLoading,
+    error: queryError,
+    refetch,
+  } = useEntities();
+  const createEntityMutation = useCreateEntity();
+  const provisionUserMutation = useProvisionUserAccount();
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState("");
@@ -28,63 +35,35 @@ export const EntitiesListPage: React.FC = () => {
 
   // Modals
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Provisioning Modal State
   const [provisioningEntity, setProvisioningEntity] = useState<Entity | null>(null);
   const [provisionEmail, setProvisionEmail] = useState("");
   const [provisionPassword, setProvisionPassword] = useState("");
-  const [isProvisioning, setIsProvisioning] = useState(false);
   const [provisionSuccessMsg, setProvisionSuccessMsg] = useState<string | null>(null);
-
-  const fetchEntities = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const data = await getEntities();
-      setEntities(data);
-    } catch (err: unknown) {
-      const message = isAxiosError(err)
-        ? err.response?.data?.message
-        : null;
-      setError(message || "تعذر تحميل قائمة الكيانات");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchEntities();
-  }, []);
 
   const handleCreateEntity = async (payload: CreateEntityPayload) => {
     try {
-      setIsSubmitting(true);
-      const newEntity = await createEntity(payload);
-      setEntities((prev) => [newEntity, ...prev]);
+      await createEntityMutation.mutateAsync(payload);
+      toast.success("تم إنشاء الكيان بنجاح");
+      setIsCreateModalOpen(false);
     } catch (err: unknown) {
-      const message = isAxiosError(err)
-        ? err.response?.data?.message
-        : null;
-      alert(message || "خطأ أثناء إنشاء الكيان");
+      const payloadErr = apiErrorPayload(err);
+      const message = payloadErr?.message || (isAxiosError(err) ? err.response?.data?.message : null);
+      toast.error(message || "خطأ أثناء إنشاء الكيان");
       throw err;
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   const handleProvisionUser = async () => {
     if (!provisioningEntity) return;
     try {
-      setIsProvisioning(true);
-      const res = await provisionUserAccount(
-        provisioningEntity.id,
-        provisionEmail.trim() || undefined,
-        provisionPassword.trim() || undefined
-      );
-      setEntities((prev) =>
-        prev.map((item) => (item.id === res.data.id ? res.data : item))
-      );
+      const res = await provisionUserMutation.mutateAsync({
+        id: provisioningEntity.id,
+        email: provisionEmail.trim() || undefined,
+        password: provisionPassword.trim() || undefined,
+      });
+      toast.success(`تم إنشاء وتزويد حساب النظام بنجاح للكيان ${res.data.name}`);
       setProvisionSuccessMsg(`تم إنشاء وتزويد حساب النظام بنجاح للكيان ${res.data.name}`);
       setTimeout(() => {
         setProvisionSuccessMsg(null);
@@ -93,12 +72,9 @@ export const EntitiesListPage: React.FC = () => {
         setProvisionPassword("");
       }, 2000);
     } catch (err: unknown) {
-      const message = isAxiosError(err)
-        ? err.response?.data?.message
-        : null;
-      alert(message || "خطأ أثناء تزويد حساب النظام");
-    } finally {
-      setIsProvisioning(false);
+      const payloadErr = apiErrorPayload(err);
+      const message = payloadErr?.message || (isAxiosError(err) ? err.response?.data?.message : null);
+      toast.error(message || "خطأ أثناء تزويد حساب النظام");
     }
   };
 
@@ -128,6 +104,12 @@ export const EntitiesListPage: React.FC = () => {
     });
   }, [entities, selectedType, selectedRole, searchQuery]);
 
+  const errorMessage = queryError
+    ? apiErrorPayload(queryError)?.message ||
+      (isAxiosError(queryError) ? queryError.response?.data?.message : null) ||
+      "تعذر تحميل قائمة الكيانات"
+    : null;
+
   return (
     <div className="space-y-6 p-6" dir="rtl">
       {/* Header Bar */}
@@ -141,7 +123,7 @@ export const EntitiesListPage: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={fetchEntities}
+            onClick={() => refetch()}
             className="flex items-center gap-2 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
@@ -152,7 +134,7 @@ export const EntitiesListPage: React.FC = () => {
             onClick={() => setIsCreateModalOpen(true)}
             className="flex items-center gap-2 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90"
           >
-            <Plus className="h-4 w-4" />
+            <UserPlus className="h-4 w-4" />
             إضافة كيان جديد
           </button>
         </div>
@@ -203,16 +185,16 @@ export const EntitiesListPage: React.FC = () => {
         <div className="flex h-48 items-center justify-center rounded-2xl border border-app-separator bg-app-bg-primary">
           <RefreshCw className="h-6 w-6 animate-spin text-app-accent" />
         </div>
-      ) : error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-center text-xs text-red-600">
-          {error}
+      ) : errorMessage ? (
+        <div className="rounded-2xl border border-app-status-danger/30 bg-app-status-danger/10 p-4 text-center text-xs text-app-status-danger">
+          {errorMessage}
         </div>
       ) : filteredEntities.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-app-separator bg-app-bg-primary p-12 text-center">
-          <Building2 className="h-12 w-12 text-app-label-secondary mb-3 opacity-40" />
-          <p className="text-sm font-bold text-app-label-primary">لا توجد كيانات مطابقة</p>
+          <UserX className="h-12 w-12 text-app-label-secondary mb-3 opacity-40" />
+          <p className="text-sm font-bold text-app-label-primary">لا توجد نتائج مطابقة</p>
           <p className="text-xs text-app-label-secondary mt-1">
-            قم بإضافة كيان جديد أو ضبط خيارات تصفية البحث
+            جرب تعديل خيارات البحث أو تصفية الأدوار
           </p>
         </div>
       ) : (
@@ -220,195 +202,193 @@ export const EntitiesListPage: React.FC = () => {
           <table className="w-full text-start text-xs">
             <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary">
               <tr>
-                <th className="px-4 py-3 text-start font-bold">الاسم والنوع</th>
-                <th className="px-4 py-3 text-start font-bold">الرقم الضريبي</th>
-                <th className="px-4 py-3 text-start font-bold">الأدوار في النظام</th>
-                <th className="px-4 py-3 text-start font-bold">بيانات التواصل</th>
+                <th className="px-4 py-3 text-start font-bold">الاسم / الكيان</th>
+                <th className="px-4 py-3 text-start font-bold">النوع</th>
+                <th className="px-4 py-3 text-start font-bold">الأدوار المكتسبة</th>
+                <th className="px-4 py-3 text-start font-bold">بيانات الاتصال</th>
                 <th className="px-4 py-3 text-start font-bold">حساب النظام</th>
-                <th className="px-4 py-3 text-end font-bold">الإجراءات</th>
+                <th className="px-4 py-3 text-end font-bold">إجراءات</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-app-separator text-app-label-primary">
-              {filteredEntities.map((entity) => (
-                <tr key={entity.id} className="hover:bg-app-fill-f1 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-app-accent-subtle text-app-accent">
-                        {entity.entity_type === "organization" ? (
-                          <Building2 className="h-4 w-4" />
+              {filteredEntities.map((entity) => {
+                const hasUser = Boolean(entity.user_id);
+                return (
+                  <tr key={entity.id} className="hover:bg-app-bg-secondary/50">
+                    <td className="px-4 py-3 font-semibold">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-app-bg-secondary text-app-accent">
+                          {entity.entity_type === "organization" ? (
+                            <Building2 className="h-4 w-4" />
+                          ) : (
+                            <UserCheck className="h-4 w-4" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-bold text-app-label-primary">{entity.name}</div>
+                          {entity.tax_number && (
+                            <div className="text-[10px] text-app-label-secondary font-mono">
+                              ضريبي: {entity.tax_number}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="rounded-md bg-app-bg-secondary px-2 py-1 text-[11px] font-medium text-app-label-secondary">
+                        {entity.entity_type === "organization" ? "شركة / مؤسسة" : "فرد"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {entity.roles && entity.roles.length > 0 ? (
+                          entity.roles.map((r) => (
+                            <span
+                              key={r.id || r.role_type}
+                              className="rounded-full bg-app-accent/10 px-2 py-0.5 text-[10px] font-bold text-app-accent"
+                            >
+                              {r.role_type === "client"
+                                ? "عميل"
+                                : r.role_type === "employee"
+                                ? "موظف"
+                                : r.role_type === "external_employer"
+                                ? "جهة تشغيل"
+                                : r.role_type === "vendor"
+                                ? "مورد"
+                                : r.role_type}
+                            </span>
+                          ))
                         ) : (
-                          <UserCheck className="h-4 w-4" />
+                          <span className="text-[11px] text-app-label-secondary italic">
+                            بدون دور نشط
+                          </span>
                         )}
                       </div>
-                      <div>
-                        <p className="font-bold text-app-label-primary">{entity.name}</p>
-                        <span className="text-[10px] text-app-label-secondary">
-                          {entity.entity_type === "organization" ? "شركة / منظمة" : "فرد"}
-                        </span>
+                    </td>
+                    <td className="px-4 py-3 text-app-label-secondary">
+                      <div className="space-y-0.5">
+                        {entity.primary_contact?.email && (
+                          <div className="flex items-center gap-1 text-[11px]">
+                            <Mail className="h-3 w-3" />
+                            <span>{entity.primary_contact.email}</span>
+                          </div>
+                        )}
+                        {entity.primary_contact?.phone && (
+                          <div className="flex items-center gap-1 text-[11px]">
+                            <Phone className="h-3 w-3" />
+                            <span>{entity.primary_contact.phone}</span>
+                          </div>
+                        )}
+                        {!entity.primary_contact?.email && !entity.primary_contact?.phone && (
+                          <span className="text-[10px] text-app-label-secondary/60">غير متوفر</span>
+                        )}
                       </div>
-                    </div>
-                  </td>
-
-                  <td className="px-4 py-3 font-mono text-app-label-secondary">
-                    {entity.tax_number || "—"}
-                  </td>
-
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {entity.roles && entity.roles.length > 0 ? (
-                        entity.roles.map((r, idx) => (
-                          <span
-                            key={idx}
-                            className="rounded-lg bg-app-bg-secondary px-2 py-0.5 text-[10px] font-semibold text-app-accent border border-app-separator"
-                          >
-                            {r.role_type === "client" && "عميل"}
-                            {r.role_type === "employee" && "موظف"}
-                            {r.role_type === "external_employer" && "جهة مشغلة"}
-                            {r.role_type === "vendor" && "مورد"}
-                          </span>
-                        ))
+                    </td>
+                    <td className="px-4 py-3">
+                      {hasUser ? (
+                        <div className="flex items-center gap-1.5 text-app-status-positive font-semibold text-[11px]">
+                          <ShieldCheck className="h-4 w-4" />
+                          <span>مرتبط بحساب</span>
+                        </div>
                       ) : (
-                        <span className="text-app-label-secondary opacity-60">بدون دور</span>
+                        <span className="text-[11px] text-app-label-secondary">كيان خارجي فقط</span>
                       )}
-                    </div>
-                  </td>
-
-                  <td className="px-4 py-3 space-y-0.5">
-                    {entity.primary_contact?.email ? (
-                      <div className="flex items-center gap-1.5 text-app-label-secondary">
-                        <Mail className="h-3 w-3 text-app-accent" />
-                        <span>{entity.primary_contact.email}</span>
-                      </div>
-                    ) : null}
-                    {entity.primary_contact?.phone ? (
-                      <div className="flex items-center gap-1.5 text-app-label-secondary">
-                        <Phone className="h-3 w-3 text-app-accent" />
-                        <span dir="ltr">{entity.primary_contact.phone}</span>
-                      </div>
-                    ) : null}
-                    {!entity.primary_contact?.email && !entity.primary_contact?.phone && (
-                      <span className="text-app-label-secondary opacity-60">—</span>
-                    )}
-                  </td>
-
-                  <td className="px-4 py-3">
-                    {entity.user_id ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 border border-emerald-200">
-                        <ShieldCheck className="h-3.5 w-3.5" />
-                        حساب نظام
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-600 border border-gray-200">
-                        <UserX className="h-3.5 w-3.5 opacity-60" />
-                        بدون حساب
-                      </span>
-                    )}
-                  </td>
-
-                  <td className="px-4 py-3 text-end">
-                    {!entity.user_id ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProvisioningEntity(entity);
-                          setProvisionEmail(entity.primary_contact?.email || "");
-                        }}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-app-accent-subtle px-3 py-1.5 text-xs font-bold text-app-accent hover:bg-app-accent hover:text-white transition-all"
-                      >
-                        <UserPlus className="h-3.5 w-3.5" />
-                        تزويد بحساب نظام
-                      </button>
-                    ) : (
-                      <span className="text-[11px] font-semibold text-app-label-secondary">
-                        مفعل
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-4 py-3 text-end">
+                      {!hasUser && (
+                        <button
+                          type="button"
+                          onClick={() => setProvisioningEntity(entity)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-app-separator bg-app-bg-secondary px-2.5 py-1 text-[11px] font-semibold text-app-label-primary hover:bg-app-fill-f1"
+                        >
+                          <ShieldCheck className="h-3 w-3 text-app-accent" />
+                          <span>تزويد حساب دخول</span>
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
 
-      {/* Entity Creation Modal */}
+      {/* Entity Creation Form Modal */}
       <EntityFormModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateEntity}
-        isLoading={isSubmitting}
+        isLoading={createEntityMutation.isPending}
       />
 
       {/* Provision User Account Modal */}
       {provisioningEntity && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-app-separator bg-app-bg-primary p-6 shadow-xl" dir="rtl">
-            <h3 className="text-lg font-bold text-app-label-primary mb-2">
-              تزويد حساب نظام للكيان
+            <h3 className="text-base font-bold text-app-label-primary mb-2">
+              تزويد حساب مستخدم للكيان: {provisioningEntity.name}
             </h3>
             <p className="text-xs text-app-label-secondary mb-4">
-              سيتم إنشاء حساب مستخدم للنظام للكيان <strong>{provisioningEntity.name}</strong> لإتاحة الدخول التفاعلي.
+              سيتم إنشاء حساب نظام جديد لتمكين هذا الشخص أو الشركة من تسجيل الدخول للنظام
             </p>
 
-            {provisionSuccessMsg ? (
-              <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-700 text-center font-bold">
+            {provisionSuccessMsg && (
+              <div className="mb-4 rounded-xl border border-app-status-positive/30 bg-app-status-positive/10 p-3 text-xs text-app-status-positive">
                 {provisionSuccessMsg}
               </div>
-            ) : (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                    البريد الإلكتروني للحساب <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={provisionEmail}
-                    onChange={(e) => setProvisionEmail(e.target.value)}
-                    placeholder="user@company.com"
-                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                    كلمة المرور المؤقتة (اختياري - يترك فارغاً للإنشاء التلقائي)
-                  </label>
-                  <input
-                    type="password"
-                    minLength={8}
-                    value={provisionPassword}
-                    onChange={(e) => setProvisionPassword(e.target.value)}
-                    placeholder="أدخل كلمة مرور مؤقتة (8 أحرف على الأقل)"
-                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
-                  />
-                  <p className="text-[10px] text-app-label-secondary mt-1">
-                    سيُطلب من المستخدم تغيير هذه كلمة المرور فور تسجيل الدخول الأول.
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-end gap-3 pt-3 border-t border-app-separator">
-                  <button
-                    type="button"
-                    onClick={() => setProvisioningEntity(null)}
-                    className="rounded-xl px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
-                  >
-                    إلغاء
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleProvisionUser}
-                    disabled={isProvisioning || !provisionEmail.trim()}
-                    className="rounded-xl bg-app-accent px-5 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
-                  >
-                    {isProvisioning ? "جاري الإنشاء..." : "إنشاء الحساب"}
-                  </button>
-                </div>
-              </div>
             )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                  البريد الإلكتروني للدخول (اختياري، يولد تلقائياً إن ترك فارغاً)
+                </label>
+                <input
+                  type="email"
+                  value={provisionEmail}
+                  onChange={(e) => setProvisionEmail(e.target.value)}
+                  placeholder="user@example.com"
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                  كلمة المرور الابتدائية (اختياري، كلمة افتراضية مؤقتة)
+                </label>
+                <input
+                  type="password"
+                  value={provisionPassword}
+                  onChange={(e) => setProvisionPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setProvisioningEntity(null)}
+                className="rounded-xl px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                disabled={provisionUserMutation.isPending}
+                onClick={handleProvisionUser}
+                className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+              >
+                {provisionUserMutation.isPending ? "جاري التزويد..." : "تأكيد التزويد"}
+              </button>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
 };
+
+export default EntitiesListPage;
