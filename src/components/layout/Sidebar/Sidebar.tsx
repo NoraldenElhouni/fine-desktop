@@ -72,7 +72,7 @@ const Sidebar = ({ isCollapsed, activePath, user, onLogout, onOpenServerSettings
         ) : null}
       </div>
 
-      <nav className="no-scrollbar flex-1 overflow-y-auto px-3 py-4 space-y-1">
+      <nav className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 space-y-1">
         {/* Main Dashboard Link */}
         <Link
           to="/"
@@ -191,7 +191,7 @@ const Sidebar = ({ isCollapsed, activePath, user, onLogout, onOpenServerSettings
           );
         })}
       </nav>
-      <div className="border-t border-app-separator px-3 py-2.5">
+      <div className="shrink-0 border-t border-app-separator px-3 py-2.5">
         <div className="relative">
           <button
             type="button"

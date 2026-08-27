@@ -50,7 +50,7 @@ const AppShell = ({ children }: AppShellProps) => {
     <div className="flex h-[100dvh] flex-col bg-app-bg-secondary" dir="rtl" lang="ar">
       <ServerConnectionBanner />
 
-      <div className="flex min-w-0 flex-1">
+      <div className="flex min-w-0 min-h-0 flex-1">
         <Sidebar
           isCollapsed={isCollapsed}
           activePath={location.pathname}
@@ -58,13 +58,13 @@ const AppShell = ({ children }: AppShellProps) => {
           onLogout={handleLogout}
           onOpenServerSettings={() => setIsServerSettingsOpen(true)}
         />
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 min-h-0 flex-1 flex-col">
           <Navbar
             isCollapsed={isCollapsed}
             onToggleCollapse={() => setIsCollapsed((value) => !value)}
             onOpenServerSettings={() => setIsServerSettingsOpen(true)}
           />
-          <main className="flex-1 overflow-auto bg-app-bg-secondary p-6">
+          <main className="flex-1 min-h-0 overflow-auto overscroll-contain bg-app-bg-secondary p-6">
             {children}
           </main>
         </div>
