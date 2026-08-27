@@ -3,6 +3,8 @@ import { Server, Check, X, Shield, RefreshCw } from "lucide-react";
 import { useServerConfigStore } from "../../stores/serverConfigStore";
 import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
 import { OperatingUnit } from "../../types/entities";
+import { cn } from "../../lib/utils/utils";
+import { tokens } from "../../lib/tokens";
 
 interface ServerSettingsModalProps {
   isOpen: boolean;
@@ -74,22 +76,23 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" dir="rtl">
-      <div className="bg-white rounded-2xl shadow-xl border border-neutral-100 max-w-md w-full p-6 space-y-6 animate-scale-up">
-        
-        <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-app-label-primary/50 backdrop-blur-sm p-4" dir="rtl">
+      <div className="bg-app-bg-primary rounded-app-xl shadow-xl border border-app-separator max-w-md w-full p-6 space-y-6 animate-scale-up">
+
+        <div className="flex items-center justify-between border-b border-app-separator pb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-neutral-100 rounded-xl text-neutral-800">
+            <div className="p-2.5 bg-app-bg-secondary rounded-app-lg text-app-label-primary">
               <Server className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-neutral-900">إعدادات سيرفر الشبكة المحلية</h2>
-              <p className="text-xs text-neutral-500">تكوين رابط API وحدة التشغيل</p>
+              <h2 className={cn(tokens.typography.webUI.t1Emphasized, "text-app-label-primary")}>إعدادات سيرفر الشبكة المحلية</h2>
+              <p className={cn(tokens.typography.webUI.c1Regular, "text-app-label-secondary")}>تكوين رابط API وحدة التشغيل</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-neutral-400 hover:text-neutral-700 rounded-lg hover:bg-neutral-100 transition-colors"
+            aria-label="إغلاق"
+            className="p-1.5 text-app-label-tertiary hover:text-app-label-primary rounded-app-lg hover:bg-app-fill-f1 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -97,7 +100,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-neutral-700 mb-1.5">
+            <label className={cn(tokens.typography.webUI.t2Emphasized, "block text-app-label-primary mb-1.5")}>
               عنوان السيرفر الرئيسي (Server Base URL)
             </label>
             <input
@@ -105,26 +108,26 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
               value={inputUrl}
               onChange={(e) => setInputUrl(e.target.value)}
               placeholder="http://192.168.1.100:8000/api/v1"
-              className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-all"
+              className="w-full px-4 py-2.5 bg-app-bg-secondary border border-app-separator rounded-app-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-app-accent transition-all"
             />
-            <p className="text-xs text-neutral-400 mt-1">
-              مثال: <code className="bg-neutral-100 px-1 rounded">http://192.168.1.50:8000/api/v1</code>
+            <p className={cn(tokens.typography.webUI.c1Regular, "text-app-label-tertiary mt-1")}>
+              مثال: <code className="bg-app-fill-f1 px-1 rounded-app-sm">http://192.168.1.50:8000/api/v1</code>
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-neutral-700 mb-1.5">
+            <label className={cn(tokens.typography.webUI.t2Emphasized, "block text-app-label-primary mb-1.5")}>
               وحدة التشغيل الرئيسية (Operating Unit)
             </label>
             {loadingUnits ? (
-              <div className="flex items-center gap-2 text-xs text-neutral-400 py-2">
+              <div className="flex items-center gap-2 text-xs text-app-label-tertiary py-2">
                 <RefreshCw className="w-4 h-4 animate-spin" /> جاري تحميل الوحدات...
               </div>
             ) : (
               <select
                 value={selectedUnit}
                 onChange={(e) => setSelectedUnit(e.target.value)}
-                className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-all"
+                className="w-full px-4 py-2.5 bg-app-bg-secondary border border-app-separator rounded-app-lg text-sm focus:outline-none focus:ring-2 focus:ring-app-accent transition-all"
               >
                 <option value="">-- بدون تحديد --</option>
                 {units.map((unit) => (
@@ -134,18 +137,18 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                 ))}
               </select>
             )}
-            <p className="text-xs text-neutral-400 mt-1">
-              يتم إرسال معرف وحدة التشغيل كـ <code className="bg-neutral-100 px-1 rounded">X-Operating-Unit-ID</code> مع كافة الطلبات.
+            <p className={cn(tokens.typography.webUI.c1Regular, "text-app-label-tertiary mt-1")}>
+              يتم إرسال معرف وحدة التشغيل كـ <code className="bg-app-fill-f1 px-1 rounded-app-sm">X-Operating-Unit-ID</code> مع كافة الطلبات.
             </p>
           </div>
 
-          <div className="pt-2 border-t border-neutral-100">
+          <div className="pt-2 border-t border-app-separator">
             <div className="flex items-center justify-between">
               <div>
-                <label className="text-xs font-bold text-neutral-800">
+                <label className={cn(tokens.typography.webUI.c1Emphasized, "text-app-label-primary")}>
                   السماح بالاختيار اليدوي للكيانات
                 </label>
-                <p className="text-[11px] text-neutral-400 mt-0.5">
+                <p className={cn(tokens.typography.webUI.c1Regular, "text-app-label-tertiary mt-0.5")}>
                   عند التعطيل (الافتراضي)، يتم إنشاء الكيان تلقائياً في استمارات الموظفين والعملاء.
                 </p>
               </div>
@@ -153,34 +156,36 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                 type="checkbox"
                 checked={manualEntityEnabled}
                 onChange={(e) => setManualEntityEnabled(e.target.checked)}
-                className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900 cursor-pointer"
+                className="h-4 w-4 rounded-app-sm border-app-label-quaternary text-app-accent focus:ring-app-accent cursor-pointer"
               />
             </div>
           </div>
 
           {statusMsg && (
             <div
-              className={`p-3 rounded-xl text-xs font-medium ${
+              className={cn(
+                "p-3 rounded-app-lg border text-xs font-medium",
+                tokens.typography.webUI.c1Emphasized,
                 statusMsg.type === "success"
-                  ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                  : "bg-rose-50 text-rose-700 border border-rose-100"
-              }`}
+                  ? "bg-app-status-positive/10 text-app-status-positive border border-app-status-positive/30"
+                  : "bg-app-status-danger/10 text-app-status-danger border border-app-status-danger/30",
+              )}
             >
               {statusMsg.text}
             </div>
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-3 border-t border-neutral-100 pt-4">
+        <div className="flex items-center justify-end gap-3 border-t border-app-separator pt-4">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-100 rounded-xl transition-colors"
+            className="px-4 py-2 text-sm font-medium text-app-label-secondary hover:bg-app-fill-f1 rounded-app-lg transition-colors"
           >
             إلغاء
           </button>
           <button
             onClick={handleSave}
-            className="flex items-center gap-2 px-5 py-2 bg-neutral-900 hover:bg-neutral-800 text-white text-sm font-medium rounded-xl transition-all shadow-sm active:scale-95"
+            className="flex items-center gap-2 px-5 py-2 bg-app-label-primary hover:bg-app-label-primary/90 text-white text-sm font-medium rounded-app-lg transition-all shadow-sm active:scale-95"
           >
             <Check className="w-4 h-4" />
             حفظ التغييرات

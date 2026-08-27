@@ -4,6 +4,8 @@ import { useRouteDisplayName } from "../../../hooks/useRouteDisplayName";
 import { getBreadcrumbEntries } from "../../../routes/routes.config";
 import Breadcrumb from "../Breadcrumb/Breadcrumb";
 import { useServerConfigStore } from "../../../stores/serverConfigStore";
+import { cn } from "../../../lib/utils/utils";
+import { tokens } from "../../../lib/tokens";
 
 interface NavbarProps {
   isCollapsed: boolean;
@@ -53,15 +55,19 @@ const Navbar = ({ isCollapsed, onToggleCollapse, onOpenServerSettings }: NavbarP
         <button
           type="button"
           onClick={onOpenServerSettings}
-          className={`flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-app-xl border transition-all ${
+          className={cn(
+            "flex items-center gap-2 rounded-app-xl border px-3 py-2 transition-all",
+            tokens.typography.webUI.c1Emphasized,
             isServerConnected
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-              : "border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100"
-          }`}
+              ? "border-app-status-positive/30 bg-app-status-positive/10 text-app-status-positive hover:bg-app-status-positive/15"
+              : "border-app-status-danger/30 bg-app-status-danger/10 text-app-status-danger hover:bg-app-status-danger/15",
+          )}
           title="إعدادات السيرفر والشبكة"
         >
           <Server className="h-4 w-4" />
-          <span>{isServerConnected ? "السيرفر متصل" : "غير متصل بالسيرفر"}</span>
+          <span className={cn(tokens.typography.webUI.c1Regular)}>
+            {isServerConnected ? "السيرفر متصل" : "غير متصل بالسيرفر"}
+          </span>
         </button>
       </div>
     </header>
