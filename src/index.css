@@ -77,3 +77,21 @@ body {
 [dir="rtl"] .icon-chevron-forward {
   transform: scaleX(-1);
 }
+
+/* Hide the visual scrollbar while preserving scroll behavior (mouse-wheel,
+   touch, keyboard, programmatic). Cross-browser: Firefox via scrollbar-width,
+   legacy Edge/IE via -ms-overflow-style, Chromium/Safari via the
+   ::-webkit-scrollbar pseudo. The class is a no-op on elements that have no
+   overflow. */
+@layer utilities {
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+}

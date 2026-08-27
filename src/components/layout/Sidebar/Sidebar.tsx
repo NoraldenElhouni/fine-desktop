@@ -1,20 +1,33 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Factory, LogOut, Settings, UserRound } from "lucide-react";
+import { Factory, LogOut, Settings, UserRound, LayoutGrid, ChevronDown, ChevronRight } from "lucide-react";
 import { User } from "../../../types/auth/types";
 import { cn } from "../../../lib/utils/utils";
 import { tokens } from "../../../lib/tokens";
-import { navItems } from "../../../routes/routes.config";
+import { categoryGroups, CategoryGroup } from "../../../routes/categories.config";
 
 interface SidebarProps {
   isCollapsed: boolean;
   activePath: string;
   user: User | null;
   onLogout: () => void;
+  onOpenServerSettings: () => void;
 }
 
-const Sidebar = ({ isCollapsed, activePath, user, onLogout }: SidebarProps) => {
+const Sidebar = ({ isCollapsed, activePath, user, onLogout, onOpenServerSettings }: SidebarProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
+    partners: true,
+    production: true,
+    sales: true,
+  });
+
+  const toggleCategory = (categoryId: string) => {
+    setExpandedCategories((prev) => ({
+      ...prev,
+      [categoryId]: !prev[categoryId],
+    }));
+  };
 
   const displayName = useMemo(() => {
     if (!user?.name) {
@@ -29,7 +42,7 @@ const Sidebar = ({ isCollapsed, activePath, user, onLogout }: SidebarProps) => {
   return (
     <aside
       className={cn(
-        "flex h-screen flex-col border-e border-app-separator bg-app-bg-primary/95 backdrop-blur-sm transition-all duration-200",
+        "flex h-full flex-col border-e border-app-separator bg-app-bg-primary/95 backdrop-blur-sm transition-all duration-200",
         isCollapsed ? "w-20" : "w-64",
       )}
     >
@@ -59,52 +72,124 @@ const Sidebar = ({ isCollapsed, activePath, user, onLogout }: SidebarProps) => {
         ) : null}
       </div>
 
-      <nav className="flex-1 px-3 py-4">
-        <ul className="space-y-1">
-          {navItems.map((item) => {
-            const isActive =
-              item.path === "/"
-                ? activePath === "/"
-                : activePath === item.path ||
-                  activePath.startsWith(`${item.path}/`);
+      <nav className="no-scrollbar flex-1 overflow-y-auto px-3 py-4 space-y-1">
+        {/* Main Dashboard Link */}
+        <Link
+          to="/"
+          className={cn(
+            "flex items-center rounded-app-xl px-3 py-2 text-start transition-all duration-200 mb-2",
+            isCollapsed ? "justify-center" : "gap-3",
+            activePath === "/"
+              ? "bg-app-accent-subtle text-app-accent"
+              : "text-app-label-secondary hover:bg-app-fill-f1 hover:text-app-label-primary",
+          )}
+        >
+          <span
+            className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-app-lg shrink-0",
+              activePath === "/" ? "bg-app-accent-tint" : "bg-app-bg-secondary",
+            )}
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </span>
+          {!isCollapsed ? (
+            <span className={cn(tokens.typography.webUI.b2Emphasized, "truncate")}>
+              لوحة التحكم الرئيسية
+            </span>
+          ) : null}
+        </Link>
 
-            const Icon = item.icon;
+        {/* Category Groups Accordions */}
+        {categoryGroups.map((cat: CategoryGroup) => {
+          const isCategoryHubActive = activePath === cat.path;
+          const isChildActive = cat.items.some(
+            (item) => activePath === item.path || activePath.startsWith(`${item.path}/`),
+          );
+          const isExpanded = expandedCategories[cat.id] || isCategoryHubActive || isChildActive;
+          const CategoryIcon = cat.icon;
 
-            return (
-              <li key={item.id}>
+          return (
+            <div key={cat.id} className="space-y-1">
+              <div
+                className={cn(
+                  "flex items-center justify-between rounded-app-xl px-3 py-2 text-start transition-all duration-200 cursor-pointer",
+                  isCategoryHubActive || isChildActive
+                    ? "bg-app-accent-subtle/50 text-app-accent font-bold"
+                    : "text-app-label-primary hover:bg-app-fill-f1",
+                )}
+              >
                 <Link
-                  to={item.path}
-                  className={cn(
-                    "flex items-center rounded-app-xl px-3 py-2 text-start transition-all duration-200",
-                    isCollapsed ? "justify-center" : "gap-3",
-                    isActive
-                      ? "bg-app-accent-subtle text-app-accent"
-                      : "text-app-label-secondary hover:bg-app-fill-f1 hover:text-app-label-primary",
-                  )}
+                  to={cat.path}
+                  className="flex items-center gap-3 flex-1 min-w-0"
                 >
                   <span
                     className={cn(
-                      "flex h-9 w-9 items-center justify-center rounded-app-lg",
-                      isActive ? "bg-app-accent-tint" : "bg-app-bg-secondary",
+                      "flex h-8 w-8 items-center justify-center rounded-app-lg shrink-0",
+                      isCategoryHubActive || isChildActive
+                        ? "bg-app-accent-subtle text-app-accent"
+                        : "bg-app-bg-secondary text-app-label-secondary",
                     )}
                   >
-                    <Icon className="h-4 w-4" />
+                    <CategoryIcon className="h-4 w-4" />
                   </span>
                   {!isCollapsed ? (
                     <span
-                      className={cn(
-                        tokens.typography.webUI.b2Regular,
-                        "truncate",
-                      )}
+                      className={cn(tokens.typography.webUI.c1Emphasized, "truncate")}
                     >
-                      {item.label}
+                      {cat.label}
                     </span>
                   ) : null}
                 </Link>
-              </li>
-            );
-          })}
-        </ul>
+
+                {!isCollapsed ? (
+                  <button
+                    type="button"
+                    onClick={() => toggleCategory(cat.id)}
+                    aria-expanded={isExpanded}
+                    aria-controls={`sidebar-cat-${cat.id}`}
+                    className="p-1 text-app-label-tertiary hover:text-app-label-primary transition-colors"
+                  >
+                    {isExpanded ? (
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                ) : null}
+              </div>
+
+              {/* Collapsible Sub-Items */}
+              {!isCollapsed && isExpanded ? (
+                <div
+                  id={`sidebar-cat-${cat.id}`}
+                  className="ms-4 space-y-0.5 border-s border-app-separator ps-2 py-0.5"
+                >
+                  {cat.items.map((item) => {
+                    const isItemActive =
+                      activePath === item.path || activePath.startsWith(`${item.path}/`);
+                    const ItemIcon = item.icon;
+
+                    return (
+                      <Link
+                        key={item.id}
+                        to={item.path}
+                        className={cn(
+                          "flex items-center gap-2 rounded-app-lg px-2.5 py-1.5 text-xs text-start transition-colors",
+                          isItemActive
+                            ? "bg-app-accent text-white font-bold shadow-sm"
+                            : "text-app-label-secondary hover:bg-app-fill-f1 hover:text-app-label-primary",
+                        )}
+                      >
+                        <ItemIcon className="h-3.5 w-3.5 shrink-0 opacity-80" />
+                        <span className="truncate">{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
       </nav>
       <div className="border-t border-app-separator px-3 py-2.5">
         <div className="relative">
@@ -159,7 +244,7 @@ const Sidebar = ({ isCollapsed, activePath, user, onLogout }: SidebarProps) => {
           {isMenuOpen ? (
             <div
               className={cn(
-                "absolute bottom-full rounded-app-xl border border-app-separator bg-app-bg-primary py-2 px-3 shadow-sm",
+                "absolute bottom-full rounded-app-xl border border-app-separator bg-app-bg-primary py-2 px-3 shadow-sm transition-opacity duration-200",
                 isCollapsed
                   ? "start-0 mb-1 flex -translate-x-0 flex-col items-center gap-2"
                   : "mb-2 w-full",
@@ -177,6 +262,7 @@ const Sidebar = ({ isCollapsed, activePath, user, onLogout }: SidebarProps) => {
                 )}
                 onClick={() => {
                   setIsMenuOpen(false);
+                  onOpenServerSettings();
                 }}
               >
                 <Settings className="h-3.5 w-3.5" />

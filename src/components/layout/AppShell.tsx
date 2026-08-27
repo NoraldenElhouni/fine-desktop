@@ -47,7 +47,7 @@ const AppShell = ({ children }: AppShellProps) => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-app-bg-secondary" dir="rtl" lang="ar">
+    <div className="flex h-[100dvh] flex-col bg-app-bg-secondary" dir="rtl" lang="ar">
       <ServerConnectionBanner />
 
       <div className="flex min-w-0 flex-1">
@@ -56,6 +56,7 @@ const AppShell = ({ children }: AppShellProps) => {
           activePath={location.pathname}
           user={user}
           onLogout={handleLogout}
+          onOpenServerSettings={() => setIsServerSettingsOpen(true)}
         />
         <div className="flex min-w-0 flex-1 flex-col">
           <Navbar
