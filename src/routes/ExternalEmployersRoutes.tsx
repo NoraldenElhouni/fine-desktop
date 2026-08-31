@@ -1,5 +1,5 @@
 import { Routes, Route } from "react-router-dom";
-import { ExternalEmployersPage } from "../pages/entities/ExternalEmployersPage";
+import { ExternalEmployersPage } from "../pages/externalEmployers/ExternalEmployersPage";
 import PlaceholderPage from "../pages/PlaceholderPage";
 
 const ExternalEmployersRoutes = () => (

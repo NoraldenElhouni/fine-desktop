@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { Building, Plus, RefreshCw, FileText, Percent, Scissors } from "lucide-react";
+import { Building, Plus, RefreshCw, FileText, Percent } from "lucide-react";
 import { isAxiosError } from "axios";
-import { ExternalEmployer, EntityType } from "../../types/entities";
+import { EntityType } from "../../types/entities";
 import {
   useExternalEmployers,
   useEntities,
   useCreateExternalEmployer,
-  useSplitExternalEmployerEntity,
+  useOperatingUnits,
 } from "../../hooks/usePartners";
 import { useServerConfigStore } from "../../stores/serverConfigStore";
 import { toast } from "../../stores/toastStore";
@@ -16,7 +16,6 @@ import { Modal } from "../../components/ui/Modal";
 export const ExternalEmployersPage: React.FC = () => {
   const { allowManualEntitySelection } = useServerConfigStore();
 
-  // TanStack Query Hooks
   const {
     data: employers = [],
     isLoading,
@@ -24,10 +23,9 @@ export const ExternalEmployersPage: React.FC = () => {
     refetch,
   } = useExternalEmployers();
   const { data: entities = [] } = useEntities();
+  const { data: operatingUnits = [] } = useOperatingUnits();
   const createEmployerMutation = useCreateExternalEmployer();
-  const splitEmployerMutation = useSplitExternalEmployerEntity();
 
-  // Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [entityMode, setEntityMode] = useState<"auto" | "existing">("auto");
   const [employerName, setEmployerName] = useState("");
@@ -36,11 +34,6 @@ export const ExternalEmployersPage: React.FC = () => {
   const [selectedEntityId, setSelectedEntityId] = useState("");
   const [contractRef, setContractRef] = useState("");
   const [multiplier, setMultiplier] = useState<number>(1.15);
-
-  // Split Modal
-  const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
-  const [splitTargetEmployer, setSplitTargetEmployer] = useState<ExternalEmployer | null>(null);
-  const [splitNewName, setSplitNewName] = useState("");
 
   const resetForm = () => {
     setEmployerName("");
@@ -67,6 +60,7 @@ export const ExternalEmployersPage: React.FC = () => {
     const payload = {
       contract_reference: contractRef.trim() || undefined,
       billing_rate_multiplier: multiplier,
+      operating_unit_id: operatingUnits[0]?.id ?? "",
       ...(entityMode === "existing"
         ? { entity_id: selectedEntityId }
         : { name: employerName.trim(), entity_type: entityType, tax_number: taxNumber.trim() || undefined }),
@@ -86,35 +80,6 @@ export const ExternalEmployersPage: React.FC = () => {
     });
   };
 
-  const openSplitModal = (emp: ExternalEmployer) => {
-    setSplitTargetEmployer(emp);
-    setSplitNewName(emp.entity?.name || "");
-    setIsSplitModalOpen(true);
-  };
-
-  const handleConfirmSplit = () => {
-    if (!splitTargetEmployer) return;
-
-    splitEmployerMutation.mutate(
-      {
-        id: splitTargetEmployer.id,
-        payload: { new_name: splitNewName.trim() || undefined },
-      },
-      {
-        onSuccess: () => {
-          toast.success("تم فصل الجهة المشغلة في كيان جديد بنجاح");
-          setIsSplitModalOpen(false);
-          setSplitTargetEmployer(null);
-        },
-        onError: (err: unknown) => {
-          const payloadErr = apiErrorPayload(err);
-          const message = payloadErr?.message || (isAxiosError(err) ? err.response?.data?.message : null);
-          toast.error(message || "حدث خطأ أثناء فصل الكيان");
-        },
-      }
-    );
-  };
-
   const totalEmployeesUnderContract = employers.reduce(
     (acc, emp) => acc + ((emp as unknown as { employees_count?: number }).employees_count || 0),
     0
@@ -128,7 +93,6 @@ export const ExternalEmployersPage: React.FC = () => {
 
   return (
     <div className="space-y-6 p-6" dir="rtl">
-      {/* Header Bar */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-app-label-primary">إدارة الجهات المشغلة (وكالات العمالة)</h1>
@@ -156,7 +120,6 @@ export const ExternalEmployersPage: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="rounded-2xl border border-app-separator bg-app-bg-primary p-4 shadow-sm">
           <div className="flex items-center justify-between">
@@ -178,7 +141,6 @@ export const ExternalEmployersPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Table */}
       {isLoading ? (
         <div className="flex h-48 items-center justify-center rounded-2xl border border-app-separator bg-app-bg-primary">
           <RefreshCw className="h-6 w-6 animate-spin text-app-accent" />
@@ -204,7 +166,6 @@ export const ExternalEmployersPage: React.FC = () => {
                 <th className="px-4 py-3 text-start font-bold">مرجع العقد (Contract Ref)</th>
                 <th className="px-4 py-3 text-start font-bold">مضاعف الفوترة (Multiplier)</th>
                 <th className="px-4 py-3 text-start font-bold">عدد العمالة التابعة</th>
-                <th className="px-4 py-3 text-end font-bold">إجراءات</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-app-separator text-app-label-primary">
@@ -234,17 +195,6 @@ export const ExternalEmployersPage: React.FC = () => {
                       {(emp as unknown as { employees_count?: number }).employees_count || 0} عامل
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-end">
-                    <button
-                      type="button"
-                      onClick={() => openSplitModal(emp)}
-                      title="فصل الكيان إلى كيان جديد مستقل"
-                      className="inline-flex items-center gap-1 rounded-lg border border-app-separator bg-app-bg-secondary px-2.5 py-1 text-[11px] font-semibold text-app-label-primary hover:bg-app-fill-f1"
-                    >
-                      <Scissors className="h-3 w-3 text-app-accent" />
-                      <span>فصل الكيان</span>
-                    </button>
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -252,7 +202,6 @@ export const ExternalEmployersPage: React.FC = () => {
         </div>
       )}
 
-      {/* Add External Employer Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -260,7 +209,6 @@ export const ExternalEmployersPage: React.FC = () => {
         size="lg"
       >
         <form onSubmit={handleAddEmployer} className="space-y-4" dir="rtl">
-          {/* Entity Information (Auto-create or Select Existing) */}
           {allowManualEntitySelection ? (
             <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-3 space-y-3">
               <label className="block text-xs font-bold text-app-label-primary">
@@ -444,49 +392,6 @@ export const ExternalEmployersPage: React.FC = () => {
             </button>
           </div>
         </form>
-      </Modal>
-
-      {/* Split External Employer Entity Modal */}
-      <Modal
-        isOpen={isSplitModalOpen}
-        onClose={() => setIsSplitModalOpen(false)}
-        title="فصل الجهة المشغلة إلى كيان مستقل"
-        size="md"
-      >
-        <div className="space-y-4" dir="rtl">
-          <p className="text-xs text-app-label-secondary">
-            فصل الجهة المشغلة ({splitTargetEmployer?.entity?.name}) في كيان جديد مستقل.
-          </p>
-          <div>
-            <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-              الاسم الجديد للكيان (أو اتركه فارغاً للاحتفاظ بالاسم الحالي)
-            </label>
-            <input
-              type="text"
-              value={splitNewName}
-              onChange={(e) => setSplitNewName(e.target.value)}
-              placeholder="اسم الكيان الجديد"
-              className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-            />
-          </div>
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-app-separator">
-            <button
-              type="button"
-              onClick={() => setIsSplitModalOpen(false)}
-              className="rounded-xl px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
-            >
-              إلغاء
-            </button>
-            <button
-              type="button"
-              disabled={splitEmployerMutation.isPending}
-              onClick={handleConfirmSplit}
-              className="rounded-xl bg-app-accent px-5 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
-            >
-              {splitEmployerMutation.isPending ? "جاري الفصل..." : "تأكيد الفصل"}
-            </button>
-          </div>
-        </div>
       </Modal>
     </div>
   );

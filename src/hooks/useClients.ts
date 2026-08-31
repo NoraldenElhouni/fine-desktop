@@ -5,8 +5,6 @@ import {
   createClient,
   updateClient,
   deleteClient,
-  splitClientEntity,
-  relinkClientEntity,
   GetClientsParams,
 } from "../api/endpoints/clients";
 import { CreateClientPayload } from "../types/entities";
@@ -60,30 +58,6 @@ export function useDeleteClient() {
     mutationFn: (id: string) => deleteClient(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["clients"] });
-    },
-  });
-}
-
-export function useSplitClientEntity() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload?: { new_name?: string } }) =>
-      splitClientEntity(id, payload),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["clients"] });
-      qc.invalidateQueries({ queryKey: ["entities"] });
-    },
-  });
-}
-
-export function useRelinkClientEntity() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, targetEntityId }: { id: string; targetEntityId: string }) =>
-      relinkClientEntity(id, { target_entity_id: targetEntityId }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["clients"] });
-      qc.invalidateQueries({ queryKey: ["entities"] });
     },
   });
 }

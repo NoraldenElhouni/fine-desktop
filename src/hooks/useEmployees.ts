@@ -5,8 +5,6 @@ import {
   createEmployee,
   updateEmployee,
   deleteEmployee,
-  splitEmployeeEntity,
-  relinkEmployeeEntity,
   GetEmployeesParams,
 } from "../api/endpoints/employees";
 import { CreateEmployeePayload } from "../types/entities";
@@ -60,30 +58,6 @@ export function useDeleteEmployee() {
     mutationFn: (id: string) => deleteEmployee(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["employees"] });
-    },
-  });
-}
-
-export function useSplitEmployeeEntity() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload?: { new_name?: string } }) =>
-      splitEmployeeEntity(id, payload),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["employees"] });
-      qc.invalidateQueries({ queryKey: ["entities"] });
-    },
-  });
-}
-
-export function useRelinkEmployeeEntity() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, targetEntityId }: { id: string; targetEntityId: string }) =>
-      relinkEmployeeEntity(id, { target_entity_id: targetEntityId }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["employees"] });
-      qc.invalidateQueries({ queryKey: ["entities"] });
     },
   });
 }

@@ -10,9 +10,10 @@ if (started) {
 const createWindow = () => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 1024,
-    height: 700,
-    show: false,
+    width: 1200,
+    height: 800,
+    title: "Fine ERP",
+    show: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -22,10 +23,8 @@ const createWindow = () => {
     },
   });
 
-  // Smooth appearance without white flash
-  mainWindow.once("ready-to-show", () => {
-    mainWindow.show();
-  });
+  mainWindow.show();
+  mainWindow.focus();
 
   // Lock down window creation
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {

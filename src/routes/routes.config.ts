@@ -41,7 +41,7 @@ export interface BreadcrumbEntry {
 
 export const navItems: AppNavItem[] = [
   { id: "dashboard", path: "/", label: "لوحة التحكم", icon: LayoutGrid },
-  { id: "entities", path: "/entities", label: "الكيانات والشركاء", icon: Building2 },
+  { id: "admin-entities", path: "/admin/entities", label: "إدارة الكيانات (مشرف)", icon: Building2 },
   { id: "suppliers", path: "/suppliers", label: "الموردون", icon: Truck },
   { id: "import-orders", path: "/import-orders", label: "أوامر الاستيراد", icon: Package },
   { id: "treasury", path: "/treasury", label: "الخزينة وسعر الصرف", icon: Wallet },
@@ -86,6 +86,23 @@ export const getBreadcrumbEntries = (
     return entries;
   }
 
+  if (normalizedPath.startsWith("/hub/")) {
+    const categoryId = normalizedPath.split("/")[2];
+    const categoryLabels: Record<string, string> = {
+      partners: "الكيانات والشركاء",
+      procurement: "التوريد والاعتمادات",
+      production: "الإنتاج والمخازن",
+      sales: "المبيعات والمعارض",
+      hr: "الموارد البشرية",
+      finance: "المالية والتقارير",
+      admin: "إدارة النظام",
+    };
+    if (categoryId && categoryLabels[categoryId]) {
+      entries.push({ path: normalizedPath, label: categoryLabels[categoryId] });
+      return entries;
+    }
+  }
+
   const matchingItem = navItems.find((item) => {
     if (item.path === "/") {
       return false;
@@ -103,7 +120,7 @@ export const getBreadcrumbEntries = (
   if (
     normalizedPath.startsWith("/clients/") ||
     normalizedPath.startsWith("/orders/") ||
-    normalizedPath.startsWith("/entities/") ||
+    normalizedPath.startsWith("/admin/entities/") ||
     normalizedPath.startsWith("/inventory/") ||
     normalizedPath.startsWith("/manufacturing/batches/") ||
     normalizedPath.startsWith("/cutter/orders/") ||

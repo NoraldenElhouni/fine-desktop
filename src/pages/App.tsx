@@ -10,7 +10,7 @@ import { useIsCompanyWide } from "../hooks/useAccounting";
 import OrdersRoutes from "../routes/OrdersRoutes";
 import UsersRoutes from "../routes/UsersRoutes";
 import ClientsRoutes from "../routes/ClientsRoutes";
-import EntitiesRoutes from "../routes/EntitiesRoutes";
+import AdminEntitiesRoutes from "../routes/AdminEntitiesRoutes";
 import EmployeesRoutes from "../routes/EmployeesRoutes";
 import ExternalEmployersRoutes from "../routes/ExternalEmployersRoutes";
 import { InventoryRoutes } from "../routes/InventoryRoutes";
@@ -20,6 +20,8 @@ import { FurnitureRoutes } from "../routes/FurnitureRoutes";
 import { SalesRoutes } from "../routes/SalesRoutes";
 import { AccountingRoutes } from "../routes/AccountingRoutes";
 import { HrRoutes } from "../routes/HrRoutes";
+
+import { CategoryHubPage } from "./hub/CategoryHubPage";
 
 import SuppliersPage from "./procurement/SuppliersPage";
 import ImportOrdersPage from "./procurement/ImportOrdersPage";
@@ -46,7 +48,8 @@ const App = () => {
 
           <Route path="/" element={<Layout />}>
             <Route index element={<HomeDashboard />} />
-            <Route path="entities/*" element={<EntitiesRoutes />} />
+            <Route path="hub/:categoryId" element={<CategoryHubPage />} />
+            <Route path="admin/entities/*" element={<AdminEntitiesRoutes />} />
             <Route path="suppliers" element={<SuppliersPage />} />
             <Route path="import-orders" element={<ImportOrdersPage />} />
             <Route path="treasury" element={<TreasuryPage />} />

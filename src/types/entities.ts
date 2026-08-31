@@ -102,25 +102,6 @@ export interface ExternalEmployer {
   updated_at?: string;
 }
 
-export interface CreateEntityPayload {
-  name: string;
-  entity_type: EntityType;
-  tax_number?: string;
-  is_active?: boolean;
-  contact?: {
-    contact_name?: string;
-    email?: string;
-    phone?: string;
-    address?: string;
-    city?: string;
-    country?: string;
-  };
-  roles?: Array<{
-    role_type: EntityRoleType;
-    operating_unit_id?: string;
-  }>;
-}
-
 export interface CreateEmployeePayload {
   entity_id?: string;
   name?: string;
@@ -154,16 +135,8 @@ export interface CreateExternalEmployerPayload {
   name?: string;
   entity_type?: EntityType;
   tax_number?: string;
-  operating_unit_id?: string;
+  operating_unit_id: string;
   contract_reference?: string;
   billing_rate_multiplier?: number;
   account_id?: string | null;
-}
-
-export interface SplitEntityPayload {
-  new_name?: string;
-}
-
-export interface RelinkEntityPayload {
-  target_entity_id: string;
 }

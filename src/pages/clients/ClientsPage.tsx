@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { Users, Plus, RefreshCw, CreditCard, Scissors } from "lucide-react";
+import { Users, Plus, RefreshCw, CreditCard } from "lucide-react";
 import { isAxiosError } from "axios";
-import { Client, EntityType } from "../../types/entities";
-import { useClients, useCreateClient, useSplitClientEntity } from "../../hooks/useClients";
+import { EntityType } from "../../types/entities";
+import { useClients, useCreateClient } from "../../hooks/useClients";
 import { useEntities, useOperatingUnits } from "../../hooks/usePartners";
 import { useServerConfigStore } from "../../stores/serverConfigStore";
 import { toast } from "../../stores/toastStore";
@@ -13,7 +13,6 @@ export const ClientsPage: React.FC = () => {
   const { allowManualEntitySelection } = useServerConfigStore();
   const [selectedOperatingUnitId, setSelectedOperatingUnitId] = useState("");
 
-  // TanStack Query Hooks
   const {
     data: clients = [],
     isLoading,
@@ -23,9 +22,7 @@ export const ClientsPage: React.FC = () => {
   const { data: entities = [] } = useEntities();
   const { data: operatingUnits = [] } = useOperatingUnits();
   const createClientMutation = useCreateClient();
-  const splitClientMutation = useSplitClientEntity();
 
-  // Add Client Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [entityMode, setEntityMode] = useState<"auto" | "existing">("auto");
   const [clientName, setClientName] = useState("");
@@ -34,11 +31,6 @@ export const ClientsPage: React.FC = () => {
   const [selectedEntityId, setSelectedEntityId] = useState("");
   const [creditLimit, setCreditLimit] = useState<number>(10000);
   const [paymentTermsDays, setPaymentTermsDays] = useState<number>(30);
-
-  // Split Entity Modal
-  const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
-  const [splitTargetClient, setSplitTargetClient] = useState<Client | null>(null);
-  const [splitNewName, setSplitNewName] = useState("");
 
   const resetForm = () => {
     setClientName("");
@@ -91,35 +83,6 @@ export const ClientsPage: React.FC = () => {
         toast.error(message || "تعذر إضافة العميل");
       },
     });
-  };
-
-  const openSplitModal = (client: Client) => {
-    setSplitTargetClient(client);
-    setSplitNewName(client.entity?.name || "");
-    setIsSplitModalOpen(true);
-  };
-
-  const handleConfirmSplit = () => {
-    if (!splitTargetClient) return;
-
-    splitClientMutation.mutate(
-      {
-        id: splitTargetClient.id,
-        payload: { new_name: splitNewName.trim() || undefined },
-      },
-      {
-        onSuccess: () => {
-          toast.success("تم فصل العميل في كيان جديد بنجاح");
-          setIsSplitModalOpen(false);
-          setSplitTargetClient(null);
-        },
-        onError: (err: unknown) => {
-          const payloadErr = apiErrorPayload(err);
-          const message = payloadErr?.message || (isAxiosError(err) ? err.response?.data?.message : null);
-          toast.error(message || "حدث خطأ أثناء فصل الكيان");
-        },
-      }
-    );
   };
 
   const totalCreditExposure = clients.reduce((acc, c) => acc + Number(c.credit_limit || 0), 0);
@@ -221,7 +184,6 @@ export const ClientsPage: React.FC = () => {
                 <th className="px-4 py-3 text-start font-bold">المتبقي من الائتمان</th>
                 <th className="px-4 py-3 text-start font-bold">فترة السداد الآجل</th>
                 <th className="px-4 py-3 text-start font-bold">الحالة</th>
-                <th className="px-4 py-3 text-end font-bold">إجراءات</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-app-separator text-app-label-primary">
@@ -280,17 +242,6 @@ export const ClientsPage: React.FC = () => {
                       }`}>
                         {client.status === "active" ? "نشط" : client.status === "suspended" ? "موقوف" : client.status === "blacklisted" ? "محظور" : client.status}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 text-end">
-                      <button
-                        type="button"
-                        onClick={() => openSplitModal(client)}
-                        title="فصل الكيان إلى كيان جديد مستقل"
-                        className="inline-flex items-center gap-1 rounded-lg border border-app-separator bg-app-bg-secondary px-2.5 py-1 text-[11px] font-semibold text-app-label-primary hover:bg-app-fill-f1"
-                      >
-                        <Scissors className="h-3 w-3 text-app-accent" />
-                        <span>فصل الكيان</span>
-                      </button>
                     </td>
                   </tr>
                 );
@@ -510,49 +461,6 @@ export const ClientsPage: React.FC = () => {
             </button>
           </div>
         </form>
-      </Modal>
-
-      {/* Split Client Entity Modal */}
-      <Modal
-        isOpen={isSplitModalOpen}
-        onClose={() => setIsSplitModalOpen(false)}
-        title="فصل العميل إلى كيان مستقل"
-        size="md"
-      >
-        <div className="space-y-4" dir="rtl">
-          <p className="text-xs text-app-label-secondary">
-            فصل العميل ({splitTargetClient?.entity?.name}) في كيان جديد مستقل.
-          </p>
-          <div>
-            <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-              الاسم الجديد للكيان (أو اتركه فارغاً للاحتفاظ بالاسم الحالي)
-            </label>
-            <input
-              type="text"
-              value={splitNewName}
-              onChange={(e) => setSplitNewName(e.target.value)}
-              placeholder="اسم الكيان الجديد"
-              className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-            />
-          </div>
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-app-separator">
-            <button
-              type="button"
-              onClick={() => setIsSplitModalOpen(false)}
-              className="rounded-xl px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
-            >
-              إلغاء
-            </button>
-            <button
-              type="button"
-              disabled={splitClientMutation.isPending}
-              onClick={handleConfirmSplit}
-              className="rounded-xl bg-app-accent px-5 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
-            >
-              {splitClientMutation.isPending ? "جاري الفصل..." : "تأكيد الفصل"}
-            </button>
-          </div>
-        </div>
       </Modal>
     </div>
   );
