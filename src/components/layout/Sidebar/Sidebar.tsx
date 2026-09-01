@@ -16,11 +16,7 @@ interface SidebarProps {
 
 const Sidebar = ({ isCollapsed, activePath, user, onLogout, onOpenServerSettings }: SidebarProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
-    partners: true,
-    production: true,
-    sales: true,
-  });
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
 
   const toggleCategory = (categoryId: string) => {
     setExpandedCategories((prev) => ({

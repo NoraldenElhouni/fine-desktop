@@ -15,6 +15,7 @@ import {
 } from "../types/auth/types";
 import {
   AUTH_QUERY_KEY,
+  AUTH_REFETCH_INTERVAL_MS,
   AUTH_STALE_TIME_MS,
 } from "../constants/auth/constants";
 import {
@@ -41,6 +42,7 @@ export const useLoginMutation = () => {
 
 export const useUserQuery = () => {
   const { token, setUser, logout } = useAuthStore();
+  const queryClient = useQueryClient();
 
   return useQuery<User, AxiosError>({
     queryKey: AUTH_QUERY_KEY,
@@ -48,6 +50,14 @@ export const useUserQuery = () => {
       try {
         const user = await fetchMeApi();
         setUser(user);
+        const previous = queryClient.getQueryData<User>(AUTH_QUERY_KEY);
+        if (
+          previous &&
+          JSON.stringify(previous.roles ?? []) !==
+            JSON.stringify(user.roles ?? [])
+        ) {
+          queryClient.invalidateQueries();
+        }
         return user;
       } catch (err) {
         const status = (err as AxiosError)?.response?.status;
@@ -59,7 +69,10 @@ export const useUserQuery = () => {
     },
     enabled: Boolean(token),
     staleTime: AUTH_STALE_TIME_MS,
-    retry: false,
+    refetchInterval: AUTH_REFETCH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    retry: 1,
   });
 };
 

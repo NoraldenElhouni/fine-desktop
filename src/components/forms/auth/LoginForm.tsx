@@ -1,7 +1,7 @@
 import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Mail, AlertCircle, Loader2 } from "lucide-react";
 import { useLoginMutation } from "../../../hooks/useAuthQuery";
 import { LoginCredentials, loginSchema } from "../../../types/auth/schemas";
@@ -11,11 +11,7 @@ import { tokens } from "../../../lib/tokens";
 
 export const LoginForm: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const loginMutation = useLoginMutation();
-
-  const from =
-    (location.state as { from?: { pathname: string } })?.from?.pathname || "/";
 
   const {
     register,
@@ -28,7 +24,7 @@ export const LoginForm: React.FC = () => {
 
   const onSubmit = (data: LoginCredentials) => {
     loginMutation.mutate(data, {
-      onSuccess: () => navigate(from, { replace: true }),
+      onSuccess: () => navigate("/", { replace: true }),
     });
   };
 

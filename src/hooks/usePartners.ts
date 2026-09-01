@@ -87,5 +87,9 @@ export function useOperatingUnits() {
   return useQuery({
     queryKey: ["operatingUnits"],
     queryFn: () => getOperatingUnits(),
+    refetchInterval: 60 * 1000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    retry: 1,
   });
 }

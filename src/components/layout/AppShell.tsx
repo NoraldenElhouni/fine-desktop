@@ -10,7 +10,7 @@ import { useSidebarCollapsed } from "../../hooks/useSidebarCollapsed";
 import { useAuthStore } from "../../stores/authStore";
 import { useLogoutMutation } from "../../hooks/useAuthQuery";
 import { useServerConfigStore } from "../../stores/serverConfigStore";
-import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
+import { useOperatingUnits } from "../../hooks/usePartners";
 
 interface AppShellProps {
   children: ReactNode;
@@ -20,25 +20,27 @@ const AppShell = ({ children }: AppShellProps) => {
   const { isCollapsed, setIsCollapsed } = useSidebarCollapsed();
   const [isServerSettingsOpen, setIsServerSettingsOpen] = useState(false);
   const { user } = useAuthStore();
-  const { operatingUnitId, setOperatingUnitId, serverUrl } = useServerConfigStore();
+  const { operatingUnitId, setOperatingUnitId } = useServerConfigStore();
   const logoutMutation = useLogoutMutation();
   const navigate = useNavigate();
   const location = useLocation();
 
+  const { data: operatingUnits } = useOperatingUnits();
+
   useEffect(() => {
-    // If no operating unit ID is set, attempt to auto-fetch available units and select the first one
-    if (!operatingUnitId) {
-      getOperatingUnits()
-        .then((units) => {
-          if (units && units.length > 0) {
-            setOperatingUnitId(units[0].id);
-          }
-        })
-        .catch(() => {
-          // Ignore if server is currently unreachable
-        });
+    if (!operatingUnitId && operatingUnits && operatingUnits.length > 0) {
+      setOperatingUnitId(operatingUnits[0].id);
+      return;
     }
-  }, [operatingUnitId, serverUrl]);
+
+    if (
+      operatingUnitId &&
+      operatingUnits &&
+      !operatingUnits.some((u) => u.id === operatingUnitId)
+    ) {
+      setOperatingUnitId(null);
+    }
+  }, [operatingUnitId, operatingUnits, setOperatingUnitId]);
 
   const handleLogout = () => {
     logoutMutation.mutate(undefined, {
