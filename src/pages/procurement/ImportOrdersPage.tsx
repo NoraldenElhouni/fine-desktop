@@ -79,6 +79,8 @@ export const ImportOrdersPage: React.FC = () => {
   // Landed Cost Form State
   const [costType, setCostType] = useState<LandedCostType>("freight");
   const [costAmount, setCostAmount] = useState<number>(0);
+  const [costNote, setCostNote] = useState<string>("");
+  const [costNoteTouched, setCostNoteTouched] = useState(false);
 
   // Create Form State
   const [selectedUnitId, setSelectedUnitId] = useState("");
@@ -165,6 +167,13 @@ export const ImportOrdersPage: React.FC = () => {
     e.preventDefault();
     if (!selectedOrder || costAmount <= 0) return;
 
+    const noteRequired = costType === "fx_spread" && costAmount > 0;
+    if (noteRequired && costNote.trim().length === 0) {
+      setCostNoteTouched(true);
+      toast.error("سبب فرق سعر الصرف مطلوب عند تسجيل قيمة غير صفرية.");
+      return;
+    }
+
     createLandedCostMutation.mutate(
       {
         orderId: selectedOrder.id,
@@ -173,12 +182,15 @@ export const ImportOrdersPage: React.FC = () => {
           amount: costAmount,
           currency: "LYD",
           is_confirmed: true,
+          note: costNote.trim() || undefined,
         },
       },
       {
         onSuccess: () => {
           toast.success("تمت إضافة التكلفة الإضافية بنجاح");
           setCostAmount(0);
+          setCostNote("");
+          setCostNoteTouched(false);
           refetchCosts();
         },
         onError: (err: unknown) => {
@@ -627,35 +639,62 @@ export const ImportOrdersPage: React.FC = () => {
               </div>
 
               {/* Add Cost Form */}
-              <form onSubmit={handleAddLandedCost} className="flex items-center gap-2">
-                <select
-                  value={costType}
-                  onChange={(e) => setCostType(e.target.value as LandedCostType)}
-                  className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
-                >
-                  <option value="freight">شحن بحري / جوي (Freight)</option>
-                  <option value="customs">رسوم جمركية (Customs)</option>
-                  <option value="fx_spread">فوارق عملة (FX Spread)</option>
-                  <option value="local_transport">نقل داخلي (Local Transport)</option>
-                  <option value="other">مصاريف أخرى (Other)</option>
-                </select>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  required
-                  value={costAmount || ""}
-                  onChange={(e) => setCostAmount(Number(e.target.value))}
-                  placeholder="القيمة بالدينار (LYD)"
-                  className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
-                />
-                <button
-                  type="submit"
-                  disabled={isSubmitting || costAmount <= 0}
-                  className="rounded-xl bg-app-accent px-4 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
-                >
-                  إضافة خط تكلفة
-                </button>
+              <form onSubmit={handleAddLandedCost} className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <select
+                    value={costType}
+                    onChange={(e) => setCostType(e.target.value as LandedCostType)}
+                    className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
+                  >
+                    <option value="freight">شحن بحري / جوي (Freight)</option>
+                    <option value="customs">رسوم جمركية (Customs)</option>
+                    <option value="fx_spread">فوارق عملة (FX Spread)</option>
+                    <option value="local_transport">نقل داخلي (Local Transport)</option>
+                    <option value="other">مصاريف أخرى (Other)</option>
+                  </select>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    value={costAmount || ""}
+                    onChange={(e) => setCostAmount(Number(e.target.value))}
+                    placeholder="القيمة بالدينار (LYD)"
+                    className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || costAmount <= 0}
+                    className="rounded-xl bg-app-accent px-4 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    إضافة خط تكلفة
+                  </button>
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-semibold text-app-label-secondary">
+                    ملاحظة {costType === "fx_spread" ? <span className="text-app-status-danger">*</span> : null}
+                  </label>
+                  <textarea
+                    value={costNote}
+                    onChange={(e) => {
+                      setCostNote(e.target.value);
+                      setCostNoteTouched(true);
+                    }}
+                    onBlur={() => setCostNoteTouched(true)}
+                    rows={2}
+                    placeholder={
+                      costType === "fx_spread"
+                        ? "مثال: فرق سعر بسبب الصرّاف الموازي"
+                        : "اختياري — سبب هذه التكلفة"
+                    }
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
+                  />
+                  {costType === "fx_spread" && costNoteTouched && costNote.trim().length === 0 ? (
+                    <p className="text-[10px] text-app-status-danger font-bold">
+                      السبب مطلوب عند تسجيل فرق سعر صرف بقيمة غير صفرية.
+                    </p>
+                  ) : null}
+                </div>
               </form>
 
               {/* Cost Lines List */}
@@ -672,6 +711,7 @@ export const ImportOrdersPage: React.FC = () => {
                       <tr>
                         <th className="px-3 py-2 text-start font-bold">نوع التكلفة</th>
                         <th className="px-3 py-2 text-start font-bold">المبلغ</th>
+                        <th className="px-3 py-2 text-start font-bold">الملاحظة</th>
                         <th className="px-3 py-2 text-start font-bold">الحالة</th>
                       </tr>
                     </thead>
@@ -680,6 +720,9 @@ export const ImportOrdersPage: React.FC = () => {
                         <tr key={lc.id}>
                           <td className="px-3 py-2 font-semibold">{lc.type}</td>
                           <td className="px-3 py-2 font-mono font-bold">{Number(lc.amount).toLocaleString()} {lc.currency}</td>
+                          <td className="px-3 py-2 text-app-label-secondary max-w-xs truncate">
+                            {lc.note || "—"}
+                          </td>
                           <td className="px-3 py-2">
                             {lc.is_confirmed ? (
                               <span className="text-[10px] font-bold text-emerald-700">مؤكد ومحسوب</span>

@@ -51,6 +51,9 @@ export interface PaymentRequest {
   amount_requested: number;
   status: PaymentRequestStatus;
   fx_rate_used?: number | null;
+  extra_allocation_note?: string | null;
+  extra_allocation_lyd?: number | null;
+  booked_fx_rate?: number | null;
   bank_hold?: BankHold | null;
   created_at?: string;
   updated_at?: string;
@@ -63,6 +66,7 @@ export interface LandedCostLine {
   amount: number;
   currency: string;
   is_confirmed: boolean;
+  note?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -150,6 +154,7 @@ export interface ExecutePaymentPayload {
   fx_rate_used: number;
   exact_amount_used_lyd?: number;
   bank_reference?: string;
+  extra_allocation_note?: string;
 }
 
 export interface CreateLandedCostLinePayload {
@@ -157,6 +162,15 @@ export interface CreateLandedCostLinePayload {
   amount: number;
   currency?: string;
   is_confirmed?: boolean;
+  note?: string;
+}
+
+export interface GetPaymentRequestsParams {
+  status?: PaymentRequestStatus;
+  route?: PaymentRoute;
+  from?: string;
+  to?: string;
+  operating_unit_id?: string;
 }
 
 export interface CreateFxRatePayload {

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Wallet,
   Plus,
@@ -6,10 +6,12 @@ import {
   TrendingUp,
   ShieldAlert,
   Send,
+  AlertTriangle,
 } from "lucide-react";
 import { isAxiosError } from "axios";
 import {
   PaymentRequest,
+  PaymentRoute,
   CreateFxRatePayload,
   ExecutePaymentPayload,
 } from "../../types/procurement";
@@ -28,22 +30,30 @@ import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { Modal } from "../../components/ui/Modal";
 
+type RouteTab = "all" | "bank" | "market";
+
 export const TreasuryPage: React.FC = () => {
   const { data: cashAccounts = [], isLoading: isLoadingCash, refetch: refetchCash } = useCashAccounts();
   const { data: fxRates = [], isLoading: isLoadingFx, refetch: refetchFx } = useFxRates();
   const { data: bankHolds = [], isLoading: isLoadingHolds, refetch: refetchHolds } = useBankHolds();
   const { data: pendingPayments = [], isLoading: isLoadingPayments, refetch: refetchPayments } = usePaymentRequests({ status: "pending" });
+  const { data: allPaymentRequests = [], refetch: refetchAllPayments } = usePaymentRequests();
+  const { data: marketPaymentRequests = [], refetch: refetchMarketPayments } = usePaymentRequests({ route: "market" });
 
   const createFxRateMutation = useCreateFxRate();
   const executePaymentMutation = useExecutePaymentRequest();
 
   const isLoading = isLoadingCash || isLoadingFx || isLoadingHolds || isLoadingPayments;
 
+  const [activeRouteTab, setActiveRouteTab] = useState<RouteTab>("all");
+
   const handleRefreshAll = () => {
     refetchCash();
     refetchFx();
     refetchHolds();
     refetchPayments();
+    refetchAllPayments();
+    refetchMarketPayments();
   };
 
   // FX Modal State
@@ -57,6 +67,34 @@ export const TreasuryPage: React.FC = () => {
   const [fxRateUsed, setFxRateUsed] = useState<number>(5.20);
   const [exactAmountUsedLyd, setExactAmountUsedLyd] = useState<number>(0);
   const [bankReference, setBankReference] = useState<string>("");
+  const [extraAllocationNote, setExtraAllocationNote] = useState<string>("");
+  const [extraAllocationTouched, setExtraAllocationTouched] = useState(false);
+
+  const bookedRate = selectedPayment?.booked_fx_rate ?? 0;
+  const liveExtraAllocationLyd = useMemo(() => {
+    if (!selectedPayment) return 0;
+    return (Number(fxRateUsed) - Number(bookedRate)) * Number(selectedPayment.amount_requested);
+  }, [selectedPayment, fxRateUsed, bookedRate]);
+
+  const requiresNote = Math.abs(liveExtraAllocationLyd) > 0;
+  const noteMissing = requiresNote && extraAllocationNote.trim().length === 0;
+
+  const openExecuteModal = (pay: PaymentRequest) => {
+    setSelectedPayment(pay);
+    setExtraAllocationNote("");
+    setExtraAllocationTouched(false);
+    setFxRateUsed(5.20);
+    setExactAmountUsedLyd(
+      pay.bank_hold ? Number(pay.bank_hold.held_amount_lyd) : Number(pay.amount_requested) * 5.2
+    );
+  };
+
+  const closeExecuteModal = () => {
+    setSelectedPayment(null);
+    setBankReference("");
+    setExtraAllocationNote("");
+    setExtraAllocationTouched(false);
+  };
 
   const handleCreateFxRate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,10 +124,17 @@ export const TreasuryPage: React.FC = () => {
     e.preventDefault();
     if (!selectedPayment || fxRateUsed <= 0) return;
 
+    if (noteMissing) {
+      setExtraAllocationTouched(true);
+      toast.error("سبب التكلفة الإضافية مطلوب عند وجود فرق في سعر الصرف.");
+      return;
+    }
+
     const payload: ExecutePaymentPayload = {
       fx_rate_used: fxRateUsed,
       exact_amount_used_lyd: exactAmountUsedLyd > 0 ? exactAmountUsedLyd : undefined,
       bank_reference: bankReference.trim() || undefined,
+      extra_allocation_note: requiresNote ? extraAllocationNote.trim() : undefined,
     };
 
     executePaymentMutation.mutate(
@@ -97,8 +142,7 @@ export const TreasuryPage: React.FC = () => {
       {
         onSuccess: () => {
           toast.success("تم تنفيذ الدفع وتسوية الفارق في الخزينة بنجاح!");
-          setSelectedPayment(null);
-          setBankReference("");
+          closeExecuteModal();
         },
         onError: (err: unknown) => {
           const payloadErr = apiErrorPayload(err);
@@ -191,12 +235,7 @@ export const TreasuryPage: React.FC = () => {
                     </p>
                   </div>
                   <button
-                    onClick={() => {
-                      setSelectedPayment(pay);
-                      setExactAmountUsedLyd(
-                        pay.bank_hold ? Number(pay.bank_hold.held_amount_lyd) : Number(pay.amount_requested) * 5.2
-                      );
-                    }}
+                    onClick={() => openExecuteModal(pay)}
                     className="rounded-xl bg-app-accent px-3 py-1.5 text-xs font-bold text-white hover:opacity-90"
                   >
                     تنفيذ الدفع وتسوية
@@ -244,6 +283,46 @@ export const TreasuryPage: React.FC = () => {
       </div>
 
       <PayablesPanel />
+
+      {/* Payment Routes Tab Strip — All / Bank / Black market (حوالات السوق) */}
+      <div className="rounded-2xl border border-app-separator bg-app-bg-primary p-5 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-app-label-primary flex items-center gap-2">
+            <Send className="h-4 w-4 text-app-accent" />
+            <span>سجل طلبات الدفع حسب المسار</span>
+          </h3>
+          <div className="inline-flex items-center gap-1 rounded-xl border border-app-separator bg-app-bg-secondary p-1">
+            {(["all", "bank", "market"] as RouteTab[]).map((tab) => {
+              const labels: Record<RouteTab, string> = {
+                all: "الكل",
+                bank: "اعتمادات بنكية",
+                market: "حوالات السوق",
+              };
+              const isActive = activeRouteTab === tab;
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveRouteTab(tab)}
+                  className={`rounded-lg px-3 py-1.5 text-[11px] font-bold transition-colors ${
+                    isActive
+                      ? "bg-app-accent text-white shadow-sm"
+                      : "text-app-label-secondary hover:text-app-label-primary"
+                  }`}
+                >
+                  {labels[tab]}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <BlackMarketTable
+          tab={activeRouteTab}
+          allRows={allPaymentRequests}
+          marketRows={marketPaymentRequests}
+        />
+      </div>
 
       {/* Bank Holds Summary Table */}
       <div className="rounded-2xl border border-app-separator bg-app-bg-primary p-5 shadow-sm space-y-4">
@@ -351,7 +430,7 @@ export const TreasuryPage: React.FC = () => {
       {/* Execute Payment Modal */}
       <Modal
         isOpen={Boolean(selectedPayment)}
-        onClose={() => setSelectedPayment(null)}
+        onClose={closeExecuteModal}
         title="تنفيذ تسوية الدفع وتثبيت العملة"
         description={selectedPayment ? `المبلغ المطلوب: ${Number(selectedPayment.amount_requested).toLocaleString()} USD` : undefined}
         size="md"
@@ -372,6 +451,11 @@ export const TreasuryPage: React.FC = () => {
                 placeholder="5.2000"
                 className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:outline-none"
               />
+              {bookedRate > 0 ? (
+                <p className="mt-1 text-[10px] text-app-label-secondary font-mono">
+                  السعر المرجعي المحجوز: {Number(bookedRate).toFixed(4)}
+                </p>
+              ) : null}
             </div>
 
             <div>
@@ -400,17 +484,52 @@ export const TreasuryPage: React.FC = () => {
               />
             </div>
 
+            {requiresNote ? (
+              <div className="rounded-xl border border-app-status-warning/40 bg-app-status-warning/10 p-3 space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-app-status-warning">
+                  <span className="flex items-center gap-1.5">
+                    <AlertTriangle className="h-4 w-4" />
+                    التكلفة الإضافية (فرق سعر الصرف)
+                  </span>
+                  <span className="font-mono">
+                    {liveExtraAllocationLyd > 0 ? "+" : ""}
+                    {Number(liveExtraAllocationLyd).toLocaleString()} LYD
+                  </span>
+                </div>
+                <label className="block text-[11px] font-bold text-app-label-primary">
+                  سبب التكلفة الإضافية <span className="text-app-status-danger">*</span>
+                </label>
+                <textarea
+                  required
+                  value={extraAllocationNote}
+                  onChange={(e) => {
+                    setExtraAllocationNote(e.target.value);
+                    setExtraAllocationTouched(true);
+                  }}
+                  onBlur={() => setExtraAllocationTouched(true)}
+                  rows={2}
+                  placeholder="مثال: شراء عبر الصرّاف بسبب تأخر الاعتماد البنكي"
+                  className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                />
+                {extraAllocationTouched && noteMissing ? (
+                  <p className="text-[10px] text-app-status-danger font-bold">
+                    السبب مطلوب عند وجود فرق في سعر الصرف عن السعر المرجعي.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-app-separator">
               <button
                 type="button"
-                onClick={() => setSelectedPayment(null)}
+                onClick={closeExecuteModal}
                 className="rounded-xl px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
               >
                 إلغاء
               </button>
               <button
                 type="submit"
-                disabled={executePaymentMutation.isPending || fxRateUsed <= 0}
+                disabled={executePaymentMutation.isPending || fxRateUsed <= 0 || noteMissing}
                 className="rounded-xl bg-app-status-positive px-5 py-2 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
               >
                 {executePaymentMutation.isPending ? "جاري التأكيد..." : "تأكيد الدفع والتسوية"}
@@ -419,6 +538,110 @@ export const TreasuryPage: React.FC = () => {
           </form>
         )}
       </Modal>
+    </div>
+  );
+};
+
+interface BlackMarketTableProps {
+  tab: RouteTab;
+  allRows: PaymentRequest[];
+  marketRows: PaymentRequest[];
+}
+
+const BlackMarketTable: React.FC<BlackMarketTableProps> = ({ tab, allRows, marketRows }) => {
+  const rows = tab === "market" ? marketRows : allRows;
+  const visible = tab === "bank" ? rows.filter((r) => r.route === ("bank" as PaymentRoute)) : rows;
+
+  if (visible.length === 0) {
+    return (
+      <p className="text-xs text-app-label-secondary">
+        {tab === "market" ? "لا توجد حوالات سوق حالية." : "لا توجد طلبات دفع مسجلة."}
+      </p>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-app-separator bg-app-bg-secondary">
+      <table className="w-full text-xs text-start">
+        <thead className="border-b border-app-separator bg-app-bg-primary text-app-label-secondary">
+          <tr>
+            <th className="px-3 py-2 text-start font-bold">المعرف</th>
+            <th className="px-3 py-2 text-start font-bold">المسار</th>
+            <th className="px-3 py-2 text-start font-bold">المبلغ الأجنبي</th>
+            <th className="px-3 py-2 text-start font-bold">سعر الصرف</th>
+            <th className="px-3 py-2 text-start font-bold">التكلفة الإضافية (LYD)</th>
+            <th className="px-3 py-2 text-start font-bold">الملاحظة</th>
+            <th className="px-3 py-2 text-start font-bold">الحالة</th>
+            <th className="px-3 py-2 text-start font-bold">التاريخ</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-app-separator text-app-label-primary">
+          {visible.map((row) => {
+            const extra = row.extra_allocation_lyd;
+            return (
+              <tr key={row.id} className="hover:bg-app-fill-f1/40">
+                <td className="px-3 py-2 font-mono">#{row.id.slice(0, 6)}</td>
+                <td className="px-3 py-2">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                      row.route === "bank"
+                        ? "bg-app-accent-subtle text-app-accent"
+                        : "bg-app-status-warning/15 text-app-status-warning"
+                    }`}
+                  >
+                    {row.route === "bank" ? "اعتماد مصرفي" : "سوق حر"}
+                  </span>
+                </td>
+                <td className="px-3 py-2 font-mono font-bold">
+                  {Number(row.amount_requested).toLocaleString()} USD
+                </td>
+                <td className="px-3 py-2 font-mono">
+                  {row.fx_rate_used !== null && row.fx_rate_used !== undefined
+                    ? Number(row.fx_rate_used).toFixed(4)
+                    : "—"}
+                </td>
+                <td className="px-3 py-2 font-mono">
+                  {extra === null || extra === undefined ? (
+                    <span className="text-app-label-tertiary">—</span>
+                  ) : Math.abs(Number(extra)) < 0.0001 ? (
+                    <span className="text-app-label-tertiary">0.0000</span>
+                  ) : (
+                    <span
+                      className={
+                        Number(extra) > 0
+                          ? "text-app-status-warning font-bold"
+                          : "text-app-status-positive font-bold"
+                      }
+                    >
+                      {Number(extra) > 0 ? "+" : ""}
+                      {Number(extra).toLocaleString()}
+                    </span>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-app-label-secondary max-w-xs truncate">
+                  {row.extra_allocation_note || "—"}
+                </td>
+                <td className="px-3 py-2">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                      row.status === "paid"
+                        ? "bg-app-status-positive/15 text-app-status-positive"
+                        : row.status === "rejected"
+                        ? "bg-app-status-danger/15 text-app-status-danger"
+                        : "bg-app-status-warning/15 text-app-status-warning"
+                    }`}
+                  >
+                    {row.status === "paid" ? "مدفوع" : row.status === "rejected" ? "مرفوض" : "معلق"}
+                  </span>
+                </td>
+                <td className="px-3 py-2 text-app-label-secondary font-mono text-[10px]">
+                  {row.created_at ? new Date(row.created_at).toLocaleString("ar-LY") : "—"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 };

@@ -14,6 +14,7 @@ import {
   CreateFxRatePayload,
   CashAccount,
   CreateCashAccountPayload,
+  GetPaymentRequestsParams,
 } from "../../types/procurement";
 
 // Suppliers API
@@ -60,10 +61,9 @@ export const transitionImportOrder = async (
 };
 
 // Payment Requests & Bank Holds API
-export const getPaymentRequests = async (params?: {
-  operating_unit_id?: string;
-  status?: string;
-}): Promise<PaymentRequest[]> => {
+export const getPaymentRequests = async (
+  params?: GetPaymentRequestsParams
+): Promise<PaymentRequest[]> => {
   const response = await apiClient.get<{ data: PaymentRequest[] }>("/payment-requests", { params });
   return response.data.data;
 };

@@ -19,6 +19,7 @@ import {
   TransitionImportOrderPayload,
   ExecutePaymentPayload,
   CreateLandedCostLinePayload,
+  GetPaymentRequestsParams,
 } from "../types/procurement";
 
 export function useSuppliers(operatingUnitId?: string) {
@@ -86,10 +87,7 @@ export function useTransitionImportOrder() {
   });
 }
 
-export function usePaymentRequests(params?: {
-  operating_unit_id?: string;
-  status?: string;
-}) {
+export function usePaymentRequests(params?: GetPaymentRequestsParams) {
   return useQuery({
     queryKey: ["paymentRequests", params],
     queryFn: () => getPaymentRequests(params),
