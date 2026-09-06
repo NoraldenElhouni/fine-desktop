@@ -10,6 +10,7 @@ import {
   ORDER_STATUS_ORDER, ORDER_STATUS_LABEL, ORDER_NEXT_STATUS, LABOR_LOG_STATES,
 } from "../../api/endpoints/furniture";
 import { apiErrorPayload } from "../../api/endpoints/production";
+import { formatNumber } from "../../lib/utils/format";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -89,9 +90,9 @@ export const ProductionOrderDetailPage: React.FC = () => {
         </h1>
         <p className="text-xs text-app-label-secondary mt-1">
           {order.product?.name} × {order.quantity} · BOM v{order.bom?.version}
-          {" · "}material <span className="font-mono">{Number(order.material_cost).toLocaleString()}</span>
-          {" + "}labor <span className="font-mono">{Number(order.labor_cost).toLocaleString()}</span>
-          {" = "}<span className="font-mono font-bold">{totalCost.toLocaleString()} LYD</span>
+          {" · "}material <span className="font-mono">{formatNumber(order.material_cost)}</span>
+          {" + "}labor <span className="font-mono">{formatNumber(order.labor_cost)}</span>
+          {" = "}<span className="font-mono font-bold">{formatNumber(totalCost)} LYD</span>
         </p>
       </div>
 
@@ -186,8 +187,8 @@ export const ProductionOrderDetailPage: React.FC = () => {
               </span>
               <span className="font-mono">{Number(l.hours_logged)} h</span>
               <span className="font-mono text-app-label-secondary">
-                @ {Number(l.hourly_rate_at_log).toLocaleString()} ={" "}
-                {(Number(l.hours_logged) * Number(l.hourly_rate_at_log)).toLocaleString()}
+                @ {formatNumber(l.hourly_rate_at_log)} ={" "}
+                {formatNumber(Number(l.hours_logged) * Number(l.hourly_rate_at_log))}
               </span>
             </div>
           ))}
@@ -252,7 +253,7 @@ export const ProductionOrderDetailPage: React.FC = () => {
               {order.finished_stock_lot.lot_number}
             </span>
             <span className="font-mono text-app-label-secondary">
-              {order.quantity} × {Number(order.finished_stock_lot.unit_cost).toLocaleString()} LYD
+              {order.quantity} × {formatNumber(order.finished_stock_lot.unit_cost)} LYD
             </span>
             {order.status === "completed" ? (
               <span className="inline-flex items-center gap-1 text-app-label-secondary">

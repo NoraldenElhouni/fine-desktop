@@ -55,6 +55,22 @@ export function useAvailableForCutting(params?: { min_volume_m3?: number; grade?
   });
 }
 
+export function useAvailableFoamBlocks(params: {
+  inventory_item_id: string;
+  grade?: string;
+  min_volume_m3?: number;
+  per_page?: number;
+}) {
+  return useQuery({
+    queryKey: ["availableFoamBlocks", params],
+    queryFn: async () => {
+      const res = await inventoryApi.getAvailableFoamBlocks(params);
+      return res.data;
+    },
+    enabled: Boolean(params.inventory_item_id),
+  });
+}
+
 export function useTankStocks(operatingUnitId?: string) {
   return useQuery({
     queryKey: ["tankStocks", operatingUnitId],

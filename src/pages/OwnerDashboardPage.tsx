@@ -18,9 +18,7 @@ import {
   useInboxDecision,
 } from "../hooks/useDashboard";
 import { apiErrorPayload } from "../api/endpoints/production";
-
-const fmt = (v: number | string) =>
-  Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
+import { formatNumber } from "../lib/utils/format";
 
 const PIPELINE_LABEL: Record<string, string> = {
   import_orders: "أوامر الاستيراد",
@@ -91,25 +89,25 @@ export const OwnerDashboardPage: React.FC = () => {
         <KpiCard
           icon={<TrendingUp className="w-4 h-4 text-app-accent" />}
           label="إيرادات الشهر"
-          value={fmt(kpis.data?.revenue_mtd ?? 0)}
-          sub={`تكلفة المبيعات ${fmt(kpis.data?.cogs_mtd ?? 0)}`}
+          value={formatNumber(kpis.data?.revenue_mtd ?? 0)}
+          sub={`تكلفة المبيعات ${formatNumber(kpis.data?.cogs_mtd ?? 0)}`}
         />
         <KpiCard
           icon={<Percent className="w-4 h-4 text-app-accent" />}
           label="هامش الربح الإجمالي"
-          value={kpis.data?.gross_margin_pct != null ? `${fmt(kpis.data.gross_margin_pct)}%` : "—"}
-          sub={`صافي الشهر ${fmt(kpis.data?.net_profit_mtd ?? 0)}`}
+          value={kpis.data?.gross_margin_pct != null ? `${formatNumber(kpis.data.gross_margin_pct)}%` : "—"}
+          sub={`صافي الشهر ${formatNumber(kpis.data?.net_profit_mtd ?? 0)}`}
         />
         <KpiCard
           icon={<Wallet className="w-4 h-4 text-app-accent" />}
           label="النقدية"
-          value={fmt(kpis.data?.cash_position ?? 0)}
+          value={formatNumber(kpis.data?.cash_position ?? 0)}
         />
         <KpiCard
           icon={<Globe2 className="w-4 h-4 text-app-accent" />}
           label="التزامات بالعملة الأجنبية"
           value={Object.entries(kpis.data?.fx_exposure ?? {})
-            .map(([ccy, amt]) => `${fmt(amt)} ${ccy}`)
+            .map(([ccy, amt]) => `${formatNumber(amt)} ${ccy}`)
             .join(" | ") || "0"}
           sub="أوامر استيراد لم تكتمل"
         />
@@ -117,7 +115,7 @@ export const OwnerDashboardPage: React.FC = () => {
           icon={<Inbox className="w-4 h-4 text-app-accent" />}
           label="بانتظار القرار"
           value={String(approvals.data?.total ?? 0)}
-          sub={`ائتمان ${kpis.data?.pending_approvals.credit ?? 0} · تزويد ${kpis.data?.pending_approvals.restock ?? 0} · رواتب ${kpis.data?.pending_approvals.payroll ?? 0} · إجازات ${kpis.data?.pending_approvals.leave ?? 0}`}
+          sub={`ائتمان ${kpis.data?.pending_approvals.credit ?? 0} · تزويد ${kpis.data?.pending_approvals.restock ?? 0} · رواتب ${kpis.data?.pending_approvals.payroll ?? 0} · إجازات ${kpis.data?.pending_approvals.leave ?? 0} · توزيعات ${kpis.data?.pending_approvals.overhead_allocations ?? 0} · تكاليف ${kpis.data?.pending_approvals.landed_cost_lines ?? 0}`}
         />
       </div>
 
@@ -139,9 +137,9 @@ export const OwnerDashboardPage: React.FC = () => {
                         style={{ width: `${(Math.abs(row.revenue) / maxRevenue) * 100}%` }}
                       />
                     </div>
-                    <span className="w-24 text-end font-mono">{fmt(row.revenue)}</span>
+                    <span className="w-24 text-end font-mono">{formatNumber(row.revenue)}</span>
                     <span className={`w-24 text-end font-mono font-bold ${row.net < 0 ? "text-app-status-danger" : "text-app-status-positive"}`}>
-                      {fmt(row.net)}
+                      {formatNumber(row.net)}
                     </span>
                   </div>
                   <div className="flex items-center gap-3 text-[10px] text-app-label-tertiary">
@@ -152,14 +150,14 @@ export const OwnerDashboardPage: React.FC = () => {
                         style={{ width: `${(row.inventory_value / maxInventory) * 100}%` }}
                       />
                     </div>
-                    <span className="w-24 text-end font-mono">{fmt(row.inventory_value)}</span>
+                    <span className="w-24 text-end font-mono">{formatNumber(row.inventory_value)}</span>
                     <span className="w-24" />
                   </div>
                 </div>
               ))}
               {comparison.data && Math.abs(comparison.data.unallocated_net) > 0 && (
                 <div className="px-4 py-2 text-[10px] text-app-label-tertiary">
-                  صافي غير موزّع على الوحدات: <span className="font-mono">{fmt(comparison.data.unallocated_net)}</span>
+                  صافي غير موزّع على الوحدات: <span className="font-mono">{formatNumber(comparison.data.unallocated_net)}</span>
                 </div>
               )}
             </div>
@@ -206,7 +204,7 @@ export const OwnerDashboardPage: React.FC = () => {
                   تجاوز ائتمان — {item.client_name ?? "عميل"}
                 </div>
                 <div className="text-[10px] font-mono text-app-label-secondary">
-                  {item.order_number} · فوق الحد بـ {fmt(item.amount_over_limit)}
+                  {item.order_number} · فوق الحد بـ {formatNumber(item.amount_over_limit)}
                 </div>
                 <InboxActions onDecide={(d) => act("credit", item.id, d)} busy={decide.isPending} />
               </div>
@@ -223,7 +221,7 @@ export const OwnerDashboardPage: React.FC = () => {
             {approvals.data?.payroll_runs.map((item) => (
               <div key={item.id} className="p-3 space-y-1.5">
                 <div className="text-xs font-bold text-app-label-primary">مسير رواتب {item.period}</div>
-                <div className="text-[10px] font-mono text-app-label-secondary">صافي {fmt(item.total_net)}</div>
+                <div className="text-[10px] font-mono text-app-label-secondary">صافي {formatNumber(item.total_net)}</div>
                 <InboxActions approveOnly onDecide={(d) => act("payroll", item.id, d)} busy={decide.isPending} />
               </div>
             ))}
@@ -234,6 +232,22 @@ export const OwnerDashboardPage: React.FC = () => {
                   {item.start_date} ← {item.end_date}
                 </div>
                 <InboxActions onDecide={(d) => act("leave", item.id, d)} busy={decide.isPending} />
+              </div>
+            ))}
+            {approvals.data?.overhead_allocations.map((item) => (
+              <div key={item.id} className="p-3 space-y-1.5">
+                <div className="text-xs font-bold text-app-label-primary">توزيع مصروف عمومي ({item.status === "paid" ? "مدفوع" : "بانتظار"})</div>
+                <div className="text-[10px] font-mono text-app-label-secondary">
+                  وحدة {item.operating_unit_id.slice(0, 8)} · {formatNumber(item.amount)} · {item.category ?? "—"}
+                </div>
+              </div>
+            ))}
+            {approvals.data?.landed_cost_lines.map((item) => (
+              <div key={item.id} className="p-3 space-y-1.5">
+                <div className="text-xs font-bold text-app-label-primary">تكلفة رأسمالية — {item.type}</div>
+                <div className="text-[10px] font-mono text-app-label-secondary">
+                  أمر استيراد {item.import_order_id.slice(0, 8)} · {formatNumber(item.amount)} {item.currency}
+                </div>
               </div>
             ))}
             {approvals.data?.total === 0 && (

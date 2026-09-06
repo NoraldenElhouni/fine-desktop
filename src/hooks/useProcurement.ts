@@ -11,7 +11,8 @@ import {
   getBankHolds,
   getLandedCostLines,
   createLandedCostLine,
-  confirmLandedCostLine,
+  approveLandedCostLine,
+  markLandedCostLinePaid,
 } from "../api/endpoints/procurement";
 import {
   CreateSupplierPayload,
@@ -144,19 +145,42 @@ export function useCreateLandedCostLine() {
   });
 }
 
-export function useConfirmLandedCostLine() {
+export function useApproveLandedCostLine() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({
       orderId,
       lineId,
+      note,
     }: {
       orderId: string;
       lineId: string;
-    }) => confirmLandedCostLine(orderId, lineId),
+      note?: string;
+    }) => approveLandedCostLine(orderId, lineId, note),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ["landedCostLines", vars.orderId] });
       qc.invalidateQueries({ queryKey: ["importOrder", vars.orderId] });
+      qc.invalidateQueries({ queryKey: ["myAllocationApprovals"] });
+    },
+  });
+}
+
+export function useMarkLandedCostLinePaid() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      orderId,
+      lineId,
+      note,
+    }: {
+      orderId: string;
+      lineId: string;
+      note?: string;
+    }) => markLandedCostLinePaid(orderId, lineId, note),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["landedCostLines", vars.orderId] });
+      qc.invalidateQueries({ queryKey: ["importOrder", vars.orderId] });
+      qc.invalidateQueries({ queryKey: ["myAllocationApprovals"] });
     },
   });
 }

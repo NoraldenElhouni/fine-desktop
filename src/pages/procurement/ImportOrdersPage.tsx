@@ -33,11 +33,14 @@ import {
   useTransitionImportOrder,
   useLandedCostLines,
   useCreateLandedCostLine,
+  useApproveLandedCostLine,
+  useMarkLandedCostLinePaid,
 } from "../../hooks/useProcurement";
 import { useOperatingUnits } from "../../hooks/usePartners";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
-import { Modal } from "../../components/ui/Modal";
+import { AllocationPaymentActions } from "../../components/allocations/AllocationPaymentActions";
+import { formatNumber } from "../../lib/utils/format";
 
 const STAGES: { key: ImportOrderStatus; label: string; icon: React.FC<{ className?: string }> }[] = [
   { key: "draft", label: "مسودة", icon: Clock },
@@ -60,6 +63,8 @@ export const ImportOrdersPage: React.FC = () => {
   const createOrderMutation = useCreateImportOrder();
   const transitionMutation = useTransitionImportOrder();
   const createLandedCostMutation = useCreateLandedCostLine();
+  const approveLandedCostMutation = useApproveLandedCostLine();
+  const markLandedCostPaidMutation = useMarkLandedCostLinePaid();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -81,6 +86,7 @@ export const ImportOrdersPage: React.FC = () => {
   const [costAmount, setCostAmount] = useState<number>(0);
   const [costNote, setCostNote] = useState<string>("");
   const [costNoteTouched, setCostNoteTouched] = useState(false);
+  const [lineError, setLineError] = useState<Record<string, string>>({});
 
   // Create Form State
   const [selectedUnitId, setSelectedUnitId] = useState("");
@@ -181,7 +187,6 @@ export const ImportOrdersPage: React.FC = () => {
           type: costType,
           amount: costAmount,
           currency: "LYD",
-          is_confirmed: true,
           note: costNote.trim() || undefined,
         },
       },
@@ -296,13 +301,13 @@ export const ImportOrdersPage: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-4 py-3 font-mono font-semibold">
-                      {Number(ord.quantity).toLocaleString()} وحدة
+                      {formatNumber(ord.quantity)} وحدة
                     </td>
                     <td className="px-4 py-3 font-mono">
-                      {Number(ord.negotiated_price).toLocaleString()} {ord.currency}
+                      {formatNumber(ord.negotiated_price)} {ord.currency}
                     </td>
                     <td className="px-4 py-3 font-mono font-bold text-emerald-700">
-                      {totalAmount.toLocaleString()} {ord.currency}
+                      {formatNumber(totalAmount)} {ord.currency}
                     </td>
                     <td className="px-4 py-3">{getStatusBadge(ord.status)}</td>
                     <td className="px-4 py-3 text-end">
@@ -449,9 +454,9 @@ export const ImportOrdersPage: React.FC = () => {
                 </div>
                 <p className="text-xs text-app-label-secondary mt-1">
                   المورد: <span className="font-bold text-app-label-primary">{selectedOrder.supplier?.name}</span> |
-                  الكمية: {Number(selectedOrder.quantity).toLocaleString()} | إجمالي العقد:{" "}
+                  الكمية: {formatNumber(selectedOrder.quantity)} | إجمالي العقد:{" "}
                   <span className="font-bold text-emerald-600 font-mono">
-                    {(Number(selectedOrder.negotiated_price) * Number(selectedOrder.quantity)).toLocaleString()}{" "}
+                    {formatNumber(Number(selectedOrder.negotiated_price) * Number(selectedOrder.quantity))}{" "}
                     {selectedOrder.currency}
                   </span>
                 </p>
@@ -712,26 +717,77 @@ export const ImportOrdersPage: React.FC = () => {
                         <th className="px-3 py-2 text-start font-bold">نوع التكلفة</th>
                         <th className="px-3 py-2 text-start font-bold">المبلغ</th>
                         <th className="px-3 py-2 text-start font-bold">الملاحظة</th>
-                        <th className="px-3 py-2 text-start font-bold">الحالة</th>
+                        <th className="px-3 py-2 text-start font-bold">المسؤول</th>
+                        <th className="px-3 py-2 text-end font-bold">الحالة والإجراء</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-app-separator">
-                      {landedCosts.map((lc) => (
-                        <tr key={lc.id}>
-                          <td className="px-3 py-2 font-semibold">{lc.type}</td>
-                          <td className="px-3 py-2 font-mono font-bold">{Number(lc.amount).toLocaleString()} {lc.currency}</td>
-                          <td className="px-3 py-2 text-app-label-secondary max-w-xs truncate">
-                            {lc.note || "—"}
-                          </td>
-                          <td className="px-3 py-2">
-                            {lc.is_confirmed ? (
-                              <span className="text-[10px] font-bold text-emerald-700">مؤكد ومحسوب</span>
-                            ) : (
-                              <span className="text-[10px] font-bold text-amber-700">في انتظار التأكيد</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                      {landedCosts.map((lc) => {
+                        const orderUnitId = selectedOrder.operating_unit_id;
+                        const unit = operatingUnits.find((u) => u.id === orderUnitId);
+                        const managerId = unit?.manager_user_id ?? null;
+                        return (
+                          <tr key={lc.id}>
+                            <td className="px-3 py-2 font-semibold">{lc.type}</td>
+                            <td className="px-3 py-2 font-mono font-bold">{formatNumber(lc.amount)} {lc.currency}</td>
+                            <td className="px-3 py-2 text-app-label-secondary max-w-xs truncate">
+                              {lc.note || "—"}
+                            </td>
+                            <td className="px-3 py-2 text-app-label-secondary">
+                              {lc.payer?.name ?? lc.approver?.name ?? "—"}
+                            </td>
+                            <td className="px-3 py-2 text-end">
+                              <AllocationPaymentActions
+                                status={lc.status}
+                                managerId={managerId}
+                                isPending={
+                                  approveLandedCostMutation.isPending &&
+                                  approveLandedCostMutation.variables?.lineId === lc.id
+                                }
+                                isMarkingPaid={
+                                  markLandedCostPaidMutation.isPending &&
+                                  markLandedCostPaidMutation.variables?.lineId === lc.id
+                                }
+                                errorMessage={lineError[lc.id] ?? null}
+                                onApprove={(note) =>
+                                  approveLandedCostMutation.mutate(
+                                    { orderId: selectedOrder.id, lineId: lc.id, note },
+                                    {
+                                      onSuccess: () =>
+                                        setLineError((prev) => {
+                                          const { [lc.id]: _drop, ...rest } = prev;
+                                          return rest;
+                                        }),
+                                      onError: (err: unknown) =>
+                                        setLineError((prev) => ({
+                                          ...prev,
+                                          [lc.id]: apiErrorPayload(err)?.message ?? "تعذر الاعتماد.",
+                                        })),
+                                    },
+                                  )
+                                }
+                                onMarkPaid={(note) =>
+                                  markLandedCostPaidMutation.mutate(
+                                    { orderId: selectedOrder.id, lineId: lc.id, note },
+                                    {
+                                      onSuccess: () =>
+                                        setLineError((prev) => {
+                                          const { [lc.id]: _drop, ...rest } = prev;
+                                          return rest;
+                                        }),
+                                      onError: (err: unknown) =>
+                                        setLineError((prev) => ({
+                                          ...prev,
+                                          [lc.id]: apiErrorPayload(err)?.message ?? "تعذر تأكيد الدفع.",
+                                        })),
+                                    },
+                                  )
+                                }
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

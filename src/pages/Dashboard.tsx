@@ -22,6 +22,8 @@ import { useProductionBatches } from "../hooks/useProduction";
 import { useStockLots } from "../hooks/useInventory";
 import { getOperatingUnits } from "../api/endpoints/operatingUnits";
 import { OperatingUnit } from "../types/entities";
+import { MyAllocationApprovalsWidget } from "../components/dashboard/MyAllocationApprovalsWidget";
+import { formatNumber, formatDate } from "../lib/utils/format";
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -104,7 +106,7 @@ export const Dashboard: React.FC = () => {
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-2xl font-bold font-mono text-app-label-primary">
-              {isPosLoading ? "..." : Number(posReport?.total || 0).toLocaleString()}
+              {isPosLoading ? "..." : formatNumber(posReport?.total || 0)}
             </span>
             <span className="text-xs font-semibold text-app-label-secondary">د.ل</span>
           </div>
@@ -252,6 +254,9 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* My allocation approvals (operating unit manager inbox) */}
+      <MyAllocationApprovalsWidget />
+
       {/* Recent Production Activity Feed */}
       <div className="rounded-3xl border border-app-separator bg-app-bg-primary p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between border-b border-app-separator pb-4">
@@ -290,7 +295,7 @@ export const Dashboard: React.FC = () => {
                       تشغيلة إنتاج إسفنج #{batch.operation_number}
                     </div>
                     <div className="text-[10px] text-app-label-secondary mt-0.5 font-mono">
-                      التاريخ: {new Date(batch.created_at).toLocaleDateString("ar-LY")} • الكثافة: {batch.formula_params?.density_band || "—"}
+                      التاريخ: {formatDate(batch.created_at)} • الكثافة: {batch.formula_params?.density_band || "—"}
                     </div>
                   </div>
                 </div>

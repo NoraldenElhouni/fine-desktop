@@ -8,9 +8,7 @@ import {
   type PayableSettlement,
 } from "../../api/endpoints/procurement";
 import { apiErrorPayload } from "../../api/endpoints/production";
-
-const fmt = (v: number | string) =>
-  Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
+import { formatDate, formatNumber } from "../../lib/utils/format";
 
 const ACCOUNT_LABEL: Record<string, string> = {
   "2100": "الذمم الدائنة (مشتريات آجلة)",
@@ -90,7 +88,7 @@ export const PayablesPanel: React.FC = () => {
               {ACCOUNT_LABEL[payable.account_code] ?? payable.account_code}
             </p>
             <p className={`font-mono text-lg font-bold ${Number(payable.outstanding) > 0 ? "text-app-label-primary" : "text-app-status-positive"}`}>
-              {fmt(payable.outstanding)} <span className="text-[10px] font-normal">LYD</span>
+              {formatNumber(payable.outstanding)} <span className="text-[10px] font-normal">LYD</span>
             </p>
             <button
               onClick={() => {
@@ -125,9 +123,9 @@ export const PayablesPanel: React.FC = () => {
                   <td className="px-3 py-2">
                     <span className="font-mono font-bold text-app-accent me-1">{s.account_code}</span>
                   </td>
-                  <td className="px-3 py-2 text-end font-mono font-bold">{fmt(s.amount)}</td>
+                  <td className="px-3 py-2 text-end font-mono font-bold">{formatNumber(s.amount)}</td>
                   <td className="px-3 py-2 text-app-label-secondary">{s.reference ?? "—"}</td>
-                  <td className="px-3 py-2 font-mono text-app-label-secondary">{s.settled_at?.slice(0, 10)}</td>
+                  <td className="px-3 py-2 font-mono text-app-label-secondary">{formatDate(s.settled_at)}</td>
                   <td className="px-3 py-2 text-app-label-secondary">{s.settled_by?.name ?? "—"}</td>
                 </tr>
               ))}
@@ -143,7 +141,7 @@ export const PayablesPanel: React.FC = () => {
               سداد {ACCOUNT_LABEL[settling.account_code]}
             </h3>
             <p className="text-xs text-app-label-secondary">
-              الرصيد المستحق حالياً <span className="font-mono font-bold">{fmt(settling.outstanding)}</span> د.ل —
+              الرصيد المستحق حالياً <span className="font-mono font-bold">{formatNumber(settling.outstanding)}</span> د.ل —
               يُقيد السداد مديناً على الحساب ودائناً على النقدية، ولا يمكن تجاوز المستحق.
             </p>
 

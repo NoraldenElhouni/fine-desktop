@@ -7,19 +7,22 @@ import {
   useAllocateOverhead,
   useOverheadRules,
   useStoreOverheadRule,
+  useApproveOverheadAllocation,
+  useMarkOverheadAllocationPaid,
 } from "../../hooks/useOverhead";
 import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import {
   OVERHEAD_CATEGORY_LABEL,
   ALLOCATION_METHOD_LABEL,
+  ALLOCATION_PAYMENT_STATUS_LABEL,
   type AllocationMethod,
   type OverheadCategory,
   type OverheadExpense,
+  type OverheadAllocation,
 } from "../../api/endpoints/overhead";
-
-const fmt = (v: number | string) =>
-  Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
+import { AllocationPaymentActions } from "../../components/allocations/AllocationPaymentActions";
+import { formatDate, formatNumber } from "../../lib/utils/format";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -50,6 +53,9 @@ export const OverheadExpensesPage: React.FC = () => {
   const createMutation = useCreateOverheadExpense();
   const allocateMutation = useAllocateOverhead();
   const ruleMutation = useStoreOverheadRule();
+  const approveMutation = useApproveOverheadAllocation();
+  const markPaidMutation = useMarkOverheadAllocationPaid();
+  const [allocationError, setAllocationError] = useState<Record<string, string>>({});
 
   const activeRule = rules?.find((r) => r.is_active);
   const fail = (err: unknown, fallback: string) =>
@@ -163,11 +169,11 @@ export const OverheadExpensesPage: React.FC = () => {
                   <span className="text-xs font-bold text-app-label-primary">
                     {OVERHEAD_CATEGORY_LABEL[expense.category]}
                   </span>
-                  <span className="font-mono text-xs text-app-label-secondary">{expense.expense_date?.slice(0, 10)}</span>
+                  <span className="font-mono text-xs text-app-label-secondary">{expense.expense_date ? formatDate(expense.expense_date) : ""}</span>
                   <span className="text-xs text-app-label-secondary">
                     {expense.operating_unit?.name ?? "على مستوى الشركة"}
                   </span>
-                  <span className="font-mono font-bold text-sm text-app-label-primary">{fmt(expense.amount)}</span>
+                  <span className="font-mono font-bold text-sm text-app-label-primary">{formatNumber(expense.amount)}</span>
                   <span className={`px-2 py-1 text-[10px] font-bold rounded-full ${expense.status === "allocated" ? "bg-app-status-positive/10 text-app-status-positive" : "bg-app-status-yellow/15 text-app-status-yellow"}`}>
                     {expense.status === "allocated" ? "مُوزَّع" : "مسجّل"}
                   </span>
@@ -187,13 +193,70 @@ export const OverheadExpensesPage: React.FC = () => {
                 )}
 
                 {expense.allocations && expense.allocations.length > 0 && (
-                  <div className="text-xs text-app-label-secondary font-mono flex flex-wrap gap-4">
-                    {expense.allocations.map((a) => (
-                      <span key={a.id}>
-                        {a.operating_unit?.name}: {fmt(a.amount)}
-                        {a.absorbed && <span className="text-app-accent ms-1">(محمّل على الإنتاج)</span>}
-                      </span>
-                    ))}
+                  <div className="space-y-2">
+                    {expense.allocations.map((a) => {
+                      const unit = units?.find((u) => u.id === a.operating_unit_id);
+                      const managerId = unit?.manager_user_id ?? null;
+                      return (
+                        <div
+                          key={a.id}
+                          className="flex flex-wrap items-center gap-3 rounded-xl bg-app-bg-secondary px-3 py-2"
+                        >
+                          <span className="text-xs text-app-label-primary font-semibold min-w-[8rem]">
+                            {a.operating_unit?.name ?? a.operating_unit_id}
+                          </span>
+                          <span className="text-xs font-mono font-bold">{formatNumber(a.amount)}</span>
+                          {a.absorbed && (
+                            <span className="text-[10px] text-app-accent">(محمّل على الإنتاج)</span>
+                          )}
+                          <div className="ms-auto">
+                            <AllocationPaymentActions
+                              status={a.status}
+                              managerId={managerId}
+                              isPending={approveMutation.isPending && approveMutation.variables?.id === a.id}
+                              isMarkingPaid={
+                                markPaidMutation.isPending && markPaidMutation.variables?.id === a.id
+                              }
+                              errorMessage={allocationError[a.id] ?? null}
+                              onApprove={(note) =>
+                                approveMutation.mutate(
+                                  { id: a.id, note },
+                                  {
+                                    onSuccess: () =>
+                                      setAllocationError((prev) => {
+                                        const { [a.id]: _drop, ...rest } = prev;
+                                        return rest;
+                                      }),
+                                    onError: (err) =>
+                                      setAllocationError((prev) => ({
+                                        ...prev,
+                                        [a.id]: apiErrorPayload(err)?.message ?? "تعذر الاعتماد.",
+                                      })),
+                                  },
+                                )
+                              }
+                              onMarkPaid={(note) =>
+                                markPaidMutation.mutate(
+                                  { id: a.id, note },
+                                  {
+                                    onSuccess: () =>
+                                      setAllocationError((prev) => {
+                                        const { [a.id]: _drop, ...rest } = prev;
+                                        return rest;
+                                      }),
+                                    onError: (err) =>
+                                      setAllocationError((prev) => ({
+                                        ...prev,
+                                        [a.id]: apiErrorPayload(err)?.message ?? "تعذر تأكيد الدفع.",
+                                      })),
+                                  },
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -304,7 +367,7 @@ export const OverheadExpensesPage: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-app-bg-primary rounded-2xl max-w-lg w-full p-6 border border-app-separator shadow-xl space-y-4">
             <h3 className="text-lg font-bold text-app-label-primary">
-              توزيع {OVERHEAD_CATEGORY_LABEL[allocating.category]} — {fmt(allocating.amount)}
+              توزيع {OVERHEAD_CATEGORY_LABEL[allocating.category]} — {formatNumber(allocating.amount)}
             </h3>
 
             {error && (

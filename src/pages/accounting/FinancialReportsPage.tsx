@@ -6,9 +6,7 @@ import {
   useUnitProfitability,
 } from "../../hooks/useAccounting";
 import type { ReportRow } from "../../api/endpoints/accounting";
-
-const fmt = (v: number | string) =>
-  Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
+import { formatNumber } from "../../lib/utils/format";
 
 type Tab = "income" | "balance" | "units";
 
@@ -28,7 +26,7 @@ const ReportSection: React.FC<{ title: string; rows: ReportRow[]; total: number 
         <div key={row.account_code} className="flex items-center px-4 py-2 text-xs">
           <span className="font-mono font-bold text-app-accent me-3">{row.account_code}</span>
           <span className="text-app-label-primary">{row.name}</span>
-          <span className="ms-auto font-mono">{fmt(row.balance)}</span>
+          <span className="ms-auto font-mono">{formatNumber(row.balance)}</span>
         </div>
       ))}
       {rows.length === 0 && (
@@ -36,7 +34,7 @@ const ReportSection: React.FC<{ title: string; rows: ReportRow[]; total: number 
       )}
       <div className="flex items-center px-4 py-2.5 text-xs font-bold bg-app-bg-secondary">
         <span className="text-app-label-primary">الإجمالي</span>
-        <span className="ms-auto font-mono">{fmt(total)}</span>
+        <span className="ms-auto font-mono">{formatNumber(total)}</span>
       </div>
     </div>
   </div>
@@ -120,7 +118,7 @@ export const FinancialReportsPage: React.FC = () => {
             </div>
             <div className={`rounded-2xl p-4 text-sm font-bold flex items-center justify-between ${income.data.net_income >= 0 ? "bg-app-status-positive/10 text-app-status-positive" : "bg-app-status-danger/10 text-app-status-danger"}`}>
               <span>صافي الدخل</span>
-              <span className="font-mono">{fmt(income.data.net_income)}</span>
+              <span className="font-mono">{formatNumber(income.data.net_income)}</span>
             </div>
           </div>
         )
@@ -138,7 +136,7 @@ export const FinancialReportsPage: React.FC = () => {
                 <ReportSection title="حقوق الملكية" rows={balance.data.equity.rows} total={balance.data.equity.total} />
                 <div className="rounded-2xl border border-app-separator bg-app-bg-primary p-4 text-xs flex items-center justify-between">
                   <span className="text-app-label-secondary">أرباح الفترة غير المرحّلة</span>
-                  <span className="font-mono font-bold">{fmt(balance.data.equity.retained_current_period)}</span>
+                  <span className="font-mono font-bold">{formatNumber(balance.data.equity.retained_current_period)}</span>
                 </div>
               </div>
             </div>
@@ -149,7 +147,7 @@ export const FinancialReportsPage: React.FC = () => {
                   ? "الميزانية متوازنة: الأصول = الالتزامات + حقوق الملكية"
                   : "الميزانية غير متوازنة — راجع القيود"}
               </span>
-              <span className="ms-auto font-mono">{fmt(balance.data.assets.total)}</span>
+              <span className="ms-auto font-mono">{formatNumber(balance.data.assets.total)}</span>
             </div>
           </div>
         )
@@ -175,10 +173,10 @@ export const FinancialReportsPage: React.FC = () => {
                     <td className="px-4 py-2 font-bold text-app-label-primary">
                       {row.operating_unit_id ? row.unit_name : "غير موزّع (على مستوى الشركة)"}
                     </td>
-                    <td className="px-4 py-2 text-end font-mono">{fmt(row.revenue)}</td>
-                    <td className="px-4 py-2 text-end font-mono">{fmt(row.expenses)}</td>
+                    <td className="px-4 py-2 text-end font-mono">{formatNumber(row.revenue)}</td>
+                    <td className="px-4 py-2 text-end font-mono">{formatNumber(row.expenses)}</td>
                     <td className={`px-4 py-2 text-end font-mono font-bold ${row.net < 0 ? "text-app-status-danger" : "text-app-status-positive"}`}>
-                      {fmt(row.net)}
+                      {formatNumber(row.net)}
                     </td>
                   </tr>
                 ))}
@@ -193,7 +191,7 @@ export const FinancialReportsPage: React.FC = () => {
                   <tr>
                     <td colSpan={3} className="px-4 py-2.5 text-app-label-primary">صافي الشركة</td>
                     <td className={`px-4 py-2.5 text-end font-mono ${units.data.total_net < 0 ? "text-app-status-danger" : "text-app-status-positive"}`}>
-                      {fmt(units.data.total_net)}
+                      {formatNumber(units.data.total_net)}
                     </td>
                   </tr>
                 </tfoot>

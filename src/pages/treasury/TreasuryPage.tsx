@@ -29,6 +29,7 @@ import { PayablesPanel } from "./PayablesPanel";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { Modal } from "../../components/ui/Modal";
+import { formatNumber, formatDateTime } from "../../lib/utils/format";
 
 type RouteTab = "all" | "bank" | "market";
 
@@ -201,7 +202,7 @@ export const TreasuryPage: React.FC = () => {
                 </span>
               </div>
               <p className="text-lg font-extrabold text-app-status-positive font-mono">
-                {Number(acc.balance).toLocaleString()} {acc.currency}
+                {formatNumber(acc.balance)} {acc.currency}
               </p>
             </div>
           ))
@@ -231,7 +232,7 @@ export const TreasuryPage: React.FC = () => {
                       طلب دفع #{pay.id.slice(0, 6)} ({pay.route === "bank" ? "اعتماد مصرفي" : "سوق حر"})
                     </p>
                     <p className="text-[11px] text-app-label-secondary font-mono mt-0.5">
-                      القيمة: {Number(pay.amount_requested).toLocaleString()} USD
+                      القيمة: {formatNumber(pay.amount_requested)} USD
                     </p>
                   </div>
                   <button
@@ -271,7 +272,7 @@ export const TreasuryPage: React.FC = () => {
                       <td className="px-3 py-2 font-bold">{fx.from_currency} / {fx.to_currency}</td>
                       <td className="px-3 py-2 font-mono font-extrabold text-app-status-positive">{Number(fx.rate).toFixed(4)}</td>
                       <td className="px-3 py-2 text-app-label-secondary font-mono text-[11px]">
-                        {new Date(fx.captured_at).toLocaleString("ar-LY")}
+                        {formatDateTime(fx.captured_at)}
                       </td>
                     </tr>
                   ))}
@@ -348,10 +349,10 @@ export const TreasuryPage: React.FC = () => {
                 {bankHolds.map((bh) => (
                   <tr key={bh.id}>
                     <td className="px-3 py-2 font-mono font-bold">#{bh.id.slice(0, 6)}</td>
-                    <td className="px-3 py-2 font-mono">{Number(bh.held_amount_lyd).toLocaleString()} LYD</td>
-                    <td className="px-3 py-2 font-mono text-app-status-warning">{Number(bh.exact_amount_used).toLocaleString()} LYD</td>
+                    <td className="px-3 py-2 font-mono">{formatNumber(bh.held_amount_lyd)} LYD</td>
+                    <td className="px-3 py-2 font-mono text-app-status-warning">{formatNumber(bh.exact_amount_used)} LYD</td>
                     <td className="px-3 py-2 font-mono font-bold text-app-status-positive">
-                      +{Number(bh.released_amount).toLocaleString()} LYD (مفرج)
+                      +{formatNumber(bh.released_amount)} LYD (مفرج)
                     </td>
                   </tr>
                 ))}
@@ -432,7 +433,7 @@ export const TreasuryPage: React.FC = () => {
         isOpen={Boolean(selectedPayment)}
         onClose={closeExecuteModal}
         title="تنفيذ تسوية الدفع وتثبيت العملة"
-        description={selectedPayment ? `المبلغ المطلوب: ${Number(selectedPayment.amount_requested).toLocaleString()} USD` : undefined}
+        description={selectedPayment ? `المبلغ المطلوب: ${formatNumber(selectedPayment.amount_requested)} USD` : undefined}
         size="md"
       >
         {selectedPayment && (
@@ -493,7 +494,7 @@ export const TreasuryPage: React.FC = () => {
                   </span>
                   <span className="font-mono">
                     {liveExtraAllocationLyd > 0 ? "+" : ""}
-                    {Number(liveExtraAllocationLyd).toLocaleString()} LYD
+                    {formatNumber(liveExtraAllocationLyd)} LYD
                   </span>
                 </div>
                 <label className="block text-[11px] font-bold text-app-label-primary">
@@ -593,7 +594,7 @@ const BlackMarketTable: React.FC<BlackMarketTableProps> = ({ tab, allRows, marke
                   </span>
                 </td>
                 <td className="px-3 py-2 font-mono font-bold">
-                  {Number(row.amount_requested).toLocaleString()} USD
+                  {formatNumber(row.amount_requested)} USD
                 </td>
                 <td className="px-3 py-2 font-mono">
                   {row.fx_rate_used !== null && row.fx_rate_used !== undefined
@@ -614,7 +615,7 @@ const BlackMarketTable: React.FC<BlackMarketTableProps> = ({ tab, allRows, marke
                       }
                     >
                       {Number(extra) > 0 ? "+" : ""}
-                      {Number(extra).toLocaleString()}
+                      {formatNumber(extra)}
                     </span>
                   )}
                 </td>
@@ -635,7 +636,7 @@ const BlackMarketTable: React.FC<BlackMarketTableProps> = ({ tab, allRows, marke
                   </span>
                 </td>
                 <td className="px-3 py-2 text-app-label-secondary font-mono text-[10px]">
-                  {row.created_at ? new Date(row.created_at).toLocaleString("ar-LY") : "—"}
+                  {row.created_at ? formatDateTime(row.created_at) : "—"}
                 </td>
               </tr>
             );

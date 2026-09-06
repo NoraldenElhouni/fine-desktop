@@ -10,6 +10,7 @@ import {
   CutterWorkOrderStatus,
 } from "../../api/endpoints/cutter";
 import { apiErrorPayload } from "../../api/endpoints/production";
+import { formatNumber } from "../../lib/utils/format";
 
 export const CutterWorkOrdersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -166,7 +167,7 @@ export const CutterWorkOrdersPage: React.FC = () => {
                   </td>
                   <td className="px-4 py-3 font-bold">{o.lines_count ?? o.lines?.length ?? 0}</td>
                   <td className="px-4 py-3 font-mono text-app-label-secondary">
-                    {Number(o.wip_cost).toLocaleString()} LYD
+                    {formatNumber(o.wip_cost)} LYD
                   </td>
                   <td className="px-4 py-3">
                     <span className="px-2 py-1 text-xs font-semibold rounded-full bg-app-accent-subtle text-app-accent">

@@ -8,6 +8,7 @@ import {
 } from "../../hooks/useInventory";
 import { TankStock, InventoryItem } from "../../api/endpoints/inventory";
 import { apiErrorPayload } from "../../api/endpoints/production";
+import { formatDate, formatNumber } from "../../lib/utils/format";
 import { Database, Plus, AlertCircle, PackageOpen } from "lucide-react";
 
 export const TankStockPage: React.FC = () => {
@@ -131,28 +132,28 @@ export const TankStockPage: React.FC = () => {
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-app-label-secondary">Current Volume:</span>
                   <span className="font-bold text-app-label-primary text-sm">
-                    {tank.quantity_on_hand.toLocaleString()} Liters
+                    {formatNumber(tank.quantity_on_hand)} Liters
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-app-label-secondary">Weighted-Avg Unit Cost (WAC):</span>
                   <span className="font-mono font-bold text-app-accent">
-                    {tank.weighted_avg_unit_cost.toLocaleString()} LYD / L
+                    {formatNumber(tank.weighted_avg_unit_cost)} LYD / L
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-app-label-secondary">Total Tank Value:</span>
                   <span className="font-semibold text-app-label-primary">
-                    {(tank.quantity_on_hand * tank.weighted_avg_unit_cost).toLocaleString()} LYD
+                    {formatNumber(tank.quantity_on_hand * tank.weighted_avg_unit_cost)} LYD
                   </span>
                 </div>
               </div>
 
               <div className="flex items-center justify-between text-xs text-app-label-tertiary">
                 <span>Version: #{tank.record_version}</span>
-                <span>Updated: {new Date(tank.created_at).toLocaleDateString()}</span>
+                <span>Updated: {formatDate(tank.created_at)}</span>
               </div>
             </div>
           ))}

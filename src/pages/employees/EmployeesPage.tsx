@@ -7,6 +7,7 @@ import { useEntities, useOperatingUnits } from "../../hooks/usePartners";
 import { useServerConfigStore } from "../../stores/serverConfigStore";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
+import { formatNumber } from "../../lib/utils/format";
 import { Modal } from "../../components/ui/Modal";
 
 export const EmployeesPage: React.FC = () => {
@@ -216,9 +217,9 @@ export const EmployeesPage: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 font-mono font-bold text-app-label-primary">
                       {emp.pay_type === "monthly" && emp.monthly_salary
-                        ? `${Number(emp.monthly_salary).toLocaleString()} د.ل / شهر`
+                        ? `${formatNumber(emp.monthly_salary)} د.ل / شهر`
                         : emp.pay_type === "hourly" && emp.hourly_rate
-                        ? `${Number(emp.hourly_rate).toLocaleString()} د.ل / ساعة`
+                        ? `${formatNumber(emp.hourly_rate)} د.ل / ساعة`
                         : "حسب الإنتاج"}
                     </td>
                     <td className="px-4 py-3">

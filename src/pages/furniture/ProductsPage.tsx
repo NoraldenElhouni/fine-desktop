@@ -10,6 +10,7 @@ import {
 import { useInventoryItems } from "../../hooks/useInventory";
 import { Bom } from "../../api/endpoints/furniture";
 import { apiErrorPayload } from "../../api/endpoints/production";
+import { formatNumber } from "../../lib/utils/format";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -225,7 +226,7 @@ export const ProductsPage: React.FC = () => {
                           </span>
                           <span className="font-mono">× {Number(l.quantity)}</span>
                           <span className="font-mono text-app-label-secondary">
-                            est. {Number(l.estimated_unit_cost).toLocaleString()}
+                            est. {formatNumber(l.estimated_unit_cost)}
                           </span>
                           <button
                             onClick={() =>
@@ -303,7 +304,7 @@ export const ProductsPage: React.FC = () => {
                           <span className="font-semibold text-app-label-primary flex-1 capitalize">{r.role}</span>
                           <span className="font-mono">{Number(r.estimated_hours)} h</span>
                           <span className="font-mono text-app-label-secondary">
-                            @ {Number(r.hourly_rate).toLocaleString()}/h
+                            @ {formatNumber(r.hourly_rate)}/h
                           </span>
                           <button
                             onClick={() =>
@@ -380,25 +381,25 @@ export const ProductsPage: React.FC = () => {
                         <div>
                           <div className="text-app-label-secondary">Material</div>
                           <div className="font-mono font-bold text-app-label-primary">
-                            {preview.estimated_material_cost.toLocaleString()}
+                            {formatNumber(preview.estimated_material_cost)}
                           </div>
                         </div>
                         <div>
                           <div className="text-app-label-secondary">Labor</div>
                           <div className="font-mono font-bold text-app-label-primary">
-                            {preview.estimated_labor_cost.toLocaleString()}
+                            {formatNumber(preview.estimated_labor_cost)}
                           </div>
                         </div>
                         <div>
                           <div className="text-app-label-secondary">Total × {preview.markup_factor}</div>
                           <div className="font-mono font-bold text-app-label-primary">
-                            {preview.estimated_total_cost.toLocaleString()}
+                            {formatNumber(preview.estimated_total_cost)}
                           </div>
                         </div>
                         <div>
                           <div className="text-app-label-secondary">Suggested price</div>
                           <div className="font-mono font-bold text-app-accent">
-                            {preview.suggested_price.toLocaleString()} LYD
+                            {formatNumber(preview.suggested_price)} LYD
                           </div>
                         </div>
                       </div>

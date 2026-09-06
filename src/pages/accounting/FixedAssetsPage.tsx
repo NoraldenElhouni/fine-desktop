@@ -11,15 +11,13 @@ import {
 } from "../../hooks/useFixedAssets";
 import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
 import { apiErrorPayload } from "../../api/endpoints/production";
+import { formatNumber } from "../../lib/utils/format";
 import {
   ASSET_STATUS_LABEL,
   DEPRECIATION_METHOD_LABEL,
   type DepreciationMethod,
   type FixedAsset,
 } from "../../api/endpoints/fixedAssets";
-
-const fmt = (v: number | string) =>
-  Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -174,9 +172,9 @@ export const FixedAssetsPage: React.FC = () => {
                   <td className="px-4 py-2 text-app-label-primary">{asset.name}</td>
                   <td className="px-4 py-2 text-app-label-secondary">{asset.operating_unit?.name ?? "الشركة"}</td>
                   <td className="px-4 py-2 text-app-label-secondary">{DEPRECIATION_METHOD_LABEL[asset.depreciation_method]}</td>
-                  <td className="px-4 py-2 text-end font-mono">{fmt(asset.acquisition_cost)}</td>
-                  <td className="px-4 py-2 text-end font-mono">{fmt(asset.accumulated_depreciation)}</td>
-                  <td className="px-4 py-2 text-end font-mono font-bold">{fmt(bookValue(asset))}</td>
+                  <td className="px-4 py-2 text-end font-mono">{formatNumber(asset.acquisition_cost)}</td>
+                  <td className="px-4 py-2 text-end font-mono">{formatNumber(asset.accumulated_depreciation)}</td>
+                  <td className="px-4 py-2 text-end font-mono font-bold">{formatNumber(bookValue(asset))}</td>
                   <td className="px-4 py-2">
                     <span className={`px-2 py-1 text-[10px] font-bold rounded-full ${STATUS_STYLE[asset.status]}`}>
                       {ASSET_STATUS_LABEL[asset.status]}
@@ -250,7 +248,7 @@ export const FixedAssetsPage: React.FC = () => {
               جدول إهلاك {scheduleFor.name}
             </span>
             <span className="ms-auto font-mono text-xs text-app-label-secondary">
-              القيمة الدفترية الحالية: {fmt(schedule.book_value)}
+              القيمة الدفترية الحالية: {formatNumber(schedule.book_value)}
             </span>
           </div>
           <div className="max-h-64 overflow-y-auto">
@@ -266,8 +264,8 @@ export const FixedAssetsPage: React.FC = () => {
                 {schedule.rows.map((row) => (
                   <tr key={row.period}>
                     <td className="px-4 py-1.5 font-mono">{row.period}</td>
-                    <td className="px-4 py-1.5 text-end font-mono">{fmt(row.amount)}</td>
-                    <td className="px-4 py-1.5 text-end font-mono">{fmt(row.book_value_after)}</td>
+                    <td className="px-4 py-1.5 text-end font-mono">{formatNumber(row.amount)}</td>
+                    <td className="px-4 py-1.5 text-end font-mono">{formatNumber(row.book_value_after)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -399,7 +397,7 @@ export const FixedAssetsPage: React.FC = () => {
               استبعاد {disposing.name}
             </h3>
             <p className="text-xs text-app-label-secondary">
-              القيمة الدفترية الحالية {fmt(bookValue(disposing))}. الفرق بين المتحصلات والقيمة الدفترية
+              القيمة الدفترية الحالية {formatNumber(bookValue(disposing))}. الفرق بين المتحصلات والقيمة الدفترية
               يُقيد ربحًا أو خسارة استبعاد.
             </p>
 

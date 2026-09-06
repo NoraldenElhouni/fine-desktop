@@ -10,6 +10,7 @@ import {
 } from "../../hooks/useSales";
 import { SALES_STATUS_LABEL } from "../../api/endpoints/sales";
 import { apiErrorPayload } from "../../api/endpoints/production";
+import { formatNumber } from "../../lib/utils/format";
 
 export const SalesOrderDetailPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
@@ -65,10 +66,10 @@ export const SalesOrderDetailPage: React.FC = () => {
             : order.buyer_type === "internal_unit"
               ? `Internal transfer to ${order.buyer_unit?.name ?? "—"}`
               : "Walk-in"}
-          {" · "}total <span className="font-mono font-bold">{Number(order.total_amount).toLocaleString()}</span>
+          {" · "}total <span className="font-mono font-bold">{formatNumber(order.total_amount)}</span>
           {order.status !== "draft" && (
             <>
-              {" · "}paid <span className="font-mono">{Number(order.amount_paid).toLocaleString()}</span>
+              {" · "}paid <span className="font-mono">{formatNumber(order.amount_paid)}</span>
             </>
           )}
         </p>
@@ -89,7 +90,7 @@ export const SalesOrderDetailPage: React.FC = () => {
             <span>
               This order takes the client{" "}
               <span className="font-mono font-bold">
-                {Number(approval.amount_over_limit).toLocaleString()}
+                {formatNumber(approval.amount_over_limit)}
               </span>{" "}
               over their credit limit. It stays blocked until someone with the authority decides.
             </span>
@@ -146,7 +147,7 @@ export const SalesOrderDetailPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <input
               type="number" step="0.01" min="0.01" max={outstanding}
-              placeholder={`Outstanding ${outstanding.toLocaleString()}`}
+              placeholder={`Outstanding ${formatNumber(outstanding)}`}
               value={paymentAmount}
               onChange={(e) => setPaymentAmount(e.target.value)}
               className="w-44 px-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
@@ -215,10 +216,10 @@ export const SalesOrderDetailPage: React.FC = () => {
             </div>
             <div className="text-end">
               <div className="text-lg font-bold font-mono text-app-label-primary">
-                {invoice.total_amount.toLocaleString()} LYD
+                {formatNumber(invoice.total_amount)} LYD
               </div>
               <div className="text-xs text-app-label-secondary font-mono">
-                outstanding {invoice.outstanding.toLocaleString()}
+                outstanding {formatNumber(invoice.outstanding)}
               </div>
             </div>
           </div>
@@ -226,9 +227,16 @@ export const SalesOrderDetailPage: React.FC = () => {
             <tbody className="divide-y divide-app-separator/50">
               {invoice.lines.map((l, i) => (
                 <tr key={i}>
-                  <td className="py-1.5">{l.item} <span className="text-app-label-tertiary font-mono">{l.sku}</span></td>
-                  <td className="py-1.5 text-end font-mono">{l.quantity} × {l.unit_price.toLocaleString()}</td>
-                  <td className="py-1.5 text-end font-mono font-bold">{l.line_total.toLocaleString()}</td>
+                  <td className="py-1.5">
+                    {l.item} <span className="text-app-label-tertiary font-mono">{l.sku}</span>
+                    {l.lot_number && (
+                      <span className="ms-2 rounded bg-app-accent/10 px-1.5 py-0.5 text-[10px] font-mono font-bold text-app-accent">
+                        لوت: {l.lot_number}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-1.5 text-end font-mono">{l.quantity} × {formatNumber(l.unit_price)}</td>
+                  <td className="py-1.5 text-end font-mono font-bold">{formatNumber(l.line_total)}</td>
                 </tr>
               ))}
             </tbody>
@@ -259,12 +267,12 @@ export const SalesOrderDetailPage: React.FC = () => {
                   <span className="text-app-label-tertiary font-mono ms-2">{l.inventory_item?.sku}</span>
                 </td>
                 <td className="px-4 py-2 text-end font-mono">{Number(l.quantity)}</td>
-                <td className="px-4 py-2 text-end font-mono">{Number(l.unit_price).toLocaleString()}</td>
+                <td className="px-4 py-2 text-end font-mono">{formatNumber(l.unit_price)}</td>
                 <td className="px-4 py-2 text-end font-mono font-bold">
-                  {(Number(l.quantity) * Number(l.unit_price)).toLocaleString()}
+                  {formatNumber(Number(l.quantity) * Number(l.unit_price))}
                 </td>
                 <td className="px-4 py-2 text-end font-mono text-app-label-secondary">
-                  {Number(l.unit_cost_actual) > 0 ? Number(l.unit_cost_actual).toLocaleString() : "—"}
+                  {Number(l.unit_cost_actual) > 0 ? formatNumber(l.unit_cost_actual) : "—"}
                 </td>
               </tr>
             ))}

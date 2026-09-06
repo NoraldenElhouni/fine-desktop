@@ -2,9 +2,7 @@ import React, { useMemo, useState } from "react";
 import { ListTree, X } from "lucide-react";
 import { useAccounts, useAccountLedger } from "../../hooks/useAccounting";
 import { ACCOUNT_TYPE_LABEL, type Account } from "../../api/endpoints/accounting";
-
-const fmt = (v: number | string) =>
-  Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
+import { formatDate, formatNumber } from "../../lib/utils/format";
 
 const TYPE_STYLE: Record<Account["type"], string> = {
   asset: "bg-app-accent-subtle text-app-accent",
@@ -56,7 +54,7 @@ export const ChartOfAccountsPage: React.FC = () => {
         <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${TYPE_STYLE[node.account.type]}`}>
           {ACCOUNT_TYPE_LABEL[node.account.type]}
         </span>
-        <span className="ms-auto font-mono text-xs text-app-label-primary">{fmt(node.account.balance)}</span>
+        <span className="ms-auto font-mono text-xs text-app-label-primary">{formatNumber(node.account.balance)}</span>
       </button>
       {node.children.map((child) => renderNode(child, depth + 1))}
     </React.Fragment>
@@ -89,7 +87,7 @@ export const ChartOfAccountsPage: React.FC = () => {
               <span className="font-mono font-bold text-app-accent text-sm">{selected.account_code}</span>
               <span className="text-sm font-bold text-app-label-primary">{selected.name}</span>
               <span className="ms-auto font-mono text-xs text-app-label-secondary">
-                مدين {fmt(selected.total_debit)} / دائن {fmt(selected.total_credit)}
+                مدين {formatNumber(selected.total_debit)} / دائن {formatNumber(selected.total_credit)}
               </span>
               <button onClick={() => setSelected(null)} className="p-1 text-app-label-tertiary hover:text-app-status-danger">
                 <X className="w-4 h-4" />
@@ -114,10 +112,10 @@ export const ChartOfAccountsPage: React.FC = () => {
                     {ledger?.data.map((line) => (
                       <tr key={line.id}>
                         <td className="px-3 py-2 font-mono font-bold text-app-accent">{line.journal_entry?.reference}</td>
-                        <td className="px-3 py-2 font-mono text-app-label-secondary">{line.journal_entry?.entry_date?.slice(0, 10)}</td>
+                        <td className="px-3 py-2 font-mono text-app-label-secondary">{line.journal_entry?.entry_date ? formatDate(line.journal_entry.entry_date) : ""}</td>
                         <td className="px-3 py-2 text-app-label-secondary">{line.journal_entry?.description}</td>
-                        <td className="px-3 py-2 text-end font-mono">{Number(line.debit) > 0 ? fmt(line.debit) : ""}</td>
-                        <td className="px-3 py-2 text-end font-mono">{Number(line.credit) > 0 ? fmt(line.credit) : ""}</td>
+                        <td className="px-3 py-2 text-end font-mono">{Number(line.debit) > 0 ? formatNumber(line.debit) : ""}</td>
+                        <td className="px-3 py-2 text-end font-mono">{Number(line.credit) > 0 ? formatNumber(line.credit) : ""}</td>
                       </tr>
                     ))}
                     {ledger?.data.length === 0 && (

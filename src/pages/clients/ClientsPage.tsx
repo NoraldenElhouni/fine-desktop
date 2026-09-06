@@ -8,6 +8,7 @@ import { useServerConfigStore } from "../../stores/serverConfigStore";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { Modal } from "../../components/ui/Modal";
+import { formatNumber } from "../../lib/utils/format";
 
 export const ClientsPage: React.FC = () => {
   const { allowManualEntitySelection } = useServerConfigStore();
@@ -63,8 +64,7 @@ export const ClientsPage: React.FC = () => {
     const payload = {
       operating_unit_id: unitId,
       entity_id: entityMode === "existing" ? selectedEntityId : undefined,
-      auto_create_entity: entityMode === "auto",
-      entity_name: entityMode === "auto" ? clientName.trim() : undefined,
+      name: entityMode === "auto" ? clientName.trim() : undefined,
       entity_type: entityMode === "auto" ? entityType : undefined,
       tax_number: entityMode === "auto" && taxNumber.trim() ? taxNumber.trim() : undefined,
       credit_limit: creditLimit,
@@ -133,7 +133,7 @@ export const ClientsPage: React.FC = () => {
             <CreditCard className="h-4 w-4 text-app-accent" />
           </div>
           <p className="mt-2 text-xl font-bold text-app-label-primary">
-            {totalCreditExposure.toLocaleString()} <span className="text-xs font-normal">د.ل</span>
+            {formatNumber(totalCreditExposure)} <span className="text-xs font-normal">د.ل</span>
           </p>
         </div>
         <div className="rounded-2xl border border-app-separator bg-app-bg-primary p-4 shadow-sm">
@@ -142,7 +142,7 @@ export const ClientsPage: React.FC = () => {
             <Users className="h-4 w-4 text-app-status-danger" />
           </div>
           <p className="mt-2 text-xl font-bold text-app-status-danger">
-            {totalOutstandingBalance.toLocaleString()} <span className="text-xs font-normal">د.ل</span>
+            {formatNumber(totalOutstandingBalance)} <span className="text-xs font-normal">د.ل</span>
           </p>
         </div>
         <div className="rounded-2xl border border-app-separator bg-app-bg-primary p-4 shadow-sm">
@@ -207,25 +207,25 @@ export const ClientsPage: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-4 py-3 font-mono">
-                      {creditLimit.toLocaleString()} د.ل
+                      {formatNumber(creditLimit)} د.ل
                     </td>
                     <td className="px-4 py-3 font-mono font-bold">
                       <span className={currentBalance > 0 ? (isOverLimit ? "text-app-status-danger" : "text-app-label-primary") : "text-app-label-secondary"}>
-                        {currentBalance.toLocaleString()} د.ل
+                        {formatNumber(currentBalance)} د.ل
                       </span>
                     </td>
                     <td className="px-4 py-3 font-mono">
                       {isOverLimit ? (
                         <span className="inline-flex items-center rounded-full bg-app-status-danger/15 px-2 py-0.5 text-[10px] font-bold text-app-status-danger">
-                          تجاوز {Math.abs(headroom).toLocaleString()} د.ل
+                          تجاوز {formatNumber(Math.abs(headroom))} د.ل
                         </span>
                       ) : isNearLimit ? (
                         <span className="inline-flex items-center rounded-full bg-app-status-warning/15 px-2 py-0.5 text-[10px] font-bold text-app-status-warning">
-                          {headroom.toLocaleString()} د.ل (متبقي)
+                          {formatNumber(headroom)} د.ل (متبقي)
                         </span>
                       ) : (
                         <span className="inline-flex items-center rounded-full bg-app-status-positive/15 px-2 py-0.5 text-[10px] font-bold text-app-status-positive">
-                          {headroom.toLocaleString()} د.ل (متبقي)
+                          {formatNumber(headroom)} د.ل (متبقي)
                         </span>
                       )}
                     </td>

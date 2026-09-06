@@ -35,6 +35,14 @@ export function usePendingApprovals() {
   });
 }
 
+export function useMyAllocationApprovals() {
+  return useQuery({
+    queryKey: ["myAllocationApprovals"],
+    queryFn: async () => (await dashboardApi.myAllocationApprovals()).data,
+    refetchInterval: REFRESH_MS,
+  });
+}
+
 /**
  * One-click inbox decisions: whatever was decided, refresh the whole
  * dashboard — counters, KPIs and the source lists all shift together.

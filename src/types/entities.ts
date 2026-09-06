@@ -16,6 +16,8 @@ export interface OperatingUnit {
   unit_type?: string;
   currency?: string;
   status?: string;
+  manager_user_id?: string | null;
+  manager?: { id: string; name: string } | null;
   created_at?: string;
   updated_at?: string;
 }

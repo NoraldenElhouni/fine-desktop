@@ -3,6 +3,7 @@ import type { Paginated } from "./accounting";
 
 export type OverheadCategory = "water" | "electricity" | "rent" | "maintenance" | "other";
 export type AllocationMethod = "even_split" | "usage_based" | "headcount_based" | "manual_percentage";
+export type AllocationPaymentStatus = "pending" | "approved" | "paid";
 
 export const OVERHEAD_CATEGORY_LABEL: Record<OverheadCategory, string> = {
   water: "مياه",
@@ -19,13 +20,32 @@ export const ALLOCATION_METHOD_LABEL: Record<AllocationMethod, string> = {
   manual_percentage: "نسب يدوية",
 };
 
+export const ALLOCATION_PAYMENT_STATUS_LABEL: Record<AllocationPaymentStatus, string> = {
+  pending: "بانتظار الموافقة",
+  approved: "معتمد بانتظار التأكيد",
+  paid: "مدفوع ومؤكد",
+};
+
+export interface AllocationParty {
+  id: string;
+  name: string;
+}
+
 export interface OverheadAllocation {
   id: string;
   operating_unit_id: string;
   method: AllocationMethod;
   amount: string;
   absorbed: boolean;
+  status: AllocationPaymentStatus;
+  approved_by_user_id: string | null;
+  approved_at: string | null;
+  paid_by_user_id: string | null;
+  paid_at: string | null;
+  confirmation_note: string | null;
   operating_unit?: { id: string; name: string };
+  approver?: AllocationParty | null;
+  payer?: AllocationParty | null;
 }
 
 export interface OverheadExpense {
@@ -75,6 +95,16 @@ export const overheadApi = {
 
   allocate: (id: string, payload: AllocatePayload) =>
     apiClient.post<OverheadExpense>(`/overhead-expenses/${id}/allocate`, payload),
+
+  approveAllocation: (id: string, note?: string) =>
+    apiClient.post<OverheadAllocation>(`/overhead-allocations/${id}/approve`, {
+      note,
+    }),
+
+  markAllocationPaid: (id: string, note?: string) =>
+    apiClient.post<OverheadAllocation>(`/overhead-allocations/${id}/mark-paid`, {
+      note,
+    }),
 
   getRules: () => apiClient.get<{ data: OverheadAllocationRule[] }>("/overhead-allocation-rules"),
 

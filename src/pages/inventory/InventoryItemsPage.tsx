@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useInventoryItems, useCreateInventoryItem } from "../../hooks/useInventory";
 import { useItemCategories, useAttributeLibrary } from "../../hooks/useCategories";
 import { InventoryItem } from "../../api/endpoints/inventory";
+import { formatDate } from "../../lib/utils/format";
 import { Package, PackagePlus, Plus, Search, Filter, Tags, Sliders } from "lucide-react";
 import { StockIntakeModal } from "./StockIntakeModal";
 
@@ -184,7 +185,7 @@ export const InventoryItemsPage: React.FC = () => {
                   <td className="px-4 py-3 font-mono font-medium text-app-label-secondary">
                     {item.primary_uom || "each"} / {item.secondary_uom || item.unit_of_measure}
                   </td>
-                  <td className="px-4 py-3 text-app-label-tertiary">{new Date(item.created_at).toLocaleDateString()}</td>
+                  <td className="px-4 py-3 text-app-label-tertiary">{formatDate(item.created_at)}</td>
                 </tr>
               ))}
               {itemData?.data.length === 0 && (

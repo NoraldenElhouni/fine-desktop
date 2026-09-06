@@ -2,9 +2,7 @@ import React from "react";
 import { Scale, CheckCircle2, AlertTriangle } from "lucide-react";
 import { useTrialBalance } from "../../hooks/useAccounting";
 import { ACCOUNT_TYPE_LABEL } from "../../api/endpoints/accounting";
-
-const fmt = (v: number | string) =>
-  Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
+import { formatNumber } from "../../lib/utils/format";
 
 export const TrialBalancePage: React.FC = () => {
   const { data: tb, isLoading } = useTrialBalance();
@@ -50,10 +48,10 @@ export const TrialBalancePage: React.FC = () => {
                   <td className="px-4 py-2 font-mono font-bold text-app-accent">{row.account_code}</td>
                   <td className="px-4 py-2 text-app-label-primary">{row.name}</td>
                   <td className="px-4 py-2 text-app-label-secondary">{ACCOUNT_TYPE_LABEL[row.type]}</td>
-                  <td className="px-4 py-2 text-end font-mono">{fmt(row.debit)}</td>
-                  <td className="px-4 py-2 text-end font-mono">{fmt(row.credit)}</td>
+                  <td className="px-4 py-2 text-end font-mono">{formatNumber(row.debit)}</td>
+                  <td className="px-4 py-2 text-end font-mono">{formatNumber(row.credit)}</td>
                   <td className={`px-4 py-2 text-end font-mono font-bold ${row.balance < 0 ? "text-app-status-danger" : "text-app-label-primary"}`}>
-                    {fmt(row.balance)}
+                    {formatNumber(row.balance)}
                   </td>
                 </tr>
               ))}
@@ -67,10 +65,10 @@ export const TrialBalancePage: React.FC = () => {
               <tfoot className="border-t-2 border-app-separator bg-app-bg-secondary font-bold">
                 <tr>
                   <td colSpan={3} className="px-4 py-2.5 text-app-label-primary">الإجمالي</td>
-                  <td className="px-4 py-2.5 text-end font-mono">{fmt(tb.total_debit)}</td>
-                  <td className="px-4 py-2.5 text-end font-mono">{fmt(tb.total_credit)}</td>
+                  <td className="px-4 py-2.5 text-end font-mono">{formatNumber(tb.total_debit)}</td>
+                  <td className="px-4 py-2.5 text-end font-mono">{formatNumber(tb.total_credit)}</td>
                   <td className="px-4 py-2.5 text-end font-mono">
-                    {fmt(Math.abs(tb.total_debit - tb.total_credit))}
+                    {formatNumber(Math.abs(tb.total_debit - tb.total_credit))}
                   </td>
                 </tr>
               </tfoot>

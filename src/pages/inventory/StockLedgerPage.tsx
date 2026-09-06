@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useStockLots, useInventoryValuation, useProcessCutRemnant } from "../../hooks/useInventory";
 import { useItemCategories } from "../../hooks/useCategories";
 import { StockLot } from "../../api/endpoints/inventory";
+import { formatNumber } from "../../lib/utils/format";
 import { Layers, Box, CheckCircle, DollarSign, RefreshCw, Scissors, AlertCircle, Tags } from "lucide-react";
 
 export const StockLedgerPage: React.FC = () => {
@@ -81,7 +82,7 @@ export const StockLedgerPage: React.FC = () => {
           <div>
             <div className="text-xs uppercase font-semibold text-app-label-secondary">Unit Stock Valuation</div>
             <div className="text-xl font-bold text-app-label-primary">
-              {valuation?.total_valuation?.toLocaleString()} {valuation?.currency || "LYD"}
+              {formatNumber(valuation?.total_valuation)} {valuation?.currency || "LYD"}
             </div>
           </div>
         </div>
@@ -200,7 +201,7 @@ export const StockLedgerPage: React.FC = () => {
                     ) : null}
                   </td>
                   <td className="px-4 py-3 font-mono text-app-label-primary">
-                    {lot.unit_cost.toLocaleString()} LYD
+                    {formatNumber(lot.unit_cost)} LYD
                   </td>
                   <td className="px-4 py-3">
                     <span className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">

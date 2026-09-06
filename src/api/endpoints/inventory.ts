@@ -126,6 +126,16 @@ export const inventoryApi = {
   getAvailableForCutting: (params?: { min_volume_m3?: number; grade?: string }) =>
     apiClient.get<{ data: StockLot[] }>("/stock-lots/available-for-cutting", { params }),
 
+  getAvailableFoamBlocks: (params: {
+    inventory_item_id: string;
+    grade?: string;
+    min_volume_m3?: number;
+    per_page?: number;
+  }) => apiClient.get<{ data: StockLot[]; current_page: number; last_page: number }>(
+    "/stock-lots/available-foam-blocks",
+    { params },
+  ),
+
   createLot: (data: Partial<StockLot>) =>
     apiClient.post<StockLot>("/stock-lots", data),
 

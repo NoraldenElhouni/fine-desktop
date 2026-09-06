@@ -10,14 +10,18 @@ import {
   FileSpreadsheet,
   Search,
   ShoppingCart,
+  Package,
 } from "lucide-react";
 import { usePosCheckout, usePosDailyReport } from "../../hooks/useSales";
 import { useInventoryItems } from "../../hooks/useInventory";
 import { SalesOrder } from "../../api/endpoints/sales";
+import { InventoryItem } from "../../api/endpoints/inventory";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { toast } from "../../stores/toastStore";
 import { PosReceiptModal } from "../../components/pos/PosReceiptModal";
 import { PosDailyCloseModal } from "../../components/pos/PosDailyCloseModal";
+import { BlockPicker, PickedBlock } from "../../components/pos/BlockPicker";
+import { formatNumber } from "../../lib/utils/format";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -31,6 +35,8 @@ interface CartLine {
   sku?: string;
   qty: string;
   price: string;
+  stockLotId?: string | null;
+  stockLotLabel?: string | null;
 }
 
 export const PosPage: React.FC = () => {
@@ -42,6 +48,11 @@ export const PosPage: React.FC = () => {
   const [receipt, setReceipt] = useState<SalesOrder | null>(null);
   const [lastCashReceived, setLastCashReceived] = useState<number | undefined>(undefined);
   const [isDailyCloseOpen, setIsDailyCloseOpen] = useState(false);
+  const [pickerState, setPickerState] = useState<{
+    isOpen: boolean;
+    item: InventoryItem | null;
+    editingKey: string | null;
+  }>({ isOpen: false, item: null, editingKey: null });
 
   const { data: items, isLoading: isItemsLoading } = useInventoryItems({
     search: search || undefined,
@@ -55,12 +66,17 @@ export const PosPage: React.FC = () => {
   );
   const change = num(cashReceived) - total;
 
-  const addToCart = (id: string, name: string, sku?: string) => {
-    const existing = cart.find((l) => l.item === id);
+  const addToCart = (item: InventoryItem) => {
+    if (item.item_type === "foam_block") {
+      setPickerState({ isOpen: true, item, editingKey: null });
+      return;
+    }
+
+    const existing = cart.find((l) => l.item === item.id);
     if (existing) {
       setCart(
         cart.map((l) =>
-          l.item === id ? { ...l, qty: String(num(l.qty) + 1) } : l
+          l.item === item.id ? { ...l, qty: String(num(l.qty) + 1) } : l
         )
       );
     } else {
@@ -68,14 +84,68 @@ export const PosPage: React.FC = () => {
         ...cart,
         {
           key: Math.random().toString(36).slice(2),
-          item: id,
-          name,
-          sku,
+          item: item.id,
+          name: item.name,
+          sku: item.sku,
           qty: "1",
           price: "",
         },
       ]);
     }
+  };
+
+  const handlePickedBlock = (block: PickedBlock) => {
+    const { item, editingKey } = pickerState;
+    if (!item) return;
+
+    if (editingKey) {
+      // Re-pick on an existing line: clear the lot (empty id means "remove").
+      if (!block.id) {
+        setCart(
+          cart.map((l) =>
+            l.key === editingKey
+              ? { ...l, stockLotId: null, stockLotLabel: null }
+              : l
+          )
+        );
+        return;
+      }
+      setCart(
+        cart.map((l) =>
+          l.key === editingKey
+            ? {
+                ...l,
+                stockLotId: block.id,
+                stockLotLabel: block.lot_number,
+                price: l.price || String(block.unit_cost),
+                qty: "1",
+              }
+            : l
+        )
+      );
+      return;
+    }
+
+    setCart([
+      ...cart,
+      {
+        key: Math.random().toString(36).slice(2),
+        item: item.id,
+        name: item.name,
+        sku: item.sku,
+        qty: "1",
+        price: String(block.unit_cost),
+        stockLotId: block.id,
+        stockLotLabel: block.lot_number,
+      },
+    ]);
+  };
+
+  const reopenPickerFor = (line: CartLine) => {
+    if (!line.stockLotId) return;
+    const item = items?.data?.find((i) => i.id === line.item);
+    if (!item) return;
+    setPickerState({ isOpen: true, item, editingKey: line.key });
   };
 
   const submit = () => {
@@ -87,6 +157,7 @@ export const PosPage: React.FC = () => {
         payment_method: method,
         items: cart.map((l) => ({
           inventory_item_id: l.item,
+          stock_lot_id: l.stockLotId ?? null,
           quantity: num(l.qty),
           unit_price: num(l.price),
         })),
@@ -129,7 +200,7 @@ export const PosPage: React.FC = () => {
             <div className="flex items-center gap-2 rounded-2xl border border-app-separator bg-app-bg-primary px-4 py-2 text-xs shadow-sm">
               <span className="text-app-label-secondary">اليوم:</span>
               <span className="font-mono font-bold text-app-label-primary">
-                {report.sales_count} عملية · {Number(report.total).toLocaleString()} د.ل
+                {report.sales_count} عملية · {formatNumber(report.total)} د.ل
               </span>
             </div>
           )}
@@ -179,7 +250,7 @@ export const PosPage: React.FC = () => {
                 <button
                   key={i.id}
                   type="button"
-                  onClick={() => addToCart(i.id, i.name, i.sku)}
+                  onClick={() => addToCart(i)}
                   className="w-full flex items-center justify-between px-4 py-3 text-start hover:bg-app-fill-f1 transition-colors"
                 >
                   <div className="flex flex-col pe-2">
@@ -188,10 +259,13 @@ export const PosPage: React.FC = () => {
                     </span>
                     <span className="text-[10px] font-mono text-app-label-secondary mt-0.5">
                       {i.sku}
+                      {i.item_type === "foam_block" && (
+                        <span className="ms-2 text-app-accent">· قطعة إسفنج</span>
+                      )}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 rounded-lg border border-app-separator bg-app-bg-secondary px-2.5 py-1 text-[11px] font-bold text-app-accent">
-                    <Plus className="w-3.5 h-3.5" />
+                    <Plus className="w-3.5 w-3.5" />
                     <span>إضافة</span>
                   </div>
                 </button>
@@ -235,9 +309,20 @@ export const PosPage: React.FC = () => {
                       {l.sku}
                     </div>
                   )}
+                  {l.stockLotId && (
+                    <button
+                      type="button"
+                      onClick={() => reopenPickerFor(l)}
+                      className="mt-1 inline-flex items-center gap-1 rounded-md bg-app-accent/10 px-1.5 py-0.5 text-[10px] font-mono font-bold text-app-accent hover:bg-app-accent/20"
+                      title="تغيير القطعة"
+                    >
+                      <Package className="h-3 w-3" />
+                      لوت {l.stockLotLabel}
+                    </button>
+                  )}
                 </div>
 
-                {/* Qty Input */}
+                {/* Qty Input — locked to 1 when a block is picked */}
                 <div className="w-20">
                   <label className="block text-[9px] text-app-label-secondary mb-0.5">الكمية</label>
                   <input
@@ -245,6 +330,7 @@ export const PosPage: React.FC = () => {
                     min="1"
                     step="1"
                     value={l.qty}
+                    readOnly={Boolean(l.stockLotId)}
                     onChange={(e) =>
                       setCart(
                         cart.map((x) =>
@@ -252,7 +338,9 @@ export const PosPage: React.FC = () => {
                         )
                       )
                     }
-                    className="w-full px-2 py-1 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono text-center focus:border-app-accent focus:outline-none"
+                    className={`w-full px-2 py-1 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono text-center focus:border-app-accent focus:outline-none ${
+                      l.stockLotId ? "opacity-70 cursor-not-allowed" : ""
+                    }`}
                   />
                 </div>
 
@@ -280,7 +368,7 @@ export const PosPage: React.FC = () => {
                 <div className="w-24 text-end">
                   <label className="block text-[9px] text-app-label-secondary mb-0.5">الإجمالي</label>
                   <span className="text-xs font-mono font-bold text-app-label-primary">
-                    {(num(l.qty) * num(l.price)).toLocaleString()} <span className="text-[10px] font-sans">د.ل</span>
+                    {formatNumber(num(l.qty) * num(l.price))} <span className="text-[10px] font-sans">د.ل</span>
                   </span>
                 </div>
 
@@ -310,7 +398,7 @@ export const PosPage: React.FC = () => {
             <div className="flex items-center justify-between border-b border-app-separator pb-3">
               <span className="text-sm font-bold text-app-label-primary">المجموع الكلي المطلوب:</span>
               <span className="text-2xl font-bold font-mono text-app-accent">
-                {total.toLocaleString()} <span className="text-sm font-sans">د.ل</span>
+                {formatNumber(total)} <span className="text-sm font-sans">د.ل</span>
               </span>
             </div>
 
@@ -371,8 +459,8 @@ export const PosPage: React.FC = () => {
                     }`}
                   >
                     {change >= 0
-                      ? `${change.toLocaleString()} د.ل`
-                      : `متبقي ${Math.abs(change).toLocaleString()} د.ل`}
+                      ? `${formatNumber(change)} د.ل`
+                      : `متبقي ${formatNumber(Math.abs(change))} د.ل`}
                   </div>
                 </div>
               </div>
@@ -387,7 +475,7 @@ export const PosPage: React.FC = () => {
             >
               {checkout.isPending
                 ? "جاري معالجة البيع وخصم المخزون..."
-                : `إتمام البيع وطباعة الإيصال — ${total.toLocaleString()} د.ل`}
+                : `إتمام البيع وطباعة الإيصال — ${formatNumber(total)} د.ل`}
             </button>
           </div>
         </div>
@@ -408,6 +496,22 @@ export const PosPage: React.FC = () => {
         isLoading={isReportLoading}
         onClose={() => setIsDailyCloseOpen(false)}
       />
+
+      {/* Foam-block picker (POS path) */}
+      {pickerState.item && (
+        <BlockPicker
+          isOpen={pickerState.isOpen}
+          onClose={() => setPickerState({ isOpen: false, item: null, editingKey: null })}
+          onPick={handlePickedBlock}
+          inventoryItemId={pickerState.item.id}
+          inventoryItemName={pickerState.item.name}
+          initiallySelectedLotId={
+            pickerState.editingKey
+              ? cart.find((l) => l.key === pickerState.editingKey)?.stockLotId ?? null
+              : null
+          }
+        />
+      )}
     </div>
   );
 };

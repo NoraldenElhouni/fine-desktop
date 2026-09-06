@@ -108,7 +108,31 @@ export const confirmLandedCostLine = async (
   lineId: string
 ): Promise<{ message: string; data: LandedCostLine }> => {
   const response = await apiClient.post<{ message: string; data: LandedCostLine }>(
-    `/import-orders/${orderId}/landed-cost-lines/${lineId}/confirm`
+    `/import-orders/${orderId}/landed-cost-lines/${lineId}/approve`
+  );
+  return response.data;
+};
+
+export const approveLandedCostLine = async (
+  orderId: string,
+  lineId: string,
+  note?: string
+): Promise<{ message: string; data: LandedCostLine }> => {
+  const response = await apiClient.post<{ message: string; data: LandedCostLine }>(
+    `/import-orders/${orderId}/landed-cost-lines/${lineId}/approve`,
+    { note }
+  );
+  return response.data;
+};
+
+export const markLandedCostLinePaid = async (
+  orderId: string,
+  lineId: string,
+  note?: string
+): Promise<{ message: string; data: LandedCostLine }> => {
+  const response = await apiClient.post<{ message: string; data: LandedCostLine }>(
+    `/import-orders/${orderId}/landed-cost-lines/${lineId}/mark-paid`,
+    { note }
   );
   return response.data;
 };

@@ -1,6 +1,7 @@
 import React from "react";
 import { Printer, CheckCircle2, X } from "lucide-react";
 import { SalesOrder } from "../../api/endpoints/sales";
+import { formatDateTime } from "../../lib/utils/format";
 
 interface PosReceiptModalProps {
   isOpen: boolean;
@@ -61,7 +62,7 @@ export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({
             <p className="text-[11px] text-gray-600 font-sans">إيصال مبيعات نقدية - نقطة البيع</p>
             <div className="text-[10px] text-gray-500 pt-1 space-y-0.5">
               <div>رقم الطلب: <span className="font-bold">{order.order_number}</span></div>
-              <div>التاريخ: {new Date(order.created_at || Date.now()).toLocaleString("ar-LY")}</div>
+              <div>التاريخ: {formatDateTime(order.created_at || new Date())}</div>
               <div>طريقة الدفع: {order.payment_method === "cash" ? "نقداً (Cash)" : "بطاقة مصرفية (Card)"}</div>
             </div>
           </div>
@@ -83,6 +84,11 @@ export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({
                     <div className="font-semibold text-gray-900">{line.inventory_item?.name || "صنف تجاري"}</div>
                     {line.inventory_item?.sku && (
                       <div className="text-[9px] text-gray-500">{line.inventory_item.sku}</div>
+                    )}
+                    {line.stock_lot?.lot_number && (
+                      <div className="text-[9px] text-gray-700 font-bold">
+                        لوت: {line.stock_lot.lot_number}
+                      </div>
                     )}
                   </div>
                   <div className="text-end pe-3 text-gray-700 whitespace-nowrap">

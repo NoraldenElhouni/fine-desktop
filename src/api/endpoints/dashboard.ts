@@ -8,7 +8,14 @@ export interface DashboardKpis {
   net_profit_mtd: number;
   cash_position: number;
   fx_exposure: Record<string, number>;
-  pending_approvals: { credit: number; restock: number; payroll: number; leave: number };
+  pending_approvals: {
+    credit: number;
+    restock: number;
+    payroll: number;
+    leave: number;
+    overhead_allocations: number;
+    landed_cost_lines: number;
+  };
 }
 
 export interface UnitComparisonRow {
@@ -41,6 +48,46 @@ export interface PendingApprovals {
   restock_requests: { id: string; request_number: string; requesting_unit: string | null; source_unit: string | null }[];
   payroll_runs: { id: string; period: string; total_net: number }[];
   leave_requests: { id: string; employee_name: string | null; start_date: string; end_date: string; leave_type: string }[];
+  overhead_allocations: {
+    id: string;
+    overhead_expense_id: string;
+    operating_unit_id: string;
+    status: string;
+    amount: number;
+    category: string | null;
+  }[];
+  landed_cost_lines: {
+    id: string;
+    import_order_id: string;
+    operating_unit_id: string;
+    status: string;
+    amount: number;
+    currency: string;
+    type: string;
+  }[];
+  total: number;
+}
+
+export interface MyAllocationApprovals {
+  overhead_allocations: {
+    id: string;
+    kind: "overhead_allocation";
+    overhead_expense_id: string;
+    operating_unit_id: string;
+    status: string;
+    amount: number;
+    category: string | null;
+  }[];
+  landed_cost_lines: {
+    id: string;
+    kind: "landed_cost_line";
+    import_order_id: string;
+    operating_unit_id: string;
+    status: string;
+    amount: number;
+    currency: string;
+    type: string;
+  }[];
   total: number;
 }
 
@@ -49,6 +96,7 @@ export const dashboardApi = {
   unitComparison: () => apiClient.get<UnitComparison>("/dashboard/unit-comparison"),
   operationalPipeline: () => apiClient.get<OperationalPipeline>("/dashboard/operational-pipeline"),
   pendingApprovals: () => apiClient.get<PendingApprovals>("/dashboard/pending-approvals"),
+  myAllocationApprovals: () => apiClient.get<MyAllocationApprovals>("/dashboard/my-allocation-approvals"),
 
   decideCreditApproval: (id: string, decision: "approve" | "reject") =>
     apiClient.put(`/credit-approval-requests/${id}/${decision}`),

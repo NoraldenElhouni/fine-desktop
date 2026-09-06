@@ -14,6 +14,7 @@ import {
   CutterWorkOrderLine,
 } from "../../api/endpoints/cutter";
 import { apiErrorPayload } from "../../api/endpoints/production";
+import { formatNumber } from "../../lib/utils/format";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -154,7 +155,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
         </h1>
         <p className="text-xs text-app-label-secondary mt-1">
           {order.client_id ? "Client order" : "Internal order — no credit check"} · Material held:{" "}
-          <span className="font-mono">{Number(order.wip_cost).toLocaleString()} LYD</span>
+          <span className="font-mono">{formatNumber(order.wip_cost)} LYD</span>
         </p>
       </div>
 
@@ -223,7 +224,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
                   <CheckCircle2 className="w-4 h-4 text-app-status-positive" />
                   <span className="font-mono font-bold">{Number(y.weight_kg).toFixed(2)} kg</span>
                   <span className="text-app-label-secondary">
-                    carrying {Number(y.yield_cost).toLocaleString()} LYD
+                    carrying {formatNumber(y.yield_cost)} LYD
                     {Number(y.weight_kg) === 0 && " — nothing salvaged, value stays with the pieces"}
                   </span>
                 </div>
@@ -386,8 +387,8 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
                           {Number(c.volume_consumed_m3).toFixed(4)} m³ ({c.consumption_type})
                         </span>
                         <span className="font-mono">
-                          template {Number(c.consumed_cost).toLocaleString()} · offcut{" "}
-                          {Number(c.remainder_cost).toLocaleString()}
+                          template {formatNumber(c.consumed_cost)} · offcut{" "}
+                          {formatNumber(c.remainder_cost)}
                         </span>
                       </div>
                     ))}
@@ -443,7 +444,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
                                 {Number(b.volume_m3).toFixed(4)} m³
                               </span>
                               <span className="text-[11px] text-app-label-secondary font-mono">
-                                {Number(b.unit_cost).toLocaleString()}
+                                {formatNumber(b.unit_cost)}
                               </span>
                             </div>
                             {b.grade && (

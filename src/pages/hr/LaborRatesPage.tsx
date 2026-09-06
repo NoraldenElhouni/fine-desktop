@@ -3,9 +3,7 @@ import { BadgeDollarSign, Plus, AlertTriangle } from "lucide-react";
 import { useLaborRates, useCreateLaborRate } from "../../hooks/useHr";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import type { LaborRoleRate } from "../../api/endpoints/hr";
-
-const fmt = (v: number | string) =>
-  Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
+import { formatDate, formatNumber } from "../../lib/utils/format";
 
 export const LaborRatesPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
@@ -90,16 +88,16 @@ export const LaborRatesPage: React.FC = () => {
                 <div className="flex items-center gap-3">
                   <span className="font-mono font-bold text-app-accent text-sm">{roleName}</span>
                   <span className="text-xs font-bold text-app-label-primary">
-                    {fmt(versions[0].hourly_rate)} / ساعة
+                    {formatNumber(versions[0].hourly_rate)} / ساعة
                   </span>
                   <span className="text-[10px] text-app-label-tertiary">
-                    ساري من {versions[0].effective_from?.slice(0, 10)}
+                    ساري من {versions[0].effective_from ? formatDate(versions[0].effective_from) : ""}
                   </span>
                 </div>
                 {versions.length > 1 && (
                   <div className="mt-1.5 flex flex-wrap gap-3 text-[10px] font-mono text-app-label-tertiary">
                     {versions.slice(1).map((v) => (
-                      <span key={v.id}>{fmt(v.hourly_rate)} من {v.effective_from?.slice(0, 10)}</span>
+                      <span key={v.id}>{formatNumber(v.hourly_rate)} من {v.effective_from ? formatDate(v.effective_from) : ""}</span>
                     ))}
                   </div>
                 )}

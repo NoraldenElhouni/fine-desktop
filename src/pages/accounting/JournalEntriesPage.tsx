@@ -3,9 +3,7 @@ import { BookOpenText, Plus, AlertTriangle, Trash2, ChevronDown, ChevronUp, Penc
 import { useJournalEntries, useCreateManualEntry, useAccounts } from "../../hooks/useAccounting";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import type { JournalEntry } from "../../api/endpoints/accounting";
-
-const fmt = (v: number | string) =>
-  Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
+import { formatDate, formatNumber } from "../../lib/utils/format";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -151,7 +149,7 @@ export const JournalEntriesPage: React.FC = () => {
                   className="w-full flex flex-wrap items-center gap-3 p-4 text-start hover:bg-app-fill-f1"
                 >
                   <span className="font-mono font-bold text-app-accent text-sm">{entry.reference}</span>
-                  <span className="text-xs font-mono text-app-label-secondary">{entry.entry_date?.slice(0, 10)}</span>
+                  <span className="text-xs font-mono text-app-label-secondary">{entry.entry_date ? formatDate(entry.entry_date) : ""}</span>
                   <span className="text-xs text-app-label-primary">{entry.description}</span>
                   <span className={`px-2 py-1 text-[10px] font-bold rounded-full ${entry.is_manual ? "bg-app-status-yellow/15 text-app-status-yellow" : "bg-app-accent-subtle text-app-accent"}`}>
                     {sourceLabel(entry)}
@@ -180,8 +178,8 @@ export const JournalEntriesPage: React.FC = () => {
                               <span className="ms-2 text-app-label-secondary">{line.account?.name}</span>
                             </td>
                             <td className="px-2 py-1.5 text-app-label-secondary">{line.memo ?? ""}</td>
-                            <td className="px-2 py-1.5 text-end font-mono">{Number(line.debit) > 0 ? fmt(line.debit) : ""}</td>
-                            <td className="px-2 py-1.5 text-end font-mono">{Number(line.credit) > 0 ? fmt(line.credit) : ""}</td>
+                            <td className="px-2 py-1.5 text-end font-mono">{Number(line.debit) > 0 ? formatNumber(line.debit) : ""}</td>
+                            <td className="px-2 py-1.5 text-end font-mono">{Number(line.credit) > 0 ? formatNumber(line.credit) : ""}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -300,8 +298,8 @@ export const JournalEntriesPage: React.FC = () => {
               </button>
 
               <div className={`flex justify-between rounded-xl px-4 py-2 text-xs font-bold font-mono ${isBalanced ? "bg-app-status-positive/10 text-app-status-positive" : "bg-app-status-yellow/15 text-app-status-yellow"}`}>
-                <span>مدين: {fmt(totalDebit)}</span>
-                <span>دائن: {fmt(totalCredit)}</span>
+                <span>مدين: {formatNumber(totalDebit)}</span>
+                <span>دائن: {formatNumber(totalCredit)}</span>
                 <span>{isBalanced ? "متوازن" : "غير متوازن"}</span>
               </div>
 

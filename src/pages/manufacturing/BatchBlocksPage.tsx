@@ -19,6 +19,7 @@ import {
   NEXT_STATUS,
 } from "../../api/endpoints/production";
 import { StockLot } from "../../api/endpoints/inventory";
+import { formatNumber } from "../../lib/utils/format";
 
 const STATUS_ORDER = [
   "planned", "configured", "running", "consumed",
@@ -281,7 +282,7 @@ export const BatchBlocksPage: React.FC = () => {
           </div>
           {consumption && (
             <span className="text-xs font-mono text-app-label-secondary">
-              Material cost: {Number(consumption.material_cost).toLocaleString()} LYD
+              Material cost: {formatNumber(consumption.material_cost)} LYD
             </span>
           )}
         </div>

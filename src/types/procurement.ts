@@ -12,6 +12,7 @@ export type ImportOrderStatus =
 
 export type PaymentRoute = 'bank' | 'market';
 export type PaymentRequestStatus = 'pending' | 'paid' | 'rejected';
+export type LandedCostStatus = 'pending' | 'approved' | 'paid';
 export type LandedCostType =
   | 'supplier_price'
   | 'fx_spread'
@@ -19,6 +20,12 @@ export type LandedCostType =
   | 'freight'
   | 'local_transport'
   | 'other';
+
+export const LANDED_COST_STATUS_LABEL: Record<LandedCostStatus, string> = {
+  pending: 'بانتظار الموافقة',
+  approved: 'معتمد بانتظار التأكيد',
+  paid: 'مدفوع ومؤكد',
+};
 
 export interface Supplier {
   id: string;
@@ -59,6 +66,11 @@ export interface PaymentRequest {
   updated_at?: string;
 }
 
+export interface LandedCostParty {
+  id: string;
+  name: string;
+}
+
 export interface LandedCostLine {
   id: string;
   import_order_id: string;
@@ -66,7 +78,15 @@ export interface LandedCostLine {
   amount: number;
   currency: string;
   is_confirmed: boolean;
+  status: LandedCostStatus;
   note?: string | null;
+  approved_by_user_id: string | null;
+  approved_at: string | null;
+  paid_by_user_id: string | null;
+  paid_at: string | null;
+  confirmation_note: string | null;
+  approver?: LandedCostParty | null;
+  payer?: LandedCostParty | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -161,7 +181,6 @@ export interface CreateLandedCostLinePayload {
   type: LandedCostType;
   amount: number;
   currency?: string;
-  is_confirmed?: boolean;
   note?: string;
 }
 

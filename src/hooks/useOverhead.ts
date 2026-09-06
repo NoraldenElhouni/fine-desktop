@@ -37,6 +37,30 @@ export function useAllocateOverhead() {
   });
 }
 
+export function useApproveOverheadAllocation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, note }: { id: string; note?: string }) =>
+      overheadApi.approveAllocation(id, note),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["overheadExpenses"] });
+      qc.invalidateQueries({ queryKey: ["myAllocationApprovals"] });
+    },
+  });
+}
+
+export function useMarkOverheadAllocationPaid() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, note }: { id: string; note?: string }) =>
+      overheadApi.markAllocationPaid(id, note),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["overheadExpenses"] });
+      qc.invalidateQueries({ queryKey: ["myAllocationApprovals"] });
+    },
+  });
+}
+
 export function useOverheadRules() {
   return useQuery({
     queryKey: ["overheadRules"],

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ShoppingCart, Plus, RefreshCw, AlertTriangle, Trash2, Building2, Home } from "lucide-react";
+import { ShoppingCart, Plus, RefreshCw, AlertTriangle, Trash2, Building2, Home, Package } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useSalesOrders, useCreateSalesOrder } from "../../hooks/useSales";
 import { useInventoryItems } from "../../hooks/useInventory";
@@ -8,6 +8,8 @@ import { getClients } from "../../api/endpoints/clients";
 import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
 import { SALES_STATUS_ORDER, SALES_STATUS_LABEL, SalesOrderStatus } from "../../api/endpoints/sales";
 import { apiErrorPayload } from "../../api/endpoints/production";
+import { BlockPicker, PickedBlock } from "../../components/pos/BlockPicker";
+import { formatNumber } from "../../lib/utils/format";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -19,6 +21,8 @@ interface DraftLine {
   item: string;
   qty: string;
   price: string;
+  stockLotId?: string | null;
+  stockLotLabel?: string | null;
 }
 
 const newLine = (): DraftLine => ({
@@ -39,6 +43,11 @@ export const SalesOrdersPage: React.FC = () => {
   const [clientId, setClientId] = useState("");
   const [buyerUnitId, setBuyerUnitId] = useState("");
   const [lines, setLines] = useState<DraftLine[]>([newLine()]);
+  const [pickerState, setPickerState] = useState<{
+    isOpen: boolean;
+    itemId: string;
+    editingKey: string | null;
+  }>({ isOpen: false, itemId: "", editingKey: null });
 
   const { data, isLoading, refetch } = useSalesOrders({ status: statusFilter || undefined });
   const { data: items } = useInventoryItems({});
@@ -50,6 +59,29 @@ export const SalesOrdersPage: React.FC = () => {
   const orderTotal = lines.reduce((s, l) => s + num(l.qty) * num(l.price), 0);
 
   const selectedClient = clients?.find((c) => c.id === clientId);
+
+  const openPickerFor = (lineKey: string) => {
+    const line = lines.find((l) => l.key === lineKey);
+    if (!line || !line.item) return;
+    setPickerState({ isOpen: true, itemId: line.item, editingKey: lineKey });
+  };
+
+  const handlePickedBlock = (block: PickedBlock) => {
+    if (!pickerState.editingKey) return;
+    setLines((prev) =>
+      prev.map((l) =>
+        l.key === pickerState.editingKey
+          ? {
+              ...l,
+              stockLotId: block.id || null,
+              stockLotLabel: block.lot_number || null,
+              price: l.price || String(block.unit_cost),
+              qty: "1",
+            }
+          : l,
+      ),
+    );
+  };
 
   const canSubmit =
     orderNumber !== "" &&
@@ -68,6 +100,7 @@ export const SalesOrdersPage: React.FC = () => {
         buyer_unit_id: buyerType === "internal_unit" ? buyerUnitId : undefined,
         lines: lines.map((l) => ({
           inventory_item_id: l.item,
+          stock_lot_id: l.stockLotId ?? null,
           quantity: num(l.qty),
           unit_price: num(l.price),
         })),
@@ -169,9 +202,9 @@ export const SalesOrdersPage: React.FC = () => {
                     )}
                   </td>
                   <td className="px-4 py-3 text-app-label-secondary">{o.channel}</td>
-                  <td className="px-4 py-3 font-mono">{Number(o.total_amount).toLocaleString()}</td>
+                  <td className="px-4 py-3 font-mono">{formatNumber(o.total_amount)}</td>
                   <td className="px-4 py-3 font-mono text-app-label-secondary">
-                    {Number(o.amount_paid).toLocaleString()}
+                    {formatNumber(o.amount_paid)}
                   </td>
                   <td className="px-4 py-3">
                     <span
@@ -271,9 +304,9 @@ export const SalesOrdersPage: React.FC = () => {
                   </select>
                   {selectedClient && (
                     <p className="text-[10px] text-app-label-tertiary mt-1 font-mono">
-                      Credit limit {Number((selectedClient as { credit_limit?: number }).credit_limit ?? 0).toLocaleString()}
-                      {" · "}balance {Number((selectedClient as { current_balance?: number }).current_balance ?? 0).toLocaleString()}
-                      {" · "}this order {orderTotal.toLocaleString()}
+                      Credit limit {formatNumber((selectedClient as { credit_limit?: number }).credit_limit ?? 0)}
+                      {" · "}balance {formatNumber((selectedClient as { current_balance?: number }).current_balance ?? 0)}
+                      {" · "}this order {formatNumber(orderTotal)}
                     </p>
                   )}
                 </div>
@@ -298,44 +331,67 @@ export const SalesOrdersPage: React.FC = () => {
 
               {/* Lines */}
               <div className="space-y-2">
-                {lines.map((l) => (
-                  <div key={l.key} className="flex gap-2 items-center">
-                    <select
-                      value={l.item}
-                      onChange={(e) => setLines(lines.map((x) => x.key === l.key ? { ...x, item: e.target.value } : x))}
-                      className="flex-1 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
-                    >
-                      <option value="">Item…</option>
-                      {items?.data.map((i) => (
-                        <option key={i.id} value={i.id}>{i.name} ({i.sku})</option>
-                      ))}
-                    </select>
-                    <input
-                      type="number" step="0.01" min="0.01" placeholder="qty"
-                      value={l.qty}
-                      onChange={(e) => setLines(lines.map((x) => x.key === l.key ? { ...x, qty: e.target.value } : x))}
-                      className="w-20 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
-                    />
-                    <input
-                      type="number" step="0.01" min="0" placeholder="price"
-                      value={l.price}
-                      onChange={(e) => setLines(lines.map((x) => x.key === l.key ? { ...x, price: e.target.value } : x))}
-                      className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
-                    />
-                    <span className="w-20 text-end text-xs font-mono text-app-label-secondary">
-                      {(num(l.qty) * num(l.price)).toLocaleString()}
-                    </span>
-                    {lines.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => setLines(lines.filter((x) => x.key !== l.key))}
-                        className="p-1 rounded-lg text-app-label-tertiary hover:text-app-status-danger"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                {lines.map((l) => {
+                  const selectedItem = items?.data?.find((i) => i.id === l.item);
+                  const isFoamBlock = selectedItem?.item_type === "foam_block";
+                  return (
+                    <div key={l.key} className="space-y-1.5">
+                      <div className="flex gap-2 items-center">
+                        <select
+                          value={l.item}
+                          onChange={(e) => setLines(lines.map((x) => x.key === l.key ? { ...x, item: e.target.value, stockLotId: null, stockLotLabel: null } : x))}
+                          className="flex-1 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
+                        >
+                          <option value="">Item…</option>
+                          {items?.data.map((i) => (
+                            <option key={i.id} value={i.id}>
+                              {i.name} ({i.sku}){i.item_type === "foam_block" ? " · قطعة" : ""}
+                            </option>
+                          ))}
+                        </select>
+                        {isFoamBlock && l.item && (
+                          <button
+                            type="button"
+                            onClick={() => openPickerFor(l.key)}
+                            className="flex items-center gap-1 rounded-lg border border-app-accent/40 bg-app-accent/10 px-2 py-1.5 text-[11px] font-bold text-app-accent hover:bg-app-accent/15"
+                          >
+                            <Package className="h-3.5 w-3.5" /> اختر قطعة
+                          </button>
+                        )}
+                        <input
+                          type="number" step="0.01" min="0.01" placeholder="qty"
+                          value={l.qty}
+                          readOnly={Boolean(l.stockLotId)}
+                          onChange={(e) => setLines(lines.map((x) => x.key === l.key ? { ...x, qty: e.target.value } : x))}
+                          className={`w-20 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none ${l.stockLotId ? "opacity-70 cursor-not-allowed" : ""}`}
+                        />
+                        <input
+                          type="number" step="0.01" min="0" placeholder="price"
+                          value={l.price}
+                          onChange={(e) => setLines(lines.map((x) => x.key === l.key ? { ...x, price: e.target.value } : x))}
+                          className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
+                        />
+                        <span className="w-20 text-end text-xs font-mono text-app-label-secondary">
+                          {formatNumber(num(l.qty) * num(l.price))}
+                        </span>
+                        {lines.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setLines(lines.filter((x) => x.key !== l.key))}
+                            className="p-1 rounded-lg text-app-label-tertiary hover:text-app-status-danger"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      {l.stockLotId && (
+                        <div className="ps-1 text-[10px] font-mono text-app-accent">
+                          لوت: {l.stockLotLabel}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
                 <div className="flex items-center justify-between">
                   <button
                     type="button"
@@ -345,7 +401,7 @@ export const SalesOrdersPage: React.FC = () => {
                     <Plus className="w-3.5 h-3.5" /> Add line
                   </button>
                   <span className="text-sm font-bold font-mono text-app-label-primary">
-                    Total {orderTotal.toLocaleString()} LYD
+                    Total {formatNumber(orderTotal)} LYD
                   </span>
                 </div>
               </div>
@@ -369,6 +425,20 @@ export const SalesOrdersPage: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+      {pickerState.isOpen && pickerState.itemId && (
+        <BlockPicker
+          isOpen={pickerState.isOpen}
+          onClose={() => setPickerState({ isOpen: false, itemId: "", editingKey: null })}
+          onPick={handlePickedBlock}
+          inventoryItemId={pickerState.itemId}
+          inventoryItemName={items?.data?.find((i) => i.id === pickerState.itemId)?.name ?? ""}
+          initiallySelectedLotId={
+            pickerState.editingKey
+              ? lines.find((l) => l.key === pickerState.editingKey)?.stockLotId ?? null
+              : null
+          }
+        />
       )}
     </div>
   );

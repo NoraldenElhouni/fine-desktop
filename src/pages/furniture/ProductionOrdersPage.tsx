@@ -6,6 +6,7 @@ import {
   ORDER_STATUS_ORDER, ORDER_STATUS_LABEL, ProductionOrderStatus,
 } from "../../api/endpoints/furniture";
 import { apiErrorPayload } from "../../api/endpoints/production";
+import { formatNumber } from "../../lib/utils/format";
 
 export const ProductionOrdersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -127,10 +128,10 @@ export const ProductionOrdersPage: React.FC = () => {
                   <td className="px-4 py-3">{o.product?.name ?? "—"}</td>
                   <td className="px-4 py-3 font-bold">{o.quantity}</td>
                   <td className="px-4 py-3 font-mono text-app-label-secondary">
-                    {Number(o.material_cost).toLocaleString()}
+                    {formatNumber(o.material_cost)}
                   </td>
                   <td className="px-4 py-3 font-mono text-app-label-secondary">
-                    {Number(o.labor_cost).toLocaleString()}
+                    {formatNumber(o.labor_cost)}
                   </td>
                   <td className="px-4 py-3">
                     <span className="px-2 py-1 text-xs font-semibold rounded-full bg-app-accent-subtle text-app-accent">
