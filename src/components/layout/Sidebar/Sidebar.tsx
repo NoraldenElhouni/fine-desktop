@@ -5,6 +5,7 @@ import { User } from "../../../types/auth/types";
 import { cn } from "../../../lib/utils/utils";
 import { tokens } from "../../../lib/tokens";
 import { categoryGroups, CategoryGroup } from "../../../routes/categories.config";
+import { usePermissions } from "../../../hooks/usePermissions";
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -17,6 +18,8 @@ interface SidebarProps {
 const Sidebar = ({ isCollapsed, activePath, user, onLogout, onOpenServerSettings }: SidebarProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+
+  const { canAccess } = usePermissions();
 
   const toggleCategory = (categoryId: string) => {
     setExpandedCategories((prev) => ({
@@ -97,8 +100,13 @@ const Sidebar = ({ isCollapsed, activePath, user, onLogout, onOpenServerSettings
 
         {/* Category Groups Accordions */}
         {categoryGroups.map((cat: CategoryGroup) => {
+          const visibleItems = cat.items.filter((item) => canAccess(item));
+          if (visibleItems.length === 0) {
+            return null;
+          }
+
           const isCategoryHubActive = activePath === cat.path;
-          const isChildActive = cat.items.some(
+          const isChildActive = visibleItems.some(
             (item) => activePath === item.path || activePath.startsWith(`${item.path}/`),
           );
           const isExpanded = expandedCategories[cat.id] || isCategoryHubActive || isChildActive;
@@ -160,7 +168,7 @@ const Sidebar = ({ isCollapsed, activePath, user, onLogout, onOpenServerSettings
                   id={`sidebar-cat-${cat.id}`}
                   className="ms-4 space-y-0.5 border-s border-app-separator ps-2 py-0.5"
                 >
-                  {cat.items.map((item) => {
+                  {visibleItems.map((item) => {
                     const isItemActive =
                       activePath === item.path || activePath.startsWith(`${item.path}/`);
                     const ItemIcon = item.icon;

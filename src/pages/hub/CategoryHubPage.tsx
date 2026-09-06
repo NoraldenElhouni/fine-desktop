@@ -2,10 +2,13 @@ import React from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { categoryGroups } from "../../routes/categories.config";
 import { ArrowLeft, ChevronLeft } from "lucide-react";
+import { usePermissions } from "../../hooks/usePermissions";
+import { AccessDeniedPage } from "../../components/AccessDeniedPage";
 
 export const CategoryHubPage: React.FC = () => {
   const { categoryId } = useParams<{ categoryId: string }>();
   const navigate = useNavigate();
+  const { canAccess } = usePermissions();
 
   const category = categoryGroups.find((c) => c.id === categoryId);
 
@@ -20,6 +23,17 @@ export const CategoryHubPage: React.FC = () => {
           العودة للوحة التحكم
         </button>
       </div>
+    );
+  }
+
+  const visibleItems = category.items.filter((item) => canAccess(item));
+
+  if (visibleItems.length === 0) {
+    return (
+      <AccessDeniedPage
+        title="غير مصرح لك بالوصول لهذا القسم"
+        message={`ليس لديك الصلاحيات الكافية للوصول إلى أي من خدمات أو شاشات قسم "${category.label}".`}
+      />
     );
   }
 
@@ -44,7 +58,7 @@ export const CategoryHubPage: React.FC = () => {
 
       {/* Feature Blocks Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {category.items.map((item) => {
+        {visibleItems.map((item) => {
           const ItemIcon = item.icon;
           return (
             <div

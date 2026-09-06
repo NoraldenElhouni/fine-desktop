@@ -27,6 +27,8 @@ import SuppliersPage from "./procurement/SuppliersPage";
 import ImportOrdersPage from "./procurement/ImportOrdersPage";
 import TreasuryPage from "./treasury/TreasuryPage";
 
+import { AuthorizedRoute } from "../components/AuthorizedRoute";
+
 /**
  * The landing screen depends on who is looking: a company-wide role gets the
  * owner oversight dashboard, unit staff keep their operational one.
@@ -49,23 +51,128 @@ const App = () => {
           <Route path="/" element={<Layout />}>
             <Route index element={<HomeDashboard />} />
             <Route path="hub/:categoryId" element={<CategoryHubPage />} />
-            <Route path="admin/entities/*" element={<AdminEntitiesRoutes />} />
-            <Route path="suppliers" element={<SuppliersPage />} />
-            <Route path="import-orders" element={<ImportOrdersPage />} />
-            <Route path="treasury" element={<TreasuryPage />} />
-            <Route path="employees/*" element={<EmployeesRoutes />} />
-            <Route path="clients/*" element={<ClientsRoutes />} />
-            <Route path="external-employers/*" element={<ExternalEmployersRoutes />} />
-            <Route path="orders/*" element={<OrdersRoutes />} />
-            <Route path="users/*" element={<UsersRoutes />} />
-            <Route path="inventory/*" element={<InventoryRoutes />} />
-            <Route path="manufacturing/*" element={<ManufacturingRoutes />} />
-            <Route path="cutter/*" element={<CutterRoutes />} />
-            <Route path="furniture/*" element={<FurnitureRoutes />} />
-            <Route path="sales/*" element={<SalesRoutes />} />
+            <Route
+              path="admin/entities/*"
+              element={
+                <AuthorizedRoute allowedRoles={["owner", "admin"]}>
+                  <AdminEntitiesRoutes />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="suppliers"
+              element={
+                <AuthorizedRoute allowedRoles={["owner", "admin", "procurement-manager", "treasury-officer", "accounting-manager", "unit_manager", "manager"]}>
+                  <SuppliersPage />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="import-orders"
+              element={
+                <AuthorizedRoute allowedRoles={["owner", "admin", "procurement-manager", "treasury-officer", "accounting-manager", "unit_manager", "manager"]}>
+                  <ImportOrdersPage />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="treasury"
+              element={
+                <AuthorizedRoute allowedRoles={["owner", "admin", "treasury-officer", "accounting-manager", "procurement-manager", "unit_manager", "manager"]}>
+                  <TreasuryPage />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="employees/*"
+              element={
+                <AuthorizedRoute allowedRoles={["owner", "admin", "hr-manager", "accounting-manager", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"]}>
+                  <EmployeesRoutes />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="clients/*"
+              element={
+                <AuthorizedRoute allowedRoles={["owner", "admin", "store-manager", "pos-cashier", "accounting-manager", "unit_manager", "manager"]}>
+                  <ClientsRoutes />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="external-employers/*"
+              element={
+                <AuthorizedRoute allowedRoles={["owner", "admin", "hr-manager", "accounting-manager"]}>
+                  <ExternalEmployersRoutes />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="orders/*"
+              element={
+                <AuthorizedRoute allowedRoles={["owner", "admin", "furniture-manager", "store-manager", "unit_manager", "manager"]}>
+                  <OrdersRoutes />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="users/*"
+              element={
+                <AuthorizedRoute allowedRoles={["owner", "admin"]}>
+                  <UsersRoutes />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="inventory/*"
+              element={
+                <AuthorizedRoute allowedRoles={["owner", "admin", "inventory-manager", "foam-manager", "foam-operator", "cutter-manager", "cutter-operator", "furniture-manager", "assembler", "store-manager", "unit_manager", "manager"]}>
+                  <InventoryRoutes />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="manufacturing/*"
+              element={
+                <AuthorizedRoute allowedRoles={["owner", "admin", "foam-manager", "foam-operator", "unit_manager", "manager"]}>
+                  <ManufacturingRoutes />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="cutter/*"
+              element={
+                <AuthorizedRoute allowedRoles={["owner", "admin", "cutter-manager", "cutter-operator", "unit_manager", "manager"]}>
+                  <CutterRoutes />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="furniture/*"
+              element={
+                <AuthorizedRoute allowedRoles={["owner", "admin", "furniture-manager", "assembler", "unit_manager", "manager"]}>
+                  <FurnitureRoutes />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="sales/*"
+              element={
+                <AuthorizedRoute allowedRoles={["owner", "admin", "store-manager", "pos-cashier", "unit_manager", "manager"]}>
+                  <SalesRoutes />
+                </AuthorizedRoute>
+              }
+            />
             <Route path="accounting/*" element={<AccountingRoutes />} />
             <Route path="hr/*" element={<HrRoutes />} />
-            <Route path="reports" element={<FinancialReportsPage />} />
+            <Route
+              path="reports"
+              element={
+                <AuthorizedRoute allowedRoles={["owner", "admin", "accounting-manager", "treasury-officer", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"]}>
+                  <FinancialReportsPage />
+                </AuthorizedRoute>
+              }
+            />
           </Route>
         </Route>
       </Routes>
