@@ -23,6 +23,7 @@ import {
 } from "../../api/endpoints/overhead";
 import { AllocationPaymentActions } from "../../components/allocations/AllocationPaymentActions";
 import { formatDate, formatNumber } from "../../lib/utils/format";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -331,16 +332,17 @@ export const OverheadExpensesPage: React.FC = () => {
               </div>
 
               {scope === "unit" && (
-                <select
-                  required value={unitId}
-                  onChange={(e) => setUnitId(e.target.value)}
-                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
-                >
-                  <option value="">اختر الوحدة…</option>
-                  {units?.map((u) => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
-                  ))}
-                </select>
+                <SearchableSelect<{ id: string; name: string }>
+                  options={units ?? []}
+                  value={
+                    units?.find((u) => u.id === unitId) ?? null
+                  }
+                  onChange={(u) => setUnitId(u ? u.id : "")}
+                  getOptionId={(u) => u.id}
+                  getOptionLabel={(u) => u.name}
+                  placeholder="اختر الوحدة…"
+                  required
+                />
               )}
 
               <div className="flex justify-end gap-3 pt-3 border-t border-app-separator">

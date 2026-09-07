@@ -11,6 +11,7 @@ import {
 } from "../../api/endpoints/cutter";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatNumber } from "../../lib/utils/format";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
 
 export const CutterWorkOrdersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -237,18 +238,16 @@ export const CutterWorkOrdersPage: React.FC = () => {
                 <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
                   Client
                 </label>
-                <select
-                  value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
-                >
-                  <option value="">Internal (from another unit)</option>
-                  {clients?.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {(c as { entity?: { name?: string } }).entity?.name ?? c.id}
-                    </option>
-                  ))}
-                </select>
+                <SearchableSelect<{ id: string; entity?: { name?: string } }>
+                  options={clients ?? []}
+                  value={
+                    clients?.find((c) => c.id === clientId) ?? null
+                  }
+                  onChange={(c) => setClientId(c ? c.id : "")}
+                  getOptionId={(c) => c.id}
+                  getOptionLabel={(c) => c.entity?.name ?? c.id}
+                  placeholder="Internal (from another unit)"
+                />
               </div>
 
               <div>

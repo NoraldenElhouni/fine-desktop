@@ -41,6 +41,7 @@ import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { AllocationPaymentActions } from "../../components/allocations/AllocationPaymentActions";
 import { formatNumber } from "../../lib/utils/format";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
 
 const STAGES: { key: ImportOrderStatus; label: string; icon: React.FC<{ className?: string }> }[] = [
   { key: "draft", label: "مسودة", icon: Clock },
@@ -337,38 +338,40 @@ export const ImportOrdersPage: React.FC = () => {
                 <label className="block text-xs font-semibold text-app-label-secondary mb-1">
                   الوحدة التشغيلية <span className="text-app-status-danger">*</span>
                 </label>
-                <select
+                <SearchableSelect<{ id: string; name: string }>
+                  options={operatingUnits}
+                  value={
+                    operatingUnits.find((u) => u.id === selectedUnitId) ??
+                    null
+                  }
+                  onChange={(u) => setSelectedUnitId(u ? u.id : "")}
+                  getOptionId={(u) => u.id}
+                  getOptionLabel={(u) => u.name}
+                  placeholder="-- اختر الوحدة --"
                   required
-                  value={selectedUnitId}
-                  onChange={(e) => setSelectedUnitId(e.target.value)}
-                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-                >
-                  <option value="">-- اختر الوحدة --</option>
-                  {operatingUnits.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary mb-1">
                   المورد الخارجي <span className="text-app-status-danger">*</span>
                 </label>
-                <select
+                <SearchableSelect<{ id: string; name: string; default_currency?: string }>
+                  options={suppliers}
+                  value={
+                    suppliers.find((s) => s.id === selectedSupplierId) ??
+                    null
+                  }
+                  onChange={(s) => setSelectedSupplierId(s ? s.id : "")}
+                  getOptionId={(s) => s.id}
+                  getOptionLabel={(s) => s.name}
+                  getOptionSubLabel={(s) => s.default_currency}
+                  getOptionSearchText={(s) =>
+                    `${s.name} ${s.default_currency ?? ""}`
+                  }
+                  placeholder="-- اختر المورد --"
                   required
-                  value={selectedSupplierId}
-                  onChange={(e) => setSelectedSupplierId(e.target.value)}
-                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-                >
-                  <option value="">-- اختر المورد --</option>
-                  {suppliers.map((sup) => (
-                    <option key={sup.id} value={sup.id}>
-                      {sup.name} ({sup.default_currency})
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div className="grid grid-cols-3 gap-2">

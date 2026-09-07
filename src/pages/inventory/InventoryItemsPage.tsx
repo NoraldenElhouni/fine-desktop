@@ -5,6 +5,7 @@ import { InventoryItem } from "../../api/endpoints/inventory";
 import { formatDate } from "../../lib/utils/format";
 import { Package, PackagePlus, Plus, Search, Filter, Tags, Sliders } from "lucide-react";
 import { StockIntakeModal } from "./StockIntakeModal";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
 
 export const InventoryItemsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -106,18 +107,19 @@ export const InventoryItemsPage: React.FC = () => {
 
         <div className="flex flex-wrap items-center gap-2">
           <Filter className="w-4 h-4 text-app-label-secondary" />
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
-          >
-            <option value="">All Categories</option>
-            {categories?.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <div className="min-w-[12rem]">
+            <SearchableSelect<{ id: string; name: string }>
+              options={categories ?? []}
+              value={
+                categories?.find((c) => c.id === categoryFilter) ?? null
+              }
+              onChange={(c) => setCategoryFilter(c ? c.id : "")}
+              getOptionId={(c) => c.id}
+              getOptionLabel={(c) => c.name}
+              placeholder="All Categories"
+              size="sm"
+            />
+          </div>
 
           <select
             value={typeFilter}
@@ -208,18 +210,18 @@ export const InventoryItemsPage: React.FC = () => {
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">Item Category</label>
-                <select
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
-                >
-                  <option value="">Select Product Category Template</option>
-                  {categories?.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.code})
-                    </option>
-                  ))}
-                </select>
+                <SearchableSelect<{ id: string; name: string; code?: string }>
+                  options={categories ?? []}
+                  value={
+                    categories?.find((c) => c.id === categoryId) ?? null
+                  }
+                  onChange={(c) => setCategoryId(c ? c.id : "")}
+                  getOptionId={(c) => c.id}
+                  getOptionLabel={(c) => c.name}
+                  getOptionSubLabel={(c) => c.code}
+                  getOptionSearchText={(c) => `${c.name} ${c.code ?? ""}`}
+                  placeholder="Select Product Category Template"
+                />
               </div>
 
               <div>

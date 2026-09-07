@@ -4,6 +4,7 @@ import { useItemCategories } from "../../hooks/useCategories";
 import { StockLot } from "../../api/endpoints/inventory";
 import { formatNumber } from "../../lib/utils/format";
 import { Layers, Box, CheckCircle, DollarSign, RefreshCw, Scissors, AlertCircle, Tags } from "lucide-react";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
 
 export const StockLedgerPage: React.FC = () => {
   const [gradeFilter, setGradeFilter] = useState("");
@@ -114,18 +115,19 @@ export const StockLedgerPage: React.FC = () => {
 
       {/* Filter Options */}
       <div className="flex flex-wrap gap-4 bg-app-bg-primary p-4 rounded-2xl border border-app-separator shadow-sm">
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="px-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
-        >
-          <option value="">All Categories</option>
-          {categories?.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+        <div className="min-w-[12rem]">
+          <SearchableSelect<{ id: string; name: string }>
+            options={categories ?? []}
+            value={
+              categories?.find((c) => c.id === categoryFilter) ?? null
+            }
+            onChange={(c) => setCategoryFilter(c ? c.id : "")}
+            getOptionId={(c) => c.id}
+            getOptionLabel={(c) => c.name}
+            placeholder="All Categories"
+            size="sm"
+          />
+        </div>
 
         <select
           value={gradeFilter}

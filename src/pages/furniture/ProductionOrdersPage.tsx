@@ -3,10 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { Hammer, Plus, RefreshCw, AlertTriangle } from "lucide-react";
 import { useProductionOrders, useCreateProductionOrder, useProducts } from "../../hooks/useFurniture";
 import {
-  ORDER_STATUS_ORDER, ORDER_STATUS_LABEL, ProductionOrderStatus,
+  ORDER_STATUS_ORDER, ORDER_STATUS_LABEL, ProductionOrderStatus, Product,
 } from "../../api/endpoints/furniture";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatNumber } from "../../lib/utils/format";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
 
 export const ProductionOrdersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -183,19 +184,27 @@ export const ProductionOrdersPage: React.FC = () => {
                 onChange={(e) => setForm({ ...form, order_number: e.target.value })}
                 className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none"
               />
-              <select
+              <SearchableSelect<Product>
+                options={products?.data ?? []}
+                value={
+                  products?.data.find((p) => p.id === form.product_id) ?? null
+                }
+                onChange={(p) =>
+                  setForm({ ...form, product_id: p ? p.id : "" })
+                }
+                getOptionId={(p) => p.id}
+                getOptionLabel={(p) => p.name}
+                getOptionSubLabel={(p) =>
+                  p.active_bom
+                    ? `BOM v${p.active_bom.version}`
+                    : "no active BOM"
+                }
+                getOptionSearchText={(p) =>
+                  `${p.name} ${p.sku ?? ""}`
+                }
+                placeholder="Select product…"
                 required
-                value={form.product_id}
-                onChange={(e) => setForm({ ...form, product_id: e.target.value })}
-                className="w-full px-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
-              >
-                <option value="">Select product…</option>
-                {products?.data.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} {p.active_bom ? `(BOM v${p.active_bom.version})` : "(no active BOM)"}
-                  </option>
-                ))}
-              </select>
+              />
               <input
                 type="number" min="1" placeholder="Quantity"
                 value={form.quantity}

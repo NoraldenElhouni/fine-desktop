@@ -11,6 +11,8 @@ import { useInventoryItems } from "../../hooks/useInventory";
 import { Bom } from "../../api/endpoints/furniture";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatNumber } from "../../lib/utils/format";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { InventoryItem } from "../../api/endpoints/inventory";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -243,18 +245,24 @@ export const ProductsPage: React.FC = () => {
                       ))}
                     </div>
                     <div className="border-t border-app-separator p-3 flex flex-wrap gap-2 items-end">
-                      <select
-                        value={compForm.item}
-                        onChange={(e) => setCompForm({ ...compForm, item: e.target.value })}
-                        className="flex-1 min-w-40 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
-                      >
-                        <option value="">Add component…</option>
-                        {allItems?.data.map((i) => (
-                          <option key={i.id} value={i.id}>
-                            {i.name} ({i.sku})
-                          </option>
-                        ))}
-                      </select>
+                      <div className="flex-1 min-w-40">
+                        <SearchableSelect<InventoryItem>
+                          options={allItems?.data ?? []}
+                          value={
+                            allItems?.data.find((i) => i.id === compForm.item) ??
+                            null
+                          }
+                          onChange={(i) =>
+                            setCompForm({ ...compForm, item: i ? i.id : "" })
+                          }
+                          getOptionId={(i) => i.id}
+                          getOptionLabel={(i) => i.name}
+                          getOptionSubLabel={(i) => i.sku}
+                          getOptionSearchText={(i) => `${i.name} ${i.sku}`}
+                          placeholder="Add component…"
+                          size="sm"
+                        />
+                      </div>
                       <input
                         type="number" step="0.01" min="0.01" placeholder="qty"
                         value={compForm.qty}
@@ -431,17 +439,26 @@ export const ProductsPage: React.FC = () => {
                 className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none"
               />
               <div>
-                <select
+                <SearchableSelect<InventoryItem>
+                  options={finishedItems?.data ?? []}
+                  value={
+                    finishedItems?.data.find(
+                      (i) => i.id === form.inventory_item_id
+                    ) ?? null
+                  }
+                  onChange={(i) =>
+                    setForm({
+                      ...form,
+                      inventory_item_id: i ? i.id : "",
+                    })
+                  }
+                  getOptionId={(i) => i.id}
+                  getOptionLabel={(i) => i.name}
+                  getOptionSubLabel={(i) => i.sku}
+                  getOptionSearchText={(i) => `${i.name} ${i.sku}`}
+                  placeholder="Finished-good inventory item…"
                   required
-                  value={form.inventory_item_id}
-                  onChange={(e) => setForm({ ...form, inventory_item_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
-                >
-                  <option value="">Finished-good inventory item…</option>
-                  {finishedItems?.data.map((i) => (
-                    <option key={i.id} value={i.id}>{i.name} ({i.sku})</option>
-                  ))}
-                </select>
+                />
                 <p className="text-[10px] text-app-label-tertiary mt-1">
                   Where the built product lands in stock.
                 </p>

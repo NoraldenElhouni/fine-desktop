@@ -18,8 +18,9 @@ import {
   BLOCK_ENTRY_STATES,
   NEXT_STATUS,
 } from "../../api/endpoints/production";
-import { StockLot } from "../../api/endpoints/inventory";
+import { StockLot, InventoryItem } from "../../api/endpoints/inventory";
 import { formatNumber } from "../../lib/utils/format";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
 
 const STATUS_ORDER = [
   "planned", "configured", "running", "consumed",
@@ -367,37 +368,35 @@ export const BatchBlocksPage: React.FC = () => {
             <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
               Block Product
             </label>
-            <select
-              value={itemId}
-              onChange={(e) => setItemId(e.target.value)}
-              className="w-full px-3 py-2 border border-app-separator rounded-xl bg-app-bg-primary text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
-            >
-              <option value="">Select foam block item…</option>
-              {itemData?.data.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name} ({item.sku})
-                </option>
-              ))}
-            </select>
+            <SearchableSelect<InventoryItem>
+              options={itemData?.data ?? []}
+              value={itemData?.data.find((i) => i.id === itemId) ?? null}
+              onChange={(item) => setItemId(item ? item.id : "")}
+              getOptionId={(i) => i.id}
+              getOptionLabel={(i) => i.name}
+              getOptionSubLabel={(i) => i.sku}
+              getOptionSearchText={(i) => `${i.name} ${i.sku}`}
+              placeholder="Select foam block item…"
+            />
           </div>
           <div>
             <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
               Scrap Product
             </label>
-            <select
-              value={scrapItemId}
-              onChange={(e) => setScrapItemId(e.target.value)}
-              className="w-full px-3 py-2 border border-app-separator rounded-xl bg-app-bg-primary text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
-            >
-              <option value="">
-                {hasScrapRow ? "Select scrap item…" : "Only needed for scrap rows"}
-              </option>
-              {scrapItems?.data.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name} ({item.sku})
-                </option>
-              ))}
-            </select>
+            <SearchableSelect<InventoryItem>
+              options={scrapItems?.data ?? []}
+              value={
+                scrapItems?.data.find((i) => i.id === scrapItemId) ?? null
+              }
+              onChange={(item) => setScrapItemId(item ? item.id : "")}
+              getOptionId={(i) => i.id}
+              getOptionLabel={(i) => i.name}
+              getOptionSubLabel={(i) => i.sku}
+              getOptionSearchText={(i) => `${i.name} ${i.sku}`}
+              placeholder={
+                hasScrapRow ? "Select scrap item…" : "Only needed for scrap rows"
+              }
+            />
             <p className="text-[10px] text-app-label-tertiary mt-1">
               Scrap enters stock at zero cost
             </p>
@@ -407,18 +406,14 @@ export const BatchBlocksPage: React.FC = () => {
             <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
               Warehouse
             </label>
-            <select
-              value={warehouseId}
-              onChange={(e) => setWarehouseId(e.target.value)}
-              className="w-full px-3 py-2 border border-app-separator rounded-xl bg-app-bg-primary text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
-            >
-              <option value="">Select warehouse…</option>
-              {warehouses?.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name}
-                </option>
-              ))}
-            </select>
+            <SearchableSelect<{ id: string; name: string }>
+              options={warehouses ?? []}
+              value={warehouses?.find((w) => w.id === warehouseId) ?? null}
+              onChange={(w) => setWarehouseId(w ? w.id : "")}
+              getOptionId={(w) => w.id}
+              getOptionLabel={(w) => w.name}
+              placeholder="Select warehouse…"
+            />
           </div>
         </div>
 

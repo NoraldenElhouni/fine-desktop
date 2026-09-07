@@ -5,6 +5,8 @@ import { useRestockRequests, useCreateRestock, useRestockAction } from "../../ho
 import { useInventoryItems } from "../../hooks/useInventory";
 import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
 import { apiErrorPayload } from "../../api/endpoints/production";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { InventoryItem } from "../../api/endpoints/inventory";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -161,30 +163,41 @@ export const RestockRequestsPage: React.FC = () => {
                 onChange={(e) => setRequestNumber(e.target.value)}
                 className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none"
               />
-              <select
+              <SearchableSelect<{ id: string; name: string }>
+                options={units ?? []}
+                value={
+                  units?.find((u) => u.id === sourceUnitId) ?? null
+                }
+                onChange={(u) => setSourceUnitId(u ? u.id : "")}
+                getOptionId={(u) => u.id}
+                getOptionLabel={(u) => u.name}
+                placeholder="Request from unit…"
                 required
-                value={sourceUnitId}
-                onChange={(e) => setSourceUnitId(e.target.value)}
-                className="w-full px-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
-              >
-                <option value="">Request from unit…</option>
-                {units?.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
-              </select>
+              />
 
               {lines.map((l) => (
                 <div key={l.key} className="flex gap-2">
-                  <select
-                    value={l.item}
-                    onChange={(e) => setLines(lines.map((x) => x.key === l.key ? { ...x, item: e.target.value } : x))}
-                    className="flex-1 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
-                  >
-                    <option value="">Item…</option>
-                    {items?.data.map((i) => (
-                      <option key={i.id} value={i.id}>{i.name} ({i.sku})</option>
-                    ))}
-                  </select>
+                  <div className="flex-1">
+                    <SearchableSelect<InventoryItem>
+                      options={items?.data ?? []}
+                      value={
+                        items?.data.find((i) => i.id === l.item) ?? null
+                      }
+                      onChange={(item) =>
+                        setLines(
+                          lines.map((x) =>
+                            x.key === l.key ? { ...x, item: item ? item.id : "" } : x
+                          )
+                        )
+                      }
+                      getOptionId={(i) => i.id}
+                      getOptionLabel={(i) => i.name}
+                      getOptionSubLabel={(i) => i.sku}
+                      getOptionSearchText={(i) => `${i.name} ${i.sku}`}
+                      placeholder="Item…"
+                      size="sm"
+                    />
+                  </div>
                   <input
                     type="number" step="0.01" min="0.01"
                     value={l.qty}

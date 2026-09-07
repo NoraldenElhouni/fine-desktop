@@ -6,10 +6,11 @@ import {
   useInventoryItems,
   useStockLots,
 } from "../../hooks/useInventory";
-import { TankStock, InventoryItem } from "../../api/endpoints/inventory";
+import { TankStock, InventoryItem, StockLot } from "../../api/endpoints/inventory";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatDate, formatNumber } from "../../lib/utils/format";
 import { Database, Plus, AlertCircle, PackageOpen } from "lucide-react";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
 
 export const TankStockPage: React.FC = () => {
   const { data: tanks, isLoading, refetch } = useTankStocks();
@@ -190,20 +191,20 @@ export const TankStockPage: React.FC = () => {
                   <PackageOpen className="w-4 h-4" /> Pour from stock
                 </div>
 
-                <select
-                  value={sourceLotId}
-                  onChange={(e) => setSourceLotId(e.target.value)}
-                  className="w-full px-3 py-2 border border-app-separator rounded-xl bg-app-bg-primary text-xs focus:border-app-accent focus:outline-none"
-                >
-                  <option value="">Select source lot…</option>
-                  {sourceLots?.data.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.lot_number} — {l.quantity} {chemical?.secondary_uom ?? ""}
-                      {l.container_quantity ? ` across ${l.container_quantity} ${chemical?.primary_uom ?? "container"}(s)` : ""}
-                      {" @ "}{l.unit_cost}
-                    </option>
-                  ))}
-                </select>
+                <SearchableSelect<StockLot>
+                  options={sourceLots?.data ?? []}
+                  value={
+                    sourceLots?.data.find((l) => l.id === sourceLotId) ?? null
+                  }
+                  onChange={(lot) => setSourceLotId(lot ? lot.id : "")}
+                  getOptionId={(l) => l.id}
+                  getOptionLabel={(l) => l.lot_number}
+                  getOptionSubLabel={(l) =>
+                    `${l.quantity} ${chemical?.secondary_uom ?? ""}${l.container_quantity ? ` × ${l.container_quantity} ${chemical?.primary_uom ?? "container"}` : ""} · ${l.unit_cost}`
+                  }
+                  getOptionSearchText={(l) => l.lot_number}
+                  placeholder="Select source lot…"
+                />
 
                 {sourceLotId && (
                   <>
@@ -293,19 +294,21 @@ export const TankStockPage: React.FC = () => {
                 <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
                   Chemical Item
                 </label>
-                <select
+                <SearchableSelect<InventoryItem>
+                  options={items?.data ?? []}
+                  value={
+                    items?.data.find((i) => i.id === selectedChemicalId) ?? null
+                  }
+                  onChange={(item) =>
+                    setSelectedChemicalId(item ? item.id : "")
+                  }
+                  getOptionId={(item) => item.id}
+                  getOptionLabel={(item) => item.name}
+                  getOptionSubLabel={(item) => item.sku}
+                  getOptionSearchText={(item) => `${item.name} ${item.sku}`}
+                  placeholder="Select Chemical Raw Material"
                   required
-                  value={selectedChemicalId}
-                  onChange={(e) => setSelectedChemicalId(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
-                >
-                  <option value="">Select Chemical Raw Material</option>
-                  {items?.data.map((item: InventoryItem) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name} ({item.sku})
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div>

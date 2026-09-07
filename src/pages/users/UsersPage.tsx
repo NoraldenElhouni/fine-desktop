@@ -23,6 +23,7 @@ import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
 import { OperatingUnit } from "../../types/entities";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { toast } from "../../stores/toastStore";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
 
 const UsersPage: React.FC = () => {
   const { data: users, isLoading, isError, error, refetch } = useUsers();
@@ -400,34 +401,30 @@ const UsersPage: React.FC = () => {
             <form onSubmit={submitAssign} className="flex items-end gap-2 pt-3 border-t border-app-separator">
               <div className="flex-1">
                 <label className="block text-xs font-semibold text-app-label-secondary mb-1">الدور</label>
-                <select
+                <SearchableSelect<{ id: string; name: string }>
+                  options={roles ?? []}
+                  value={
+                    roles?.find((r) => r.id === roleId) ?? null
+                  }
+                  onChange={(r) => setRoleId(r ? r.id : "")}
+                  getOptionId={(r) => r.id}
+                  getOptionLabel={(r) => r.name}
+                  placeholder="اختر دوراً..."
                   required
-                  value={roleId}
-                  onChange={(e) => setRoleId(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
-                >
-                  <option value="">اختر دوراً...</option>
-                  {roles?.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
               <div className="flex-1">
                 <label className="block text-xs font-semibold text-app-label-secondary mb-1">الوحدة التشغيلية</label>
-                <select
-                  value={unitId}
-                  onChange={(e) => setUnitId(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
-                >
-                  <option value="">على مستوى الشركة</option>
-                  {units?.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
+                <SearchableSelect<{ id: string; name: string }>
+                  options={units ?? []}
+                  value={
+                    units?.find((u) => u.id === unitId) ?? null
+                  }
+                  onChange={(u) => setUnitId(u ? u.id : "")}
+                  getOptionId={(u) => u.id}
+                  getOptionLabel={(u) => u.name}
+                  placeholder="على مستوى الشركة"
+                />
               </div>
               <button
                 type="submit"

@@ -11,6 +11,7 @@ import {
 } from "../../api/endpoints/furniture";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatNumber } from "../../lib/utils/format";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -201,19 +202,28 @@ export const ProductionOrderDetailPage: React.FC = () => {
 
         {canLogLabor && (
           <form onSubmit={submitLabor} className="border-t border-app-separator p-3 flex flex-wrap gap-2 items-end">
-            <select
-              required
-              value={laborForm.employee}
-              onChange={(e) => setLaborForm({ ...laborForm, employee: e.target.value })}
-              className="flex-1 min-w-40 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
-            >
-              <option value="">Employee…</option>
-              {employees?.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {(e as { entity?: { name?: string } }).entity?.name ?? e.job_title ?? e.id}
-                </option>
-              ))}
-            </select>
+            <div className="flex-1 min-w-40">
+              <SearchableSelect<{ id: string; entity?: { name?: string }; job_title?: string }>
+                options={employees ?? []}
+                value={
+                  employees?.find((e) => e.id === laborForm.employee) ?? null
+                }
+                onChange={(e) =>
+                  setLaborForm({ ...laborForm, employee: e ? e.id : "" })
+                }
+                getOptionId={(e) => e.id}
+                getOptionLabel={(e) =>
+                  e.entity?.name ?? e.job_title ?? e.id
+                }
+                getOptionSubLabel={(e) => e.job_title}
+                getOptionSearchText={(e) =>
+                  `${e.entity?.name ?? ""} ${e.job_title ?? ""}`
+                }
+                placeholder="Employee…"
+                size="sm"
+                required
+              />
+            </div>
             <select
               value={laborForm.role}
               onChange={(e) => setLaborForm({ ...laborForm, role: e.target.value })}

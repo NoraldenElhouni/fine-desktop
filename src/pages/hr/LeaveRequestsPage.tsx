@@ -5,6 +5,7 @@ import { useLeaveRequests, useCreateLeaveRequest, useDecideLeave } from "../../h
 import { getEmployees } from "../../api/endpoints/employees";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { LEAVE_TYPE_LABEL, type LeaveType, type LeaveRequest } from "../../api/endpoints/hr";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
 
 const STATUS_STYLE: Record<LeaveRequest["status"], string> = {
   pending: "bg-app-status-yellow/15 text-app-status-yellow",
@@ -147,16 +148,21 @@ export const LeaveRequestsPage: React.FC = () => {
             )}
 
             <form onSubmit={submit} className="space-y-3">
-              <select
-                required value={employeeId}
-                onChange={(e) => setEmployeeId(e.target.value)}
-                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
-              >
-                <option value="">الموظف…</option>
-                {employees?.map((e) => (
-                  <option key={e.id} value={e.id}>{e.entity?.name ?? e.job_title}</option>
-                ))}
-              </select>
+              <SearchableSelect<{ id: string; entity?: { name?: string }; job_title?: string }>
+                options={employees ?? []}
+                value={
+                  employees?.find((e) => e.id === employeeId) ?? null
+                }
+                onChange={(e) => setEmployeeId(e ? e.id : "")}
+                getOptionId={(e) => e.id}
+                getOptionLabel={(e) => e.entity?.name ?? e.job_title ?? e.id}
+                getOptionSubLabel={(e) => e.job_title}
+                getOptionSearchText={(e) =>
+                  `${e.entity?.name ?? ""} ${e.job_title ?? ""}`
+                }
+                placeholder="الموظف…"
+                required
+              />
               <div className="flex gap-2">
                 <input
                   type="date" required value={startDate}

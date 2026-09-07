@@ -4,6 +4,7 @@ import { useJournalEntries, useCreateManualEntry, useAccounts } from "../../hook
 import { apiErrorPayload } from "../../api/endpoints/production";
 import type { JournalEntry } from "../../api/endpoints/accounting";
 import { formatDate, formatNumber } from "../../lib/utils/format";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -248,16 +249,29 @@ export const JournalEntriesPage: React.FC = () => {
 
               {lines.map((l) => (
                 <div key={l.key} className="flex gap-2 items-center">
-                  <select
-                    required value={l.account_code}
-                    onChange={(e) => patchLine(l.key, { account_code: e.target.value })}
-                    className="flex-1 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
-                  >
-                    <option value="">الحساب…</option>
-                    {accounts?.map((a) => (
-                      <option key={a.id} value={a.account_code}>{a.account_code} — {a.name}</option>
-                    ))}
-                  </select>
+                  <div className="flex-1">
+                    <SearchableSelect<{ id: string; account_code: string; name: string; type?: string }>
+                      options={accounts ?? []}
+                      value={
+                        accounts?.find((a) => a.account_code === l.account_code) ??
+                        null
+                      }
+                      onChange={(a) =>
+                        patchLine(l.key, {
+                          account_code: a ? a.account_code : "",
+                        })
+                      }
+                      getOptionId={(a) => a.id}
+                      getOptionLabel={(a) => a.name}
+                      getOptionSubLabel={(a) => `${a.account_code} · ${a.type ?? ""}`}
+                      getOptionSearchText={(a) =>
+                        `${a.account_code} ${a.name}`
+                      }
+                      placeholder="الحساب…"
+                      size="sm"
+                      required
+                    />
+                  </div>
                   <select
                     value={l.side}
                     onChange={(e) => patchLine(l.key, { side: e.target.value as FormLine["side"] })}

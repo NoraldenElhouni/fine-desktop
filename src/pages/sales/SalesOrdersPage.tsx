@@ -10,6 +10,8 @@ import { SALES_STATUS_ORDER, SALES_STATUS_LABEL, SalesOrderStatus } from "../../
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { BlockPicker, PickedBlock } from "../../components/pos/BlockPicker";
 import { formatNumber } from "../../lib/utils/format";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { InventoryItem } from "../../api/endpoints/inventory";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -289,19 +291,17 @@ export const SalesOrdersPage: React.FC = () => {
 
               {buyerType === "client" ? (
                 <div>
-                  <select
+                  <SearchableSelect<{ id: string; entity?: { name?: string } }>
+                    options={clients ?? []}
+                    value={
+                      clients?.find((c) => c.id === clientId) ?? null
+                    }
+                    onChange={(c) => setClientId(c ? c.id : "")}
+                    getOptionId={(c) => c.id}
+                    getOptionLabel={(c) => c.entity?.name ?? c.id}
+                    placeholder="Select client…"
                     required
-                    value={clientId}
-                    onChange={(e) => setClientId(e.target.value)}
-                    className="w-full px-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
-                  >
-                    <option value="">Select client…</option>
-                    {clients?.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {(c as { entity?: { name?: string } }).entity?.name ?? c.id}
-                      </option>
-                    ))}
-                  </select>
+                  />
                   {selectedClient && (
                     <p className="text-[10px] text-app-label-tertiary mt-1 font-mono">
                       Credit limit {formatNumber((selectedClient as { credit_limit?: number }).credit_limit ?? 0)}
@@ -312,17 +312,17 @@ export const SalesOrdersPage: React.FC = () => {
                 </div>
               ) : (
                 <div>
-                  <select
+                  <SearchableSelect<{ id: string; name: string }>
+                    options={units ?? []}
+                    value={
+                      units?.find((u) => u.id === buyerUnitId) ?? null
+                    }
+                    onChange={(u) => setBuyerUnitId(u ? u.id : "")}
+                    getOptionId={(u) => u.id}
+                    getOptionLabel={(u) => u.name}
+                    placeholder="Select buying unit…"
                     required
-                    value={buyerUnitId}
-                    onChange={(e) => setBuyerUnitId(e.target.value)}
-                    className="w-full px-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
-                  >
-                    <option value="">Select buying unit…</option>
-                    {units?.map((u) => (
-                      <option key={u.id} value={u.id}>{u.name}</option>
-                    ))}
-                  </select>
+                  />
                   <p className="text-[10px] text-app-label-tertiary mt-1">
                     Internal transfers skip the credit gate and settle at cost.
                   </p>
@@ -337,18 +337,35 @@ export const SalesOrdersPage: React.FC = () => {
                   return (
                     <div key={l.key} className="space-y-1.5">
                       <div className="flex gap-2 items-center">
-                        <select
-                          value={l.item}
-                          onChange={(e) => setLines(lines.map((x) => x.key === l.key ? { ...x, item: e.target.value, stockLotId: null, stockLotLabel: null } : x))}
-                          className="flex-1 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
-                        >
-                          <option value="">Item…</option>
-                          {items?.data.map((i) => (
-                            <option key={i.id} value={i.id}>
-                              {i.name} ({i.sku}){i.item_type === "foam_block" ? " · قطعة" : ""}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="flex-1">
+                          <SearchableSelect<InventoryItem>
+                            options={items?.data ?? []}
+                            value={
+                              items?.data.find((i) => i.id === l.item) ?? null
+                            }
+                            onChange={(item) =>
+                              setLines(
+                                lines.map((x) =>
+                                  x.key === l.key
+                                    ? {
+                                        ...x,
+                                        item: item ? item.id : "",
+                                        stockLotId: null,
+                                        stockLotLabel: null,
+                                      }
+                                    : x
+                                )
+                              )
+                            }
+                            getOptionId={(i) => i.id}
+                            getOptionLabel={(i) =>
+                              `${i.name} (${i.sku})${i.item_type === "foam_block" ? " · قطعة" : ""}`
+                            }
+                            getOptionSearchText={(i) => `${i.name} ${i.sku}`}
+                            placeholder="Item…"
+                            size="sm"
+                          />
+                        </div>
                         {isFoamBlock && l.item && (
                           <button
                             type="button"

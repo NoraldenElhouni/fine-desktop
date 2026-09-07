@@ -7,6 +7,7 @@ import { useOperatingUnits } from "../../hooks/usePartners";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { Modal } from "../../components/ui/Modal";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
 
 export const SuppliersPage: React.FC = () => {
   const { data: suppliers = [], isLoading, error: queryError, refetch } = useSuppliers();
@@ -165,19 +166,17 @@ export const SuppliersPage: React.FC = () => {
             <label className="block text-xs font-semibold text-app-label-secondary mb-1">
               الوحدة التشغيلية <span className="text-app-status-danger">*</span>
             </label>
-            <select
+            <SearchableSelect<{ id: string; name: string }>
+              options={operatingUnits}
+              value={
+                operatingUnits.find((u) => u.id === selectedUnitId) ?? null
+              }
+              onChange={(u) => setSelectedUnitId(u ? u.id : "")}
+              getOptionId={(u) => u.id}
+              getOptionLabel={(u) => u.name}
+              placeholder="-- اختر الوحدة --"
               required
-              value={selectedUnitId}
-              onChange={(e) => setSelectedUnitId(e.target.value)}
-              className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-            >
-              <option value="">-- اختر الوحدة --</option>
-              {operatingUnits.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           <div>

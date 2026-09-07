@@ -9,6 +9,7 @@ import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { Modal } from "../../components/ui/Modal";
 import { formatNumber } from "../../lib/utils/format";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
 
 export const ClientsPage: React.FC = () => {
   const { allowManualEntitySelection } = useServerConfigStore();
@@ -263,19 +264,18 @@ export const ClientsPage: React.FC = () => {
             <label className="block text-xs font-semibold text-app-label-secondary mb-1">
               الوحدة التشغيلية <span className="text-app-status-danger">*</span>
             </label>
-            <select
+            <SearchableSelect<{ id: string; name: string }>
+              options={operatingUnits}
+              value={
+                operatingUnits.find((u) => u.id === selectedOperatingUnitId) ??
+                null
+              }
+              onChange={(u) => setSelectedOperatingUnitId(u ? u.id : "")}
+              getOptionId={(u) => u.id}
+              getOptionLabel={(u) => u.name}
+              placeholder="-- اختر الوحدة التشغيلية --"
               required
-              value={selectedOperatingUnitId}
-              onChange={(e) => setSelectedOperatingUnitId(e.target.value)}
-              className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-            >
-              <option value="">-- اختر الوحدة التشغيلية --</option>
-              {operatingUnits.map((unit) => (
-                <option key={unit.id} value={unit.id}>
-                  {unit.name}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           {allowManualEntitySelection ? (
@@ -351,19 +351,21 @@ export const ClientsPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="pt-1">
-                  <select
+                  <SearchableSelect<{ id: string; name: string; entity_type?: string }>
+                    options={entities}
+                    value={
+                      entities.find((ent) => ent.id === selectedEntityId) ??
+                      null
+                    }
+                    onChange={(ent) => setSelectedEntityId(ent ? ent.id : "")}
+                    getOptionId={(ent) => ent.id}
+                    getOptionLabel={(ent) => ent.name}
+                    getOptionSubLabel={(ent) =>
+                      ent.entity_type === "organization" ? "شركة" : "فرد"
+                    }
+                    placeholder="-- اختر كيان --"
                     required
-                    value={selectedEntityId}
-                    onChange={(e) => setSelectedEntityId(e.target.value)}
-                    className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
-                  >
-                    <option value="">-- اختر كيان --</option>
-                    {entities.map((ent) => (
-                      <option key={ent.id} value={ent.id}>
-                        {ent.name} ({ent.entity_type === "organization" ? "شركة" : "فرد"})
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
               )}
             </div>

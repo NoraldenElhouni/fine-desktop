@@ -6,6 +6,7 @@ import { useWarehouses } from "../../hooks/useWarehouses";
 import { getImportOrders } from "../../api/endpoints/procurement";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import type { InventoryItem } from "../../api/endpoints/inventory";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
 
 type IntakeSource = "opening_balance" | "purchase_cash" | "purchase_credit" | "import_receipt";
 
@@ -82,28 +83,32 @@ export const StockIntakeModal: React.FC<{
         )}
 
         <form onSubmit={submit} className="space-y-3">
-          <select
-            required value={itemId}
-            onChange={(e) => setItemId(e.target.value)}
-            className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
-          >
-            <option value="">الصنف…</option>
-            {items.map((item) => (
-              <option key={item.id} value={item.id}>{item.name} ({item.sku})</option>
-            ))}
-          </select>
+          <SearchableSelect<InventoryItem>
+            options={items}
+            value={items.find((i) => i.id === itemId) ?? null}
+            onChange={(item) => setItemId(item ? item.id : "")}
+            getOptionId={(i) => i.id}
+            getOptionLabel={(i) => i.name}
+            getOptionSubLabel={(i) => i.sku}
+            getOptionSearchText={(i) => `${i.name} ${i.sku}`}
+            placeholder="الصنف…"
+            required
+          />
 
           <div className="flex gap-2">
-            <select
-              required value={warehouseId}
-              onChange={(e) => setWarehouseId(e.target.value)}
-              className="flex-1 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
-            >
-              <option value="">المخزن…</option>
-              {warehouses?.map((w) => (
-                <option key={w.id} value={w.id}>{w.name}</option>
-              ))}
-            </select>
+            <div className="flex-1">
+              <SearchableSelect<{ id: string; name: string }>
+                options={warehouses ?? []}
+                value={
+                  warehouses?.find((w) => w.id === warehouseId) ?? null
+                }
+                onChange={(w) => setWarehouseId(w ? w.id : "")}
+                getOptionId={(w) => w.id}
+                getOptionLabel={(w) => w.name}
+                placeholder="المخزن…"
+                required
+              />
+            </div>
             <input
               type="text" required placeholder="رقم الدفعة — LOT-1001"
               value={lotNumber}
@@ -138,18 +143,25 @@ export const StockIntakeModal: React.FC<{
           </select>
 
           {source === "import_receipt" && (
-            <select
-              required value={importOrderId}
-              onChange={(e) => setImportOrderId(e.target.value)}
-              className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
-            >
-              <option value="">أمر الاستيراد المستلم…</option>
-              {importOrders?.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.supplier?.name} — {Number(o.quantity)} × {Number(o.negotiated_price)} {o.currency}
-                </option>
-              ))}
-            </select>
+            <SearchableSelect<{ id: string; supplier?: { name?: string }; quantity?: number | string; negotiated_price?: number | string; currency?: string }>
+              options={(importOrders as unknown as Array<{ id: string; supplier?: { name?: string }; quantity?: number | string; negotiated_price?: number | string; currency?: string }>) ?? []}
+              value={
+                (importOrders as unknown as Array<{ id: string }>)?.find?.(
+                  (o) => o.id === importOrderId
+                ) ?? null
+              }
+              onChange={(o) => setImportOrderId(o ? o.id : "")}
+              getOptionId={(o) => o.id}
+              getOptionLabel={(o) => o.supplier?.name ?? "—"}
+              getOptionSubLabel={(o) =>
+                `${Number(o.quantity)} × ${Number(o.negotiated_price)} ${o.currency ?? ""}`
+              }
+              getOptionSearchText={(o) =>
+                `${o.supplier?.name ?? ""} ${o.currency ?? ""}`
+              }
+              placeholder="أمر الاستيراد المستلم…"
+              required
+            />
           )}
 
           <div className="flex justify-end gap-3 pt-3 border-t border-app-separator">

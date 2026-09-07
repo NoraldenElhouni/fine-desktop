@@ -15,6 +15,8 @@ import {
 } from "../../api/endpoints/cutter";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatNumber } from "../../lib/utils/format";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { InventoryItem } from "../../api/endpoints/inventory";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -252,33 +254,39 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
                   <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
                     Byproduct Item
                   </label>
-                  <select
-                    value={fillItemId}
-                    onChange={(e) => setFillItemId(e.target.value)}
+                  <SearchableSelect<InventoryItem>
+                    options={fillItems?.data ?? []}
+                    value={
+                      fillItems?.data.find((i) => i.id === fillItemId) ?? null
+                    }
+                    onChange={(i) => setFillItemId(i ? i.id : "")}
+                    getOptionId={(i) => i.id}
+                    getOptionLabel={(i) => i.name}
+                    getOptionSubLabel={(i) => i.sku}
+                    getOptionSearchText={(i) => `${i.name} ${i.sku}`}
+                    placeholder={
+                      num(weight) === 0 ? "Not needed for 0 kg" : "Select fill item…"
+                    }
                     disabled={num(weight) === 0}
-                    className="w-full px-3 py-2 border border-app-separator rounded-xl bg-app-bg-primary text-xs focus:border-app-accent focus:outline-none disabled:opacity-40"
-                  >
-                    <option value="">{num(weight) === 0 ? "Not needed for 0 kg" : "Select fill item…"}</option>
-                    {fillItems?.data.map((i) => (
-                      <option key={i.id} value={i.id}>{i.name} ({i.sku})</option>
-                    ))}
-                  </select>
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
                     Warehouse
                   </label>
-                  <select
-                    value={warehouseId}
-                    onChange={(e) => setWarehouseId(e.target.value)}
+                  <SearchableSelect<{ id: string; name: string }>
+                    options={warehouses ?? []}
+                    value={
+                      warehouses?.find((w) => w.id === warehouseId) ?? null
+                    }
+                    onChange={(w) => setWarehouseId(w ? w.id : "")}
+                    getOptionId={(w) => w.id}
+                    getOptionLabel={(w) => w.name}
+                    placeholder={
+                      num(weight) === 0 ? "Not needed for 0 kg" : "Select warehouse…"
+                    }
                     disabled={num(weight) === 0}
-                    className="w-full px-3 py-2 border border-app-separator rounded-xl bg-app-bg-primary text-xs focus:border-app-accent focus:outline-none disabled:opacity-40"
-                  >
-                    <option value="">{num(weight) === 0 ? "Not needed for 0 kg" : "Select warehouse…"}</option>
-                    {warehouses?.map((w) => (
-                      <option key={w.id} value={w.id}>{w.name}</option>
-                    ))}
-                  </select>
+                  />
                 </div>
               </div>
 
@@ -498,16 +506,20 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
               />
             </div>
             <div className="flex gap-2">
-              <select
-                value={pieceItemId}
-                onChange={(e) => setPieceItemId(e.target.value)}
-                className="flex-1 px-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
-              >
-                <option value="">Output item…</option>
-                {pieceItems?.data.map((i) => (
-                  <option key={i.id} value={i.id}>{i.sku}</option>
-                ))}
-              </select>
+              <div className="flex-1">
+                <SearchableSelect<InventoryItem>
+                  options={pieceItems?.data ?? []}
+                  value={
+                    pieceItems?.data.find((i) => i.id === pieceItemId) ?? null
+                  }
+                  onChange={(i) => setPieceItemId(i ? i.id : "")}
+                  getOptionId={(i) => i.id}
+                  getOptionLabel={(i) => i.sku}
+                  getOptionSubLabel={(i) => i.name}
+                  getOptionSearchText={(i) => `${i.sku} ${i.name}`}
+                  placeholder="Output item…"
+                />
+              </div>
               <button
                 type="submit"
                 disabled={addLineMutation.isPending}

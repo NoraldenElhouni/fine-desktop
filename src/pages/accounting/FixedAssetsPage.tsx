@@ -12,6 +12,7 @@ import {
 import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatNumber } from "../../lib/utils/format";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import {
   ASSET_STATUS_LABEL,
   DEPRECIATION_METHOD_LABEL,
@@ -357,16 +358,20 @@ export const FixedAssetsPage: React.FC = () => {
                   <option value="company">على مستوى الشركة</option>
                 </select>
                 {form.scope === "unit" && (
-                  <select
-                    required value={form.operating_unit_id}
-                    onChange={(e) => setForm({ ...form, operating_unit_id: e.target.value })}
-                    className="flex-1 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
-                  >
-                    <option value="">اختر الوحدة…</option>
-                    {units?.map((u) => (
-                      <option key={u.id} value={u.id}>{u.name}</option>
-                    ))}
-                  </select>
+                  <SearchableSelect<{ id: string; name: string }>
+                    options={units ?? []}
+                    value={
+                      units?.find((u) => u.id === form.operating_unit_id) ??
+                      null
+                    }
+                    onChange={(u) =>
+                      setForm({ ...form, operating_unit_id: u ? u.id : "" })
+                    }
+                    getOptionId={(u) => u.id}
+                    getOptionLabel={(u) => u.name}
+                    placeholder="اختر الوحدة…"
+                    required
+                  />
                 )}
               </div>
 

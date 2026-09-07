@@ -5,6 +5,7 @@ import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
 import { OperatingUnit } from "../../types/entities";
 import { cn } from "../../lib/utils/utils";
 import { tokens } from "../../lib/tokens";
+import { SearchableSelect } from "../ui/SearchableSelect";
 
 interface ServerSettingsModalProps {
   isOpen: boolean;
@@ -124,18 +125,20 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                 <RefreshCw className="w-4 h-4 animate-spin" /> جاري تحميل الوحدات...
               </div>
             ) : (
-              <select
-                value={selectedUnit}
-                onChange={(e) => setSelectedUnit(e.target.value)}
-                className="w-full px-4 py-2.5 bg-app-bg-secondary border border-app-separator rounded-app-lg text-sm focus:outline-none focus:ring-2 focus:ring-app-accent transition-all"
-              >
-                <option value="">-- بدون تحديد --</option>
-                {units.map((unit) => (
-                  <option key={unit.id} value={unit.id}>
-                    {unit.name} {unit.unit_type ? `(${unit.unit_type})` : ""}
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect<OperatingUnit>
+                options={units}
+                value={units.find((u) => u.id === selectedUnit) ?? null}
+                onChange={(u) => setSelectedUnit(u ? u.id : "")}
+                getOptionId={(u) => u.id}
+                getOptionLabel={(u) => u.name}
+                getOptionSubLabel={(u) =>
+                  u.unit_type ? `(${u.unit_type})` : ""
+                }
+                getOptionSearchText={(u) =>
+                  `${u.name} ${u.unit_type ?? ""}`
+                }
+                placeholder="-- بدون تحديد --"
+              />
             )}
             <p className={cn(tokens.typography.webUI.c1Regular, "text-app-label-tertiary mt-1")}>
               يتم إرسال معرف وحدة التشغيل كـ <code className="bg-app-fill-f1 px-1 rounded-app-sm">X-Operating-Unit-ID</code> مع كافة الطلبات.
