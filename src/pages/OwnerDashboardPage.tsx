@@ -73,7 +73,7 @@ export const OwnerDashboardPage: React.FC = () => {
         </h1>
         <p className="text-xs text-app-label-secondary mt-1">
           نظرة شاملة على الشركة، مشتقة من الدفاتر مباشرة — الفترة: {kpis.data?.period.from} ← {kpis.data?.period.to}.
-          تتحدث تلقائيًا كل ٣٠ ثانية.
+          تتحدث تلقائيًا كل 30 ثانية.
         </p>
       </div>
 

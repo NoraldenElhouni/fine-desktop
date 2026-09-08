@@ -299,7 +299,7 @@ const UsersPage: React.FC = () => {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                  كلمة المرور المؤقتة (٨ أحرف على الأقل)
+                  كلمة المرور المؤقتة (8 أحرف على الأقل)
                 </label>
                 <input
                   type="password"

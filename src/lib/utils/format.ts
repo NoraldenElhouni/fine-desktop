@@ -19,7 +19,7 @@ export const formatInteger = (v: number | string | null | undefined): string =>
 
 /**
  * Date as dd/mm/yyyy with Latin digits. Replaces the previous `"ar-LY"`
- * calls which produced ٠٣/٠٩/٢٠٢٦.
+ * calls which produced 03/09/2026 (was Arabic-Indic digits).
  */
 export const formatDate = (iso: string | Date): string =>
   new Date(iso).toLocaleDateString(LOCALE, {
