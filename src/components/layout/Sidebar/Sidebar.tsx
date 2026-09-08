@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Factory, LogOut, Settings, UserRound, LayoutGrid, ChevronDown, ChevronRight } from "lucide-react";
 import { User } from "../../../types/auth/types";
 import { cn } from "../../../lib/utils/utils";
@@ -12,10 +12,10 @@ interface SidebarProps {
   activePath: string;
   user: User | null;
   onLogout: () => void;
-  onOpenServerSettings: () => void;
 }
 
-const Sidebar = ({ isCollapsed, activePath, user, onLogout, onOpenServerSettings }: SidebarProps) => {
+const Sidebar = ({ isCollapsed, activePath, user, onLogout }: SidebarProps) => {
+  const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
 
@@ -266,7 +266,7 @@ const Sidebar = ({ isCollapsed, activePath, user, onLogout, onOpenServerSettings
                 )}
                 onClick={() => {
                   setIsMenuOpen(false);
-                  onOpenServerSettings();
+                  navigate("/settings");
                 }}
               >
                 <Settings className="h-3.5 w-3.5" />

@@ -10,10 +10,9 @@ import { tokens } from "../../../lib/tokens";
 interface NavbarProps {
   isCollapsed: boolean;
   onToggleCollapse: () => void;
-  onOpenServerSettings?: () => void;
 }
 
-const Navbar = ({ isCollapsed, onToggleCollapse, onOpenServerSettings }: NavbarProps) => {
+const Navbar = ({ isCollapsed, onToggleCollapse }: NavbarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const displayName = useRouteDisplayName(location.pathname);
@@ -54,7 +53,7 @@ const Navbar = ({ isCollapsed, onToggleCollapse, onOpenServerSettings }: NavbarP
       <div className="flex items-center gap-3">
         <button
           type="button"
-          onClick={onOpenServerSettings}
+          onClick={() => navigate("/settings")}
           className={cn(
             "flex items-center gap-2 rounded-app-xl border px-3 py-2 transition-all",
             tokens.typography.webUI.c1Emphasized,

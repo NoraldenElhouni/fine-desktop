@@ -20,6 +20,7 @@ import { FurnitureRoutes } from "../routes/FurnitureRoutes";
 import { SalesRoutes } from "../routes/SalesRoutes";
 import { AccountingRoutes } from "../routes/AccountingRoutes";
 import { HrRoutes } from "../routes/HrRoutes";
+import { SettingsRoutes } from "../routes/SettingsRoutes";
 
 import { CategoryHubPage } from "./hub/CategoryHubPage";
 
@@ -152,6 +153,14 @@ const App = () => {
               element={
                 <AuthorizedRoute allowedRoles={["owner", "admin", "furniture-manager", "assembler", "unit_manager", "manager"]}>
                   <FurnitureRoutes />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="settings/*"
+              element={
+                <AuthorizedRoute allowedRoles={["owner", "admin", "furniture-manager", "assembler", "unit_manager", "manager"]}>
+                  <SettingsRoutes />
                 </AuthorizedRoute>
               }
             />

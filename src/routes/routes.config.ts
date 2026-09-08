@@ -132,5 +132,9 @@ export const getBreadcrumbEntries = (
     entries.push({ path: normalizedPath, label: dynamicLabel });
   }
 
+  if (normalizedPath.startsWith("/settings/")) {
+    entries.push({ path: normalizedPath, label: "الإعدادات" });
+  }
+
   return entries;
 };
