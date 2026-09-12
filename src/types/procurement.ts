@@ -6,6 +6,8 @@ export type ImportOrderStatus =
   | 'paid'
   | 'in_transit'
   | 'at_port'
+  | 'in_transit_to_warehouse'
+  | 'at_warehouse'
   | 'awaiting_receipt'
   | 'received'
   | 'complete';
@@ -142,6 +144,8 @@ export interface ImportOrder {
   quantity: number;
   status: ImportOrderStatus;
   record_version: number;
+  arrived_warehouse_id?: string | null;
+  arrived_warehouse?: { id: string; name: string };
   items?: ImportOrderItemsPayload;
   payment_requests?: PaymentRequest[];
   landed_cost_lines?: LandedCostLine[];
@@ -191,6 +195,7 @@ export interface TransitionImportOrderPayload {
     | 'select_route'
     | 'shipment'
     | 'arrive_port'
+    | 'arrived_at_warehouse'
     | 'transport_warehouse'
     | 'receive_goods'
     | 'complete';

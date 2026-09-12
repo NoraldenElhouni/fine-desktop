@@ -41,6 +41,7 @@ import {
 } from "../../hooks/useProcurement";
 import { useOperatingUnits } from "../../hooks/usePartners";
 import { useInventoryItems } from "../../hooks/useInventory";
+import { useWarehouses, Warehouse } from "../../hooks/useWarehouses";
 import { InventoryItem } from "../../api/endpoints/inventory";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
@@ -58,6 +59,8 @@ const STAGES: { key: ImportOrderStatus; label: string; icon: React.FC<{ classNam
   { key: "paid", label: "تم مدفوع", icon: CheckCircle2 },
   { key: "in_transit", label: "في الشحن البحرية", icon: Truck },
   { key: "at_port", label: "وصلت الميناء", icon: Anchor },
+  { key: "in_transit_to_warehouse", label: "نقل بري للمخزن", icon: Truck },
+  { key: "at_warehouse", label: "وصلت المخزن", icon: WarehouseIcon },
   { key: "awaiting_receipt", label: "نقل للمخزن", icon: WarehouseIcon },
   { key: "received", label: "تم الاستلام", icon: Package },
   { key: "complete", label: "مكتمل ومحسوب", icon: FileCheck },
@@ -86,8 +89,11 @@ export const ImportOrdersPage: React.FC = () => {
   const [heldAmountLyd, setHeldAmountLyd] = useState<number>(0);
   const [amountRequested, setAmountRequested] = useState<number>(0);
   const [invoiceRef, setInvoiceRef] = useState<string>("");
+  const [arrivedWarehouseId, setArrivedWarehouseId] = useState<string>("");
   const [warehouseId, setWarehouseId] = useState<string>("");
   const [receivedQty, setReceivedQty] = useState<number>(0);
+
+  const { data: warehouses = [] } = useWarehouses();
 
   // Landed Cost Form State
   const [costType, setCostType] = useState<LandedCostType>("freight");
@@ -150,6 +156,12 @@ export const ImportOrdersPage: React.FC = () => {
     setSelectedOrder(order);
     setAmountRequested(Number(order.negotiated_price) * Number(order.quantity));
     setReceivedQty(Number(order.quantity));
+    // Pre-fill from the order's existing arrival warehouse so the picker
+    // shows the right value as soon as the operator opens the drawer.
+    setArrivedWarehouseId(order.arrived_warehouse_id ?? "");
+    setWarehouseId(
+      order.goods_receipt?.warehouse_id ?? order.arrived_warehouse_id ?? "",
+    );
   };
 
   const handleCreateOrder = async (e: React.FormEvent) => {
@@ -207,10 +219,25 @@ export const ImportOrdersPage: React.FC = () => {
         held_amount_lyd: transitionRoute === "bank" ? heldAmountLyd : undefined,
         invoice_ref: invoiceRef || undefined,
       };
-    } else if (action === "receive_goods") {
+    } else if (action === "arrived_at_warehouse") {
+      if (!arrivedWarehouseId) {
+        toast.error("اختر المخزن الذي وصلت إليه الشحنة");
+        return;
+      }
       payload = {
         action,
-        warehouse_id: warehouseId || (operatingUnits[0]?.id || undefined),
+        warehouse_id: arrivedWarehouseId,
+      };
+    } else if (action === "receive_goods") {
+      const effectiveWarehouse =
+        warehouseId || selectedOrder.arrived_warehouse_id || "";
+      if (!effectiveWarehouse) {
+        toast.error("اختر المخزن الذي ستجري فيه عملية الاستلام");
+        return;
+      }
+      payload = {
+        action,
+        warehouse_id: effectiveWarehouse,
         received_qty: receivedQty,
       };
     }
@@ -945,13 +972,86 @@ export const ImportOrdersPage: React.FC = () => {
                 </div>
               )}
 
-              {selectedOrder.status === "awaiting_receipt" && (
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-app-label-secondary">فحص واستلام البضاعة بالكامل بالمركز الرئيسي</p>
+              {selectedOrder.status === "in_transit_to_warehouse" && (
+                <div className="space-y-2">
+                  <p className="text-xs text-app-label-secondary">
+                    اختر المخزن الذي وصلت إليه الشحنة فعليًا
+                  </p>
+                  <SearchableSelect<Warehouse>
+                    options={warehouses}
+                    value={
+                      warehouses.find((w) => w.id === arrivedWarehouseId) ?? null
+                    }
+                    onChange={(w) => setArrivedWarehouseId(w ? w.id : "")}
+                    getOptionId={(w) => w.id}
+                    getOptionLabel={(w) => w.name}
+                    placeholder="اختر المخزن..."
+                    required
+                  />
+                  <button
+                    onClick={() => handleApplyTransition("arrived_at_warehouse")}
+                    disabled={
+                      transitionMutation.isPending || !arrivedWarehouseId
+                    }
+                    className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    تأكيد الوصول للمخزن
+                  </button>
+                </div>
+              )}
+
+              {selectedOrder.status === "at_warehouse" && (
+                <div className="space-y-2">
+                  <p className="text-xs text-app-label-secondary">
+                    فحص واستلام البضاعة بالكامل في{" "}
+                    <span className="font-bold text-app-label-primary">
+                      {selectedOrder.arrived_warehouse?.name ?? "المخزن"}
+                    </span>
+                  </p>
+                  <SearchableSelect<Warehouse>
+                    options={warehouses}
+                    value={
+                      warehouses.find((w) => w.id === warehouseId) ?? null
+                    }
+                    onChange={(w) => setWarehouseId(w ? w.id : "")}
+                    getOptionId={(w) => w.id}
+                    getOptionLabel={(w) => w.name}
+                    placeholder="اختر المخزن..."
+                    required
+                  />
                   <button
                     onClick={() => handleApplyTransition("receive_goods")}
-                    disabled={createOrderMutation.isPending || transitionMutation.isPending}
-                    className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white hover:opacity-90"
+                    disabled={transitionMutation.isPending || !warehouseId}
+                    className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    تأكيد الاستلام بالمخزن
+                  </button>
+                </div>
+              )}
+
+              {/* Legacy orders that predate the in_transit_to_warehouse
+                  split may still arrive in awaiting_receipt; surface the
+                  same receive picker so they can close. */}
+              {selectedOrder.status === "awaiting_receipt" && (
+                <div className="space-y-2">
+                  <p className="text-xs text-app-label-secondary">
+                    فحص واستلام البضاعة بالكامل في المخزن
+                  </p>
+                  <SearchableSelect<Warehouse>
+                    options={warehouses}
+                    value={
+                      warehouses.find((w) => w.id === warehouseId) ?? null
+                    }
+                    onChange={(w) => setWarehouseId(w ? w.id : "")}
+                    getOptionId={(w) => w.id}
+                    getOptionLabel={(w) => w.name}
+                    placeholder="اختر المخزن..."
+                    required
+                  />
+                  <button
+                    onClick={() => handleApplyTransition("receive_goods")}
+                    disabled={transitionMutation.isPending || !warehouseId}
+                    className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
                   >
                     تأكيد الاستلام بالمخزن
                   </button>
