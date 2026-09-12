@@ -8,13 +8,6 @@ export function useUsers() {
   });
 }
 
-export function useRoleCatalog() {
-  return useQuery({
-    queryKey: ["roleCatalog"],
-    queryFn: async () => (await usersApi.roleCatalog()).data.data,
-  });
-}
-
 /** Every user mutation invalidates the one list this section renders. */
 function useUserAction<TArgs>(fn: (args: TArgs) => Promise<unknown>) {
   const qc = useQueryClient();

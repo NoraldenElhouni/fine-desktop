@@ -14,13 +14,13 @@ import {
 } from "lucide-react";
 import {
   useUsers,
-  useRoleCatalog,
   useCreateUser,
   useUpdateUser,
   useDeleteUser,
   useAssignRole,
   useRemoveRole,
 } from "../../hooks/useUsers";
+import { useRoles } from "../../hooks/useRoles";
 import { AppUser } from "../../api/endpoints/users";
 import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
 import { OperatingUnit } from "../../types/entities";
@@ -32,7 +32,7 @@ import { useAuthStore } from "../../stores/authStore";
 
 const UsersPage: React.FC = () => {
   const { data: users, isLoading, isError, error, refetch } = useUsers();
-  const { data: roles } = useRoleCatalog();
+  const { data: roles } = useRoles();
   const { data: units } = useQuery<OperatingUnit[]>({
     queryKey: ["operatingUnits"],
     queryFn: getOperatingUnits,

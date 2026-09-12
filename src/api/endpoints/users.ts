@@ -4,14 +4,6 @@ export interface UserRolePivot {
   operating_unit_id: string | null;
 }
 
-export interface RoleEntry {
-  id: string;
-  name: string;
-  slug: string;
-  description?: string | null;
-  pivot?: UserRolePivot;
-}
-
 export interface AppUser {
   id: string;
   name: string;
@@ -19,7 +11,7 @@ export interface AppUser {
   is_active: boolean;
   must_change_password: boolean;
   record_version: number;
-  roles?: RoleEntry[];
+  roles?: import("./roles").RoleEntry[];
   created_at?: string;
 }
 
@@ -42,8 +34,6 @@ export const usersApi = {
 
   delete: (id: string) =>
     apiClient.delete<{ message: string }>(`/users/${id}`),
-
-  roleCatalog: () => apiClient.get<{ data: RoleEntry[] }>("/roles"),
 
   assignRole: (userId: string, data: { role_id: string; operating_unit_id?: string | null }) =>
     apiClient.post<{ message: string }>(`/users/${userId}/roles/assign`, data),
