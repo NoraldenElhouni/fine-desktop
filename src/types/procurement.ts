@@ -101,6 +101,37 @@ export interface GoodsReceipt {
   updated_at?: string;
 }
 
+export interface ImportOrderItemInventoryItem {
+  id: string;
+  name: string;
+  sku: string;
+  item_type: string;
+  unit_of_measure: string;
+}
+
+export interface ImportOrderItem {
+  id: string;
+  import_order_id: string;
+  inventory_item_id: string;
+  inventory_item?: ImportOrderItemInventoryItem;
+  quantity: number;
+  unit_price: number;
+  currency: string;
+  line_total: number;
+  record_version: number;
+}
+
+export interface ImportOrderItemInput {
+  inventory_item_id: string;
+  quantity: number;
+  unit_price: number;
+}
+
+export interface ImportOrderItemsPayload {
+  data: ImportOrderItem[];
+  items_total: number;
+}
+
 export interface ImportOrder {
   id: string;
   operating_unit_id: string;
@@ -111,6 +142,7 @@ export interface ImportOrder {
   quantity: number;
   status: ImportOrderStatus;
   record_version: number;
+  items?: ImportOrderItemsPayload;
   payment_requests?: PaymentRequest[];
   landed_cost_lines?: LandedCostLine[];
   goods_receipt?: GoodsReceipt | null;
@@ -148,8 +180,9 @@ export interface CreateImportOrderPayload {
   operating_unit_id: string;
   supplier_id: string;
   currency?: string;
-  negotiated_price: number;
-  quantity: number;
+  negotiated_price?: number;
+  quantity?: number;
+  items?: ImportOrderItemInput[];
 }
 
 export interface TransitionImportOrderPayload {

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   FileCheck,
   Plus,
@@ -16,10 +16,13 @@ import {
   Warehouse as WarehouseIcon,
   ShieldCheck,
   Percent,
+  Trash2,
+  ListChecks,
 } from "lucide-react";
 import { isAxiosError } from "axios";
 import {
   ImportOrder,
+  ImportOrderItemInput,
   ImportOrderStatus,
   CreateImportOrderPayload,
   TransitionImportOrderPayload,
@@ -37,11 +40,15 @@ import {
   useMarkLandedCostLinePaid,
 } from "../../hooks/useProcurement";
 import { useOperatingUnits } from "../../hooks/usePartners";
+import { useInventoryItems } from "../../hooks/useInventory";
+import { InventoryItem } from "../../api/endpoints/inventory";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { AllocationPaymentActions } from "../../components/allocations/AllocationPaymentActions";
 import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { cn } from "../../lib/utils/utils";
+import { tokens } from "../../lib/tokens";
 
 const STAGES: { key: ImportOrderStatus; label: string; icon: React.FC<{ className?: string }> }[] = [
   { key: "draft", label: "مسودة", icon: Clock },
@@ -93,8 +100,51 @@ export const ImportOrdersPage: React.FC = () => {
   const [selectedUnitId, setSelectedUnitId] = useState("");
   const [selectedSupplierId, setSelectedSupplierId] = useState("");
   const [currency, setCurrency] = useState("USD");
-  const [negotiatedPrice, setNegotiatedPrice] = useState<number>(0);
-  const [quantity, setQuantity] = useState<number>(0);
+  const [lineItems, setLineItems] = useState<ImportOrderItemInput[]>([
+    { inventory_item_id: "", quantity: 1, unit_price: 0 },
+  ]);
+  const [itemTypeFilter, setItemTypeFilter] = useState<
+    "raw_material" | "packaging" | "barrel" | "pallet"
+  >("raw_material");
+
+  const { data: inventoryItemsPage } = useInventoryItems({
+    item_type: itemTypeFilter,
+  });
+  const inventoryItems: InventoryItem[] = inventoryItemsPage?.data ?? [];
+
+  const itemsTotal = useMemo(
+    () =>
+      lineItems.reduce(
+        (sum, line) => sum + (Number(line.quantity) || 0) * (Number(line.unit_price) || 0),
+        0,
+      ),
+    [lineItems],
+  );
+
+  const resetCreateForm = () => {
+    setSelectedUnitId("");
+    setSelectedSupplierId("");
+    setCurrency("USD");
+    setLineItems([{ inventory_item_id: "", quantity: 1, unit_price: 0 }]);
+  };
+
+  const updateLine = (idx: number, patch: Partial<ImportOrderItemInput>) => {
+    setLineItems((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+  };
+
+  const addLine = () => {
+    setLineItems((prev) => [
+      ...prev,
+      { inventory_item_id: "", quantity: 1, unit_price: 0 },
+    ]);
+  };
+
+  const removeLine = (idx: number) => {
+    setLineItems((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const findInventoryItem = (id: string): InventoryItem | undefined =>
+    inventoryItems.find((it) => it.id === id);
 
   const openOrderDetail = (order: ImportOrder) => {
     setSelectedOrder(order);
@@ -105,8 +155,19 @@ export const ImportOrdersPage: React.FC = () => {
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     const unitId = selectedUnitId || operatingUnits[0]?.id;
-    if (!unitId || !selectedSupplierId || negotiatedPrice <= 0 || quantity <= 0) {
-      toast.error("يرجى تعبئة كافة الحقول المطلوبة بمقادير صحيحة");
+    if (!unitId || !selectedSupplierId) {
+      toast.error("يرجى اختيار الوحدة والمورد");
+      return;
+    }
+
+    const cleanLines = lineItems.filter(
+      (l) =>
+        l.inventory_item_id &&
+        Number(l.quantity) > 0 &&
+        Number(l.unit_price) > 0,
+    );
+    if (cleanLines.length === 0) {
+      toast.error("أضف بندًا واحدًا على الأقل بصنف وكمية وسعر صحيحين");
       return;
     }
 
@@ -114,20 +175,20 @@ export const ImportOrdersPage: React.FC = () => {
       operating_unit_id: unitId,
       supplier_id: selectedSupplierId,
       currency,
-      negotiated_price: negotiatedPrice,
-      quantity,
+      items: cleanLines,
     };
 
     createOrderMutation.mutate(payload, {
       onSuccess: () => {
         toast.success("تم إنشاء أمر الاستيراد بنجاح");
         setIsModalOpen(false);
-        setNegotiatedPrice(0);
-        setQuantity(0);
+        resetCreateForm();
       },
       onError: (err: unknown) => {
         const payloadErr = apiErrorPayload(err);
-        const message = payloadErr?.message || (isAxiosError(err) ? err.response?.data?.message : null);
+        const message =
+          payloadErr?.message ||
+          (isAxiosError(err) ? err.response?.data?.message : null);
         toast.error(message || "حدث خطأ أثناء إنشاء أمر الاستيراد");
       },
     });
@@ -330,53 +391,83 @@ export const ImportOrdersPage: React.FC = () => {
 
       {/* Add New Import Order Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-app-separator bg-app-bg-primary p-6 shadow-xl" dir="rtl">
-            <h3 className="text-lg font-bold text-app-label-primary mb-4">إنشاء أمر استيراد جديد</h3>
-            <form onSubmit={handleCreateOrder} className="space-y-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          dir="rtl"
+        >
+          <div className="w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl border border-app-separator bg-app-bg-primary shadow-xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-app-separator bg-app-bg-primary px-6 py-4">
               <div>
-                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                  الوحدة التشغيلية <span className="text-app-status-danger">*</span>
-                </label>
-                <SearchableSelect<{ id: string; name: string }>
-                  options={operatingUnits}
-                  value={
-                    operatingUnits.find((u) => u.id === selectedUnitId) ??
-                    null
-                  }
-                  onChange={(u) => setSelectedUnitId(u ? u.id : "")}
-                  getOptionId={(u) => u.id}
-                  getOptionLabel={(u) => u.name}
-                  placeholder="-- اختر الوحدة --"
-                  required
-                />
+                <h3 className="text-lg font-bold text-app-label-primary">
+                  إنشاء أمر استيراد جديد
+                </h3>
+                <p className="text-xs text-app-label-secondary mt-1">
+                  اختر المورد وأضف بنود الأصناف المطلوب استيرادها.
+                </p>
               </div>
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="rounded-lg px-3 py-1 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
+              >
+                إلغاء
+              </button>
+            </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                  المورد الخارجي <span className="text-app-status-danger">*</span>
-                </label>
-                <SearchableSelect<{ id: string; name: string; default_currency?: string }>
-                  options={suppliers}
-                  value={
-                    suppliers.find((s) => s.id === selectedSupplierId) ??
-                    null
-                  }
-                  onChange={(s) => setSelectedSupplierId(s ? s.id : "")}
-                  getOptionId={(s) => s.id}
-                  getOptionLabel={(s) => s.name}
-                  getOptionSubLabel={(s) => s.default_currency}
-                  getOptionSearchText={(s) =>
-                    `${s.name} ${s.default_currency ?? ""}`
-                  }
-                  placeholder="-- اختر المورد --"
-                  required
-                />
+            <form onSubmit={handleCreateOrder} className="space-y-4 p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                    الوحدة التشغيلية{" "}
+                    <span className="text-app-status-danger">*</span>
+                  </label>
+                  <SearchableSelect<{ id: string; name: string }>
+                    options={operatingUnits}
+                    value={
+                      operatingUnits.find((u) => u.id === selectedUnitId) ??
+                      null
+                    }
+                    onChange={(u) => setSelectedUnitId(u ? u.id : "")}
+                    getOptionId={(u) => u.id}
+                    getOptionLabel={(u) => u.name}
+                    placeholder="-- اختر الوحدة --"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                    المورد الخارجي{" "}
+                    <span className="text-app-status-danger">*</span>
+                  </label>
+                  <SearchableSelect<{
+                    id: string;
+                    name: string;
+                    default_currency?: string;
+                  }>
+                    options={suppliers}
+                    value={
+                      suppliers.find((s) => s.id === selectedSupplierId) ??
+                      null
+                    }
+                    onChange={(s) => setSelectedSupplierId(s ? s.id : "")}
+                    getOptionId={(s) => s.id}
+                    getOptionLabel={(s) => s.name}
+                    getOptionSubLabel={(s) => s.default_currency}
+                    getOptionSearchText={(s) =>
+                      `${s.name} ${s.default_currency ?? ""}`
+                    }
+                    placeholder="-- اختر المورد --"
+                    required
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-3 gap-2">
                 <div className="col-span-1">
-                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">العملة</label>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                    العملة
+                  </label>
                   <select
                     value={currency}
                     onChange={(e) => setCurrency(e.target.value)}
@@ -387,54 +478,232 @@ export const ImportOrdersPage: React.FC = () => {
                     <option value="LYD">LYD</option>
                   </select>
                 </div>
-                <div className="col-span-2">
-                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                    السعر المتفق عليه للوحدة <span className="text-app-status-danger">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    required
-                    value={negotiatedPrice || ""}
-                    onChange={(e) => setNegotiatedPrice(Number(e.target.value))}
-                    placeholder="120.50"
-                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-                  />
+                <div className="col-span-2 flex items-end">
+                  <p className="text-[10px] text-app-label-tertiary leading-relaxed">
+                    تُطبق العملة المختارة على جميع بنود الأمر. الإجمالي يُحسب
+                    تلقائيًا من مجموع البنود.
+                  </p>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                  الكمية المتعاقد عليها <span className="text-app-status-danger">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  min="1"
-                  required
-                  value={quantity || ""}
-                  onChange={(e) => setQuantity(Number(e.target.value))}
-                  placeholder="1000"
-                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-                />
+              {/* Line items */}
+              <div className="border-t border-app-separator pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <ListChecks className="h-4 w-4 text-app-accent" />
+                    <h4 className="text-sm font-bold text-app-label-primary">
+                      بنود أمر الاستيراد
+                    </h4>
+                    <span className="text-[10px] text-app-label-tertiary">
+                      ({lineItems.length} بند)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addLine}
+                    className="flex items-center gap-1 rounded-lg border border-app-accent px-2.5 py-1 text-[11px] font-bold text-app-accent hover:bg-app-accent-subtle transition-colors"
+                  >
+                    <Plus className="h-3 w-3" /> إضافة بند
+                  </button>
+                </div>
+
+                {/* Type filter pills */}
+                <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                  {(
+                    [
+                      { value: "raw_material", label: "مواد خام" },
+                      { value: "packaging", label: "مواد تعبئة" },
+                      { value: "barrel", label: "براميل" },
+                      { value: "pallet", label: "بالتات" },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setItemTypeFilter(opt.value)}
+                      className={cn(
+                        tokens.typography.webUI.c1Emphasized,
+                        "rounded-full px-3 py-1 transition-colors",
+                        itemTypeFilter === opt.value
+                          ? "bg-app-accent text-white"
+                          : "bg-app-bg-secondary text-app-label-secondary hover:bg-app-fill-f1",
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="space-y-2">
+                  {lineItems.map((line, idx) => {
+                    const selectedItem = findInventoryItem(line.inventory_item_id);
+                    const lineTotal = (Number(line.quantity) || 0) * (Number(line.unit_price) || 0);
+                    return (
+                      <div
+                        key={idx}
+                        className="rounded-xl border border-app-separator bg-app-bg-secondary p-3 space-y-2"
+                      >
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <SearchableSelect<InventoryItem>
+                              options={inventoryItems}
+                              value={
+                                line.inventory_item_id
+                                  ? inventoryItems.find(
+                                      (it) => it.id === line.inventory_item_id,
+                                    ) ?? null
+                                  : null
+                              }
+                              onChange={(item) =>
+                                updateLine(idx, {
+                                  inventory_item_id: item ? item.id : "",
+                                })
+                              }
+                              getOptionId={(it) => it.id}
+                              getOptionLabel={(it) => it.name}
+                              getOptionSubLabel={(it) => `${it.sku} · ${it.unit_of_measure}`}
+                              getOptionSearchText={(it) =>
+                                `${it.name} ${it.sku}`
+                              }
+                              placeholder="اختر صنفًا..."
+                              size="sm"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeLine(idx)}
+                            disabled={lineItems.length <= 1}
+                            className="rounded-lg p-1.5 text-app-status-danger hover:bg-app-status-danger/10 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                            title="حذف البند"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+
+                        {selectedItem && (
+                          <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                            <span className="rounded-full bg-app-bg-primary px-2 py-0.5 font-mono text-app-label-secondary border border-app-separator">
+                              {selectedItem.sku}
+                            </span>
+                            <span className="rounded-full bg-app-bg-primary px-2 py-0.5 text-app-label-secondary border border-app-separator">
+                              {selectedItem.unit_of_measure}
+                            </span>
+                            {selectedItem.primary_uom && (
+                              <span className="rounded-full bg-app-bg-primary px-2 py-0.5 text-app-label-tertiary border border-app-separator">
+                                {selectedItem.primary_uom}
+                                {selectedItem.secondary_uom
+                                  ? ` / ${selectedItem.secondary_uom}`
+                                  : ""}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          <div>
+                            <label
+                              className={cn(
+                                tokens.typography.webUI.c1Emphasized,
+                                "block mb-1 text-app-label-secondary",
+                              )}
+                            >
+                              الكمية
+                            </label>
+                            <input
+                              type="number"
+                              step="0.0001"
+                              min="0.0001"
+                              value={line.quantity || ""}
+                              onChange={(e) =>
+                                updateLine(idx, {
+                                  quantity: Number(e.target.value) || 0,
+                                })
+                              }
+                              placeholder="0"
+                              className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-2.5 py-1.5 text-xs font-mono focus:border-app-accent focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label
+                              className={cn(
+                                tokens.typography.webUI.c1Emphasized,
+                                "block mb-1 text-app-label-secondary",
+                              )}
+                            >
+                              سعر الوحدة ({currency})
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={line.unit_price || ""}
+                              onChange={(e) =>
+                                updateLine(idx, {
+                                  unit_price: Number(e.target.value) || 0,
+                                })
+                              }
+                              placeholder="0.00"
+                              className="w-full rounded-lg border border-app-separator bg-app-bg-primary px-2.5 py-1.5 text-xs font-mono focus:border-app-accent focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label
+                              className={cn(
+                                tokens.typography.webUI.c1Emphasized,
+                                "block mb-1 text-app-label-secondary",
+                              )}
+                            >
+                              إجمالي البند
+                            </label>
+                            <div className="rounded-lg border border-app-separator bg-app-bg-primary px-2.5 py-1.5 text-xs font-mono font-bold text-app-accent text-start">
+                              {formatNumber(lineTotal)} {currency}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-app-separator">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-xl px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || !selectedSupplierId || negotiatedPrice <= 0}
-                  className="rounded-xl bg-app-accent px-5 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
-                >
-                  {isSubmitting ? "جاري الحفظ..." : "حفظ أمر الاستيراد"}
-                </button>
+              <div className="sticky bottom-0 z-10 -mx-6 -mb-6 mt-4 border-t border-app-separator bg-app-bg-primary px-6 py-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-semibold uppercase text-app-label-tertiary">
+                      إجمالي الأمر
+                    </span>
+                    <span className="text-base font-mono font-bold text-app-label-primary">
+                      {formatNumber(itemsTotal)} {currency}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsModalOpen(false)}
+                      className="rounded-xl px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
+                    >
+                      إلغاء
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={
+                        createOrderMutation.isPending ||
+                        !selectedSupplierId ||
+                        lineItems.every(
+                          (l) =>
+                            !l.inventory_item_id ||
+                            Number(l.quantity) <= 0 ||
+                            Number(l.unit_price) <= 0,
+                        )
+                      }
+                      className="rounded-xl bg-app-accent px-5 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+                    >
+                      {createOrderMutation.isPending
+                        ? "جاري الحفظ..."
+                        : "حفظ أمر الاستيراد"}
+                    </button>
+                  </div>
+                </div>
               </div>
             </form>
           </div>
@@ -456,10 +725,16 @@ export const ImportOrdersPage: React.FC = () => {
                   {getStatusBadge(selectedOrder.status)}
                 </div>
                 <p className="text-xs text-app-label-secondary mt-1">
-                  المورد: <span className="font-bold text-app-label-primary">{selectedOrder.supplier?.name}</span> |
-                  الكمية: {formatNumber(selectedOrder.quantity)} | إجمالي العقد:{" "}
+                  المورد:{" "}
+                  <span className="font-bold text-app-label-primary">
+                    {selectedOrder.supplier?.name}
+                  </span>{" "}
+                  | الكمية: {formatNumber(selectedOrder.quantity)} | إجمالي العقد:{" "}
                   <span className="font-bold text-emerald-600 font-mono">
-                    {formatNumber(Number(selectedOrder.negotiated_price) * Number(selectedOrder.quantity))}{" "}
+                    {formatNumber(
+                      Number(selectedOrder.negotiated_price) *
+                        Number(selectedOrder.quantity),
+                    )}{" "}
                     {selectedOrder.currency}
                   </span>
                 </p>
@@ -471,6 +746,73 @@ export const ImportOrdersPage: React.FC = () => {
                 إغلاق
               </button>
             </div>
+
+            {/* Line Items Breakdown */}
+            {selectedOrder.items?.data?.length ? (
+              <div>
+                <h4 className="text-xs font-bold text-app-label-secondary mb-3 flex items-center gap-2">
+                  <ListChecks className="h-3.5 w-3.5 text-app-accent" />
+                  بنود الأمر ({selectedOrder.items.data.length})
+                </h4>
+                <div className="overflow-hidden rounded-xl border border-app-separator bg-app-bg-secondary">
+                  <table className="w-full text-xs">
+                    <thead className="bg-app-bg-primary text-app-label-secondary">
+                      <tr>
+                        <th className="px-3 py-2 text-start font-bold">الصنف</th>
+                        <th className="px-3 py-2 text-start font-bold">SKU</th>
+                        <th className="px-3 py-2 text-end font-bold">الكمية</th>
+                        <th className="px-3 py-2 text-end font-bold">
+                          سعر الوحدة
+                        </th>
+                        <th className="px-3 py-2 text-end font-bold">الإجمالي</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-app-separator">
+                      {selectedOrder.items.data.map((line) => (
+                        <tr key={line.id} className="text-app-label-primary">
+                          <td className="px-3 py-2 font-semibold">
+                            {line.inventory_item?.name ?? "—"}
+                          </td>
+                          <td className="px-3 py-2 font-mono text-app-label-secondary">
+                            {line.inventory_item?.sku ?? "—"}
+                          </td>
+                          <td className="px-3 py-2 font-mono text-end">
+                            {formatNumber(Number(line.quantity))}{" "}
+                            <span className="text-[10px] text-app-label-tertiary">
+                              {line.inventory_item?.unit_of_measure ?? ""}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 font-mono text-end">
+                            {formatNumber(Number(line.unit_price))} {line.currency}
+                          </td>
+                          <td className="px-3 py-2 font-mono font-bold text-end text-app-accent">
+                            {formatNumber(Number(line.line_total))} {line.currency}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-app-bg-primary border-t border-app-separator">
+                        <td
+                          colSpan={4}
+                          className="px-3 py-2 text-start text-[11px] font-bold uppercase text-app-label-secondary"
+                        >
+                          الإجمالي
+                        </td>
+                        <td className="px-3 py-2 font-mono font-bold text-end text-app-accent">
+                          {formatNumber(Number(selectedOrder.items.items_total))}{" "}
+                          {selectedOrder.currency}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-app-separator bg-app-bg-secondary p-3 text-center text-xs text-app-label-tertiary">
+                لا توجد بنود مسجلة على هذا الأمر (تم إنشاؤه قبل تحديث بنود الأصناف).
+              </div>
+            )}
 
             {/* Stepper Progress */}
             <div>
