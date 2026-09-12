@@ -31,8 +31,17 @@ export const usersApi = {
 
   update: (
     id: string,
-    data: { name?: string; email?: string; is_active?: boolean; record_version: number },
+    data: {
+      name?: string;
+      email?: string;
+      password?: string;
+      is_active?: boolean;
+      record_version: number;
+    },
   ) => apiClient.put<{ data: AppUser }>(`/users/${id}`, data),
+
+  delete: (id: string) =>
+    apiClient.delete<{ message: string }>(`/users/${id}`),
 
   roleCatalog: () => apiClient.get<{ data: RoleEntry[] }>("/roles"),
 

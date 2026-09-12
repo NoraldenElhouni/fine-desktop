@@ -30,9 +30,22 @@ export function useCreateUser() {
 
 export function useUpdateUser() {
   return useUserAction(
-    ({ id, ...data }: { id: string; name?: string; email?: string; is_active?: boolean; record_version: number }) =>
-      usersApi.update(id, data),
+    ({
+      id,
+      ...data
+    }: {
+      id: string;
+      name?: string;
+      email?: string;
+      password?: string;
+      is_active?: boolean;
+      record_version: number;
+    }) => usersApi.update(id, data),
   );
+}
+
+export function useDeleteUser() {
+  return useUserAction((id: string) => usersApi.delete(id));
 }
 
 export function useAssignRole() {
