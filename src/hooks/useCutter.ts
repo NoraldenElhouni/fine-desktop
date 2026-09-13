@@ -16,11 +16,22 @@ export function useCutterOrder(id?: string) {
   });
 }
 
+export function useAvailableFoamBlocks(params?: { page?: number }) {
+  return useQuery({
+    queryKey: ["availableFoamBlocks", params],
+    queryFn: async () => (await cutterApi.getAvailableFoamBlocks(params)).data,
+  });
+}
+
 export function useCreateCutterOrder() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { order_number: string; client_id?: string; notes?: string }) =>
-      cutterApi.createOrder(data),
+    mutationFn: (data: {
+      order_number: string;
+      client_id?: string;
+      notes?: string;
+      stock_lot_id?: string;
+    }) => cutterApi.createOrder(data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["cutterOrders"] }),
   });
 }

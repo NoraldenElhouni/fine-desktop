@@ -1,10 +1,23 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Scissors, Plus, RefreshCw, AlertTriangle, Building2, Home } from "lucide-react";
-import { useCutterOrders, useCreateCutterOrder } from "../../hooks/useCutter";
+import {
+  Scissors,
+  Plus,
+  RefreshCw,
+  AlertTriangle,
+  Building2,
+  Home,
+  Package,
+} from "lucide-react";
+import {
+  useCutterOrders,
+  useCreateCutterOrder,
+  useAvailableFoamBlocks,
+} from "../../hooks/useCutter";
 import { getClients } from "../../api/endpoints/clients";
 import {
+  AvailableFoamBlock,
   CUTTER_STATUS_ORDER,
   CUTTER_STATUS_LABEL,
   CutterWorkOrderStatus,
@@ -21,9 +34,13 @@ export const CutterWorkOrdersPage: React.FC = () => {
   const [orderNumber, setOrderNumber] = useState("");
   const [clientId, setClientId] = useState("");
   const [notes, setNotes] = useState("");
+  const [stockLotId, setStockLotId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: () => getClients() });
+  const { data: foamBlocksPage } = useAvailableFoamBlocks();
+  const foamBlocks: AvailableFoamBlock[] = foamBlocksPage?.data ?? [];
+  const selectedBlock = foamBlocks.find((b) => b.id === stockLotId);
 
   const { data, isLoading, refetch } = useCutterOrders({
     status: statusFilter || undefined,
@@ -33,17 +50,28 @@ export const CutterWorkOrdersPage: React.FC = () => {
 
   const orders = data?.data ?? [];
 
+  const resetCreateForm = () => {
+    setOrderNumber("");
+    setClientId("");
+    setNotes("");
+    setStockLotId("");
+    setError(null);
+  };
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     createMutation.mutate(
-      { order_number: orderNumber, client_id: clientId || undefined, notes: notes || undefined },
+      {
+        order_number: orderNumber,
+        client_id: clientId || undefined,
+        notes: notes || undefined,
+        stock_lot_id: stockLotId || undefined,
+      },
       {
         onSuccess: (res) => {
           setShowForm(false);
-          setOrderNumber("");
-          setClientId("");
-          setNotes("");
+          resetCreateForm();
           navigate(`/cutter/orders/${res.data.id}`);
         },
         onError: (err: unknown) =>
@@ -144,6 +172,7 @@ export const CutterWorkOrdersPage: React.FC = () => {
               <tr>
                 <th className="px-4 py-3 text-start">Order</th>
                 <th className="px-4 py-3 text-start">Source</th>
+                <th className="px-4 py-3 text-start">Block</th>
                 <th className="px-4 py-3 text-start">Lines</th>
                 <th className="px-4 py-3 text-start">Material in Order</th>
                 <th className="px-4 py-3 text-start">Status</th>
@@ -164,6 +193,20 @@ export const CutterWorkOrdersPage: React.FC = () => {
                       <span className="inline-flex items-center gap-1 text-app-label-secondary">
                         <Home className="w-3.5 h-3.5" /> Internal
                       </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {o.stock_lot ? (
+                      <div className="flex flex-col gap-0.5">
+                        <span className="inline-flex items-center gap-1 font-mono text-app-accent">
+                          <Package className="h-3 w-3" /> {o.stock_lot.lot_number}
+                        </span>
+                        <span className="text-[10px] text-app-label-tertiary">
+                          {formatNumber(Number(o.stock_lot.unit_cost))} locked
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-app-label-tertiary">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3 font-bold">{o.lines_count ?? o.lines?.length ?? 0}</td>
@@ -187,7 +230,7 @@ export const CutterWorkOrdersPage: React.FC = () => {
               ))}
               {orders.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-app-label-tertiary">
+                  <td colSpan={7} className="px-4 py-8 text-center text-app-label-tertiary">
                     No cutter work orders{statusFilter ? ` at ${CUTTER_STATUS_LABEL[statusFilter as CutterWorkOrderStatus]}` : ""}.
                   </td>
                 </tr>
@@ -199,7 +242,7 @@ export const CutterWorkOrdersPage: React.FC = () => {
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-app-bg-primary rounded-2xl max-w-md w-full p-6 border border-app-separator shadow-xl space-y-4">
+          <div className="bg-app-bg-primary rounded-2xl max-w-2xl w-full p-6 border border-app-separator shadow-xl space-y-4 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-app-accent-subtle text-app-accent rounded-xl">
                 <Scissors className="w-6 h-6" />
@@ -207,7 +250,7 @@ export const CutterWorkOrdersPage: React.FC = () => {
               <div>
                 <h3 className="text-lg font-bold text-app-label-primary">New Cutter Work Order</h3>
                 <p className="text-xs text-app-label-secondary">
-                  Leave the client unset for an internal order from another unit.
+                  Leave the client unset for an internal order. Pick a precut block to commit its measurements + price to the order at creation.
                 </p>
               </div>
             </div>
@@ -252,6 +295,52 @@ export const CutterWorkOrdersPage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                  Precut Block (optional)
+                </label>
+                <SearchableSelect<AvailableFoamBlock>
+                  options={foamBlocks}
+                  value={
+                    foamBlocks.find((b) => b.id === stockLotId) ?? null
+                  }
+                  onChange={(b) => setStockLotId(b ? b.id : "")}
+                  getOptionId={(b) => b.id}
+                  getOptionLabel={(b) => b.lot_number}
+                  getOptionSubLabel={(b) =>
+                    `${b.inventory_item?.sku ?? ""} · ${formatNumber(Number(b.unit_cost))} ${
+                      b.warehouse?.name ?? ""
+                    }`
+                  }
+                  getOptionSearchText={(b) =>
+                    `${b.lot_number} ${b.inventory_item?.sku ?? ""} ${b.inventory_item?.name ?? ""}`
+                  }
+                  placeholder="No block yet — pick later"
+                />
+                {selectedBlock && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px]">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-app-accent-subtle px-2 py-0.5 font-mono text-app-accent">
+                      <Package className="h-3 w-3" />
+                      {selectedBlock.lot_number}
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-app-bg-secondary px-2 py-0.5 text-app-label-secondary border border-app-separator">
+                      {Number(selectedBlock.length_m ?? 0).toFixed(2)} ×
+                      {" "}{Number(selectedBlock.width_m ?? 0).toFixed(2)} ×
+                      {" "}{Number(selectedBlock.height_m ?? 0).toFixed(2)} م
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-app-bg-secondary px-2 py-0.5 text-app-label-secondary border border-app-separator">
+                      {Number(selectedBlock.volume_m3 ?? 0).toFixed(4)} م³
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-app-accent/10 px-2 py-0.5 font-bold text-app-accent">
+                      {formatNumber(Number(selectedBlock.unit_cost))} سعر مثبت
+                    </span>
+                  </div>
+                )}
+                <p className="text-[10px] text-app-label-tertiary mt-1">
+                  يتم حجز البلوك فور إنشاء الأمر وقفل قياساته وسعره. لا يمكن تبديل البلوك لاحقًا.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
                   Notes
                 </label>
                 <textarea
@@ -265,7 +354,10 @@ export const CutterWorkOrdersPage: React.FC = () => {
               <div className="flex justify-end gap-3 pt-4 border-t border-app-separator">
                 <button
                   type="button"
-                  onClick={() => setShowForm(false)}
+                  onClick={() => {
+                    setShowForm(false);
+                    resetCreateForm();
+                  }}
                   className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
                 >
                   Cancel

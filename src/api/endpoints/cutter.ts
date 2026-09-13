@@ -55,6 +55,23 @@ export interface FoamBlockConsumption {
   stock_lot?: StockLot;
 }
 
+/**
+ * A foam block available to be attached to a cutter work order at
+ * creation time. Mirrors the backend's GET /cutter-work-orders/available-foam-blocks.
+ */
+export interface AvailableFoamBlock {
+  id: string;
+  lot_number: string;
+  unit_cost: number;
+  length_m?: number | null;
+  width_m?: number | null;
+  height_m?: number | null;
+  volume_m3?: number | null;
+  status: string;
+  warehouse?: { id: string; name: string };
+  inventory_item?: { id: string; name: string; sku: string };
+}
+
 export interface CutterWorkOrderLine {
   id: string;
   cutter_work_order_id: string;
@@ -95,6 +112,14 @@ export interface CutterWorkOrder {
   byproduct_yields?: ByproductYield[];
   record_version: number;
   created_at: string;
+  // CUT-block-sale: the precut block attached at order creation.
+  stock_lot_id?: string | null;
+  stock_lot?: AvailableFoamBlock | null;
+  block_unit_cost_snapshot?: number | null;
+  block_length_m_snapshot?: number | null;
+  block_width_m_snapshot?: number | null;
+  block_height_m_snapshot?: number | null;
+  block_volume_m3_snapshot?: number | null;
 }
 
 export const cutterApi = {
@@ -106,8 +131,20 @@ export const cutterApi = {
 
   getOrder: (id: string) => apiClient.get<CutterWorkOrder>(`/cutter-work-orders/${id}`),
 
-  createOrder: (data: { order_number: string; client_id?: string; notes?: string }) =>
-    apiClient.post<CutterWorkOrder>("/cutter-work-orders", data),
+  createOrder: (data: {
+    order_number: string;
+    client_id?: string;
+    notes?: string;
+    stock_lot_id?: string;
+  }) => apiClient.post<CutterWorkOrder>("/cutter-work-orders", data),
+
+  getAvailableFoamBlocks: (params?: { page?: number }) =>
+    apiClient.get<{
+      data: AvailableFoamBlock[];
+      current_page: number;
+      last_page: number;
+      total: number;
+    }>("/cutter-work-orders/available-foam-blocks", { params }),
 
   transition: (id: string, status: CutterWorkOrderStatus) =>
     apiClient.post<CutterWorkOrder>(`/cutter-work-orders/${id}/transition`, { status }),

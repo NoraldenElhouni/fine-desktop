@@ -5,12 +5,12 @@ import {
 } from "lucide-react";
 import {
   useCutterOrder, useTransitionCutterOrder, useAddCutterLine, useAssignTemplate,
-  useAvailableBlocks, useSelectBlock, useRecordWeighIn,
+  useRecordWeighIn,
 } from "../../hooks/useCutter";
 import { useInventoryItems } from "../../hooks/useInventory";
 import { useWarehouses } from "../../hooks/useWarehouses";
 import {
-  CUTTER_STATUS_ORDER, CUTTER_STATUS_LABEL, CUTTER_NEXT_STATUS, BLOCK_SELECTION_STATES,
+  CUTTER_STATUS_ORDER, CUTTER_STATUS_LABEL, CUTTER_NEXT_STATUS,
   CutterWorkOrderLine,
 } from "../../api/endpoints/cutter";
 import { apiErrorPayload } from "../../api/endpoints/production";
@@ -35,7 +35,6 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
   const transitionMutation = useTransitionCutterOrder();
   const addLineMutation = useAddCutterLine();
   const templateMutation = useAssignTemplate(orderId);
-  const selectBlockMutation = useSelectBlock(orderId);
   const weighInMutation = useRecordWeighIn(orderId);
 
   const [error, setError] = useState<string | null>(null);
@@ -43,18 +42,11 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
   const [qty, setQty] = useState("1");
   const [pieceItemId, setPieceItemId] = useState("");
   const [tpl, setTpl] = useState<Record<string, { l: string; w: string; h: string }>>({});
-  const [pickingLineId, setPickingLineId] = useState<string | null>(null);
   const [weight, setWeight] = useState("");
   const [fillItemId, setFillItemId] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
 
-  const { data: blocks, isLoading: blocksLoading } = useAvailableBlocks(
-    pickingLineId ?? undefined,
-    Boolean(pickingLineId),
-  );
-
   const nextStatus = order ? CUTTER_NEXT_STATUS[order.status] : null;
-  const canPickBlocks = order ? BLOCK_SELECTION_STATES.includes(order.status) : false;
   const atWeighIn = order?.status === "awaiting_byproduct_weigh_in";
   const hasWeighIn = (order?.byproduct_yields?.length ?? 0) > 0;
 
@@ -104,17 +96,6 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
         },
       },
       { onError: (e) => fail(e, "Could not assign the template.") },
-    );
-  };
-
-  const pickBlock = (lineId: string, stockLotId: string) => {
-    setError(null);
-    selectBlockMutation.mutate(
-      { lineId, stockLotId },
-      {
-        onSuccess: () => setPickingLineId(null),
-        onError: (e) => fail(e, "Could not select that block."),
-      },
     );
   };
 
@@ -210,6 +191,67 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
           </p>
         )}
       </div>
+
+      {/* CUT-block-sale: the precut block attached at order creation.
+          Price + dimensions are locked here and never recalculate. */}
+      {order.stock_lot && (
+        <div className="rounded-2xl border border-app-accent/40 bg-app-accent-tint shadow-sm">
+          <div className="border-b border-app-accent/30 px-4 py-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Package className="h-4 w-4 text-app-accent" />
+              <h2 className="text-sm font-bold text-app-label-primary">البلوك المثبت</h2>
+            </div>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                order.stock_lot.status === "reserved"
+                  ? "bg-app-status-info/15 text-app-status-info"
+                  : order.stock_lot.status === "consumed"
+                    ? "bg-app-fill-f2 text-app-label-secondary"
+                    : "bg-app-bg-primary text-app-label-primary"
+              }`}
+            >
+              {order.stock_lot.status}
+            </span>
+          </div>
+          <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+            <div>
+              <div className="text-[10px] uppercase tracking-wider font-semibold text-app-label-tertiary mb-1">
+                رقم اللوت
+              </div>
+              <div className="font-mono font-bold text-app-accent text-sm">
+                {order.stock_lot.lot_number}
+              </div>
+              <div className="text-[10px] text-app-label-tertiary mt-0.5">
+                {order.stock_lot.inventory_item?.sku ?? ""} {order.stock_lot.inventory_item?.name ?? ""}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wider font-semibold text-app-label-tertiary mb-1">
+                السعر المثبت
+              </div>
+              <div className="font-mono font-bold text-app-label-primary text-sm">
+                {formatNumber(Number(order.block_unit_cost_snapshot ?? order.stock_lot.unit_cost))} LYD
+              </div>
+              <div className="text-[10px] text-app-label-tertiary mt-0.5">
+                لا يتأثر بتغييرات سعر المخزون لاحقاً
+              </div>
+            </div>
+            <div className="md:col-span-2 flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-app-bg-primary px-2 py-0.5 text-app-label-secondary border border-app-separator">
+                {Number(order.block_length_m_snapshot ?? order.stock_lot.length_m ?? 0).toFixed(2)} ×
+                {" "}{Number(order.block_width_m_snapshot ?? order.stock_lot.width_m ?? 0).toFixed(2)} ×
+                {" "}{Number(order.block_height_m_snapshot ?? order.stock_lot.height_m ?? 0).toFixed(2)} م
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-app-bg-primary px-2 py-0.5 text-app-label-secondary border border-app-separator">
+                {Number(order.block_volume_m3_snapshot ?? order.stock_lot.volume_m3 ?? 0).toFixed(4)} م³
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-app-bg-secondary px-2 py-0.5 text-app-label-tertiary">
+                {order.stock_lot.warehouse?.name ?? ""}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Weigh-in — surfaced above the lines while it is the blocking step */}
       {atWeighIn && (
@@ -403,69 +445,10 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
                   </div>
                 )}
 
-                {canPickBlocks && line.template_volume_m3 && (
-                  <button
-                    onClick={() => setPickingLineId(pickingLineId === line.id ? null : line.id)}
-                    className="flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1 transition-colors"
-                  >
-                    <Package className="w-4 h-4" />
-                    {pickingLineId === line.id ? "Hide blocks" : "Choose a block"}
-                  </button>
-                )}
-
-                {/* Block selection — filtered candidates, the manager decides */}
-                {pickingLineId === line.id && (
-                  <div className="rounded-xl border border-app-accent/40 bg-app-accent-tint p-3">
-                    <p className="text-xs text-app-label-secondary mb-2">
-                      Blocks with at least{" "}
-                      <span className="font-mono font-bold">
-                        {(Number(line.template_volume_m3) * line.quantity).toFixed(4)} m³
-                      </span>
-                      , smallest first. The system filters — you choose.
-                    </p>
-
-                    {blocksLoading ? (
-                      <div className="text-xs text-app-label-secondary py-4 text-center">
-                        Loading blocks...
-                      </div>
-                    ) : (blocks?.length ?? 0) === 0 ? (
-                      <div className="text-xs text-app-label-tertiary py-4 text-center">
-                        No available block is large enough.
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                        {blocks?.map((b) => (
-                          <button
-                            key={b.id}
-                            onClick={() => pickBlock(line.id, b.id)}
-                            disabled={selectBlockMutation.isPending}
-                            className="text-start rounded-xl border border-app-separator bg-app-bg-primary p-3 hover:border-app-accent hover:shadow-sm transition-all disabled:opacity-50"
-                          >
-                            <div className="font-mono font-bold text-app-accent text-xs">
-                              {b.lot_number}
-                            </div>
-                            <div className="text-[11px] text-app-label-secondary mt-1 font-mono">
-                              {b.length_m}×{b.width_m}×{b.height_m} m
-                            </div>
-                            <div className="flex items-center justify-between mt-1">
-                              <span className="text-[11px] font-bold text-app-label-primary font-mono">
-                                {Number(b.volume_m3).toFixed(4)} m³
-                              </span>
-                              <span className="text-[11px] text-app-label-secondary font-mono">
-                                {formatNumber(b.unit_cost)}
-                              </span>
-                            </div>
-                            {b.grade && (
-                              <span className="inline-block mt-1 px-1.5 py-0.5 text-[10px] rounded bg-app-fill-f1 text-app-label-secondary">
-                                {b.grade}
-                              </span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                {/* Per-line block picker removed in CUT-block-sale: blocks are
+                    picked at order creation and snapshotted on the order
+                    header. The attached-block card at the top of the page
+                    shows the locked dimensions and price. */}
               </div>
             );
           })}
