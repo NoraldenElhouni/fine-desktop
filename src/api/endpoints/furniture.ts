@@ -1,4 +1,5 @@
 import apiClient from "../client";
+import { MaterialRequest } from "./materials";
 import { StockLot } from "./inventory";
 
 export type ProductionOrderStatus =
@@ -110,6 +111,8 @@ export interface ProductionOrder {
   bom?: Bom;
   labor_logs?: LaborLog[];
   finished_stock_lot?: StockLot | null;
+  awaiting_material_requests_count?: number;
+  material_requests?: MaterialRequest[];
   record_version: number;
   created_at: string;
 }

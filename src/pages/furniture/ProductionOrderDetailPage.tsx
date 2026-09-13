@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+
 import {
-  ArrowRight, Hammer, AlertTriangle, ChevronLeft, HardHat, Package, CheckCircle2,
+  ArrowRight, Hammer, AlertTriangle, ChevronLeft, HardHat, Package, PackageCheck, CheckCircle2,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useProductionOrder, useTransitionProductionOrder, useLogLabor } from "../../hooks/useFurniture";
+import { useMaterialRequestsForProductionOrder } from "../../hooks/useMaterials";
 import { getEmployees } from "../../api/endpoints/employees";
 import {
   ORDER_STATUS_ORDER, ORDER_STATUS_LABEL, ORDER_NEXT_STATUS, LABOR_LOG_STATES,
@@ -24,6 +26,7 @@ export const ProductionOrderDetailPage: React.FC = () => {
 
   const { data: order, isLoading } = useProductionOrder(orderId);
   const { data: employees } = useQuery({ queryKey: ["employees"], queryFn: () => getEmployees() });
+  const { data: materialRequestsData } = useMaterialRequestsForProductionOrder(orderId);
   const transitionMutation = useTransitionProductionOrder();
   const logLaborMutation = useLogLabor(orderId);
 
@@ -96,6 +99,43 @@ export const ProductionOrderDetailPage: React.FC = () => {
           {" = "}<span className="font-mono font-bold">{formatNumber(totalCost)} LYD</span>
         </p>
       </div>
+
+      {(order.awaiting_material_requests_count ?? 0) > 0 && (
+        <div className="flex items-start gap-2 rounded-2xl border border-app-status-info/40 bg-app-status-info/10 p-4 text-xs text-app-status-info">
+          <PackageCheck className="w-4 h-4 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <div className="font-bold">
+              {order.awaiting_material_requests_count} طلب مواد مفتوح
+            </div>
+            <div className="text-[11px] mt-1">
+              لا يمكن بدء التجميع حتى تكتمل كل طلبات المواد المرتبطة.
+              <a
+                href="/material-requests"
+                className="ms-2 font-bold underline hover:no-underline"
+              >
+                عرض قائمة طلبات المواد ←
+              </a>
+            </div>
+            {materialRequestsData?.data && materialRequestsData.data.length > 0 && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {materialRequestsData.data.slice(0, 5).map((r) => (
+                  <span
+                    key={r.id}
+                    className="inline-flex items-center gap-1 rounded-full bg-app-bg-primary px-2 py-0.5 text-[10px] font-mono border border-app-status-info/30"
+                  >
+                    {r.inventory_item?.sku ?? "—"} × {r.quantity}
+                  </span>
+                ))}
+                {materialRequestsData.data.length > 5 && (
+                  <span className="text-[10px] text-app-status-info/70">
+                    +{materialRequestsData.data.length - 5} others
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="flex items-start gap-2 rounded-2xl border border-app-status-danger/30 bg-app-status-danger/10 p-4 text-xs text-app-status-danger">
