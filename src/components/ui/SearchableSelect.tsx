@@ -106,6 +106,7 @@ export const SearchableSelect = forwardRef(function SearchableSelect<T>(
     onBlur,
     searchValue,
     onSearchChange,
+    required,
   }: SearchableSelectProps<T>,
   ref: React.Ref<HTMLButtonElement>
 ) {
@@ -266,7 +267,7 @@ export const SearchableSelect = forwardRef(function SearchableSelect<T>(
             : undefined
         }
         aria-label={ariaLabel}
-        aria-required={undefined}
+        aria-required={required ? true : undefined}
         id={fieldId}
         name={name}
         disabled={disabled}
