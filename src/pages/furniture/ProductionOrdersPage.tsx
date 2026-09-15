@@ -8,6 +8,7 @@ import {
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 
 export const ProductionOrdersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -161,15 +162,19 @@ export const ProductionOrdersPage: React.FC = () => {
         )}
       </div>
 
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-app-bg-primary rounded-2xl max-w-md w-full p-6 border border-app-separator shadow-xl space-y-4">
-            <h3 className="text-lg font-bold text-app-label-primary">New Production Order</h3>
-            <p className="text-xs text-app-label-secondary">
-              Uses the product's active BOM. For a custom piece, clone and adapt a BOM on the Products
-              page first.
-            </p>
-
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent size="md">
+          <DialogHeader>
+            <div>
+              <DialogTitle>New Production Order</DialogTitle>
+              <DialogDescription>
+                Uses the product's active BOM. For a custom piece, clone and adapt a BOM on the Products
+                page first.
+              </DialogDescription>
+            </div>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody className="space-y-3">
             {error && (
               <div className="flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -177,7 +182,7 @@ export const ProductionOrdersPage: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={submit} className="space-y-3">
+            <form id="production-order-form" onSubmit={submit} className="space-y-3">
               <input
                 type="text" required placeholder="Order number — PO-1042"
                 value={form.order_number}
@@ -211,26 +216,27 @@ export const ProductionOrdersPage: React.FC = () => {
                 onChange={(e) => setForm({ ...form, quantity: e.target.value })}
                 className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none"
               />
-              <div className="flex justify-end gap-3 pt-3 border-t border-app-separator">
-                <button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending}
-                  className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
-                >
-                  {createMutation.isPending ? "Creating…" : "Create Order"}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="production-order-form"
+              disabled={createMutation.isPending}
+              className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
+            >
+              {createMutation.isPending ? "Creating…" : "Create Order"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

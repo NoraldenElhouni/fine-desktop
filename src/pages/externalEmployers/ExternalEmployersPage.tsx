@@ -11,7 +11,7 @@ import {
 import { useServerConfigStore } from "../../stores/serverConfigStore";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
-import { Modal } from "../../components/ui/Modal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 
 export const ExternalEmployersPage: React.FC = () => {
@@ -203,13 +203,14 @@ export const ExternalEmployersPage: React.FC = () => {
         </div>
       )}
 
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="إضافة جهة مشغلة جديدة"
-        size="lg"
-      >
-        <form onSubmit={handleAddEmployer} className="space-y-4" dir="rtl">
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent size="lg">
+          <DialogHeader>
+            <DialogTitle>إضافة جهة مشغلة جديدة</DialogTitle>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody>
+        <form id="employer-create-form" onSubmit={handleAddEmployer} className="space-y-4" dir="rtl">
           {allowManualEntitySelection ? (
             <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-3 space-y-3">
               <label className="block text-xs font-bold text-app-label-primary">
@@ -374,7 +375,9 @@ export const ExternalEmployersPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-app-separator">
+        </form>
+          </DialogBody>
+          <DialogFooter>
             <button
               type="button"
               onClick={() => setIsModalOpen(false)}
@@ -384,6 +387,7 @@ export const ExternalEmployersPage: React.FC = () => {
             </button>
             <button
               type="submit"
+              form="employer-create-form"
               disabled={
                 createEmployerMutation.isPending ||
                 (entityMode === "existing" && !selectedEntityId) ||
@@ -393,9 +397,9 @@ export const ExternalEmployersPage: React.FC = () => {
             >
               {createEmployerMutation.isPending ? "جاري الحفظ..." : "حفظ الجهة المشغلة"}
             </button>
-          </div>
-        </form>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

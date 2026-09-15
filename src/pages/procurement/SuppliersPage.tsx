@@ -6,7 +6,7 @@ import { useSuppliers, useCreateSupplier } from "../../hooks/useProcurement";
 import { useOperatingUnits } from "../../hooks/usePartners";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
-import { Modal } from "../../components/ui/Modal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 
 export const SuppliersPage: React.FC = () => {
@@ -155,13 +155,14 @@ export const SuppliersPage: React.FC = () => {
       )}
 
       {/* Add Supplier Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="إضافة مورد خارجي جديد"
-        size="md"
-      >
-        <form onSubmit={handleCreateSupplier} className="space-y-4" dir="rtl">
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent size="md">
+          <DialogHeader>
+            <DialogTitle>إضافة مورد خارجي جديد</DialogTitle>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody>
+        <form id="supplier-create-form" onSubmit={handleCreateSupplier} className="space-y-4" dir="rtl">
           <div>
             <label className="block text-xs font-semibold text-app-label-secondary mb-1">
               الوحدة التشغيلية <span className="text-app-status-danger">*</span>
@@ -236,7 +237,9 @@ export const SuppliersPage: React.FC = () => {
             />
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-app-separator">
+        </form>
+          </DialogBody>
+          <DialogFooter>
             <button
               type="button"
               onClick={() => setIsModalOpen(false)}
@@ -246,14 +249,15 @@ export const SuppliersPage: React.FC = () => {
             </button>
             <button
               type="submit"
+              form="supplier-create-form"
               disabled={createSupplierMutation.isPending || !name.trim()}
               className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
             >
               {createSupplierMutation.isPending ? "جاري الحفظ..." : "حفظ المورد"}
             </button>
-          </div>
-        </form>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -1,7 +1,8 @@
 import React from "react";
-import { Printer, CheckCircle2, X } from "lucide-react";
+import { Printer, CheckCircle2 } from "lucide-react";
 import { SalesOrder } from "../../api/endpoints/sales";
 import { formatDateTime } from "../../lib/utils/format";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../ui/Dialog";
 
 interface PosReceiptModalProps {
   isOpen: boolean;
@@ -29,28 +30,17 @@ export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({
   const change = Math.max(0, tendered - totalAmount);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-      dir="rtl"
-      role="dialog"
-      aria-modal="true"
-    >
-      <div className="flex flex-col max-h-[90vh] w-full max-w-sm rounded-2xl border border-app-separator bg-app-bg-primary shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        {/* Modal Top Bar (hidden during print) */}
-        <div className="flex items-center justify-between border-b border-app-separator bg-app-bg-secondary px-4 py-3 print:hidden">
-          <div className="flex items-center gap-2 text-xs font-bold text-app-label-primary">
+    <Dialog open={isOpen} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent size="sm">
+        <DialogHeader className="print:hidden">
+          <DialogTitle className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-app-status-positive" />
             <span>إيصال نقطة البيع</span>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-1 text-app-label-secondary hover:bg-app-fill-f1 hover:text-app-label-primary transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+          </DialogTitle>
+          <DialogClose />
+        </DialogHeader>
 
+        <DialogBody className="p-0">
         {/* Printable Receipt Paper Container */}
         <div
           id="pos-receipt-print-area"
@@ -128,9 +118,10 @@ export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({
             <p>البضاعة المباعة تخضع لسياسة الاستبدال والضمان الرسمية</p>
           </div>
         </div>
+        </DialogBody>
 
         {/* Modal Action Buttons (hidden during print) */}
-        <div className="flex items-center gap-2 border-t border-app-separator bg-app-bg-secondary p-3 print:hidden">
+        <DialogFooter className="print:hidden">
           <button
             type="button"
             onClick={onClose}
@@ -146,8 +137,8 @@ export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({
             <Printer className="h-4 w-4" />
             طباعة الإيصال
           </button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };

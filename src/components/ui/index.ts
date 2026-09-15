@@ -1,4 +1,4 @@
-export * from "./Modal";
+export * from "./Dialog";
 export * from "./ConfirmDialog";
 export * from "./StatusBadge";
 export * from "./DataTable";

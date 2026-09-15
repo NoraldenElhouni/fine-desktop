@@ -8,7 +8,7 @@ import { useServerConfigStore } from "../../stores/serverConfigStore";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatNumber } from "../../lib/utils/format";
-import { Modal } from "../../components/ui/Modal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 
 export const EmployeesPage: React.FC = () => {
@@ -241,13 +241,14 @@ export const EmployeesPage: React.FC = () => {
       )}
 
       {/* Add Employee Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="إضافة موظف / عامل جديد"
-        size="lg"
-      >
-        <form onSubmit={handleAddEmployee} className="space-y-4" dir="rtl">
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent size="lg">
+          <DialogHeader>
+            <DialogTitle>إضافة موظف / عامل جديد</DialogTitle>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody>
+        <form id="employee-create-form" onSubmit={handleAddEmployee} className="space-y-4" dir="rtl">
           <div>
             <label className="block text-xs font-semibold text-app-label-secondary mb-1">
               الوحدة التشغيلية <span className="text-app-status-danger">*</span>
@@ -484,7 +485,9 @@ export const EmployeesPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-app-separator">
+        </form>
+          </DialogBody>
+          <DialogFooter>
             <button
               type="button"
               onClick={() => setIsModalOpen(false)}
@@ -494,6 +497,7 @@ export const EmployeesPage: React.FC = () => {
             </button>
             <button
               type="submit"
+              form="employee-create-form"
               disabled={
                 createEmployeeMutation.isPending ||
                 (entityMode === "existing" && !selectedEntityId) ||
@@ -504,9 +508,9 @@ export const EmployeesPage: React.FC = () => {
             >
               {createEmployeeMutation.isPending ? "جاري الحفظ..." : "حفظ الموظف"}
             </button>
-          </div>
-        </form>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

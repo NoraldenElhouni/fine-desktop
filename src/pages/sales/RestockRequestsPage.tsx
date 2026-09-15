@@ -7,6 +7,7 @@ import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { InventoryItem } from "../../api/endpoints/inventory";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -151,12 +152,14 @@ export const RestockRequestsPage: React.FC = () => {
         )}
       </div>
 
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-app-bg-primary rounded-2xl max-w-lg w-full p-6 border border-app-separator shadow-xl space-y-4">
-            <h3 className="text-lg font-bold text-app-label-primary">Request Stock</h3>
-
-            <form onSubmit={submit} className="space-y-3">
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent size="lg">
+          <DialogHeader>
+            <DialogTitle>Request Stock</DialogTitle>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody>
+            <form id="restock-request-form" onSubmit={submit} className="space-y-3">
               <input
                 type="text" required placeholder="Request number — RSR-1042"
                 value={requestNumber}
@@ -223,26 +226,27 @@ export const RestockRequestsPage: React.FC = () => {
                 <Plus className="w-3.5 h-3.5" /> Add line
               </button>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-app-separator">
-                <button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending || !sourceUnitId || lines.some((l) => !l.item)}
-                  className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
-                >
-                  {createMutation.isPending ? "Submitting…" : "Submit Request"}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="restock-request-form"
+              disabled={createMutation.isPending || !sourceUnitId || lines.some((l) => !l.item)}
+              className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
+            >
+              {createMutation.isPending ? "Submitting…" : "Submit Request"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

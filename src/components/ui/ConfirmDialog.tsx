@@ -1,6 +1,6 @@
 import React from "react";
 import { AlertTriangle, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
-import { Modal } from "./Modal";
+import { Dialog, DialogContent, DialogBody, DialogFooter, DialogClose } from "./Dialog";
 
 export interface ConfirmDialogProps {
   isOpen: boolean;
@@ -62,17 +62,28 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={() => {
-        if (!isLoading) {
+    <Dialog
+      open={isOpen}
+      onOpenChange={(next) => {
+        if (!next && !isLoading) {
           onClose();
         }
       }}
-      size="sm"
-      showCloseButton={!isLoading}
-      footer={
-        <>
+    >
+      <DialogContent size="sm">
+        <DialogBody>
+          <div className="flex items-start gap-4">
+            {getIcon()}
+            <div className="flex-1 space-y-1.5">
+              <div className="flex items-start justify-between gap-2">
+                <h4 className="text-sm font-bold text-app-label-primary">{title}</h4>
+                {!isLoading && <DialogClose />}
+              </div>
+              <p className="text-xs text-app-label-secondary leading-relaxed">{message}</p>
+            </div>
+          </div>
+        </DialogBody>
+        <DialogFooter>
           <button
             type="button"
             onClick={onClose}
@@ -90,16 +101,8 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             {isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             <span>{confirmText}</span>
           </button>
-        </>
-      }
-    >
-      <div className="flex items-start gap-4">
-        {getIcon()}
-        <div className="space-y-1.5">
-          <h4 className="text-sm font-bold text-app-label-primary">{title}</h4>
-          <p className="text-xs text-app-label-secondary leading-relaxed">{message}</p>
-        </div>
-      </div>
-    </Modal>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };

@@ -6,7 +6,7 @@ import { useEntities, useProvisionUserAccount } from "../../hooks/usePartners";
 import { useUsers } from "../../hooks/useUsers";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
-import { Modal } from "../../components/ui/Modal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 
 export const AdminEntitiesPage: React.FC = () => {
   const { data: entities = [], isLoading, error: queryError, refetch } = useEntities();
@@ -140,45 +140,51 @@ export const AdminEntitiesPage: React.FC = () => {
         </div>
       )}
 
-      <Modal
-        isOpen={Boolean(provisioningEntity)}
-        onClose={() => {
-          setProvisioningEntity(null);
-          setProvisionEmail("");
-          setProvisionPassword("");
+      <Dialog
+        open={Boolean(provisioningEntity)}
+        onOpenChange={(next) => {
+          if (!next) {
+            setProvisioningEntity(null);
+            setProvisionEmail("");
+            setProvisionPassword("");
+          }
         }}
-        title="تزويد حساب نظام"
-        size="md"
       >
-        <div className="space-y-4" dir="rtl">
-          <p className="text-xs text-app-label-secondary">
-            سيتم إنشاء حساب دخول للنظام للكيان: {provisioningEntity?.name}
-          </p>
-          <div>
-            <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-              البريد الإلكتروني
-            </label>
-            <input
-              type="email"
-              value={provisionEmail}
-              onChange={(e) => setProvisionEmail(e.target.value)}
-              placeholder="user@example.com"
-              className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-              كلمة المرور المؤقتة (اتركها فارغة لتوليد كلمة عشوائية)
-            </label>
-            <input
-              type="text"
-              value={provisionPassword}
-              onChange={(e) => setProvisionPassword(e.target.value)}
-              placeholder="8 أحرف على الأقل"
-              className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-            />
-          </div>
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-app-separator">
+        <DialogContent size="md">
+          <DialogHeader>
+            <DialogTitle>تزويد حساب نظام</DialogTitle>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody className="space-y-4">
+            <p className="text-xs text-app-label-secondary">
+              سيتم إنشاء حساب دخول للنظام للكيان: {provisioningEntity?.name}
+            </p>
+            <div>
+              <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                البريد الإلكتروني
+              </label>
+              <input
+                type="email"
+                value={provisionEmail}
+                onChange={(e) => setProvisionEmail(e.target.value)}
+                placeholder="user@example.com"
+                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                كلمة المرور المؤقتة (اتركها فارغة لتوليد كلمة عشوائية)
+              </label>
+              <input
+                type="text"
+                value={provisionPassword}
+                onChange={(e) => setProvisionPassword(e.target.value)}
+                placeholder="8 أحرف على الأقل"
+                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+              />
+            </div>
+          </DialogBody>
+          <DialogFooter>
             <button
               type="button"
               onClick={() => {
@@ -198,9 +204,9 @@ export const AdminEntitiesPage: React.FC = () => {
             >
               {provisionUserMutation.isPending ? "جاري التزويد..." : "تزويد"}
             </button>
-          </div>
-        </div>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

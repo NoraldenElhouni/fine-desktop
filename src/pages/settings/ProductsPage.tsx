@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
-  Armchair, Plus, AlertTriangle, Copy, CheckCircle2, Trash2, Ruler, HardHat, Tag, PackagePlus, X,
+  Armchair, Plus, AlertTriangle, Copy, CheckCircle2, Trash2, Ruler, HardHat, Tag, PackagePlus,
 } from "lucide-react";
 import {
   useProducts, useCreateProduct, useProductBoms, useCreateBom, useActivateBom, useCloneBom,
@@ -12,6 +12,7 @@ import { Bom } from "../../api/endpoints/furniture";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { InventoryItem } from "../../api/endpoints/inventory";
 
 const num = (v: string): number => {
@@ -476,11 +477,28 @@ export const ProductsPage: React.FC = () => {
       </div>
 
       {/* Create product modal */}
-      {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-app-bg-primary rounded-2xl max-w-md w-full p-6 border border-app-separator shadow-xl space-y-4">
-            <h3 className="text-lg font-bold text-app-label-primary">New Product</h3>
-            <form onSubmit={submitProduct} className="space-y-3">
+      <Dialog
+        open={showCreate}
+        onOpenChange={(next) => {
+          setShowCreate(next);
+          if (!next) {
+            setTriedSubmit(false);
+            setForm({
+              name: "",
+              sku: "",
+              inventory_item_id: "",
+              markup_factor: "1.25",
+            });
+          }
+        }}
+      >
+        <DialogContent size="md">
+          <DialogHeader>
+            <DialogTitle>New Product</DialogTitle>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody>
+            <form id="new-product-form" onSubmit={submitProduct} className="space-y-3">
               <input
                 type="text" required placeholder="Name — 3-Seat Sofa"
                 value={form.name}
@@ -559,64 +577,49 @@ export const ProductsPage: React.FC = () => {
                 onChange={(e) => setForm({ ...form, markup_factor: e.target.value })}
                 className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none"
               />
-              <div className="flex justify-end gap-3 pt-3 border-t border-app-separator">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCreate(false);
-                    setTriedSubmit(false);
-                    setForm({
-                      name: "",
-                      sku: "",
-                      inventory_item_id: "",
-                      markup_factor: "1.25",
-                    });
-                  }}
-                  className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={
-                    createProduct.isPending ||
-                    !hasFinishedOptions ||
-                    !form.inventory_item_id
-                  }
-                  className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
-                >
-                  {createProduct.isPending ? "Creating…" : "Create"}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setShowCreate(false)}
+              className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="new-product-form"
+              disabled={
+                createProduct.isPending ||
+                !hasFinishedOptions ||
+                !form.inventory_item_id
+              }
+              className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
+            >
+              {createProduct.isPending ? "Creating…" : "Create"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {showCreateItem && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-app-bg-primary rounded-2xl max-w-sm w-full p-5 border border-app-separator shadow-xl space-y-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="text-base font-bold text-app-label-primary flex items-center gap-2">
-                  <PackagePlus className="h-4 w-4 text-app-status-info" />
-                  أنشئ صنف منتج نهائي
-                </h3>
-                <p className="text-[10px] text-app-label-tertiary mt-1">
-                  سيلتقطه النموذج تلقائياً بعد الحفظ.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowCreateItem(false)}
-                aria-label="إغلاق"
-                className="rounded-lg p-1 text-app-label-secondary hover:bg-app-fill-f1"
-              >
-                <X className="h-4 w-4" />
-              </button>
+      <Dialog open={showCreateItem} onOpenChange={setShowCreateItem} className="z-[60]">
+        <DialogContent size="sm">
+          <DialogHeader>
+            <div>
+              <DialogTitle className="flex items-center gap-2">
+                <PackagePlus className="h-4 w-4 text-app-status-info" />
+                أنشئ صنف منتج نهائي
+              </DialogTitle>
+              <DialogDescription>
+                سيلتقطه النموذج تلقائياً بعد الحفظ.
+              </DialogDescription>
             </div>
+            <DialogClose />
+          </DialogHeader>
 
-            <form onSubmit={submitNewFinishedItem} className="space-y-3">
+          <DialogBody>
+            <form id="new-finished-item-form" onSubmit={submitNewFinishedItem} className="space-y-3">
               <div>
                 <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
                   الاسم
@@ -674,26 +677,27 @@ export const ProductsPage: React.FC = () => {
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-app-separator">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateItem(false)}
-                  className="px-3 py-1.5 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  disabled={createInventoryItem.isPending}
-                  className="px-4 py-1.5 text-xs font-bold text-white bg-app-status-info hover:opacity-90 rounded-xl disabled:opacity-50"
-                >
-                  {createInventoryItem.isPending ? "جاري الإنشاء…" : "إنشاء الصنف"}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setShowCreateItem(false)}
+              className="px-3 py-1.5 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              form="new-finished-item-form"
+              disabled={createInventoryItem.isPending}
+              className="px-4 py-1.5 text-xs font-bold text-white bg-app-status-info hover:opacity-90 rounded-xl disabled:opacity-50"
+            >
+              {createInventoryItem.isPending ? "جاري الإنشاء…" : "إنشاء الصنف"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

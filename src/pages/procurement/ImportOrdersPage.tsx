@@ -48,6 +48,7 @@ import { apiErrorPayload } from "../../api/endpoints/production";
 import { AllocationPaymentActions } from "../../components/allocations/AllocationPaymentActions";
 import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { cn } from "../../lib/utils/utils";
 import { tokens } from "../../lib/tokens";
 
@@ -417,31 +418,20 @@ export const ImportOrdersPage: React.FC = () => {
       )}
 
       {/* Add New Import Order Modal */}
-      {isModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
-          dir="rtl"
-        >
-          <div className="w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl border border-app-separator bg-app-bg-primary shadow-xl">
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-app-separator bg-app-bg-primary px-6 py-4">
-              <div>
-                <h3 className="text-lg font-bold text-app-label-primary">
-                  إنشاء أمر استيراد جديد
-                </h3>
-                <p className="text-xs text-app-label-secondary mt-1">
-                  اختر المورد وأضف بنود الأصناف المطلوب استيرادها.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="rounded-lg px-3 py-1 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
-              >
-                إلغاء
-              </button>
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent size="3xl">
+          <DialogHeader>
+            <div>
+              <DialogTitle>إنشاء أمر استيراد جديد</DialogTitle>
+              <DialogDescription>
+                اختر المورد وأضف بنود الأصناف المطلوب استيرادها.
+              </DialogDescription>
             </div>
+            <DialogClose />
+          </DialogHeader>
 
-            <form onSubmit={handleCreateOrder} className="space-y-4 p-6">
+          <DialogBody className="p-0">
+            <form id="import-order-create-form" onSubmit={handleCreateOrder} className="space-y-4 p-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-app-label-secondary mb-1">
@@ -693,87 +683,86 @@ export const ImportOrdersPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="sticky bottom-0 z-10 -mx-6 -mb-6 mt-4 border-t border-app-separator bg-app-bg-primary px-6 py-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-semibold uppercase text-app-label-tertiary">
-                      إجمالي الأمر
-                    </span>
-                    <span className="text-base font-mono font-bold text-app-label-primary">
-                      {formatNumber(itemsTotal)} {currency}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setIsModalOpen(false)}
-                      className="rounded-xl px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
-                    >
-                      إلغاء
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={
-                        createOrderMutation.isPending ||
-                        !selectedSupplierId ||
-                        lineItems.every(
-                          (l) =>
-                            !l.inventory_item_id ||
-                            Number(l.quantity) <= 0 ||
-                            Number(l.unit_price) <= 0,
-                        )
-                      }
-                      className="rounded-xl bg-app-accent px-5 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
-                    >
-                      {createOrderMutation.isPending
-                        ? "جاري الحفظ..."
-                        : "حفظ أمر الاستيراد"}
-                    </button>
-                  </div>
-                </div>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogBody>
+
+          <DialogFooter>
+            <div className="flex w-full items-center justify-between gap-4">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-semibold uppercase text-app-label-tertiary">
+                  إجمالي الأمر
+                </span>
+                <span className="text-base font-mono font-bold text-app-label-primary">
+                  {formatNumber(itemsTotal)} {currency}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="rounded-xl px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  form="import-order-create-form"
+                  disabled={
+                    createOrderMutation.isPending ||
+                    !selectedSupplierId ||
+                    lineItems.every(
+                      (l) =>
+                        !l.inventory_item_id ||
+                        Number(l.quantity) <= 0 ||
+                        Number(l.unit_price) <= 0,
+                    )
+                  }
+                  className="rounded-xl bg-app-accent px-5 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+                >
+                  {createOrderMutation.isPending
+                    ? "جاري الحفظ..."
+                    : "حفظ أمر الاستيراد"}
+                </button>
+              </div>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Order Stepper & Detail Drawer */}
-      {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
-          <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl border border-app-separator bg-app-bg-primary p-6 shadow-2xl space-y-6" dir="rtl">
-            
-            {/* Modal Title & Close */}
-            <div className="flex items-center justify-between border-b border-app-separator pb-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-app-label-primary">
-                    أمر استيراد #{selectedOrder.id.slice(0, 8)}
-                  </h2>
-                  {getStatusBadge(selectedOrder.status)}
-                </div>
-                <p className="text-xs text-app-label-secondary mt-1">
-                  المورد:{" "}
-                  <span className="font-bold text-app-label-primary">
-                    {selectedOrder.supplier?.name}
-                  </span>{" "}
-                  | الكمية: {formatNumber(selectedOrder.quantity)} | إجمالي العقد:{" "}
-                  <span className="font-bold text-emerald-600 font-mono">
-                    {formatNumber(
-                      Number(selectedOrder.negotiated_price) *
-                        Number(selectedOrder.quantity),
-                    )}{" "}
-                    {selectedOrder.currency}
-                  </span>
-                </p>
-              </div>
-              <button
-                onClick={() => setSelectedOrder(null)}
-                className="rounded-xl border border-app-separator px-3 py-1.5 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
-              >
-                إغلاق
-              </button>
+      <Dialog open={Boolean(selectedOrder)} onOpenChange={(next) => !next && setSelectedOrder(null)}>
+        <DialogContent size="full" className="rounded-3xl">
+          <DialogHeader>
+            <div>
+              {selectedOrder && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <DialogTitle>أمر استيراد #{selectedOrder.id.slice(0, 8)}</DialogTitle>
+                    {getStatusBadge(selectedOrder.status)}
+                  </div>
+                  <DialogDescription>
+                    المورد:{" "}
+                    <span className="font-bold text-app-label-primary">
+                      {selectedOrder.supplier?.name}
+                    </span>{" "}
+                    | الكمية: {formatNumber(selectedOrder.quantity)} | إجمالي العقد:{" "}
+                    <span className="font-bold text-emerald-600 font-mono">
+                      {formatNumber(
+                        Number(selectedOrder.negotiated_price) *
+                          Number(selectedOrder.quantity),
+                      )}{" "}
+                      {selectedOrder.currency}
+                    </span>
+                  </DialogDescription>
+                </>
+              )}
             </div>
+            <DialogClose />
+          </DialogHeader>
 
+          <DialogBody className="space-y-6">
+          {selectedOrder && (
+          <>
             {/* Line Items Breakdown */}
             {selectedOrder.items?.data?.length ? (
               <div>
@@ -1238,10 +1227,11 @@ export const ImportOrdersPage: React.FC = () => {
                 </div>
               )}
             </div>
-
-          </div>
-        </div>
-      )}
+          </>
+          )}
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

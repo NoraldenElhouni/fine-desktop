@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useItemCategories, useCreateItemCategory, useCreateAttributeDefinition, useDeleteAttributeDefinition } from "../../hooks/useCategories";
 import { ItemCategory, InventoryAttributeDefinition } from "../../api/endpoints/categories";
 import { Tags, Plus, Trash2, Layers, CheckCircle2, Sliders } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 
 export const CategoryAttributeManagerPage: React.FC = () => {
   const { data: categories, isLoading } = useItemCategories();
@@ -215,11 +216,14 @@ export const CategoryAttributeManagerPage: React.FC = () => {
       </div>
 
       {/* Category Creation Modal */}
-      {isCatModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-app-bg-primary rounded-2xl max-w-md w-full p-6 border border-app-separator shadow-xl space-y-4">
-            <h3 className="text-lg font-bold text-app-label-primary">Create Item Category</h3>
-            <form onSubmit={handleCreateCategory} className="space-y-4">
+      <Dialog open={isCatModalOpen} onOpenChange={setIsCatModalOpen}>
+        <DialogContent size="md">
+          <DialogHeader>
+            <DialogTitle>Create Item Category</DialogTitle>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody>
+            <form id="category-create-form" onSubmit={handleCreateCategory} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">Category Name</label>
                 <input
@@ -253,35 +257,37 @@ export const CategoryAttributeManagerPage: React.FC = () => {
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-app-separator">
-                <button
-                  type="button"
-                  onClick={() => setIsCatModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createCatMutation.isPending}
-                  className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
-                >
-                  {createCatMutation.isPending ? "Creating..." : "Save Category"}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setIsCatModalOpen(false)}
+              className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="category-create-form"
+              disabled={createCatMutation.isPending}
+              className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
+            >
+              {createCatMutation.isPending ? "Creating..." : "Save Category"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Attribute Field Creation Modal */}
-      {isAttrModalOpen && selectedCategory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-app-bg-primary rounded-2xl max-w-md w-full p-6 border border-app-separator shadow-xl space-y-4">
-            <h3 className="text-lg font-bold text-app-label-primary">
-              Add Attribute to {selectedCategory.name}
-            </h3>
-            <form onSubmit={handleCreateAttribute} className="space-y-4">
+      <Dialog open={isAttrModalOpen && Boolean(selectedCategory)} onOpenChange={setIsAttrModalOpen}>
+        <DialogContent size="md">
+          <DialogHeader>
+            <DialogTitle>Add Attribute to {selectedCategory?.name}</DialogTitle>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody>
+            <form id="attribute-create-form" onSubmit={handleCreateAttribute} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">Field Name</label>
                 <input
@@ -345,26 +351,27 @@ export const CategoryAttributeManagerPage: React.FC = () => {
                 </label>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-app-separator">
-                <button
-                  type="button"
-                  onClick={() => setIsAttrModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createAttrMutation.isPending}
-                  className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
-                >
-                  {createAttrMutation.isPending ? "Adding..." : "Save Attribute Field"}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setIsAttrModalOpen(false)}
+              className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="attribute-create-form"
+              disabled={createAttrMutation.isPending}
+              className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
+            >
+              {createAttrMutation.isPending ? "Adding..." : "Save Attribute Field"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

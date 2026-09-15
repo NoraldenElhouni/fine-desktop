@@ -7,7 +7,7 @@ import { useEntities, useOperatingUnits } from "../../hooks/usePartners";
 import { useServerConfigStore } from "../../stores/serverConfigStore";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
-import { Modal } from "../../components/ui/Modal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 
@@ -253,13 +253,14 @@ export const ClientsPage: React.FC = () => {
       )}
 
       {/* Add Client Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="إضافة عميل جديد"
-        size="lg"
-      >
-        <form onSubmit={handleAddClient} className="space-y-4" dir="rtl">
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent size="lg">
+          <DialogHeader>
+            <DialogTitle>إضافة عميل جديد</DialogTitle>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody>
+        <form id="client-create-form" onSubmit={handleAddClient} className="space-y-4" dir="rtl">
           <div>
             <label className="block text-xs font-semibold text-app-label-secondary mb-1">
               الوحدة التشغيلية <span className="text-app-status-danger">*</span>
@@ -442,7 +443,9 @@ export const ClientsPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-app-separator">
+        </form>
+          </DialogBody>
+          <DialogFooter>
             <button
               type="button"
               onClick={() => setIsModalOpen(false)}
@@ -452,6 +455,7 @@ export const ClientsPage: React.FC = () => {
             </button>
             <button
               type="submit"
+              form="client-create-form"
               disabled={
                 createClientMutation.isPending ||
                 (entityMode === "existing" && !selectedEntityId) ||
@@ -461,9 +465,9 @@ export const ClientsPage: React.FC = () => {
             >
               {createClientMutation.isPending ? "جاري الحفظ..." : "حفظ العميل"}
             </button>
-          </div>
-        </form>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

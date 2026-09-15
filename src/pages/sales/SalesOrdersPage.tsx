@@ -11,6 +11,7 @@ import { apiErrorPayload } from "../../api/endpoints/production";
 import { BlockPicker, PickedBlock } from "../../components/pos/BlockPicker";
 import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { InventoryItem } from "../../api/endpoints/inventory";
 
 const num = (v: string): number => {
@@ -243,11 +244,13 @@ export const SalesOrdersPage: React.FC = () => {
         )}
       </div>
 
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-app-bg-primary rounded-2xl max-w-2xl w-full p-6 border border-app-separator shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-app-label-primary">New Sales Order</h3>
-
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent size="2xl">
+          <DialogHeader>
+            <DialogTitle>New Sales Order</DialogTitle>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody className="space-y-4">
             {error && (
               <div className="flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -255,7 +258,7 @@ export const SalesOrdersPage: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={submit} className="space-y-4">
+            <form id="sales-order-form" onSubmit={submit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <input
                   type="text" required placeholder="Order number — SO-1042"
@@ -423,26 +426,27 @@ export const SalesOrdersPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-app-separator">
-                <button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending || !canSubmit}
-                  className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
-                >
-                  {createMutation.isPending ? "Creating…" : "Create Draft"}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="sales-order-form"
+              disabled={createMutation.isPending || !canSubmit}
+              className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
+            >
+              {createMutation.isPending ? "Creating…" : "Create Draft"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {pickerState.isOpen && pickerState.itemId && (
         <BlockPicker
           isOpen={pickerState.isOpen}

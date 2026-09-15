@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { DollarSign, Printer, X, CheckCircle2, AlertCircle, TrendingUp, CreditCard, Banknote, Save } from "lucide-react";
+import { DollarSign, Printer, CheckCircle2, AlertCircle, TrendingUp, CreditCard, Banknote, Save } from "lucide-react";
 import { PosDailyReport } from "../../api/endpoints/sales";
 import { usePosDailyClose, useSavePosDailyClose } from "../../hooks/useSales";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { toast } from "../../stores/toastStore";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../ui/Dialog";
 
 interface PosDailyCloseModalProps {
   isOpen: boolean;
@@ -55,39 +56,25 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
     : null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-      dir="rtl"
-      role="dialog"
-      aria-modal="true"
-    >
-      <div className="flex flex-col max-h-[90vh] w-full max-w-lg rounded-2xl border border-app-separator bg-app-bg-primary shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-app-separator bg-app-bg-secondary px-5 py-4 print:hidden">
+    <Dialog open={isOpen} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent size="lg">
+        <DialogHeader className="print:hidden">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-app-accent/15 text-app-accent">
               <DollarSign className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-app-label-primary">
-                إغلاق الصندوق والوردية اليومية (Z-Report)
-              </h3>
-              <p className="text-[11px] text-app-label-secondary">
+              <DialogTitle className="text-sm">إغلاق الصندوق والوردية اليومية (Z-Report)</DialogTitle>
+              <DialogDescription className="text-[11px]">
                 مطابقة النقد الفعلي بالصندوق مع حركة مبيعات نقطة البيع
-              </p>
+              </DialogDescription>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-1 text-app-label-secondary hover:bg-app-fill-f1 hover:text-app-label-primary transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+          <DialogClose />
+        </DialogHeader>
 
         {/* Content Body */}
-        <div className="print-area flex-1 overflow-y-auto p-5 space-y-5 print:p-0">
+        <DialogBody className="print-area space-y-5 print:p-0">
           {isLoading ? (
             <div className="py-12 text-center text-xs text-app-label-secondary">
               جاري تحميل تقرير الصندوق...
@@ -241,10 +228,10 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
               </div>
             </>
           )}
-        </div>
+        </DialogBody>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-3 border-t border-app-separator bg-app-bg-secondary p-4 print:hidden">
+        <DialogFooter className="print:hidden">
           <button
             type="button"
             onClick={onClose}
@@ -271,8 +258,8 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
             <Printer className="h-4 w-4" />
             طباعة تقرير الإغلاق (Z-Report)
           </button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };

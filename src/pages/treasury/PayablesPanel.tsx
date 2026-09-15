@@ -9,6 +9,7 @@ import {
 } from "../../api/endpoints/procurement";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatDate, formatNumber } from "../../lib/utils/format";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 
 const ACCOUNT_LABEL: Record<string, string> = {
   "2100": "الذمم الدائنة (مشتريات آجلة)",
@@ -134,17 +135,23 @@ export const PayablesPanel: React.FC = () => {
         </div>
       )}
 
-      {settling && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-app-bg-primary rounded-2xl max-w-md w-full p-6 border border-app-separator shadow-xl space-y-4">
-            <h3 className="text-lg font-bold text-app-label-primary">
-              سداد {ACCOUNT_LABEL[settling.account_code]}
-            </h3>
-            <p className="text-xs text-app-label-secondary">
-              الرصيد المستحق حالياً <span className="font-mono font-bold">{formatNumber(settling.outstanding)}</span> د.ل —
-              يُقيد السداد مديناً على الحساب ودائناً على النقدية، ولا يمكن تجاوز المستحق.
-            </p>
-
+      <Dialog open={Boolean(settling)} onOpenChange={(next) => !next && setSettling(null)}>
+        <DialogContent size="md">
+          <DialogHeader>
+            <div>
+              {settling && (
+                <>
+                  <DialogTitle>سداد {ACCOUNT_LABEL[settling.account_code]}</DialogTitle>
+                  <DialogDescription>
+                    الرصيد المستحق حالياً <span className="font-mono font-bold">{formatNumber(settling.outstanding)}</span> د.ل —
+                    يُقيد السداد مديناً على الحساب ودائناً على النقدية، ولا يمكن تجاوز المستحق.
+                  </DialogDescription>
+                </>
+              )}
+            </div>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody className="space-y-3">
             {error && (
               <div className="flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -152,7 +159,8 @@ export const PayablesPanel: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={submit} className="space-y-3">
+            {settling && (
+            <form id="settle-payable-form" onSubmit={submit} className="space-y-3">
               <input
                 type="number" step="0.0001" min="0.0001" max={Number(settling.outstanding)} required
                 placeholder="المبلغ (LYD)"
@@ -166,25 +174,27 @@ export const PayablesPanel: React.FC = () => {
                 onChange={(e) => setReference(e.target.value)}
                 className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
               />
-              <div className="flex justify-end gap-3 pt-3 border-t border-app-separator">
-                <button
-                  type="button" onClick={() => setSettling(null)}
-                  className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || Number(amount) <= 0}
-                  className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
-                >
-                  {isSubmitting ? "جارٍ السداد…" : "سداد وقيد"}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button" onClick={() => setSettling(null)}
+              className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              form="settle-payable-form"
+              disabled={isSubmitting || Number(amount) <= 0}
+              className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
+            >
+              {isSubmitting ? "جارٍ السداد…" : "سداد وقيد"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

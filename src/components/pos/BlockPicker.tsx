@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Modal } from "../ui/Modal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody } from "../ui/Dialog";
 import { useAvailableFoamBlocks } from "../../hooks/useInventory";
 import { StockLot } from "../../api/endpoints/inventory";
 import { Search, Package, X } from "lucide-react";
@@ -68,19 +68,18 @@ export const BlockPicker: React.FC<BlockPickerProps> = ({
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      size="2xl"
-      title={
-        <div>
-          <h3 className="text-base font-bold text-app-label-primary">اختر قطعة إسفنج</h3>
-          <p className="text-xs text-app-label-secondary mt-1">
-            {inventoryItemName} — القطع المتاحة مرتبة من الأصغر للأكبر
-          </p>
-        </div>
-      }
-    >
+    <Dialog open={isOpen} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent size="2xl">
+        <DialogHeader>
+          <div>
+            <DialogTitle>اختر قطعة إسفنج</DialogTitle>
+            <DialogDescription>
+              {inventoryItemName} — القطع المتاحة مرتبة من الأصغر للأكبر
+            </DialogDescription>
+          </div>
+          <DialogClose />
+        </DialogHeader>
+        <DialogBody>
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[12rem]">
@@ -176,6 +175,8 @@ export const BlockPicker: React.FC<BlockPickerProps> = ({
           </div>
         )}
       </div>
-    </Modal>
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
   );
 };

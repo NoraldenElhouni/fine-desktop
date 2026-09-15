@@ -5,6 +5,7 @@ import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { ALLOCATION_PAYMENT_STATUS_LABEL, type AllocationPaymentStatus } from "../../api/endpoints/overhead";
 import { LANDED_COST_STATUS_LABEL, type LandedCostStatus } from "../../types/procurement";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../ui/Dialog";
 
 export type AllocationStatus = AllocationPaymentStatus | LandedCostStatus;
 
@@ -108,12 +109,15 @@ export const AllocationPaymentActions: React.FC<AllocationPaymentActionsProps> =
         </div>
       )}
 
-      {isManager && noteOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-app-separator bg-app-bg-primary p-5 shadow-xl space-y-3" dir="rtl">
-            <h4 className="text-sm font-bold text-app-label-primary">
+      <Dialog open={isManager && Boolean(noteOpen)} onOpenChange={(next) => !next && setNoteOpen(null)}>
+        <DialogContent size="sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm">
               {noteOpen === "approve" ? "اعتماد التكلفة" : "تأكيد دفع التكلفة"}
-            </h4>
+            </DialogTitle>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
@@ -122,30 +126,30 @@ export const AllocationPaymentActions: React.FC<AllocationPaymentActionsProps> =
               placeholder="ملاحظة (اختياري)"
               className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:outline-none"
             />
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setNoteOpen(null)}
-                className="rounded-xl px-3 py-1.5 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
-              >
-                إلغاء
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const handler = noteOpen === "approve" ? onApprove : onMarkPaid;
-                  handler(note.trim() || "");
-                  setNoteOpen(null);
-                }}
-                className="flex items-center gap-1 rounded-xl bg-app-accent px-3 py-1.5 text-xs font-bold text-white hover:opacity-90"
-              >
-                <Check className="h-3.5 w-3.5" />
-                تأكيد
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setNoteOpen(null)}
+              className="rounded-xl px-3 py-1.5 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
+            >
+              إلغاء
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const handler = noteOpen === "approve" ? onApprove : onMarkPaid;
+                handler(note.trim() || "");
+                setNoteOpen(null);
+              }}
+              className="flex items-center gap-1 rounded-xl bg-app-accent px-3 py-1.5 text-xs font-bold text-white hover:opacity-90"
+            >
+              <Check className="h-3.5 w-3.5" />
+              تأكيد
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

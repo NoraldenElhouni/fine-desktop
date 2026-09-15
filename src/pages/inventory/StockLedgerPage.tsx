@@ -5,6 +5,7 @@ import { StockLot } from "../../api/endpoints/inventory";
 import { formatNumber } from "../../lib/utils/format";
 import { Layers, Box, CheckCircle, DollarSign, RefreshCw, Scissors, AlertCircle, Tags } from "lucide-react";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 
 export const StockLedgerPage: React.FC = () => {
   const [gradeFilter, setGradeFilter] = useState("");
@@ -253,22 +254,27 @@ export const StockLedgerPage: React.FC = () => {
       </div>
 
       {/* Option C: Cutter Completion Modal */}
-      {selectedLotForCut && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-app-bg-primary rounded-2xl max-w-lg w-full p-6 border border-app-separator shadow-xl space-y-4">
+      <Dialog open={Boolean(selectedLotForCut)} onOpenChange={(next) => !next && setSelectedLotForCut(null)}>
+        <DialogContent size="lg">
+          <DialogHeader>
             <div className="flex items-center gap-3">
               <div className="p-3 bg-app-accent-subtle text-app-accent rounded-xl">
                 <Scissors className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-app-label-primary">Cut Remnant Decision</h3>
-                <p className="text-xs text-app-label-secondary">
-                  Parent Lot: <span className="font-mono font-bold">{selectedLotForCut.lot_number}</span>
-                </p>
+                <DialogTitle>Cut Remnant Decision</DialogTitle>
+                {selectedLotForCut && (
+                  <DialogDescription>
+                    Parent Lot: <span className="font-mono font-bold">{selectedLotForCut.lot_number}</span>
+                  </DialogDescription>
+                )}
               </div>
             </div>
-
-            <form onSubmit={handleCutSubmit} className="space-y-4">
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody>
+            {selectedLotForCut && (
+            <form id="cut-remnant-form" onSubmit={handleCutSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-2">
                   Remnant Disposition Action
@@ -369,26 +375,28 @@ export const StockLedgerPage: React.FC = () => {
                 </span>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-app-separator">
-                <button
-                  type="button"
-                  onClick={() => setSelectedLotForCut(null)}
-                  className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={processCutMutation.isPending}
-                  className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
-                >
-                  {processCutMutation.isPending ? "Processing Cut..." : "Confirm Cut Disposition"}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setSelectedLotForCut(null)}
+              className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="cut-remnant-form"
+              disabled={processCutMutation.isPending}
+              className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
+            >
+              {processCutMutation.isPending ? "Processing Cut..." : "Confirm Cut Disposition"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

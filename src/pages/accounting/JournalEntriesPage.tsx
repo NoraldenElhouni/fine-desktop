@@ -5,6 +5,7 @@ import { apiErrorPayload } from "../../api/endpoints/production";
 import type { JournalEntry } from "../../api/endpoints/accounting";
 import { formatDate, formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -216,14 +217,18 @@ export const JournalEntriesPage: React.FC = () => {
         </div>
       )}
 
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-app-bg-primary rounded-2xl max-w-2xl w-full p-6 border border-app-separator shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-app-label-primary">قيد تسوية يدوي</h3>
-            <p className="text-xs text-app-label-secondary">
-              للتصحيحات فقط (ACC-04). لن يُقبل القيد ما لم يتساوَ طرفاه.
-            </p>
-
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent size="2xl">
+          <DialogHeader>
+            <div>
+              <DialogTitle>قيد تسوية يدوي</DialogTitle>
+              <DialogDescription>
+                للتصحيحات فقط (ACC-04). لن يُقبل القيد ما لم يتساوَ طرفاه.
+              </DialogDescription>
+            </div>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody className="space-y-3">
             {error && (
               <div className="flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -231,7 +236,7 @@ export const JournalEntriesPage: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={submit} className="space-y-3">
+            <form id="journal-entry-form" onSubmit={submit} className="space-y-3">
               <input
                 type="text" required placeholder="وصف القيد — سبب التسوية"
                 value={description}
@@ -317,26 +322,27 @@ export const JournalEntriesPage: React.FC = () => {
                 <span>{isBalanced ? "متوازن" : "غير متوازن"}</span>
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-app-separator">
-                <button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending || !isBalanced || lines.some((l) => !l.account_code)}
-                  className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
-                >
-                  {createMutation.isPending ? "جارٍ الترحيل…" : "ترحيل القيد"}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              form="journal-entry-form"
+              disabled={createMutation.isPending || !isBalanced || lines.some((l) => !l.account_code)}
+              className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
+            >
+              {createMutation.isPending ? "جارٍ الترحيل…" : "ترحيل القيد"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

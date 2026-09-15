@@ -25,6 +25,7 @@ import {
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 
 export const CutterWorkOrdersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -240,21 +241,29 @@ export const CutterWorkOrdersPage: React.FC = () => {
         )}
       </div>
 
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-app-bg-primary rounded-2xl max-w-2xl w-full p-6 border border-app-separator shadow-xl space-y-4 max-h-[92vh] overflow-y-auto">
+      <Dialog
+        open={showForm}
+        onOpenChange={(next) => {
+          setShowForm(next);
+          if (!next) resetCreateForm();
+        }}
+      >
+        <DialogContent size="2xl">
+          <DialogHeader>
             <div className="flex items-center gap-3">
               <div className="p-3 bg-app-accent-subtle text-app-accent rounded-xl">
                 <Scissors className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-app-label-primary">New Cutter Work Order</h3>
-                <p className="text-xs text-app-label-secondary">
+                <DialogTitle>New Cutter Work Order</DialogTitle>
+                <DialogDescription>
                   Leave the client unset for an internal order. Pick a precut block to commit its measurements + price to the order at creation.
-                </p>
+                </DialogDescription>
               </div>
             </div>
-
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody className="space-y-4">
             {error && (
               <div className="flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -262,7 +271,7 @@ export const CutterWorkOrdersPage: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={submit} className="space-y-4">
+            <form id="cutter-work-order-form" onSubmit={submit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
                   Order Number
@@ -351,29 +360,30 @@ export const CutterWorkOrdersPage: React.FC = () => {
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-app-separator">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowForm(false);
-                    resetCreateForm();
-                  }}
-                  className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending}
-                  className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
-                >
-                  {createMutation.isPending ? "Creating..." : "Create Work Order"}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => {
+                setShowForm(false);
+                resetCreateForm();
+              }}
+              className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="cutter-work-order-form"
+              disabled={createMutation.isPending}
+              className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
+            >
+              {createMutation.isPending ? "Creating..." : "Create Work Order"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

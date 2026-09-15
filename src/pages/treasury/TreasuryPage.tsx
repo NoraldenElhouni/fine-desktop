@@ -28,7 +28,7 @@ import {
 import { PayablesPanel } from "./PayablesPanel";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
-import { Modal } from "../../components/ui/Modal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { formatNumber, formatDateTime } from "../../lib/utils/format";
 
 type RouteTab = "all" | "bank" | "market";
@@ -363,13 +363,14 @@ export const TreasuryPage: React.FC = () => {
       </div>
 
       {/* Record FX Rate Modal */}
-      <Modal
-        isOpen={isFxModalOpen}
-        onClose={() => setIsFxModalOpen(false)}
-        title="تسجيل سعر صرف جديد"
-        size="md"
-      >
-        <form onSubmit={handleCreateFxRate} className="space-y-4" dir="rtl">
+      <Dialog open={isFxModalOpen} onOpenChange={setIsFxModalOpen}>
+        <DialogContent size="md">
+          <DialogHeader>
+            <DialogTitle>تسجيل سعر صرف جديد</DialogTitle>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody>
+        <form id="fx-rate-form" onSubmit={handleCreateFxRate} className="space-y-4" dir="rtl">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-app-label-secondary mb-1">من عملة</label>
@@ -409,7 +410,9 @@ export const TreasuryPage: React.FC = () => {
             />
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-app-separator">
+        </form>
+          </DialogBody>
+          <DialogFooter>
             <button
               type="button"
               onClick={() => setIsFxModalOpen(false)}
@@ -419,25 +422,33 @@ export const TreasuryPage: React.FC = () => {
             </button>
             <button
               type="submit"
+              form="fx-rate-form"
               disabled={createFxRateMutation.isPending || rate <= 0}
               className="rounded-xl bg-app-accent px-5 py-2 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
             >
               {createFxRateMutation.isPending ? "جاري الحفظ..." : "حفظ سعر الصرف"}
             </button>
-          </div>
-        </form>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Execute Payment Modal */}
-      <Modal
-        isOpen={Boolean(selectedPayment)}
-        onClose={closeExecuteModal}
-        title="تنفيذ تسوية الدفع وتثبيت العملة"
-        description={selectedPayment ? `المبلغ المطلوب: ${formatNumber(selectedPayment.amount_requested)} USD` : undefined}
-        size="md"
-      >
+      <Dialog open={Boolean(selectedPayment)} onOpenChange={(next) => !next && closeExecuteModal()}>
+        <DialogContent size="md">
+          <DialogHeader>
+            <div>
+              <DialogTitle>تنفيذ تسوية الدفع وتثبيت العملة</DialogTitle>
+              {selectedPayment && (
+                <DialogDescription>
+                  المبلغ المطلوب: {formatNumber(selectedPayment.amount_requested)} USD
+                </DialogDescription>
+              )}
+            </div>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody>
         {selectedPayment && (
-          <form onSubmit={handleExecutePayment} className="space-y-4" dir="rtl">
+          <form id="execute-payment-form" onSubmit={handleExecutePayment} className="space-y-4" dir="rtl">
             <div>
               <label className="block text-xs font-semibold text-app-label-secondary mb-1">
                 سعر الصرف المنفذ فعلياً <span className="text-app-status-danger">*</span>
@@ -519,26 +530,28 @@ export const TreasuryPage: React.FC = () => {
                 ) : null}
               </div>
             ) : null}
-
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-app-separator">
-              <button
-                type="button"
-                onClick={closeExecuteModal}
-                className="rounded-xl px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
-              >
-                إلغاء
-              </button>
-              <button
-                type="submit"
-                disabled={executePaymentMutation.isPending || fxRateUsed <= 0 || noteMissing}
-                className="rounded-xl bg-app-status-positive px-5 py-2 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
-              >
-                {executePaymentMutation.isPending ? "جاري التأكيد..." : "تأكيد الدفع والتسوية"}
-              </button>
-            </div>
           </form>
         )}
-      </Modal>
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={closeExecuteModal}
+              className="rounded-xl px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              form="execute-payment-form"
+              disabled={executePaymentMutation.isPending || fxRateUsed <= 0 || noteMissing}
+              className="rounded-xl bg-app-status-positive px-5 py-2 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {executePaymentMutation.isPending ? "جاري التأكيد..." : "تأكيد الدفع والتسوية"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

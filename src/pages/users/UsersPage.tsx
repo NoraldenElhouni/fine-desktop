@@ -5,7 +5,6 @@ import {
   Plus,
   RefreshCw,
   AlertTriangle,
-  X,
   KeyRound,
   UserCheck,
   UserX,
@@ -28,6 +27,7 @@ import { apiErrorPayload } from "../../api/endpoints/production";
 import { toast } from "../../stores/toastStore";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { useAuthStore } from "../../stores/authStore";
 
 const UsersPage: React.FC = () => {
@@ -339,27 +339,21 @@ const UsersPage: React.FC = () => {
       </div>
 
       {/* Create user modal */}
-      {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" dir="rtl">
-          <div className="bg-app-bg-primary rounded-2xl max-w-md w-full p-6 border border-app-separator shadow-xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-app-label-primary">إضافة مستخدم جديد</h3>
-              <button
-                onClick={() => setShowCreate(false)}
-                className="rounded-lg p-1 text-app-label-secondary hover:bg-app-fill-f1"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
+      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+        <DialogContent size="md">
+          <DialogHeader>
+            <DialogTitle>إضافة مستخدم جديد</DialogTitle>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody>
             {formError && (
-              <div className="flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger">
+              <div className="flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger mb-4">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>{formError}</span>
               </div>
             )}
 
-            <form onSubmit={submitCreate} className="space-y-4">
+            <form id="user-create-form" onSubmit={submitCreate} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary mb-1">الاسم</label>
                 <input
@@ -399,53 +393,49 @@ const UsersPage: React.FC = () => {
                 </p>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-app-separator">
-                <button
-                  type="button"
-                  onClick={() => setShowCreate(false)}
-                  className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  disabled={createUser.isPending}
-                  className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
-                >
-                  {createUser.isPending ? "جاري الإنشاء..." : "إنشاء المستخدم"}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setShowCreate(false)}
+              className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              form="user-create-form"
+              disabled={createUser.isPending}
+              className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
+            >
+              {createUser.isPending ? "جاري الإنشاء..." : "إنشاء المستخدم"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Role management modal */}
-      {rolesForUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" dir="rtl">
-          <div className="bg-app-bg-primary rounded-2xl max-w-lg w-full p-6 border border-app-separator shadow-xl space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-app-label-primary">أدوار {rolesForUser.name}</h3>
-                <p className="text-xs text-app-label-secondary">
-                  اترك الوحدة فارغة ليكون الدور على مستوى الشركة كاملة.
-                </p>
-              </div>
-              <button
-                onClick={() => setRolesFor(null)}
-                className="rounded-lg p-1 text-app-label-secondary hover:bg-app-fill-f1"
-              >
-                <X className="w-4 h-4" />
-              </button>
+      <Dialog open={Boolean(rolesForUser)} onOpenChange={(next) => !next && setRolesFor(null)}>
+        <DialogContent size="lg">
+          <DialogHeader>
+            <div>
+              {rolesForUser && <DialogTitle>أدوار {rolesForUser.name}</DialogTitle>}
+              <DialogDescription>
+                اترك الوحدة فارغة ليكون الدور على مستوى الشركة كاملة.
+              </DialogDescription>
             </div>
-
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody>
             {formError && (
-              <div className="flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger">
+              <div className="flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger mb-4">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>{formError}</span>
               </div>
             )}
 
+            {rolesForUser && (
             <div className="space-y-2">
               {rolesForUser.roles?.length ? (
                 rolesForUser.roles.map((r, i) => (
@@ -481,6 +471,7 @@ const UsersPage: React.FC = () => {
                 <div className="text-xs text-app-label-tertiary py-2">لا توجد أدوار مسندة.</div>
               )}
             </div>
+            )}
 
             <form onSubmit={submitAssign} className="flex items-end gap-2 pt-3 border-t border-app-separator">
               <div className="flex-1">
@@ -519,35 +510,29 @@ const UsersPage: React.FC = () => {
                 إسناد
               </button>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit user modal */}
-      {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" dir="rtl">
-          <div className="bg-app-bg-primary rounded-2xl max-w-md w-full p-6 border border-app-separator shadow-xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-app-label-primary flex items-center gap-2">
-                <Pencil className="w-4 h-4 text-app-accent" />
-                تعديل المستخدم
-              </h3>
-              <button
-                onClick={() => setEditing(null)}
-                className="rounded-lg p-1 text-app-label-secondary hover:bg-app-fill-f1"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
+      <Dialog open={Boolean(editing)} onOpenChange={(next) => !next && setEditing(null)}>
+        <DialogContent size="md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="w-4 h-4 text-app-accent" />
+              تعديل المستخدم
+            </DialogTitle>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody>
             {formError && (
-              <div className="flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger">
+              <div className="flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger mb-4">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>{formError}</span>
               </div>
             )}
 
-            <form onSubmit={submitEdit} className="space-y-4">
+            <form id="user-edit-form" onSubmit={submitEdit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary mb-1">الاسم</label>
                 <input
@@ -587,26 +572,27 @@ const UsersPage: React.FC = () => {
                 </p>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-app-separator">
-                <button
-                  type="button"
-                  onClick={() => setEditing(null)}
-                  className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  disabled={updateUser.isPending}
-                  className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
-                >
-                  {updateUser.isPending ? "جاري الحفظ..." : "حفظ التغييرات"}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setEditing(null)}
+              className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              form="user-edit-form"
+              disabled={updateUser.isPending}
+              className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
+            >
+              {updateUser.isPending ? "جاري الحفظ..." : "حفظ التغييرات"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         isOpen={!!deleting}

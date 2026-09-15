@@ -6,6 +6,7 @@ import { getEmployees } from "../../api/endpoints/employees";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { LEAVE_TYPE_LABEL, type LeaveType, type LeaveRequest } from "../../api/endpoints/hr";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 
 const STATUS_STYLE: Record<LeaveRequest["status"], string> = {
   pending: "bg-app-status-yellow/15 text-app-status-yellow",
@@ -135,11 +136,13 @@ export const LeaveRequestsPage: React.FC = () => {
         )}
       </div>
 
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-app-bg-primary rounded-2xl max-w-md w-full p-6 border border-app-separator shadow-xl space-y-4">
-            <h3 className="text-lg font-bold text-app-label-primary">طلب إجازة</h3>
-
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent size="md">
+          <DialogHeader>
+            <DialogTitle>طلب إجازة</DialogTitle>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody className="space-y-3">
             {error && (
               <div className="flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -147,7 +150,7 @@ export const LeaveRequestsPage: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={submit} className="space-y-3">
+            <form id="leave-request-form" onSubmit={submit} className="space-y-3">
               <SearchableSelect<{ id: string; entity?: { name?: string }; job_title?: string }>
                 options={employees ?? []}
                 value={
@@ -191,25 +194,26 @@ export const LeaveRequestsPage: React.FC = () => {
                 className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
               />
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-app-separator">
-                <button
-                  type="button" onClick={() => setShowForm(false)}
-                  className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending || !employeeId || !startDate || !endDate}
-                  className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
-                >
-                  {createMutation.isPending ? "جارٍ الإرسال…" : "إرسال الطلب"}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button" onClick={() => setShowForm(false)}
+              className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              form="leave-request-form"
+              disabled={createMutation.isPending || !employeeId || !startDate || !endDate}
+              className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
+            >
+              {createMutation.isPending ? "جارٍ الإرسال…" : "إرسال الطلب"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

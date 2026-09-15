@@ -6,6 +6,7 @@ import { formatDate } from "../../lib/utils/format";
 import { Package, PackagePlus, Plus, Search, Filter, Tags, Sliders } from "lucide-react";
 import { StockIntakeModal } from "./StockIntakeModal";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 
 export const InventoryItemsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -203,11 +204,14 @@ export const InventoryItemsPage: React.FC = () => {
       </div>
 
       {/* Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-app-bg-primary rounded-2xl max-w-lg w-full p-6 border border-app-separator shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-app-label-primary">Create Inventory Item</h3>
-            <form onSubmit={handleCreate} className="space-y-4">
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent size="lg">
+          <DialogHeader>
+            <DialogTitle>Create Inventory Item</DialogTitle>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody>
+            <form id="inventory-item-form" onSubmit={handleCreate} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">Item Category</label>
                 <SearchableSelect<{ id: string; name: string; code?: string }>
@@ -341,26 +345,27 @@ export const InventoryItemsPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-app-separator">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createItemMutation.isPending}
-                  className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
-                >
-                  {createItemMutation.isPending ? "Saving..." : "Save Item"}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="inventory-item-form"
+              disabled={createItemMutation.isPending}
+              className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
+            >
+              {createItemMutation.isPending ? "Saving..." : "Save Item"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {isIntakeOpen && (
         <StockIntakeModal items={itemData?.data ?? []} onClose={() => setIsIntakeOpen(false)} />

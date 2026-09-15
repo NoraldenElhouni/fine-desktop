@@ -13,6 +13,7 @@ import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import {
   ASSET_STATUS_LABEL,
   DEPRECIATION_METHOD_LABEL,
@@ -275,11 +276,13 @@ export const FixedAssetsPage: React.FC = () => {
         </div>
       )}
 
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-app-bg-primary rounded-2xl max-w-lg w-full p-6 border border-app-separator shadow-xl space-y-4">
-            <h3 className="text-lg font-bold text-app-label-primary">تسجيل أصل ثابت</h3>
-
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent size="lg">
+          <DialogHeader>
+            <DialogTitle>تسجيل أصل ثابت</DialogTitle>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody className="space-y-3">
             {error && (
               <div className="flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -287,7 +290,7 @@ export const FixedAssetsPage: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={submitAsset} className="space-y-3">
+            <form id="fixed-asset-form" onSubmit={submitAsset} className="space-y-3">
               <div className="flex gap-2">
                 <input
                   type="text" required placeholder="اسم الأصل"
@@ -375,37 +378,44 @@ export const FixedAssetsPage: React.FC = () => {
                 )}
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-app-separator">
-                <button
-                  type="button" onClick={() => setShowForm(false)}
-                  className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending || num(form.acquisition_cost) <= 0 || (form.scope === "unit" && !form.operating_unit_id)}
-                  className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
-                >
-                  {createMutation.isPending ? "جارٍ التسجيل…" : "تسجيل ورسملة"}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button" onClick={() => setShowForm(false)}
+              className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              form="fixed-asset-form"
+              disabled={createMutation.isPending || num(form.acquisition_cost) <= 0 || (form.scope === "unit" && !form.operating_unit_id)}
+              className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
+            >
+              {createMutation.isPending ? "جارٍ التسجيل…" : "تسجيل ورسملة"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {disposing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-app-bg-primary rounded-2xl max-w-md w-full p-6 border border-app-separator shadow-xl space-y-4">
-            <h3 className="text-lg font-bold text-app-label-primary">
-              استبعاد {disposing.name}
-            </h3>
-            <p className="text-xs text-app-label-secondary">
-              القيمة الدفترية الحالية {formatNumber(bookValue(disposing))}. الفرق بين المتحصلات والقيمة الدفترية
-              يُقيد ربحًا أو خسارة استبعاد.
-            </p>
-
+      <Dialog open={Boolean(disposing)} onOpenChange={(next) => !next && setDisposing(null)}>
+        <DialogContent size="md">
+          <DialogHeader>
+            <div>
+              {disposing && (
+                <>
+                  <DialogTitle>استبعاد {disposing.name}</DialogTitle>
+                  <DialogDescription>
+                    القيمة الدفترية الحالية {formatNumber(bookValue(disposing))}. الفرق بين المتحصلات والقيمة الدفترية
+                    يُقيد ربحًا أو خسارة استبعاد.
+                  </DialogDescription>
+                </>
+              )}
+            </div>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody className="space-y-3">
             {error && (
               <div className="flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -413,31 +423,33 @@ export const FixedAssetsPage: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={submitDisposal} className="space-y-3">
+            <form id="dispose-asset-form" onSubmit={submitDisposal} className="space-y-3">
               <input
                 type="number" step="0.01" min="0" required placeholder="متحصلات البيع (LYD)"
                 value={proceeds}
                 onChange={(e) => setProceeds(e.target.value)}
                 className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
               />
-              <div className="flex justify-end gap-3 pt-3 border-t border-app-separator">
-                <button
-                  type="button" onClick={() => setDisposing(null)}
-                  className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit" disabled={disposeMutation.isPending}
-                  className="px-4 py-2 text-xs font-bold text-white bg-app-status-danger hover:opacity-90 rounded-xl disabled:opacity-50"
-                >
-                  {disposeMutation.isPending ? "جارٍ الاستبعاد…" : "استبعاد وقيد"}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button" onClick={() => setDisposing(null)}
+              className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              form="dispose-asset-form"
+              disabled={disposeMutation.isPending}
+              className="px-4 py-2 text-xs font-bold text-white bg-app-status-danger hover:opacity-90 rounded-xl disabled:opacity-50"
+            >
+              {disposeMutation.isPending ? "جارٍ الاستبعاد…" : "استبعاد وقيد"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

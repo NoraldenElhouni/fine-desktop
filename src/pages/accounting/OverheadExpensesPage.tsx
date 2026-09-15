@@ -24,6 +24,7 @@ import {
 import { AllocationPaymentActions } from "../../components/allocations/AllocationPaymentActions";
 import { formatDate, formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -269,11 +270,13 @@ export const OverheadExpensesPage: React.FC = () => {
         )}
       </div>
 
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-app-bg-primary rounded-2xl max-w-lg w-full p-6 border border-app-separator shadow-xl space-y-4">
-            <h3 className="text-lg font-bold text-app-label-primary">تسجيل مصروف عمومي</h3>
-
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent size="lg">
+          <DialogHeader>
+            <DialogTitle>تسجيل مصروف عمومي</DialogTitle>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody className="space-y-3">
             {error && (
               <div className="flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -281,7 +284,7 @@ export const OverheadExpensesPage: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={submitExpense} className="space-y-3">
+            <form id="overhead-expense-form" onSubmit={submitExpense} className="space-y-3">
               <div className="flex gap-2">
                 <select
                   value={category}
@@ -345,33 +348,38 @@ export const OverheadExpensesPage: React.FC = () => {
                 />
               )}
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-app-separator">
-                <button
-                  type="button" onClick={() => setShowForm(false)}
-                  className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending || num(amount) <= 0 || (scope === "unit" && !unitId)}
-                  className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
-                >
-                  {createMutation.isPending ? "جارٍ التسجيل…" : "تسجيل وقيد"}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button" onClick={() => setShowForm(false)}
+              className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              form="overhead-expense-form"
+              disabled={createMutation.isPending || num(amount) <= 0 || (scope === "unit" && !unitId)}
+              className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
+            >
+              {createMutation.isPending ? "جارٍ التسجيل…" : "تسجيل وقيد"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {allocating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-app-bg-primary rounded-2xl max-w-lg w-full p-6 border border-app-separator shadow-xl space-y-4">
-            <h3 className="text-lg font-bold text-app-label-primary">
-              توزيع {OVERHEAD_CATEGORY_LABEL[allocating.category]} — {formatNumber(allocating.amount)}
-            </h3>
-
+      <Dialog open={Boolean(allocating)} onOpenChange={(next) => !next && setAllocating(null)}>
+        <DialogContent size="lg">
+          <DialogHeader>
+            {allocating && (
+              <DialogTitle>
+                توزيع {OVERHEAD_CATEGORY_LABEL[allocating.category]} — {formatNumber(allocating.amount)}
+              </DialogTitle>
+            )}
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody className="space-y-3">
             {error && (
               <div className="flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -379,7 +387,7 @@ export const OverheadExpensesPage: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={submitAllocation} className="space-y-3">
+            <form id="overhead-allocation-form" onSubmit={submitAllocation} className="space-y-3">
               <select
                 value={method}
                 onChange={(e) => setMethod(e.target.value as AllocationMethod)}
@@ -409,24 +417,26 @@ export const OverheadExpensesPage: React.FC = () => {
                 </div>
               )}
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-app-separator">
-                <button
-                  type="button" onClick={() => setAllocating(null)}
-                  className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit" disabled={allocateMutation.isPending}
-                  className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
-                >
-                  {allocateMutation.isPending ? "جارٍ التوزيع…" : "توزيع وقيد"}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button" onClick={() => setAllocating(null)}
+              className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              form="overhead-allocation-form"
+              disabled={allocateMutation.isPending}
+              className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
+            >
+              {allocateMutation.isPending ? "جارٍ التوزيع…" : "توزيع وقيد"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

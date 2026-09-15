@@ -11,6 +11,7 @@ import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatDate, formatNumber } from "../../lib/utils/format";
 import { Database, Plus, AlertCircle, PackageOpen } from "lucide-react";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody } from "../../components/ui/Dialog";
 
 export const TankStockPage: React.FC = () => {
   const { data: tanks, isLoading, refetch } = useTankStocks();
@@ -168,11 +169,13 @@ export const TankStockPage: React.FC = () => {
       )}
 
       {/* Refill Modal */}
-      {isRefillOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-app-bg-primary rounded-2xl max-w-md w-full p-6 border border-app-separator shadow-xl space-y-4">
-            <h3 className="text-lg font-bold text-app-label-primary">Tank Refill & WAC Entry</h3>
-
+      <Dialog open={isRefillOpen} onOpenChange={setIsRefillOpen}>
+        <DialogContent size="md">
+          <DialogHeader>
+            <DialogTitle>Tank Refill & WAC Entry</DialogTitle>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody className="space-y-4">
             {error && (
               <div className="flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -380,9 +383,9 @@ export const TankStockPage: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
