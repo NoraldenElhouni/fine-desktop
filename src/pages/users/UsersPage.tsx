@@ -60,6 +60,9 @@ const UsersPage: React.FC = () => {
   const [roleId, setRoleId] = useState("");
   const [unitId, setUnitId] = useState("");
 
+  const COMPANY_WIDE_OPTION: OperatingUnit = { id: "", name: "على مستوى الشركة" };
+  const unitOptions = [COMPANY_WIDE_OPTION, ...(units ?? [])];
+
   const unitName = (id: string | null) =>
     id === null
       ? "على مستوى الشركة"
@@ -496,15 +499,16 @@ const UsersPage: React.FC = () => {
               </div>
               <div className="flex-1">
                 <label className="block text-xs font-semibold text-app-label-secondary mb-1">الوحدة التشغيلية</label>
-                <SearchableSelect<{ id: string; name: string }>
-                  options={units ?? []}
+                <SearchableSelect<OperatingUnit>
+                  options={unitOptions}
                   value={
-                    units?.find((u) => u.id === unitId) ?? null
+                    unitOptions.find((u) => u.id === unitId) ?? null
                   }
                   onChange={(u) => setUnitId(u ? u.id : "")}
                   getOptionId={(u) => u.id}
                   getOptionLabel={(u) => u.name}
                   placeholder="على مستوى الشركة"
+                  clearable={false}
                 />
               </div>
               <button
