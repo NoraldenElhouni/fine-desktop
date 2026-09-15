@@ -4,10 +4,12 @@ import React, {
   useEffect,
   useId,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { Check, ChevronDown, Loader2, Search, X } from "lucide-react";
 import { cn } from "../../lib/utils/utils";
 import { tokens } from "../../lib/tokens";
@@ -78,6 +80,18 @@ function normalize(input: string): string {
   return input.trim().toLocaleLowerCase("ar-LY");
 }
 
+interface PopoverPosition {
+  left: number;
+  width: number;
+  maxHeight: number;
+  placement: "bottom" | "top";
+  offset: number;
+}
+
+const POPOVER_GAP = 4;
+const POPOVER_MIN_HEIGHT = 160;
+const POPOVER_PREFERRED_HEIGHT = 320;
+
 export const SearchableSelect = forwardRef(function SearchableSelect<T>(
   {
     options,
@@ -130,6 +144,47 @@ export const SearchableSelect = forwardRef(function SearchableSelect<T>(
     }
   };
   const [activeIndex, setActiveIndex] = useState(0);
+  const [position, setPosition] = useState<PopoverPosition | null>(null);
+
+  const updatePosition = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const spaceBelow = viewportHeight - rect.bottom - POPOVER_GAP;
+    const spaceAbove = rect.top - POPOVER_GAP;
+    const openUpward =
+      spaceBelow < Math.min(POPOVER_PREFERRED_HEIGHT, POPOVER_MIN_HEIGHT) &&
+      spaceAbove > spaceBelow;
+
+    setPosition({
+      left: rect.left,
+      width: rect.width,
+      maxHeight: Math.max(
+        POPOVER_MIN_HEIGHT,
+        Math.min(POPOVER_PREFERRED_HEIGHT, openUpward ? spaceAbove : spaceBelow)
+      ),
+      placement: openUpward ? "top" : "bottom",
+      offset: openUpward
+        ? viewportHeight - rect.top + POPOVER_GAP
+        : rect.bottom + POPOVER_GAP,
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPosition(null);
+      return;
+    }
+    updatePosition();
+    const handle = () => updatePosition();
+    window.addEventListener("scroll", handle, true);
+    window.addEventListener("resize", handle);
+    return () => {
+      window.removeEventListener("scroll", handle, true);
+      window.removeEventListener("resize", handle);
+    };
+  }, [open, updatePosition]);
 
   const eq = useCallback(
     (a: T, b: T) =>
@@ -328,17 +383,26 @@ export const SearchableSelect = forwardRef(function SearchableSelect<T>(
         </p>
       )}
 
-      {open && (
+      {open && position && createPortal(
         <div
           ref={popoverRef}
+          style={{
+            left: position.left,
+            width: position.width,
+            maxHeight: position.maxHeight,
+            ...(position.placement === "bottom"
+              ? { top: position.offset }
+              : { bottom: position.offset }),
+          }}
           className={cn(
-            "absolute z-40 mt-1 w-full rounded-app-lg border border-app-separator bg-app-bg-primary shadow-lg overflow-hidden",
-            "animate-in fade-in slide-in-from-top-1 duration-150",
+            "fixed z-[9999] flex flex-col rounded-app-lg border border-app-separator bg-app-bg-primary shadow-lg overflow-hidden",
+            "animate-in fade-in duration-150",
+            position.placement === "bottom" ? "slide-in-from-top-1" : "slide-in-from-bottom-1",
             popoverClassName
           )}
           onKeyDown={handleKeyDownListbox}
         >
-          <div className="relative border-b border-app-separator bg-app-bg-secondary">
+          <div className="relative shrink-0 border-b border-app-separator bg-app-bg-secondary">
             <Search className="absolute inset-y-0 start-2 my-auto h-3.5 w-3.5 text-app-label-tertiary pointer-events-none" />
             <input
               autoFocus
@@ -364,7 +428,7 @@ export const SearchableSelect = forwardRef(function SearchableSelect<T>(
             id={listboxId}
             role="listbox"
             dir="rtl"
-            className="max-h-60 overflow-y-auto py-1"
+            className="min-h-0 flex-1 overflow-y-auto py-1"
           >
             {visibleOptions.length === 0 ? (
               <li
@@ -449,7 +513,8 @@ export const SearchableSelect = forwardRef(function SearchableSelect<T>(
               </li>
             )}
           </ul>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
