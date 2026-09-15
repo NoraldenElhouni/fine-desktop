@@ -35,6 +35,11 @@ const newLine = (): DraftLine => ({
   price: "",
 });
 
+const CHANNEL_LABEL: Record<string, string> = {
+  standard: "عادي",
+  pos: "نقطة بيع",
+};
+
 export const SalesOrdersPage: React.FC = () => {
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState("");
@@ -115,22 +120,23 @@ export const SalesOrdersPage: React.FC = () => {
         },
         onError: (err: unknown) => {
           const payload = apiErrorPayload(err);
-          setError(payload?.errors?.order_number?.[0] ?? payload?.message ?? "Could not create the order.");
+          setError(payload?.errors?.order_number?.[0] ?? payload?.message ?? "تعذّر إنشاء الطلب.");
         },
       },
     );
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6" dir="rtl">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-app-label-primary flex items-center gap-2">
             <ShoppingCart className="w-7 h-7 text-app-accent" />
-            Sales Orders
+            طلبات المبيعات
           </h1>
           <p className="text-xs text-app-label-secondary mt-1">
-            Client sales pass the credit gate on submit; internal transfers skip it and move at cost.
+            مبيعات العملاء تمر بوابة الائتمان عند الإرسال؛ أما التحويلات الداخلية فتتجاوزها وتنتقل
+            بسعر التكلفة.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -138,13 +144,13 @@ export const SalesOrdersPage: React.FC = () => {
             onClick={() => refetch()}
             className="flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-semibold hover:bg-app-fill-f1"
           >
-            <RefreshCw className="w-4 h-4" /> Refresh
+            <RefreshCw className="w-4 h-4" /> تحديث
           </button>
           <button
             onClick={() => { setShowForm(true); setError(null); }}
             className="flex items-center gap-1.5 rounded-xl bg-app-accent px-3 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90"
           >
-            <Plus className="w-4 h-4" /> New Order
+            <Plus className="w-4 h-4" /> طلب جديد
           </button>
         </div>
       </div>
@@ -156,7 +162,7 @@ export const SalesOrdersPage: React.FC = () => {
             statusFilter === "" ? "bg-app-accent text-white" : "bg-app-fill-f1 text-app-label-secondary hover:bg-app-fill-f2"
           }`}
         >
-          All
+          الكل
         </button>
         {SALES_STATUS_ORDER.map((s) => (
           <button
@@ -173,18 +179,18 @@ export const SalesOrdersPage: React.FC = () => {
 
       <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
         {isLoading ? (
-          <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">Loading…</div>
+          <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">جاري التحميل…</div>
         ) : (
           <table className="w-full text-start text-xs">
             <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
               <tr>
-                <th className="px-4 py-3 text-start">Order</th>
-                <th className="px-4 py-3 text-start">Buyer</th>
-                <th className="px-4 py-3 text-start">Channel</th>
-                <th className="px-4 py-3 text-start">Total</th>
-                <th className="px-4 py-3 text-start">Paid</th>
-                <th className="px-4 py-3 text-start">Status</th>
-                <th className="px-4 py-3 text-end">Actions</th>
+                <th className="px-4 py-3 text-start">الطلب</th>
+                <th className="px-4 py-3 text-start">المشتري</th>
+                <th className="px-4 py-3 text-start">القناة</th>
+                <th className="px-4 py-3 text-start">الإجمالي</th>
+                <th className="px-4 py-3 text-start">المدفوع</th>
+                <th className="px-4 py-3 text-start">الحالة</th>
+                <th className="px-4 py-3 text-end">الإجراءات</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-app-separator text-app-label-primary">
@@ -194,17 +200,17 @@ export const SalesOrdersPage: React.FC = () => {
                   <td className="px-4 py-3">
                     {o.buyer_type === "client" ? (
                       <span className="inline-flex items-center gap-1">
-                        <Building2 className="w-3.5 h-3.5" /> {o.client?.entity?.name ?? "Client"}
+                        <Building2 className="w-3.5 h-3.5" /> {o.client?.entity?.name ?? "عميل"}
                       </span>
                     ) : o.buyer_type === "internal_unit" ? (
                       <span className="inline-flex items-center gap-1 text-app-label-secondary">
-                        <Home className="w-3.5 h-3.5" /> {o.buyer_unit?.name ?? "Internal"}
+                        <Home className="w-3.5 h-3.5" /> {o.buyer_unit?.name ?? "داخلي"}
                       </span>
                     ) : (
-                      <span className="text-app-label-tertiary">Walk-in</span>
+                      <span className="text-app-label-tertiary">زبون مباشر</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-app-label-secondary">{o.channel}</td>
+                  <td className="px-4 py-3 text-app-label-secondary">{CHANNEL_LABEL[o.channel] ?? o.channel}</td>
                   <td className="px-4 py-3 font-mono">{formatNumber(o.total_amount)}</td>
                   <td className="px-4 py-3 font-mono text-app-label-secondary">
                     {formatNumber(o.amount_paid)}
@@ -227,7 +233,7 @@ export const SalesOrdersPage: React.FC = () => {
                       onClick={() => navigate(`/sales/orders/${o.id}`)}
                       className="inline-flex items-center gap-1 rounded-xl bg-app-accent px-2.5 py-1 text-xs font-bold text-white hover:opacity-90"
                     >
-                      Open
+                      فتح
                     </button>
                   </td>
                 </tr>
@@ -235,7 +241,7 @@ export const SalesOrdersPage: React.FC = () => {
               {orders.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-app-label-tertiary">
-                    No sales orders{statusFilter ? ` at ${SALES_STATUS_LABEL[statusFilter as SalesOrderStatus]}` : ""}.
+                    لا توجد طلبات مبيعات{statusFilter ? ` بحالة ${SALES_STATUS_LABEL[statusFilter as SalesOrderStatus]}` : ""}.
                   </td>
                 </tr>
               )}
@@ -247,7 +253,7 @@ export const SalesOrdersPage: React.FC = () => {
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent size="2xl">
           <DialogHeader>
-            <DialogTitle>New Sales Order</DialogTitle>
+            <DialogTitle>طلب مبيعات جديد</DialogTitle>
             <DialogClose />
           </DialogHeader>
           <DialogBody className="space-y-4">
@@ -261,7 +267,7 @@ export const SalesOrdersPage: React.FC = () => {
             <form id="sales-order-form" onSubmit={submit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <input
-                  type="text" required placeholder="Order number — SO-1042"
+                  type="text" required placeholder="رقم الطلب — SO-1042"
                   value={orderNumber}
                   onChange={(e) => setOrderNumber(e.target.value)}
                   className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none"
@@ -276,7 +282,7 @@ export const SalesOrdersPage: React.FC = () => {
                         : "border-app-separator bg-app-bg-secondary text-app-label-secondary"
                     }`}
                   >
-                    External Client
+                    عميل خارجي
                   </button>
                   <button
                     type="button"
@@ -287,7 +293,7 @@ export const SalesOrdersPage: React.FC = () => {
                         : "border-app-separator bg-app-bg-secondary text-app-label-secondary"
                     }`}
                   >
-                    Internal Unit
+                    وحدة داخلية
                   </button>
                 </div>
               </div>
@@ -302,14 +308,14 @@ export const SalesOrdersPage: React.FC = () => {
                     onChange={(c) => setClientId(c ? c.id : "")}
                     getOptionId={(c) => c.id}
                     getOptionLabel={(c) => c.entity?.name ?? c.id}
-                    placeholder="Select client…"
+                    placeholder="اختر عميلًا…"
                     required
                   />
                   {selectedClient && (
                     <p className="text-[10px] text-app-label-tertiary mt-1 font-mono">
-                      Credit limit {formatNumber((selectedClient as { credit_limit?: number }).credit_limit ?? 0)}
-                      {" · "}balance {formatNumber((selectedClient as { current_balance?: number }).current_balance ?? 0)}
-                      {" · "}this order {formatNumber(orderTotal)}
+                      الحد الائتماني {formatNumber((selectedClient as { credit_limit?: number }).credit_limit ?? 0)}
+                      {" · "}الرصيد {formatNumber((selectedClient as { current_balance?: number }).current_balance ?? 0)}
+                      {" · "}هذا الطلب {formatNumber(orderTotal)}
                     </p>
                   )}
                 </div>
@@ -323,11 +329,11 @@ export const SalesOrdersPage: React.FC = () => {
                     onChange={(u) => setBuyerUnitId(u ? u.id : "")}
                     getOptionId={(u) => u.id}
                     getOptionLabel={(u) => u.name}
-                    placeholder="Select buying unit…"
+                    placeholder="اختر وحدة الشراء…"
                     required
                   />
                   <p className="text-[10px] text-app-label-tertiary mt-1">
-                    Internal transfers skip the credit gate and settle at cost.
+                    التحويلات الداخلية تتجاوز بوابة الائتمان وتُسوَّى بسعر التكلفة.
                   </p>
                 </div>
               )}
@@ -365,7 +371,7 @@ export const SalesOrdersPage: React.FC = () => {
                               `${i.name} (${i.sku})${i.item_type === "foam_block" ? " · قطعة" : ""}`
                             }
                             getOptionSearchText={(i) => `${i.name} ${i.sku}`}
-                            placeholder="Item…"
+                            placeholder="الصنف…"
                             size="sm"
                           />
                         </div>
@@ -379,14 +385,14 @@ export const SalesOrdersPage: React.FC = () => {
                           </button>
                         )}
                         <input
-                          type="number" step="0.01" min="0.01" placeholder="qty"
+                          type="number" step="0.01" min="0.01" placeholder="الكمية"
                           value={l.qty}
                           readOnly={Boolean(l.stockLotId)}
                           onChange={(e) => setLines(lines.map((x) => x.key === l.key ? { ...x, qty: e.target.value } : x))}
                           className={`w-20 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none ${l.stockLotId ? "opacity-70 cursor-not-allowed" : ""}`}
                         />
                         <input
-                          type="number" step="0.01" min="0" placeholder="price"
+                          type="number" step="0.01" min="0" placeholder="السعر"
                           value={l.price}
                           onChange={(e) => setLines(lines.map((x) => x.key === l.key ? { ...x, price: e.target.value } : x))}
                           className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
@@ -418,10 +424,10 @@ export const SalesOrdersPage: React.FC = () => {
                     onClick={() => setLines([...lines, newLine()])}
                     className="flex items-center gap-1 text-xs font-semibold text-app-accent hover:opacity-80"
                   >
-                    <Plus className="w-3.5 h-3.5" /> Add line
+                    <Plus className="w-3.5 h-3.5" /> إضافة بند
                   </button>
                   <span className="text-sm font-bold font-mono text-app-label-primary">
-                    Total {formatNumber(orderTotal)} LYD
+                    الإجمالي {formatNumber(orderTotal)} LYD
                   </span>
                 </div>
               </div>
@@ -434,7 +440,7 @@ export const SalesOrdersPage: React.FC = () => {
               onClick={() => setShowForm(false)}
               className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
             >
-              Cancel
+              إلغاء
             </button>
             <button
               type="submit"
@@ -442,7 +448,7 @@ export const SalesOrdersPage: React.FC = () => {
               disabled={createMutation.isPending || !canSubmit}
               className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
             >
-              {createMutation.isPending ? "Creating…" : "Create Draft"}
+              {createMutation.isPending ? "جاري الإنشاء…" : "إنشاء مسودة"}
             </button>
           </DialogFooter>
         </DialogContent>

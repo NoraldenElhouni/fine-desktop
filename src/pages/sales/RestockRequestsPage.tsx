@@ -21,6 +21,13 @@ const STATUS_STYLE: Record<string, string> = {
   fulfilled: "bg-app-status-positive/10 text-app-status-positive",
 };
 
+const STATUS_LABEL: Record<string, string> = {
+  pending_approval: "بانتظار الموافقة",
+  approved: "تمت الموافقة",
+  rejected: "مرفوض",
+  fulfilled: "تم التنفيذ",
+};
+
 export const RestockRequestsPage: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,9 +44,15 @@ export const RestockRequestsPage: React.FC = () => {
   const fail = (err: unknown, fallback: string) =>
     setError(apiErrorPayload(err)?.message ?? fallback);
 
+  const ACTION_LABEL: Record<"approve" | "reject" | "fulfill", string> = {
+    approve: "الموافقة",
+    reject: "الرفض",
+    fulfill: "التنفيذ",
+  };
+
   const act = (id: string, action: "approve" | "reject" | "fulfill") => {
     setError(null);
-    actionMutation.mutate({ id, action }, { onError: (e) => fail(e, `Could not ${action}.`) });
+    actionMutation.mutate({ id, action }, { onError: (e) => fail(e, `تعذّرت ${ACTION_LABEL[action]}.`) });
   };
 
   const submit = (e: React.FormEvent) => {
@@ -57,29 +70,29 @@ export const RestockRequestsPage: React.FC = () => {
           setRequestNumber("");
           setLines([{ key: "1", item: "", qty: "1" }]);
         },
-        onError: (err) => fail(err, "Could not create the request."),
+        onError: (err) => fail(err, "تعذّر إنشاء الطلب."),
       },
     );
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6" dir="rtl">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-app-label-primary flex items-center gap-2">
             <Truck className="w-7 h-7 text-app-accent" />
-            Internal Restock
+            التموين الداخلي
           </h1>
           <p className="text-xs text-app-label-secondary mt-1">
-            Request stock from another unit. The source unit's manager approves before anything moves;
-            transfers land at cost.
+            اطلب مخزونًا من وحدة أخرى. يوافق مدير الوحدة المصدر قبل أي تحريك؛ وتنتقل التحويلات بسعر
+            التكلفة.
           </p>
         </div>
         <button
           onClick={() => { setShowForm(true); setError(null); }}
           className="flex items-center gap-1.5 rounded-xl bg-app-accent px-3 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90"
         >
-          <Plus className="w-4 h-4" /> New Request
+          <Plus className="w-4 h-4" /> طلب جديد
         </button>
       </div>
 
@@ -92,7 +105,7 @@ export const RestockRequestsPage: React.FC = () => {
 
       <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
         {isLoading ? (
-          <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">Loading…</div>
+          <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">جاري التحميل…</div>
         ) : (
           <div className="divide-y divide-app-separator">
             {requests?.data.map((r) => (
@@ -103,7 +116,7 @@ export const RestockRequestsPage: React.FC = () => {
                     {r.requesting_unit?.name} ← {r.source_unit?.name}
                   </span>
                   <span className={`px-2 py-1 text-xs font-semibold rounded-full ${STATUS_STYLE[r.status] ?? ""}`}>
-                    {r.status.replace(/_/g, " ")}
+                    {STATUS_LABEL[r.status] ?? r.status.replace(/_/g, " ")}
                   </span>
 
                   <div className="ms-auto flex gap-2">
@@ -114,14 +127,14 @@ export const RestockRequestsPage: React.FC = () => {
                           disabled={actionMutation.isPending}
                           className="flex items-center gap-1 rounded-xl bg-app-accent px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
                         >
-                          <Check className="w-3.5 h-3.5" /> Approve
+                          <Check className="w-3.5 h-3.5" /> موافقة
                         </button>
                         <button
                           onClick={() => act(r.id, "reject")}
                           disabled={actionMutation.isPending}
                           className="flex items-center gap-1 rounded-xl border border-app-status-danger/40 px-3 py-1.5 text-xs font-bold text-app-status-danger hover:bg-app-status-danger/10 disabled:opacity-50"
                         >
-                          <X className="w-3.5 h-3.5" /> Reject
+                          <X className="w-3.5 h-3.5" /> رفض
                         </button>
                       </>
                     )}
@@ -131,7 +144,7 @@ export const RestockRequestsPage: React.FC = () => {
                         disabled={actionMutation.isPending}
                         className="flex items-center gap-1 rounded-xl bg-app-accent px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
                       >
-                        <PackageCheck className="w-3.5 h-3.5" /> Fulfill Transfer
+                        <PackageCheck className="w-3.5 h-3.5" /> تنفيذ التحويل
                       </button>
                     )}
                   </div>
@@ -146,7 +159,7 @@ export const RestockRequestsPage: React.FC = () => {
               </div>
             ))}
             {requests?.data.length === 0 && (
-              <div className="p-10 text-center text-xs text-app-label-tertiary">No restock requests.</div>
+              <div className="p-10 text-center text-xs text-app-label-tertiary">لا توجد طلبات تموين.</div>
             )}
           </div>
         )}
@@ -155,13 +168,13 @@ export const RestockRequestsPage: React.FC = () => {
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent size="lg">
           <DialogHeader>
-            <DialogTitle>Request Stock</DialogTitle>
+            <DialogTitle>طلب مخزون</DialogTitle>
             <DialogClose />
           </DialogHeader>
           <DialogBody>
             <form id="restock-request-form" onSubmit={submit} className="space-y-3">
               <input
-                type="text" required placeholder="Request number — RSR-1042"
+                type="text" required placeholder="رقم الطلب — RSR-1042"
                 value={requestNumber}
                 onChange={(e) => setRequestNumber(e.target.value)}
                 className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none"
@@ -174,7 +187,7 @@ export const RestockRequestsPage: React.FC = () => {
                 onChange={(u) => setSourceUnitId(u ? u.id : "")}
                 getOptionId={(u) => u.id}
                 getOptionLabel={(u) => u.name}
-                placeholder="Request from unit…"
+                placeholder="الطلب من وحدة…"
                 required
               />
 
@@ -197,7 +210,7 @@ export const RestockRequestsPage: React.FC = () => {
                       getOptionLabel={(i) => i.name}
                       getOptionSubLabel={(i) => i.sku}
                       getOptionSearchText={(i) => `${i.name} ${i.sku}`}
-                      placeholder="Item…"
+                      placeholder="الصنف…"
                       size="sm"
                     />
                   </div>
@@ -223,7 +236,7 @@ export const RestockRequestsPage: React.FC = () => {
                 onClick={() => setLines([...lines, { key: Math.random().toString(36).slice(2), item: "", qty: "1" }])}
                 className="flex items-center gap-1 text-xs font-semibold text-app-accent hover:opacity-80"
               >
-                <Plus className="w-3.5 h-3.5" /> Add line
+                <Plus className="w-3.5 h-3.5" /> إضافة بند
               </button>
 
             </form>
@@ -234,7 +247,7 @@ export const RestockRequestsPage: React.FC = () => {
               onClick={() => setShowForm(false)}
               className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
             >
-              Cancel
+              إلغاء
             </button>
             <button
               type="submit"
@@ -242,7 +255,7 @@ export const RestockRequestsPage: React.FC = () => {
               disabled={createMutation.isPending || !sourceUnitId || lines.some((l) => !l.item)}
               className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
             >
-              {createMutation.isPending ? "Submitting…" : "Submit Request"}
+              {createMutation.isPending ? "جاري الإرسال…" : "إرسال الطلب"}
             </button>
           </DialogFooter>
         </DialogContent>

@@ -18,14 +18,14 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 
 const STATUS_LABELS: Record<string, string> = {
-  planned: "Planned",
-  configured: "Configured",
-  running: "Running",
-  consumed: "Consumed",
-  curing: "Curing",
-  ready_for_grading: "Ready for Grading",
-  graded: "Graded",
-  closed: "Closed",
+  planned: "مخطط",
+  configured: "تم الإعداد",
+  running: "قيد التشغيل",
+  consumed: "مستهلك",
+  curing: "قيد التصلب",
+  ready_for_grading: "جاهز للفرز",
+  graded: "تم الفرز",
+  closed: "مغلق",
 };
 
 const emptyForm = {
@@ -86,7 +86,7 @@ export const ProductionBatchesPage: React.FC = () => {
         setError(
           payload?.errors?.operation_number?.[0] ??
             payload?.message ??
-            "Could not create the production batch.",
+            "تعذر إنشاء دفعة الإنتاج.",
         );
       },
     });
@@ -96,21 +96,21 @@ export const ProductionBatchesPage: React.FC = () => {
     setError(null);
     deleteMutation.mutate(batch.id, {
       onError: (err: unknown) =>
-        setError(apiErrorPayload(err)?.message ?? "Could not delete the batch."),
+        setError(apiErrorPayload(err)?.message ?? "تعذر حذف الدفعة."),
       onSuccess: () => refetch(),
     });
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6" dir="rtl">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-app-label-primary flex items-center gap-2">
             <Factory className="w-7 h-7 text-app-accent" />
-            Foam Production Batches
+            دفعات إنتاج الإسفنج
           </h1>
           <p className="text-xs text-app-label-secondary mt-1">
-            One batch per pour. Blocks are registered after grading, from the completed production report.
+            دفعة واحدة لكل صبة. تُسجَّل البلوكات بعد الفرز، من تقرير الإنتاج المكتمل.
           </p>
         </div>
 
@@ -119,7 +119,7 @@ export const ProductionBatchesPage: React.FC = () => {
             onClick={() => refetch()}
             className="flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1 transition-colors"
           >
-            <RefreshCw className="w-4 h-4" /> Refresh
+            <RefreshCw className="w-4 h-4" /> تحديث
           </button>
           <button
             onClick={() => {
@@ -130,7 +130,7 @@ export const ProductionBatchesPage: React.FC = () => {
             }}
             className="flex items-center gap-1.5 rounded-xl bg-app-accent px-3 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all"
           >
-            <Plus className="w-4 h-4" /> New Batch
+            <Plus className="w-4 h-4" /> دفعة جديدة
           </button>
         </div>
       </div>
@@ -145,19 +145,19 @@ export const ProductionBatchesPage: React.FC = () => {
       <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
         {isLoading ? (
           <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">
-            Loading production batches...
+            جاري تحميل دفعات الإنتاج…
           </div>
         ) : (
           <table className="w-full text-start text-xs">
             <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
               <tr>
-                <th className="px-4 py-3 text-start">Operation No.</th>
-                <th className="px-4 py-3 text-start">Bun Width</th>
-                <th className="px-4 py-3 text-start">Density / Time / Speed</th>
-                <th className="px-4 py-3 text-start">Blocks</th>
-                <th className="px-4 py-3 text-start">Scrap</th>
-                <th className="px-4 py-3 text-start">Status</th>
-                <th className="px-4 py-3 text-end">Actions</th>
+                <th className="px-4 py-3 text-start">رقم العملية</th>
+                <th className="px-4 py-3 text-start">عرض الكتلة</th>
+                <th className="px-4 py-3 text-start">الكثافة / الوقت / السرعة</th>
+                <th className="px-4 py-3 text-start">البلوكات</th>
+                <th className="px-4 py-3 text-start">الهدر</th>
+                <th className="px-4 py-3 text-start">الحالة</th>
+                <th className="px-4 py-3 text-end">الإجراءات</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-app-separator text-app-label-primary">
@@ -166,20 +166,20 @@ export const ProductionBatchesPage: React.FC = () => {
                   <td className="px-4 py-3 font-mono font-bold text-app-accent">
                     {batch.operation_number}
                   </td>
-                  <td className="px-4 py-3 font-mono">{batch.bun_width_m} m</td>
+                  <td className="px-4 py-3 font-mono">{batch.bun_width_m} م</td>
                   <td className="px-4 py-3 text-app-label-secondary font-mono">
                     {batch.formula_params?.density_band ?? "—"}
                     {" · "}
-                    {batch.formula_params?.cure_time_minutes ?? "—"} min
+                    {batch.formula_params?.cure_time_minutes ?? "—"} دقيقة
                     {" · "}
                     {batch.formula_params?.conveyor_speed ?? "—"}
                   </td>
                   <td className="px-4 py-3 font-bold">{batch.blocks_count ?? 0}</td>
                   <td className="px-4 py-3 font-mono text-app-label-secondary">
-                    {Number(batch.scrap_volume_m3).toFixed(3)} m³
+                    {Number(batch.scrap_volume_m3).toFixed(3)} م³
                     {(batch.scrap_lots_count ?? 0) > 0 && (
                       <span className="text-app-label-tertiary">
-                        {" "}({batch.scrap_lots_count} lot{batch.scrap_lots_count === 1 ? "" : "s"})
+                        {" "}({batch.scrap_lots_count} لوت)
                       </span>
                     )}
                   </td>
@@ -194,7 +194,7 @@ export const ProductionBatchesPage: React.FC = () => {
                         onClick={() => navigate(`/manufacturing/batches/${batch.id}`)}
                         className="inline-flex items-center gap-1 rounded-xl bg-app-accent px-2.5 py-1 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all"
                       >
-                        <Boxes className="w-3.5 h-3.5" /> Blocks
+                        <Boxes className="w-3.5 h-3.5" /> البلوكات
                       </button>
                       {(batch.blocks_count ?? 0) === 0 && (batch.scrap_lots_count ?? 0) === 0 && (
                         <button
@@ -211,7 +211,7 @@ export const ProductionBatchesPage: React.FC = () => {
               {batches.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-app-label-tertiary">
-                    No production batches recorded yet.
+                    لا توجد دفعات إنتاج مسجلة بعد.
                   </td>
                 </tr>
               )}
@@ -234,9 +234,9 @@ export const ProductionBatchesPage: React.FC = () => {
                 <Factory className="w-6 h-6" />
               </div>
               <div>
-                <DialogTitle>New Production Batch</DialogTitle>
+                <DialogTitle>دفعة إنتاج جديدة</DialogTitle>
                 <DialogDescription>
-                  Last operation was {expected - 1} — next expected is{" "}
+                  آخر عملية كانت {expected - 1} — التالي المتوقع هو{" "}
                   <span className="font-mono font-bold">{expected}</span>.
                 </DialogDescription>
               </div>
@@ -255,7 +255,7 @@ export const ProductionBatchesPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                    Operation Number
+                    رقم العملية
                   </label>
                   <input
                     type="number"
@@ -271,7 +271,7 @@ export const ProductionBatchesPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                    Bun Width (m)
+                    عرض الكتلة (م)
                   </label>
                   <input
                     type="number"
@@ -284,14 +284,14 @@ export const ProductionBatchesPage: React.FC = () => {
                     className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
                   />
                   <p className="text-[10px] text-app-label-tertiary mt-1">
-                    Machine limit {MAX_BUN_WIDTH_M} m
+                    الحد الأقصى للماكينة {MAX_BUN_WIDTH_M} م
                   </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3 p-4 bg-app-bg-secondary rounded-xl border border-app-separator">
                 <div>
-                  <label className="block text-xs text-app-label-secondary mb-1">Density Band</label>
+                  <label className="block text-xs text-app-label-secondary mb-1">نطاق الكثافة</label>
                   <input
                     type="text"
                     placeholder="12-14"
@@ -301,7 +301,7 @@ export const ProductionBatchesPage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-app-label-secondary mb-1">Time (min)</label>
+                  <label className="block text-xs text-app-label-secondary mb-1">الوقت (دقيقة)</label>
                   <input
                     type="number"
                     min="0"
@@ -311,7 +311,7 @@ export const ProductionBatchesPage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-app-label-secondary mb-1">Conveyor Speed</label>
+                  <label className="block text-xs text-app-label-secondary mb-1">سرعة السير الناقل</label>
                   <input
                     type="number"
                     min="0"
@@ -327,14 +327,15 @@ export const ProductionBatchesPage: React.FC = () => {
                   <div className="flex items-start gap-2 text-xs text-app-label-primary">
                     <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-app-status-yellow" />
                     <span>
-                      Last operation was{" "}
+                      آخر عملية كانت{" "}
                       <span className="font-mono font-bold">
                         {warning.expected_operation_number - 1}
                       </span>
-                      , so <span className="font-mono font-bold">{warning.expected_operation_number}</span>{" "}
-                      was expected — you entered{" "}
+                      ، لذا كان المتوقع{" "}
+                      <span className="font-mono font-bold">{warning.expected_operation_number}</span>{" "}
+                      — وقد أدخلت{" "}
                       <span className="font-mono font-bold">{warning.entered_operation_number}</span>.
-                      Gaps are allowed, but check this is not a typo.
+                      الفجوات مسموح بها، لكن تأكد من أن هذا ليس خطأ كتابياً.
                     </span>
                   </div>
                   <button
@@ -343,7 +344,7 @@ export const ProductionBatchesPage: React.FC = () => {
                     disabled={createMutation.isPending}
                     className="w-full px-4 py-2 text-xs font-bold text-white bg-app-status-yellow rounded-xl shadow-sm hover:opacity-90 disabled:opacity-50"
                   >
-                    Use {warning.entered_operation_number} anyway
+                    استخدام {warning.entered_operation_number} على أي حال
                   </button>
                 </div>
               )}
@@ -359,7 +360,7 @@ export const ProductionBatchesPage: React.FC = () => {
               }}
               className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
             >
-              Cancel
+              إلغاء
             </button>
             <button
               type="submit"
@@ -367,7 +368,7 @@ export const ProductionBatchesPage: React.FC = () => {
               disabled={createMutation.isPending}
               className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
             >
-              {createMutation.isPending ? "Saving..." : "Create Batch"}
+              {createMutation.isPending ? "جاري الحفظ…" : "إنشاء الدفعة"}
             </button>
           </DialogFooter>
         </DialogContent>

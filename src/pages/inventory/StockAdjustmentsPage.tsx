@@ -13,15 +13,15 @@ export const StockAdjustmentsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6" dir="rtl">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-app-label-primary flex items-center gap-2">
             <ShieldCheck className="w-7 h-7 text-app-accent" />
-            Stock Adjustment Approval Queue
+            قائمة اعتماد تسويات المخزون
           </h1>
           <p className="text-xs text-app-label-secondary mt-1">
-            Unit Manager approval workflow for manual count reconciliations, spill loss, and damage adjustments.
+            مسار اعتماد مدير الوحدة لتسويات الجرد اليدوي وفقدان الانسكاب وتسويات التلف.
           </p>
         </div>
 
@@ -34,7 +34,7 @@ export const StockAdjustmentsPage: React.FC = () => {
                 : "bg-app-bg-secondary border border-app-separator text-app-label-secondary hover:bg-app-fill-f1"
             }`}
           >
-            Pending Approval
+            بانتظار الاعتماد
           </button>
           <button
             onClick={() => setStatusFilter("approved")}
@@ -44,7 +44,7 @@ export const StockAdjustmentsPage: React.FC = () => {
                 : "bg-app-bg-secondary border border-app-separator text-app-label-secondary hover:bg-app-fill-f1"
             }`}
           >
-            Approved History
+            سجل الاعتمادات
           </button>
         </div>
       </div>
@@ -53,18 +53,18 @@ export const StockAdjustmentsPage: React.FC = () => {
       <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
         {isLoading ? (
           <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">
-            Loading adjustment requests...
+            جاري تحميل طلبات التسوية…
           </div>
         ) : (
           <table className="w-full text-start text-xs">
             <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
               <tr>
-                <th className="px-4 py-3 text-start">Lot Number</th>
-                <th className="px-4 py-3 text-start">Reason Code</th>
-                <th className="px-4 py-3 text-start">Quantity Delta</th>
-                <th className="px-4 py-3 text-start">Requested By</th>
-                <th className="px-4 py-3 text-start">Status</th>
-                <th className="px-4 py-3 text-end">Action</th>
+                <th className="px-4 py-3 text-start">رقم الدفعة</th>
+                <th className="px-4 py-3 text-start">رمز السبب</th>
+                <th className="px-4 py-3 text-start">فرق الكمية</th>
+                <th className="px-4 py-3 text-start">مقدَّم من</th>
+                <th className="px-4 py-3 text-start">الحالة</th>
+                <th className="px-4 py-3 text-end">إجراء</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-app-separator text-app-label-primary">
@@ -82,7 +82,7 @@ export const StockAdjustmentsPage: React.FC = () => {
                     {adj.quantity_delta > 0 ? `+${adj.quantity_delta}` : adj.quantity_delta}
                   </td>
                   <td className="px-4 py-3 font-medium text-app-label-secondary">
-                    {adj.requested_by?.name || "User"}
+                    {adj.requested_by?.name || "مستخدم"}
                   </td>
                   <td className="px-4 py-3">
                     <span
@@ -104,10 +104,10 @@ export const StockAdjustmentsPage: React.FC = () => {
                         disabled={approveMutation.isPending}
                         className="inline-flex items-center gap-1 px-3 py-1.5 bg-app-accent text-white font-bold text-xs rounded-xl hover:opacity-90 transition shadow-sm disabled:opacity-50"
                       >
-                        <Check className="w-3.5 h-3.5" /> Approve & Post
+                        <Check className="w-3.5 h-3.5" /> اعتماد وترحيل
                       </button>
                     ) : (
-                      <span className="text-xs text-app-label-tertiary">Settled</span>
+                      <span className="text-xs text-app-label-tertiary">تمت التسوية</span>
                     )}
                   </td>
                 </tr>
@@ -115,7 +115,7 @@ export const StockAdjustmentsPage: React.FC = () => {
               {adjustments?.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-app-label-tertiary">
-                    No stock adjustment requests found.
+                    لا توجد طلبات تسوية مخزون.
                   </td>
                 </tr>
               )}

@@ -41,8 +41,8 @@ export const ProductionOrdersPage: React.FC = () => {
           const payload = apiErrorPayload(err);
           setError(
             payload?.code === "NO_ACTIVE_BOM"
-              ? "This product has no active BOM — build one on the Products page first."
-              : payload?.errors?.order_number?.[0] ?? payload?.message ?? "Could not create the order.",
+              ? "لا توجد قائمة مواد (BOM) نشطة لهذا المنتج — أنشئ واحدة من صفحة المنتجات أولاً."
+              : payload?.errors?.order_number?.[0] ?? payload?.message ?? "تعذّر إنشاء الطلب.",
           );
         },
       },
@@ -50,16 +50,16 @@ export const ProductionOrdersPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6" dir="rtl">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-app-label-primary flex items-center gap-2">
             <Hammer className="w-7 h-7 text-app-accent" />
-            Furniture Production Orders
+            أوامر إنتاج الأثاث
           </h1>
           <p className="text-xs text-app-label-secondary mt-1">
-            BOM-driven assembly. Confirming reserves component stock; consumption costs the order from
-            the real lots taken.
+            تجميع يعتمد على قائمة المواد (BOM). التأكيد يحجز مخزون المكونات؛ ويتم تحميل تكلفة الاستهلاك
+            على الطلب من اللوتات الفعلية المستخدمة.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -67,13 +67,13 @@ export const ProductionOrdersPage: React.FC = () => {
             onClick={() => refetch()}
             className="flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-semibold hover:bg-app-fill-f1"
           >
-            <RefreshCw className="w-4 h-4" /> Refresh
+            <RefreshCw className="w-4 h-4" /> تحديث
           </button>
           <button
             onClick={() => { setShowForm(true); setError(null); }}
             className="flex items-center gap-1.5 rounded-xl bg-app-accent px-3 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90"
           >
-            <Plus className="w-4 h-4" /> New Order
+            <Plus className="w-4 h-4" /> طلب جديد
           </button>
         </div>
       </div>
@@ -92,7 +92,7 @@ export const ProductionOrdersPage: React.FC = () => {
             statusFilter === "" ? "bg-app-accent text-white" : "bg-app-fill-f1 text-app-label-secondary hover:bg-app-fill-f2"
           }`}
         >
-          All
+          الكل
         </button>
         {ORDER_STATUS_ORDER.map((s) => (
           <button
@@ -109,18 +109,18 @@ export const ProductionOrdersPage: React.FC = () => {
 
       <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
         {isLoading ? (
-          <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">Loading…</div>
+          <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">جاري التحميل…</div>
         ) : (
           <table className="w-full text-start text-xs">
             <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
               <tr>
-                <th className="px-4 py-3 text-start">Order</th>
-                <th className="px-4 py-3 text-start">Product</th>
-                <th className="px-4 py-3 text-start">Qty</th>
-                <th className="px-4 py-3 text-start">Material</th>
-                <th className="px-4 py-3 text-start">Labor</th>
-                <th className="px-4 py-3 text-start">Status</th>
-                <th className="px-4 py-3 text-end">Actions</th>
+                <th className="px-4 py-3 text-start">الطلب</th>
+                <th className="px-4 py-3 text-start">المنتج</th>
+                <th className="px-4 py-3 text-start">الكمية</th>
+                <th className="px-4 py-3 text-start">المواد</th>
+                <th className="px-4 py-3 text-start">العمالة</th>
+                <th className="px-4 py-3 text-start">الحالة</th>
+                <th className="px-4 py-3 text-end">الإجراءات</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-app-separator text-app-label-primary">
@@ -145,7 +145,7 @@ export const ProductionOrdersPage: React.FC = () => {
                       onClick={() => navigate(`/furniture/orders/${o.id}`)}
                       className="inline-flex items-center gap-1 rounded-xl bg-app-accent px-2.5 py-1 text-xs font-bold text-white hover:opacity-90"
                     >
-                      <Hammer className="w-3.5 h-3.5" /> Open
+                      <Hammer className="w-3.5 h-3.5" /> فتح
                     </button>
                   </td>
                 </tr>
@@ -153,7 +153,7 @@ export const ProductionOrdersPage: React.FC = () => {
               {orders.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-app-label-tertiary">
-                    No production orders{statusFilter ? ` at ${ORDER_STATUS_LABEL[statusFilter as ProductionOrderStatus]}` : ""}.
+                    لا توجد أوامر إنتاج{statusFilter ? ` بحالة ${ORDER_STATUS_LABEL[statusFilter as ProductionOrderStatus]}` : ""}.
                   </td>
                 </tr>
               )}
@@ -166,10 +166,10 @@ export const ProductionOrdersPage: React.FC = () => {
         <DialogContent size="md">
           <DialogHeader>
             <div>
-              <DialogTitle>New Production Order</DialogTitle>
+              <DialogTitle>أمر إنتاج جديد</DialogTitle>
               <DialogDescription>
-                Uses the product's active BOM. For a custom piece, clone and adapt a BOM on the Products
-                page first.
+                يستخدم قائمة المواد (BOM) النشطة للمنتج. لقطعة مخصصة، استنسخ وعدّل قائمة مواد من صفحة
+                المنتجات أولاً.
               </DialogDescription>
             </div>
             <DialogClose />
@@ -184,7 +184,7 @@ export const ProductionOrdersPage: React.FC = () => {
 
             <form id="production-order-form" onSubmit={submit} className="space-y-3">
               <input
-                type="text" required placeholder="Order number — PO-1042"
+                type="text" required placeholder="رقم الطلب — PO-1042"
                 value={form.order_number}
                 onChange={(e) => setForm({ ...form, order_number: e.target.value })}
                 className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none"
@@ -202,16 +202,16 @@ export const ProductionOrdersPage: React.FC = () => {
                 getOptionSubLabel={(p) =>
                   p.active_bom
                     ? `BOM v${p.active_bom.version}`
-                    : "no active BOM"
+                    : "لا توجد قائمة مواد نشطة"
                 }
                 getOptionSearchText={(p) =>
                   `${p.name} ${p.sku ?? ""}`
                 }
-                placeholder="Select product…"
+                placeholder="اختر منتجًا…"
                 required
               />
               <input
-                type="number" min="1" placeholder="Quantity"
+                type="number" min="1" placeholder="الكمية"
                 value={form.quantity}
                 onChange={(e) => setForm({ ...form, quantity: e.target.value })}
                 className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none"
@@ -224,7 +224,7 @@ export const ProductionOrdersPage: React.FC = () => {
               onClick={() => setShowForm(false)}
               className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
             >
-              Cancel
+              إلغاء
             </button>
             <button
               type="submit"
@@ -232,7 +232,7 @@ export const ProductionOrdersPage: React.FC = () => {
               disabled={createMutation.isPending}
               className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
             >
-              {createMutation.isPending ? "Creating…" : "Create Order"}
+              {createMutation.isPending ? "جاري الإنشاء…" : "إنشاء الطلب"}
             </button>
           </DialogFooter>
         </DialogContent>

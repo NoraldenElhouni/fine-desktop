@@ -58,7 +58,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
     setError(null);
     transitionMutation.mutate(
       { id: orderId, status: nextStatus },
-      { onError: (e) => fail(e, "Could not advance the order.") },
+      { onError: (e) => fail(e, "تعذر ترقية حالة الأمر.") },
     );
   };
 
@@ -77,7 +77,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
       },
       {
         onSuccess: () => { setSpec(""); setQty("1"); },
-        onError: (e) => fail(e, "Could not add the line."),
+        onError: (e) => fail(e, "تعذرت إضافة البند."),
       },
     );
   };
@@ -95,7 +95,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
           template_height_m: num(t.h),
         },
       },
-      { onError: (e) => fail(e, "Could not assign the template.") },
+      { onError: (e) => fail(e, "تعذر تعيين القالب.") },
     );
   };
 
@@ -108,14 +108,14 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
         byproduct_inventory_item_id: num(weight) > 0 ? fillItemId || undefined : undefined,
         warehouse_id: num(weight) > 0 ? warehouseId || undefined : undefined,
       },
-      { onError: (e) => fail(e, "Could not record the weigh-in.") },
+      { onError: (e) => fail(e, "تعذر تسجيل الوزن.") },
     );
   };
 
   if (isLoading || !order) {
     return (
       <div className="flex h-64 items-center justify-center text-xs text-app-label-secondary">
-        Loading work order...
+        جاري تحميل أمر العمل…
       </div>
     );
   }
@@ -124,20 +124,20 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
     t ? num(t.l) * num(t.w) * num(t.h) : 0;
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6" dir="rtl">
       <div>
         <button
           onClick={() => navigate("/cutter/orders")}
           className="flex items-center gap-1 text-xs text-app-label-secondary hover:text-app-accent mb-2 transition-colors"
         >
-          <ArrowRight className="w-3.5 h-3.5" /> Back to work orders
+          <ArrowRight className="w-3.5 h-3.5" /> العودة إلى أوامر العمل
         </button>
         <h1 className="text-2xl font-bold text-app-label-primary flex items-center gap-2">
           <Scissors className="w-7 h-7 text-app-accent" />
           <span className="font-mono text-app-accent">{order.order_number}</span>
         </h1>
         <p className="text-xs text-app-label-secondary mt-1">
-          {order.client_id ? "Client order" : "Internal order — no credit check"} · Material held:{" "}
+          {order.client_id ? "أمر عميل" : "أمر داخلي — بدون فحص ائتماني"} · المواد المحجوزة:{" "}
           <span className="font-mono">{formatNumber(order.wip_cost)} LYD</span>
         </p>
       </div>
@@ -178,7 +178,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
               className="ms-auto flex items-center gap-1.5 rounded-xl bg-app-accent px-3 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
             >
               <ChevronLeft className="w-4 h-4" />
-              {transitionMutation.isPending ? "Advancing..." : `Advance to ${CUTTER_STATUS_LABEL[nextStatus]}`}
+              {transitionMutation.isPending ? "جاري الترقية…" : `ترقية إلى ${CUTTER_STATUS_LABEL[nextStatus]}`}
             </button>
           )}
         </div>
@@ -186,8 +186,8 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
         {atWeighIn && !hasWeighIn && (
           <p className="mt-3 flex items-start gap-1.5 text-xs text-app-status-yellow">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-            This order cannot pass quality check until the offcuts are weighed. Enter <strong>0</strong>{" "}
-            if there was nothing to salvage — that is a valid answer, but it has to be recorded.
+            لا يمكن لهذا الأمر اجتياز فحص الجودة حتى يتم وزن القصاصات. أدخل <strong>0</strong>{" "}
+            إذا لم يكن هناك ما يمكن استرجاعه — تلك إجابة صالحة، لكن يجب تسجيلها.
           </p>
         )}
       </div>
@@ -258,7 +258,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
         <div className="rounded-2xl border border-app-status-yellow/40 bg-app-status-yellow/5 shadow-sm">
           <div className="border-b border-app-separator px-4 py-3 flex items-center gap-2">
             <Scale className="w-4 h-4 text-app-status-yellow" />
-            <h2 className="text-sm font-bold text-app-label-primary">Byproduct Weigh-In</h2>
+            <h2 className="text-sm font-bold text-app-label-primary">وزن المنتج الثانوي</h2>
           </div>
 
           {hasWeighIn ? (
@@ -266,10 +266,10 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
               {order.byproduct_yields?.map((y) => (
                 <div key={y.id} className="flex items-center gap-3 text-xs text-app-label-primary">
                   <CheckCircle2 className="w-4 h-4 text-app-status-positive" />
-                  <span className="font-mono font-bold">{Number(y.weight_kg).toFixed(2)} kg</span>
+                  <span className="font-mono font-bold">{Number(y.weight_kg).toFixed(2)} كجم</span>
                   <span className="text-app-label-secondary">
-                    carrying {formatNumber(y.yield_cost)} LYD
-                    {Number(y.weight_kg) === 0 && " — nothing salvaged, value stays with the pieces"}
+                    يحمل {formatNumber(y.yield_cost)} LYD
+                    {Number(y.weight_kg) === 0 && " — لا يوجد ما تم استرجاعه، القيمة تبقى مع القطع"}
                   </span>
                 </div>
               ))}
@@ -279,7 +279,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                    Offcut Weight (kg)
+                    وزن القصاصات (كجم)
                   </label>
                   <input
                     type="number"
@@ -294,7 +294,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                    Byproduct Item
+                    صنف المنتج الثانوي
                   </label>
                   <SearchableSelect<InventoryItem>
                     options={fillItems?.data ?? []}
@@ -307,14 +307,14 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
                     getOptionSubLabel={(i) => i.sku}
                     getOptionSearchText={(i) => `${i.name} ${i.sku}`}
                     placeholder={
-                      num(weight) === 0 ? "Not needed for 0 kg" : "Select fill item…"
+                      num(weight) === 0 ? "غير مطلوب عند 0 كجم" : "اختر صنف الحشو…"
                     }
                     disabled={num(weight) === 0}
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                    Warehouse
+                    المخزن
                   </label>
                   <SearchableSelect<{ id: string; name: string }>
                     options={warehouses ?? []}
@@ -325,7 +325,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
                     getOptionId={(w) => w.id}
                     getOptionLabel={(w) => w.name}
                     placeholder={
-                      num(weight) === 0 ? "Not needed for 0 kg" : "Select warehouse…"
+                      num(weight) === 0 ? "غير مطلوب عند 0 كجم" : "اختر المخزن…"
                     }
                     disabled={num(weight) === 0}
                   />
@@ -338,7 +338,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
                 className="flex items-center gap-1.5 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
               >
                 <Scale className="w-4 h-4" />
-                {weighInMutation.isPending ? "Recording..." : "Record Weigh-In"}
+                {weighInMutation.isPending ? "جاري التسجيل…" : "تسجيل الوزن"}
               </button>
             </form>
           )}
@@ -348,10 +348,10 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
       {/* Lines */}
       <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
         <div className="border-b border-app-separator px-4 py-3">
-          <h2 className="text-sm font-bold text-app-label-primary">Lines</h2>
+          <h2 className="text-sm font-bold text-app-label-primary">البنود</h2>
           <p className="text-xs text-app-label-secondary mt-0.5">
-            The requested shape is what the client asked for. The template is the box actually cut —
-            it drives costing, stock dimensions and billing.
+            الشكل المطلوب هو ما طلبه العميل. القالب هو الصندوق الذي تم قطعه فعلياً —
+            وهو ما يحدد التكلفة وأبعاد المخزون والفوترة.
           </p>
         </div>
 
@@ -373,17 +373,17 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
                       {line.requested_spec}
                     </div>
                     <div className="text-xs text-app-label-tertiary">
-                      Quantity {line.quantity}
-                      {line.output_item && ` · outputs ${line.output_item.sku}`}
+                      الكمية {line.quantity}
+                      {line.output_item && ` · المخرجات ${line.output_item.sku}`}
                     </div>
                   </div>
                   {line.template_volume_m3 ? (
                     <span className="px-2 py-1 rounded-full text-xs font-mono bg-app-accent-subtle text-app-accent shrink-0">
-                      {Number(line.template_volume_m3).toFixed(4)} m³ each
+                      {Number(line.template_volume_m3).toFixed(4)} م³ لكل واحدة
                     </span>
                   ) : (
                     <span className="px-2 py-1 rounded-full text-xs font-semibold bg-app-status-yellow/15 text-app-status-yellow shrink-0">
-                      No template yet
+                      لا يوجد قالب بعد
                     </span>
                   )}
                 </div>
@@ -393,7 +393,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
                   {(["l", "w", "h"] as const).map((k) => (
                     <div key={k}>
                       <label className="block text-[10px] uppercase text-app-label-secondary mb-1">
-                        {k === "l" ? "Length" : k === "w" ? "Width" : "Height"} (m)
+                        {k === "l" ? "الطول" : k === "w" ? "العرض" : "الارتفاع"} (م)
                       </label>
                       <input
                         type="number"
@@ -406,9 +406,9 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
                     </div>
                   ))}
                   <div className="text-xs">
-                    <div className="text-[10px] uppercase text-app-label-secondary mb-1">Volume</div>
+                    <div className="text-[10px] uppercase text-app-label-secondary mb-1">الحجم</div>
                     <div className="font-mono font-bold text-app-label-primary py-1.5">
-                      {liveVolume.toFixed(4)} m³
+                      {liveVolume.toFixed(4)} م³
                     </div>
                   </div>
                   <button
@@ -416,7 +416,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
                     disabled={templateMutation.isPending || liveVolume <= 0}
                     className="flex items-center justify-center gap-1.5 rounded-xl bg-app-accent px-3 py-2 text-xs font-bold text-white disabled:opacity-40"
                   >
-                    <Ruler className="w-3.5 h-3.5" /> Set Template
+                    <Ruler className="w-3.5 h-3.5" /> تعيين القالب
                   </button>
                 </div>
 
@@ -433,11 +433,11 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
                           {c.stock_lot?.lot_number}
                         </span>
                         <span>
-                          {Number(c.block_volume_m3).toFixed(4)} m³ block · used{" "}
-                          {Number(c.volume_consumed_m3).toFixed(4)} m³ ({c.consumption_type})
+                          بلوك {Number(c.block_volume_m3).toFixed(4)} م³ · استُهلك{" "}
+                          {Number(c.volume_consumed_m3).toFixed(4)} م³ ({c.consumption_type})
                         </span>
                         <span className="font-mono">
-                          template {formatNumber(c.consumed_cost)} · offcut{" "}
+                          القالب {formatNumber(c.consumed_cost)} · القصاصات{" "}
                           {formatNumber(c.remainder_cost)}
                         </span>
                       </div>
@@ -455,7 +455,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
 
           {(order.lines?.length ?? 0) === 0 && (
             <div className="px-4 py-8 text-center text-xs text-app-label-tertiary">
-              No lines yet. Add what the client asked for below.
+              لا توجد بنود بعد. أضف ما طلبه العميل أدناه.
             </div>
           )}
         </div>
@@ -465,20 +465,20 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
           <form onSubmit={addLine} className="border-t border-app-separator p-4 grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                Requested Shape
+                الشكل المطلوب
               </label>
               <input
                 type="text"
                 required
                 value={spec}
                 onChange={(e) => setSpec(e.target.value)}
-                placeholder="Round pillow insert, radius 8cm"
+                placeholder="حشوة وسادة دائرية، نصف قطر 8 سم"
                 className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs border-app-separator focus:border-app-accent focus:outline-none"
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                Quantity
+                الكمية
               </label>
               <input
                 type="number"
@@ -500,7 +500,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
                   getOptionLabel={(i) => i.sku}
                   getOptionSubLabel={(i) => i.name}
                   getOptionSearchText={(i) => `${i.sku} ${i.name}`}
-                  placeholder="Output item…"
+                  placeholder="صنف المخرجات…"
                 />
               </div>
               <button

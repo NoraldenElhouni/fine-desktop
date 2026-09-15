@@ -55,15 +55,15 @@ export const StockLedgerPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6" dir="rtl">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-app-label-primary flex items-center gap-2">
             <Layers className="w-7 h-7 text-app-accent" />
-            Serialized Stock Ledger & Lots
+            سجل المخزون المسلسل والدفعات
           </h1>
           <p className="text-xs text-app-label-secondary mt-1">
-            Serialized foam blocks, Dual UOM, dynamic category attributes, volume ($m^3$), grade, and status audit.
+            قوالب إسفنج مسلسلة، وحدة قياس مزدوجة، خصائص فئة ديناميكية، حجم (م³)، درجة الجودة، ومراجعة الحالة.
           </p>
         </div>
 
@@ -71,7 +71,7 @@ export const StockLedgerPage: React.FC = () => {
           onClick={() => refetch()}
           className="flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1 transition-colors"
         >
-          <RefreshCw className="w-4 h-4" /> Refresh
+          <RefreshCw className="w-4 h-4" /> تحديث
         </button>
       </div>
 
@@ -82,7 +82,7 @@ export const StockLedgerPage: React.FC = () => {
             <DollarSign className="w-6 h-6" />
           </div>
           <div>
-            <div className="text-xs uppercase font-semibold text-app-label-secondary">Unit Stock Valuation</div>
+            <div className="text-xs uppercase font-semibold text-app-label-secondary">تقييم مخزون الوحدة</div>
             <div className="text-xl font-bold text-app-label-primary">
               {formatNumber(valuation?.total_valuation)} {valuation?.currency || "LYD"}
             </div>
@@ -94,9 +94,9 @@ export const StockLedgerPage: React.FC = () => {
             <Box className="w-6 h-6" />
           </div>
           <div>
-            <div className="text-xs uppercase font-semibold text-app-label-secondary">Available Serialized Lots</div>
+            <div className="text-xs uppercase font-semibold text-app-label-secondary">الدفعات المسلسلة المتاحة</div>
             <div className="text-xl font-bold text-app-label-primary">
-              {valuation?.total_lots || 0} Lots
+              {valuation?.total_lots || 0} دفعة
             </div>
           </div>
         </div>
@@ -106,9 +106,9 @@ export const StockLedgerPage: React.FC = () => {
             <CheckCircle className="w-6 h-6" />
           </div>
           <div>
-            <div className="text-xs uppercase font-semibold text-app-label-secondary">Chemical Bulk Tanks</div>
+            <div className="text-xs uppercase font-semibold text-app-label-secondary">خزانات المواد الكيميائية السائبة</div>
             <div className="text-xl font-bold text-app-label-primary">
-              {valuation?.total_tanks || 0} Tanks
+              {valuation?.total_tanks || 0} خزان
             </div>
           </div>
         </div>
@@ -125,7 +125,7 @@ export const StockLedgerPage: React.FC = () => {
             onChange={(c) => setCategoryFilter(c ? c.id : "")}
             getOptionId={(c) => c.id}
             getOptionLabel={(c) => c.name}
-            placeholder="All Categories"
+            placeholder="كل الفئات"
             size="sm"
           />
         </div>
@@ -135,11 +135,11 @@ export const StockLedgerPage: React.FC = () => {
           onChange={(e) => setGradeFilter(e.target.value)}
           className="px-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
         >
-          <option value="">All Block Grades</option>
-          <option value="standard">Standard Grade</option>
-          <option value="acceptable_variant">Acceptable Variant</option>
-          <option value="defective_usable">Defective Usable</option>
-          <option value="reject">Reject</option>
+          <option value="">كل درجات الجودة</option>
+          <option value="standard">درجة قياسية</option>
+          <option value="acceptable_variant">تفاوت مقبول</option>
+          <option value="defective_usable">معيب قابل للاستخدام</option>
+          <option value="reject">مرفوض</option>
         </select>
 
         <select
@@ -147,30 +147,30 @@ export const StockLedgerPage: React.FC = () => {
           onChange={(e) => setStatusFilter(e.target.value)}
           className="px-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
         >
-          <option value="">All Statuses</option>
-          <option value="available">Available</option>
-          <option value="reserved">Reserved</option>
-          <option value="consumed">Consumed</option>
-          <option value="quarantined">Quarantined</option>
+          <option value="">كل الحالات</option>
+          <option value="available">متاح</option>
+          <option value="reserved">محجوز</option>
+          <option value="consumed">مستهلك</option>
+          <option value="quarantined">قيد الحجر</option>
         </select>
       </div>
 
       {/* Stock Lots Table */}
       <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
         {isLoading ? (
-          <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">Loading stock lots...</div>
+          <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">جاري تحميل دفعات المخزون…</div>
         ) : (
           <table className="w-full text-start text-xs">
             <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
               <tr>
-                <th className="px-4 py-3 text-start">Lot Number</th>
-                <th className="px-4 py-3 text-start">Item / SKU</th>
-                <th className="px-4 py-3 text-start">Container & Measure Quantity</th>
-                <th className="px-4 py-3 text-start">Dimensions / Attributes</th>
-                <th className="px-4 py-3 text-start">Unit Cost</th>
-                <th className="px-4 py-3 text-start">Grade</th>
-                <th className="px-4 py-3 text-start">Status</th>
-                <th className="px-4 py-3 text-end">Cutter Action</th>
+                <th className="px-4 py-3 text-start">رقم الدفعة</th>
+                <th className="px-4 py-3 text-start">الصنف / رمز الصنف (SKU)</th>
+                <th className="px-4 py-3 text-start">كمية الحاوية والقياس</th>
+                <th className="px-4 py-3 text-start">الأبعاد / الخصائص</th>
+                <th className="px-4 py-3 text-start">سعر الوحدة</th>
+                <th className="px-4 py-3 text-start">الدرجة</th>
+                <th className="px-4 py-3 text-start">الحالة</th>
+                <th className="px-4 py-3 text-end">إجراء التشذيب</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-app-separator text-app-label-primary">
@@ -178,7 +178,7 @@ export const StockLedgerPage: React.FC = () => {
                 <tr key={lot.id} className="hover:bg-app-fill-f1 transition-colors">
                   <td className="px-4 py-3 font-mono font-bold text-app-accent">{lot.lot_number}</td>
                   <td className="px-4 py-3">
-                    <div className="font-medium text-app-label-primary">{lot.inventory_item?.name || "Foam Block"}</div>
+                    <div className="font-medium text-app-label-primary">{lot.inventory_item?.name || "قالب إسفنج"}</div>
                     <div className="text-xs text-app-label-tertiary font-mono">{lot.inventory_item?.sku}</div>
                   </td>
                   <td className="px-4 py-3">
@@ -233,7 +233,7 @@ export const StockLedgerPage: React.FC = () => {
                         }}
                         className="inline-flex items-center gap-1 rounded-xl bg-app-accent px-2.5 py-1 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all"
                       >
-                        <Scissors className="w-3.5 h-3.5" /> Cut Remnant
+                        <Scissors className="w-3.5 h-3.5" /> تشذيب البقايا
                       </button>
                     ) : (
                       <span className="text-xs text-app-label-tertiary">--</span>
@@ -244,7 +244,7 @@ export const StockLedgerPage: React.FC = () => {
               {lotData?.data.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-app-label-tertiary">
-                    No serialized stock lots found matching filters.
+                    لا توجد دفعات مخزون مسلسلة مطابقة للمرشحات.
                   </td>
                 </tr>
               )}
@@ -262,10 +262,10 @@ export const StockLedgerPage: React.FC = () => {
                 <Scissors className="w-6 h-6" />
               </div>
               <div>
-                <DialogTitle>Cut Remnant Decision</DialogTitle>
+                <DialogTitle>قرار تشذيب البقايا</DialogTitle>
                 {selectedLotForCut && (
                   <DialogDescription>
-                    Parent Lot: <span className="font-mono font-bold">{selectedLotForCut.lot_number}</span>
+                    الدفعة الأصلية: <span className="font-mono font-bold">{selectedLotForCut.lot_number}</span>
                   </DialogDescription>
                 )}
               </div>
@@ -277,7 +277,7 @@ export const StockLedgerPage: React.FC = () => {
             <form id="cut-remnant-form" onSubmit={handleCutSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-2">
-                  Remnant Disposition Action
+                  إجراء التصرف في البقايا
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
@@ -289,7 +289,7 @@ export const StockLedgerPage: React.FC = () => {
                         : "border-app-separator bg-app-bg-secondary text-app-label-secondary hover:bg-app-fill-f1"
                     }`}
                   >
-                    Restock Remnant Block
+                    إعادة تخزين قالب البقايا
                   </button>
                   <button
                     type="button"
@@ -300,7 +300,7 @@ export const StockLedgerPage: React.FC = () => {
                         : "border-app-separator bg-app-bg-secondary text-app-label-secondary hover:bg-app-fill-f1"
                     }`}
                   >
-                    Convert to Byproduct Fill
+                    تحويل إلى حشو ثانوي
                   </button>
                 </div>
               </div>
@@ -308,11 +308,11 @@ export const StockLedgerPage: React.FC = () => {
               {remnantAction === "restock_remnant" && (
                 <div className="space-y-3 p-4 bg-app-bg-secondary rounded-xl border border-app-separator">
                   <div className="text-xs font-bold text-app-label-primary">
-                    Operator Input: Remnant Block Dimensions ($L \times W \times H$)
+                    إدخال المشغل: أبعاد قالب البقايا (الطول × العرض × الارتفاع)
                   </div>
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-xs text-app-label-secondary mb-1">Length (m)</label>
+                      <label className="block text-xs text-app-label-secondary mb-1">الطول (م)</label>
                       <input
                         type="number"
                         step="0.01"
@@ -324,7 +324,7 @@ export const StockLedgerPage: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-app-label-secondary mb-1">Width (m)</label>
+                      <label className="block text-xs text-app-label-secondary mb-1">العرض (م)</label>
                       <input
                         type="number"
                         step="0.01"
@@ -336,7 +336,7 @@ export const StockLedgerPage: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-app-label-secondary mb-1">Height (m)</label>
+                      <label className="block text-xs text-app-label-secondary mb-1">الارتفاع (م)</label>
                       <input
                         type="number"
                         step="0.01"
@@ -349,14 +349,14 @@ export const StockLedgerPage: React.FC = () => {
                     </div>
                   </div>
                   <div className="text-xs text-app-label-tertiary">
-                    Calculated Remnant Volume: <span className="font-bold text-app-accent font-mono">{(lengthM * widthM * heightM).toFixed(4)} m³</span>
+                    الحجم المحسوب للبقايا: <span className="font-bold text-app-accent font-mono">{(lengthM * widthM * heightM).toFixed(4)} m³</span>
                   </div>
                 </div>
               )}
 
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                  Trim Shavings / Byproduct Weight (kg, optional)
+                  وزن نشارة التشذيب / الحشو الثانوي (كجم، اختياري)
                 </label>
                 <input
                   type="number"
@@ -371,7 +371,7 @@ export const StockLedgerPage: React.FC = () => {
               <div className="p-3 bg-sky-50 rounded-xl text-xs text-sky-800 flex items-start gap-2 border border-sky-200">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>
-                  Completing this action marks lot <span className="font-mono font-bold">{selectedLotForCut.lot_number}</span> as consumed.
+                  إتمام هذا الإجراء سيضع الدفعة <span className="font-mono font-bold">{selectedLotForCut.lot_number}</span> في حالة مستهلك.
                 </span>
               </div>
 
@@ -384,7 +384,7 @@ export const StockLedgerPage: React.FC = () => {
               onClick={() => setSelectedLotForCut(null)}
               className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
             >
-              Cancel
+              إلغاء
             </button>
             <button
               type="submit"
@@ -392,7 +392,7 @@ export const StockLedgerPage: React.FC = () => {
               disabled={processCutMutation.isPending}
               className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
             >
-              {processCutMutation.isPending ? "Processing Cut..." : "Confirm Cut Disposition"}
+              {processCutMutation.isPending ? "جاري تنفيذ التشذيب…" : "تأكيد التصرف في البقايا"}
             </button>
           </DialogFooter>
         </DialogContent>

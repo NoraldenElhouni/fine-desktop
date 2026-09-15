@@ -20,6 +20,15 @@ const num = (v: string): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
+const ROLE_LABEL: Record<string, string> = {
+  tailor: "خياط",
+  carpenter: "نجار",
+  upholsterer: "منجّد",
+  assembler: "مُجمِّع",
+  operator: "مشغّل",
+  other: "أخرى",
+};
+
 export const ProductionOrderDetailPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
@@ -35,8 +44,8 @@ export const ProductionOrderDetailPage: React.FC = () => {
 
   if (isLoading || !order) {
     return (
-      <div className="flex h-64 items-center justify-center text-xs text-app-label-secondary">
-        Loading order…
+      <div className="flex h-64 items-center justify-center text-xs text-app-label-secondary" dir="rtl">
+        جاري تحميل الطلب…
       </div>
     );
   }
@@ -59,7 +68,7 @@ export const ProductionOrderDetailPage: React.FC = () => {
     setError(null);
     transitionMutation.mutate(
       { id: orderId, status: nextStatus },
-      { onError: (e) => fail(e, "Could not advance the order.") },
+      { onError: (e) => fail(e, "تعذّر نقل الطلب إلى المرحلة التالية.") },
     );
   };
 
@@ -74,28 +83,28 @@ export const ProductionOrderDetailPage: React.FC = () => {
       },
       {
         onSuccess: () => setLaborForm({ employee: "", role: "tailor", hours: "" }),
-        onError: (e) => fail(e, "Could not log the hours."),
+        onError: (e) => fail(e, "تعذّر تسجيل الساعات."),
       },
     );
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6" dir="rtl">
       <div>
         <button
           onClick={() => navigate("/furniture/orders")}
           className="flex items-center gap-1 text-xs text-app-label-secondary hover:text-app-accent mb-2"
         >
-          <ArrowRight className="w-3.5 h-3.5" /> Back to orders
+          <ArrowRight className="w-3.5 h-3.5" /> العودة إلى الطلبات
         </button>
         <h1 className="text-2xl font-bold text-app-label-primary flex items-center gap-2">
           <Hammer className="w-7 h-7 text-app-accent" />
           <span className="font-mono text-app-accent">{order.order_number}</span>
         </h1>
         <p className="text-xs text-app-label-secondary mt-1">
-          {order.product?.name} × {order.quantity} · BOM v{order.bom?.version}
-          {" · "}material <span className="font-mono">{formatNumber(order.material_cost)}</span>
-          {" + "}labor <span className="font-mono">{formatNumber(order.labor_cost)}</span>
+          {order.product?.name} × {order.quantity} · قائمة مواد (BOM) إصدار {order.bom?.version}
+          {" · "}المواد <span className="font-mono">{formatNumber(order.material_cost)}</span>
+          {" + "}العمالة <span className="font-mono">{formatNumber(order.labor_cost)}</span>
           {" = "}<span className="font-mono font-bold">{formatNumber(totalCost)} LYD</span>
         </p>
       </div>
@@ -128,7 +137,7 @@ export const ProductionOrderDetailPage: React.FC = () => {
                 ))}
                 {materialRequestsData.data.length > 5 && (
                   <span className="text-[10px] text-app-status-info/70">
-                    +{materialRequestsData.data.length - 5} others
+                    +{materialRequestsData.data.length - 5} أخرى
                   </span>
                 )}
               </div>
@@ -173,14 +182,14 @@ export const ProductionOrderDetailPage: React.FC = () => {
               className="ms-auto flex items-center gap-1.5 rounded-xl bg-app-accent px-3 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
             >
               <ChevronLeft className="w-4 h-4" />
-              {transitionMutation.isPending ? "Advancing…" : `Advance to ${ORDER_STATUS_LABEL[nextStatus]}`}
+              {transitionMutation.isPending ? "جاري النقل…" : `الانتقال إلى ${ORDER_STATUS_LABEL[nextStatus]}`}
             </button>
           )}
         </div>
 
         {order.status === "bom_confirmed" && (
           <p className="mt-3 text-xs text-app-label-secondary">
-            Starting production reserves every component from stock — or refuses with what is short.
+            بدء الإنتاج يحجز كل مكوّن من المخزون — أو يُرفض مع بيان النقص إن وُجد.
           </p>
         )}
       </div>
@@ -188,7 +197,7 @@ export const ProductionOrderDetailPage: React.FC = () => {
       {/* BOM */}
       <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
         <div className="border-b border-app-separator px-4 py-3">
-          <h2 className="text-sm font-bold text-app-label-primary">Bill of Materials</h2>
+          <h2 className="text-sm font-bold text-app-label-primary">قائمة المواد (BOM)</h2>
         </div>
         <table className="w-full text-start text-xs">
           <tbody className="divide-y divide-app-separator text-app-label-primary">
@@ -199,7 +208,7 @@ export const ProductionOrderDetailPage: React.FC = () => {
                   <span className="text-app-label-tertiary font-mono ms-2">{l.inventory_item?.sku}</span>
                 </td>
                 <td className="px-4 py-2 text-end font-mono">
-                  × {Number(l.quantity)} per unit → {Number(l.quantity) * order.quantity} total
+                  × {Number(l.quantity)} لكل وحدة ← {Number(l.quantity) * order.quantity} إجمالي
                 </td>
               </tr>
             ))}
@@ -211,10 +220,10 @@ export const ProductionOrderDetailPage: React.FC = () => {
       <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
         <div className="border-b border-app-separator px-4 py-3 flex items-center gap-2">
           <HardHat className="w-4 h-4 text-app-accent" />
-          <h2 className="text-sm font-bold text-app-label-primary">Labor</h2>
+          <h2 className="text-sm font-bold text-app-label-primary">العمالة</h2>
           {!canLogLabor && (
             <span className="text-[10px] text-app-label-tertiary">
-              — logging opens during production and closes after quality check
+              — يُفتح التسجيل أثناء الإنتاج ويُغلق بعد فحص الجودة
             </span>
           )}
         </div>
@@ -224,9 +233,9 @@ export const ProductionOrderDetailPage: React.FC = () => {
             <div key={l.id} className="flex items-center gap-3 px-4 py-2 text-xs">
               <span className="font-semibold text-app-label-primary flex-1">
                 {l.employee?.entity?.name ?? "—"}
-                <span className="text-app-label-tertiary ms-2 capitalize">{l.role}</span>
+                <span className="text-app-label-tertiary ms-2">{ROLE_LABEL[l.role] ?? l.role}</span>
               </span>
-              <span className="font-mono">{Number(l.hours_logged)} h</span>
+              <span className="font-mono">{Number(l.hours_logged)} ساعة</span>
               <span className="font-mono text-app-label-secondary">
                 @ {formatNumber(l.hourly_rate_at_log)} ={" "}
                 {formatNumber(Number(l.hours_logged) * Number(l.hourly_rate_at_log))}
@@ -235,7 +244,7 @@ export const ProductionOrderDetailPage: React.FC = () => {
           ))}
           {(order.labor_logs?.length ?? 0) === 0 && (
             <div className="px-4 py-6 text-center text-xs text-app-label-tertiary">
-              No hours logged yet.
+              لا توجد ساعات مسجّلة بعد.
             </div>
           )}
         </div>
@@ -259,7 +268,7 @@ export const ProductionOrderDetailPage: React.FC = () => {
                 getOptionSearchText={(e) =>
                   `${e.entity?.name ?? ""} ${e.job_title ?? ""}`
                 }
-                placeholder="Employee…"
+                placeholder="الموظف…"
                 size="sm"
                 required
               />
@@ -270,11 +279,11 @@ export const ProductionOrderDetailPage: React.FC = () => {
               className="px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
             >
               {["tailor", "carpenter", "upholsterer", "assembler", "operator", "other"].map((r) => (
-                <option key={r} value={r}>{r}</option>
+                <option key={r} value={r}>{ROLE_LABEL[r]}</option>
               ))}
             </select>
             <input
-              type="number" step="0.25" min="0.25" required placeholder="hours"
+              type="number" step="0.25" min="0.25" required placeholder="الساعات"
               value={laborForm.hours}
               onChange={(e) => setLaborForm({ ...laborForm, hours: e.target.value })}
               className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
@@ -284,10 +293,10 @@ export const ProductionOrderDetailPage: React.FC = () => {
               disabled={logLaborMutation.isPending || !laborForm.employee || num(laborForm.hours) <= 0}
               className="rounded-xl bg-app-accent px-4 py-1.5 text-xs font-bold text-white disabled:opacity-40"
             >
-              {logLaborMutation.isPending ? "Logging…" : "Log Hours"}
+              {logLaborMutation.isPending ? "جاري التسجيل…" : "تسجيل الساعات"}
             </button>
             <p className="w-full text-[10px] text-app-label-tertiary">
-              The rate comes from the BOM's matching role and is fixed at the moment of logging.
+              يُستمد المعدل من الدور المطابق في قائمة المواد (BOM) ويُثبَّت لحظة التسجيل.
             </p>
           </form>
         )}
@@ -298,7 +307,7 @@ export const ProductionOrderDetailPage: React.FC = () => {
         <div className="rounded-2xl border border-app-accent/40 bg-app-accent-tint p-4">
           <div className="flex items-center gap-2 text-xs">
             <Package className="w-4 h-4 text-app-accent" />
-            <span className="font-bold text-app-label-primary">Finished good</span>
+            <span className="font-bold text-app-label-primary">المنتج التام</span>
             <span className="font-mono font-bold text-app-accent">
               {order.finished_stock_lot.lot_number}
             </span>
@@ -307,10 +316,10 @@ export const ProductionOrderDetailPage: React.FC = () => {
             </span>
             {order.status === "completed" ? (
               <span className="inline-flex items-center gap-1 text-app-label-secondary">
-                <CheckCircle2 className="w-3.5 h-3.5 text-app-status-positive" /> collected
+                <CheckCircle2 className="w-3.5 h-3.5 text-app-status-positive" /> تم الاستلام
               </span>
             ) : (
-              <span className="text-app-label-secondary">in stock, awaiting collection</span>
+              <span className="text-app-label-secondary">في المخزون، بانتظار الاستلام</span>
             )}
           </div>
         </div>

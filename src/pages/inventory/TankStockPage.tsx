@@ -59,7 +59,7 @@ export const TankStockPage: React.FC = () => {
           refetch();
         },
         onError: (err: unknown) =>
-          setError(apiErrorPayload(err)?.message ?? "Could not pour from that lot."),
+          setError(apiErrorPayload(err)?.message ?? "تعذر السحب من هذه الدفعة."),
       },
     );
   };
@@ -80,21 +80,21 @@ export const TankStockPage: React.FC = () => {
           refetch();
         },
         onError: (err: unknown) =>
-          setError(apiErrorPayload(err)?.message ?? "Could not adjust the tank."),
+          setError(apiErrorPayload(err)?.message ?? "تعذر تعديل الخزان."),
       }
     );
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6" dir="rtl">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-app-label-primary flex items-center gap-2">
             <Database className="w-7 h-7 text-app-accent" />
-            Chemical Bulk Tank Management
+            إدارة خزانات المواد الكيميائية السائبة
           </h1>
           <p className="text-xs text-app-label-secondary mt-1">
-            Bulk raw material tanks with atomic Weighted-Average Costing (WAC) recalculation on refills.
+            خزانات المواد الخام السائبة مع إعادة احتساب فورية لمتوسط التكلفة المرجح (WAC) عند كل تعبئة.
           </p>
         </div>
 
@@ -102,13 +102,13 @@ export const TankStockPage: React.FC = () => {
           onClick={() => setIsRefillOpen(true)}
           className="flex items-center gap-2 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all active:scale-95"
         >
-          <Plus className="w-4 h-4" /> Tank Refill Entry
+          <Plus className="w-4 h-4" /> إدخال تعبئة خزان
         </button>
       </div>
 
       {/* Tank Cards Grid */}
       {isLoading ? (
-        <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">Loading bulk tanks...</div>
+        <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">جاري تحميل الخزانات السائبة…</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {tanks?.map((tank: TankStock) => (
@@ -123,7 +123,7 @@ export const TankStockPage: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-bold text-app-label-primary">
-                      {tank.chemical_item?.name || "Bulk Chemical Tank"}
+                      {tank.chemical_item?.name || "خزان كيميائي سائب"}
                     </h3>
                     <div className="text-xs text-app-label-tertiary font-mono">{tank.chemical_item?.sku}</div>
                   </div>
@@ -132,21 +132,21 @@ export const TankStockPage: React.FC = () => {
 
               <div className="space-y-2 border-t border-b border-app-separator py-4">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-app-label-secondary">Current Volume:</span>
+                  <span className="text-app-label-secondary">الحجم الحالي:</span>
                   <span className="font-bold text-app-label-primary text-sm">
-                    {formatNumber(tank.quantity_on_hand)} Liters
+                    {formatNumber(tank.quantity_on_hand)} لتر
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-app-label-secondary">Weighted-Avg Unit Cost (WAC):</span>
+                  <span className="text-app-label-secondary">متوسط تكلفة الوحدة المرجح (WAC):</span>
                   <span className="font-mono font-bold text-app-accent">
                     {formatNumber(tank.weighted_avg_unit_cost)} LYD / L
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-app-label-secondary">Total Tank Value:</span>
+                  <span className="text-app-label-secondary">إجمالي قيمة الخزان:</span>
                   <span className="font-semibold text-app-label-primary">
                     {formatNumber(tank.quantity_on_hand * tank.weighted_avg_unit_cost)} LYD
                   </span>
@@ -154,15 +154,15 @@ export const TankStockPage: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-between text-xs text-app-label-tertiary">
-                <span>Version: #{tank.record_version}</span>
-                <span>Updated: {formatDate(tank.created_at)}</span>
+                <span>الإصدار: #{tank.record_version}</span>
+                <span>آخر تحديث: {formatDate(tank.created_at)}</span>
               </div>
             </div>
           ))}
 
           {tanks?.length === 0 && (
             <div className="col-span-full p-12 text-center bg-app-bg-primary rounded-2xl border border-app-separator text-xs text-app-label-tertiary">
-              No chemical bulk tanks currently logged for this unit.
+              لا توجد خزانات مواد كيميائية سائبة مسجلة لهذه الوحدة حاليًا.
             </div>
           )}
         </div>
@@ -172,7 +172,7 @@ export const TankStockPage: React.FC = () => {
       <Dialog open={isRefillOpen} onOpenChange={setIsRefillOpen}>
         <DialogContent size="md">
           <DialogHeader>
-            <DialogTitle>Tank Refill & WAC Entry</DialogTitle>
+            <DialogTitle>تعبئة الخزان وقيد متوسط التكلفة المرجح</DialogTitle>
             <DialogClose />
           </DialogHeader>
           <DialogBody className="space-y-4">
@@ -191,7 +191,7 @@ export const TankStockPage: React.FC = () => {
                 className="space-y-3 rounded-xl border border-app-accent/40 bg-app-accent-tint p-4"
               >
                 <div className="flex items-center gap-2 text-xs font-bold text-app-accent">
-                  <PackageOpen className="w-4 h-4" /> Pour from stock
+                  <PackageOpen className="w-4 h-4" /> سحب من المخزون
                 </div>
 
                 <SearchableSelect<StockLot>
@@ -206,7 +206,7 @@ export const TankStockPage: React.FC = () => {
                     `${l.quantity} ${chemical?.secondary_uom ?? ""}${l.container_quantity ? ` × ${l.container_quantity} ${chemical?.primary_uom ?? "container"}` : ""} · ${l.unit_cost}`
                   }
                   getOptionSearchText={(l) => l.lot_number}
-                  placeholder="Select source lot…"
+                  placeholder="اختر دفعة المصدر…"
                 />
 
                 {sourceLotId && (
@@ -222,7 +222,7 @@ export const TankStockPage: React.FC = () => {
                             : "border-app-separator bg-app-bg-primary text-app-label-secondary"
                         }`}
                       >
-                        Whole {chemical?.primary_uom ?? "containers"}
+                        كامل {chemical?.primary_uom ?? "containers"}
                       </button>
                       <button
                         type="button"
@@ -233,7 +233,7 @@ export const TankStockPage: React.FC = () => {
                             : "border-app-separator bg-app-bg-primary text-app-label-secondary"
                         }`}
                       >
-                        Partial {chemical?.secondary_uom ?? "amount"}
+                        جزئي {chemical?.secondary_uom ?? "amount"}
                       </button>
                     </div>
 
@@ -249,7 +249,7 @@ export const TankStockPage: React.FC = () => {
                         {capacity && (
                           <p className="text-[10px] text-app-label-tertiary mt-1">
                             = {(drawContainers * capacity).toFixed(2)} {chemical?.secondary_uom}
-                            {" · "}empties recovered: {drawContainers}
+                            {" · "}الأوعية الفارغة المستردة: {drawContainers}
                           </p>
                         )}
                       </div>
@@ -265,13 +265,13 @@ export const TankStockPage: React.FC = () => {
                           className="w-full px-3 py-2 border border-app-separator rounded-xl bg-app-bg-primary text-xs font-mono focus:border-app-accent focus:outline-none"
                         />
                         <p className="text-[10px] text-app-label-tertiary mt-1">
-                          A part-drawn container stays on the floor and is still counted.
+                          الوعاء المسحوب جزئيًا يبقى في الموقع ويظل محتسبًا ضمن الجرد.
                         </p>
                       </div>
                     )}
 
                     <p className="text-[10px] text-app-label-secondary">
-                      Cost is taken from the lot ({selectedLot?.unit_cost}), not entered.
+                      التكلفة مأخوذة من الدفعة ({selectedLot?.unit_cost})، وليست مُدخلة يدويًا.
                     </p>
 
                     <button
@@ -279,7 +279,7 @@ export const TankStockPage: React.FC = () => {
                       disabled={refillFromLotMutation.isPending}
                       className="w-full px-4 py-2 text-xs font-bold text-white bg-app-accent rounded-xl shadow-sm hover:opacity-90 disabled:opacity-50"
                     >
-                      {refillFromLotMutation.isPending ? "Pouring..." : "Pour into Tank"}
+                      {refillFromLotMutation.isPending ? "جاري السكب…" : "سكب في الخزان"}
                     </button>
                   </>
                 )}
@@ -288,14 +288,14 @@ export const TankStockPage: React.FC = () => {
 
             <div className="pt-2 border-t border-app-separator">
               <p className="text-[10px] font-semibold uppercase text-app-label-tertiary mb-2">
-                Manual adjustment — opening balances and corrections only
+                تعديل يدوي — للأرصدة الافتتاحية والتصحيحات فقط
               </p>
             </div>
 
             <form onSubmit={handleRefillSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                  Chemical Item
+                  المادة الكيميائية
                 </label>
                 <SearchableSelect<InventoryItem>
                   options={items?.data ?? []}
@@ -309,19 +309,19 @@ export const TankStockPage: React.FC = () => {
                   getOptionLabel={(item) => item.name}
                   getOptionSubLabel={(item) => item.sku}
                   getOptionSearchText={(item) => `${item.name} ${item.sku}`}
-                  placeholder="Select Chemical Raw Material"
+                  placeholder="اختر مادة خام كيميائية"
                   required
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                  Operating Unit ID
+                  معرف الوحدة التشغيلية
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="Operating Unit UUID"
+                  placeholder="معرف الوحدة التشغيلية (UUID)"
                   value={operatingUnitId}
                   onChange={(e) => setOperatingUnitId(e.target.value)}
                   className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
@@ -331,7 +331,7 @@ export const TankStockPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                    Refill Qty (Liters)
+                    كمية التعبئة (لتر)
                   </label>
                   <input
                     type="number"
@@ -345,7 +345,7 @@ export const TankStockPage: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                    Unit Cost (LYD/L)
+                    سعر الوحدة (LYD/L)
                   </label>
                   <input
                     type="number"
@@ -362,7 +362,7 @@ export const TankStockPage: React.FC = () => {
               <div className="p-3 bg-amber-50 rounded-xl text-xs text-amber-800 flex items-start gap-2 border border-amber-200">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>
-                  Refilling will atomically update the weighted-average unit cost (WAC) based on current tank volume and refill purchase cost.
+                  التعبئة ستحدّث تلقائيًا متوسط تكلفة الوحدة المرجح (WAC) بناءً على حجم الخزان الحالي وتكلفة شراء التعبئة.
                 </span>
               </div>
 
@@ -372,14 +372,14 @@ export const TankStockPage: React.FC = () => {
                   onClick={() => setIsRefillOpen(false)}
                   className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
                 >
-                  Cancel
+                  إلغاء
                 </button>
                 <button
                   type="submit"
                   disabled={refillMutation.isPending}
                   className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
                 >
-                  {refillMutation.isPending ? "Executing Refill..." : "Confirm Refill"}
+                  {refillMutation.isPending ? "جاري تنفيذ التعبئة…" : "تأكيد التعبئة"}
                 </button>
               </div>
             </form>

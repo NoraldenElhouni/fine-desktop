@@ -11,14 +11,14 @@ export type SalesOrderStatus =
   | "completed";
 
 export const SALES_STATUS_LABEL: Record<SalesOrderStatus, string> = {
-  draft: "Draft",
-  pending_approval: "Credit Approval",
-  confirmed: "Confirmed",
-  fulfilled: "Fulfilled",
-  partially_paid: "Partially Paid",
-  paid: "Paid",
-  rejected: "Rejected",
-  completed: "Completed",
+  draft: "مسودة",
+  pending_approval: "بانتظار اعتماد الائتمان",
+  confirmed: "مؤكد",
+  fulfilled: "تم التنفيذ",
+  partially_paid: "مدفوع جزئياً",
+  paid: "مدفوع",
+  rejected: "مرفوض",
+  completed: "مكتمل",
 };
 
 /** Filter chips for the pipeline — every state an order can sit in. */

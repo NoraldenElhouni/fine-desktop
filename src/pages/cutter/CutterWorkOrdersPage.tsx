@@ -79,23 +79,23 @@ export const CutterWorkOrdersPage: React.FC = () => {
           setError(
             apiErrorPayload(err)?.errors?.order_number?.[0] ??
               apiErrorPayload(err)?.message ??
-              "Could not create the work order.",
+              "تعذر إنشاء أمر العمل.",
           ),
       },
     );
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6" dir="rtl">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-app-label-primary flex items-center gap-2">
             <Scissors className="w-7 h-7 text-app-accent" />
-            Cutter Work Orders
+            أوامر عمل التقطيع
           </h1>
           <p className="text-xs text-app-label-secondary mt-1">
-            Foam blocks cut to template shapes. Offcuts are weighed before an order can pass quality
-            check.
+            بلوكات إسفنج تُقطع إلى أشكال القوالب. تُوزن القصاصات قبل أن يتمكن الأمر من اجتياز فحص
+            الجودة.
           </p>
         </div>
 
@@ -104,7 +104,7 @@ export const CutterWorkOrdersPage: React.FC = () => {
             onClick={() => refetch()}
             className="flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1 transition-colors"
           >
-            <RefreshCw className="w-4 h-4" /> Refresh
+            <RefreshCw className="w-4 h-4" /> تحديث
           </button>
           <button
             onClick={() => {
@@ -113,7 +113,7 @@ export const CutterWorkOrdersPage: React.FC = () => {
             }}
             className="flex items-center gap-1.5 rounded-xl bg-app-accent px-3 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all"
           >
-            <Plus className="w-4 h-4" /> New Work Order
+            <Plus className="w-4 h-4" /> أمر عمل جديد
           </button>
         </div>
       </div>
@@ -135,7 +135,7 @@ export const CutterWorkOrdersPage: React.FC = () => {
               : "bg-app-fill-f1 text-app-label-secondary hover:bg-app-fill-f2"
           }`}
         >
-          All
+          الكل
         </button>
         {CUTTER_STATUS_ORDER.map((s) => (
           <button
@@ -158,26 +158,26 @@ export const CutterWorkOrdersPage: React.FC = () => {
             onChange={(e) => setInternalOnly(e.target.checked)}
             className="accent-current"
           />
-          Internal only
+          الداخلية فقط
         </label>
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
         {isLoading ? (
           <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">
-            Loading work orders...
+            جاري تحميل أوامر العمل…
           </div>
         ) : (
           <table className="w-full text-start text-xs">
             <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
               <tr>
-                <th className="px-4 py-3 text-start">Order</th>
-                <th className="px-4 py-3 text-start">Source</th>
-                <th className="px-4 py-3 text-start">Block</th>
-                <th className="px-4 py-3 text-start">Lines</th>
-                <th className="px-4 py-3 text-start">Material in Order</th>
-                <th className="px-4 py-3 text-start">Status</th>
-                <th className="px-4 py-3 text-end">Actions</th>
+                <th className="px-4 py-3 text-start">الأمر</th>
+                <th className="px-4 py-3 text-start">المصدر</th>
+                <th className="px-4 py-3 text-start">البلوك</th>
+                <th className="px-4 py-3 text-start">البنود</th>
+                <th className="px-4 py-3 text-start">المواد في الأمر</th>
+                <th className="px-4 py-3 text-start">الحالة</th>
+                <th className="px-4 py-3 text-end">الإجراءات</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-app-separator text-app-label-primary">
@@ -187,12 +187,12 @@ export const CutterWorkOrdersPage: React.FC = () => {
                   <td className="px-4 py-3">
                     {o.client_id ? (
                       <span className="inline-flex items-center gap-1 text-app-label-primary">
-                        <Building2 className="w-3.5 h-3.5" /> Client
+                        <Building2 className="w-3.5 h-3.5" /> عميل
                       </span>
                     ) : (
                       // Internal orders skip the credit check entirely.
                       <span className="inline-flex items-center gap-1 text-app-label-secondary">
-                        <Home className="w-3.5 h-3.5" /> Internal
+                        <Home className="w-3.5 h-3.5" /> داخلي
                       </span>
                     )}
                   </td>
@@ -203,7 +203,7 @@ export const CutterWorkOrdersPage: React.FC = () => {
                           <Package className="h-3 w-3" /> {o.stock_lot.lot_number}
                         </span>
                         <span className="text-[10px] text-app-label-tertiary">
-                          {formatNumber(Number(o.stock_lot.unit_cost))} locked
+                          {formatNumber(Number(o.stock_lot.unit_cost))} مثبت
                         </span>
                       </div>
                     ) : (
@@ -224,7 +224,7 @@ export const CutterWorkOrdersPage: React.FC = () => {
                       onClick={() => navigate(`/cutter/orders/${o.id}`)}
                       className="inline-flex items-center gap-1 rounded-xl bg-app-accent px-2.5 py-1 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all"
                     >
-                      <Scissors className="w-3.5 h-3.5" /> Open
+                      <Scissors className="w-3.5 h-3.5" /> فتح
                     </button>
                   </td>
                 </tr>
@@ -232,7 +232,7 @@ export const CutterWorkOrdersPage: React.FC = () => {
               {orders.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-app-label-tertiary">
-                    No cutter work orders{statusFilter ? ` at ${CUTTER_STATUS_LABEL[statusFilter as CutterWorkOrderStatus]}` : ""}.
+                    لا توجد أوامر عمل تقطيع{statusFilter ? ` في مرحلة ${CUTTER_STATUS_LABEL[statusFilter as CutterWorkOrderStatus]}` : ""}.
                   </td>
                 </tr>
               )}
@@ -255,9 +255,10 @@ export const CutterWorkOrdersPage: React.FC = () => {
                 <Scissors className="w-6 h-6" />
               </div>
               <div>
-                <DialogTitle>New Cutter Work Order</DialogTitle>
+                <DialogTitle>أمر عمل تقطيع جديد</DialogTitle>
                 <DialogDescription>
-                  Leave the client unset for an internal order. Pick a precut block to commit its measurements + price to the order at creation.
+                  اترك العميل بدون تحديد لأمر داخلي. اختر بلوكاً مُقطَّعاً مسبقاً لتثبيت قياساته
+                  وسعره على الأمر عند الإنشاء.
                 </DialogDescription>
               </div>
             </div>
@@ -274,7 +275,7 @@ export const CutterWorkOrdersPage: React.FC = () => {
             <form id="cutter-work-order-form" onSubmit={submit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                  Order Number
+                  رقم الأمر
                 </label>
                 <input
                   type="text"
@@ -288,7 +289,7 @@ export const CutterWorkOrdersPage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                  Client
+                  العميل
                 </label>
                 <SearchableSelect<{ id: string; entity?: { name?: string } }>
                   options={clients ?? []}
@@ -298,13 +299,13 @@ export const CutterWorkOrdersPage: React.FC = () => {
                   onChange={(c) => setClientId(c ? c.id : "")}
                   getOptionId={(c) => c.id}
                   getOptionLabel={(c) => c.entity?.name ?? c.id}
-                  placeholder="Internal (from another unit)"
+                  placeholder="داخلي (من وحدة أخرى)"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                  Precut Block (optional)
+                  بلوك مُقطَّع مسبقاً (اختياري)
                 </label>
                 <SearchableSelect<AvailableFoamBlock>
                   options={foamBlocks}
@@ -322,7 +323,7 @@ export const CutterWorkOrdersPage: React.FC = () => {
                   getOptionSearchText={(b) =>
                     `${b.lot_number} ${b.inventory_item?.sku ?? ""} ${b.inventory_item?.name ?? ""}`
                   }
-                  placeholder="No block yet — pick later"
+                  placeholder="لا يوجد بلوك بعد — يُختار لاحقاً"
                 />
                 {selectedBlock && (
                   <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px]">
@@ -350,7 +351,7 @@ export const CutterWorkOrdersPage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                  Notes
+                  ملاحظات
                 </label>
                 <textarea
                   value={notes}
@@ -371,7 +372,7 @@ export const CutterWorkOrdersPage: React.FC = () => {
               }}
               className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
             >
-              Cancel
+              إلغاء
             </button>
             <button
               type="submit"
@@ -379,7 +380,7 @@ export const CutterWorkOrdersPage: React.FC = () => {
               disabled={createMutation.isPending}
               className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
             >
-              {createMutation.isPending ? "Creating..." : "Create Work Order"}
+              {createMutation.isPending ? "جاري الإنشاء…" : "إنشاء أمر العمل"}
             </button>
           </DialogFooter>
         </DialogContent>

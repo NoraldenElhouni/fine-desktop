@@ -32,13 +32,13 @@ export const CUTTER_NEXT_STATUS: Record<CutterWorkOrderStatus, CutterWorkOrderSt
 };
 
 export const CUTTER_STATUS_LABEL: Record<CutterWorkOrderStatus, string> = {
-  requested: "Requested",
-  confirmed: "Confirmed",
-  in_production: "In Production",
-  awaiting_byproduct_weigh_in: "Awaiting Weigh-In",
-  quality_check: "Quality Check",
-  completed: "Completed",
-  invoiced: "Invoiced",
+  requested: "مطلوب",
+  confirmed: "مؤكد",
+  in_production: "قيد الإنتاج",
+  awaiting_byproduct_weigh_in: "بانتظار وزن الفائض",
+  quality_check: "فحص الجودة",
+  completed: "مكتمل",
+  invoiced: "تم إصدار الفاتورة",
 };
 
 /** Blocks may only be picked while the order is confirmed or being cut. */

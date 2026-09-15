@@ -20,6 +20,15 @@ const num = (v: string): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
+const LABOR_ROLE_LABEL: Record<string, string> = {
+  tailor: "خياط",
+  carpenter: "نجار",
+  upholsterer: "منجّد",
+  assembler: "مُجمِّع",
+  operator: "مشغّل",
+  other: "أخرى",
+};
+
 export const ProductsPage: React.FC = () => {
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [selectedBomId, setSelectedBomId] = useState<string | null>(null);
@@ -87,7 +96,7 @@ export const ProductsPage: React.FC = () => {
           setTriedSubmit(false);
           setForm({ name: "", sku: "", inventory_item_id: "", markup_factor: "1.25" });
         },
-        onError: (err) => fail(err, "Could not create the product."),
+        onError: (err) => fail(err, "تعذر إنشاء المنتج."),
       },
     );
   };
@@ -118,7 +127,7 @@ export const ProductsPage: React.FC = () => {
           setTriedSubmit(false);
         },
         onError: (err) => setCreateItemError(
-          apiErrorPayload(err)?.message ?? "Could not create the inventory item.",
+          apiErrorPayload(err)?.message ?? "تعذر إنشاء صنف المخزون.",
         ),
       },
     );
@@ -127,23 +136,22 @@ export const ProductsPage: React.FC = () => {
   const finishedPickerMissing = showCreate && hasFinishedOptions && !form.inventory_item_id;
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6" dir="rtl">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-app-label-primary flex items-center gap-2">
             <Armchair className="w-7 h-7 text-app-accent" />
-            Products & BOMs
+            المنتجات وقوائم المواد (BOM)
           </h1>
           <p className="text-xs text-app-label-secondary mt-1">
-            One active BOM per product. Estimates here feed the quote; real costs come from the lots
-            consumed when an order is built.
+            قائمة مواد واحدة نشطة لكل منتج. التقديرات هنا تُغذّي عرض السعر؛ أما التكلفة الفعلية فتُحتسب من الدفعات المستهلكة عند تنفيذ الطلب.
           </p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-1.5 rounded-xl bg-app-accent px-3 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90"
         >
-          <Plus className="w-4 h-4" /> New Product
+          <Plus className="w-4 h-4" /> منتج جديد
         </button>
       </div>
 
@@ -158,10 +166,10 @@ export const ProductsPage: React.FC = () => {
         {/* Catalog */}
         <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm overflow-hidden">
           <div className="border-b border-app-separator px-4 py-3">
-            <h2 className="text-sm font-bold text-app-label-primary">Catalog</h2>
+            <h2 className="text-sm font-bold text-app-label-primary">الكتالوج</h2>
           </div>
           {isLoading ? (
-            <div className="p-8 text-center text-xs text-app-label-secondary">Loading…</div>
+            <div className="p-8 text-center text-xs text-app-label-secondary">جاري التحميل…</div>
           ) : (
             <div className="divide-y divide-app-separator">
               {products?.data.map((p) => (
@@ -184,14 +192,14 @@ export const ProductsPage: React.FC = () => {
                       </span>
                     ) : (
                       <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-app-status-yellow/15 text-app-status-yellow font-semibold">
-                        No active BOM
+                        لا توجد قائمة مواد نشطة
                       </span>
                     )}
                   </div>
                 </button>
               ))}
               {products?.data.length === 0 && (
-                <div className="p-8 text-center text-xs text-app-label-tertiary">No products yet.</div>
+                <div className="p-8 text-center text-xs text-app-label-tertiary">لا توجد منتجات بعد.</div>
               )}
             </div>
           )}
@@ -201,7 +209,7 @@ export const ProductsPage: React.FC = () => {
         <div className="lg:col-span-2 space-y-4">
           {!selectedProduct ? (
             <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm p-12 text-center text-xs text-app-label-tertiary">
-              Select a product to edit its BOMs.
+              اختر منتجاً لتعديل قوائم مواده.
             </div>
           ) : (
             <>
@@ -230,33 +238,33 @@ export const ProductsPage: React.FC = () => {
                       onClick={() =>
                         createBom.mutate(
                           { product_id: selectedProduct.id, activate: (boms?.length ?? 0) === 0 },
-                          { onError: (e) => fail(e, "Could not create a BOM.") },
+                          { onError: (e) => fail(e, "تعذر إنشاء قائمة المواد.") },
                         )
                       }
                       className="flex items-center gap-1 rounded-xl border border-app-separator bg-app-bg-secondary px-2.5 py-1.5 text-xs font-semibold hover:bg-app-fill-f1"
                     >
-                      <Plus className="w-3.5 h-3.5" /> New version
+                      <Plus className="w-3.5 h-3.5" /> إصدار جديد
                     </button>
                     {selectedBom && (
                       <>
                         <button
                           onClick={() =>
-                            cloneBom.mutate(selectedBom.id, { onError: (e) => fail(e, "Clone failed.") })
+                            cloneBom.mutate(selectedBom.id, { onError: (e) => fail(e, "تعذر النسخ.") })
                           }
                           className="flex items-center gap-1 rounded-xl border border-app-separator bg-app-bg-secondary px-2.5 py-1.5 text-xs font-semibold hover:bg-app-fill-f1"
                         >
-                          <Copy className="w-3.5 h-3.5" /> Clone
+                          <Copy className="w-3.5 h-3.5" /> نسخ
                         </button>
                         {!selectedBom.is_active && (
                           <button
                             onClick={() =>
                               activateBom.mutate(selectedBom.id, {
-                                onError: (e) => fail(e, "Activation failed."),
+                                onError: (e) => fail(e, "تعذر التفعيل."),
                               })
                             }
                             className="flex items-center gap-1 rounded-xl bg-app-accent px-2.5 py-1.5 text-xs font-bold text-white hover:opacity-90"
                           >
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Activate
+                            <CheckCircle2 className="w-3.5 h-3.5" /> تفعيل
                           </button>
                         )}
                       </>
@@ -271,7 +279,7 @@ export const ProductsPage: React.FC = () => {
                   <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
                     <div className="border-b border-app-separator px-4 py-3 flex items-center gap-2">
                       <Ruler className="w-4 h-4 text-app-accent" />
-                      <h3 className="text-sm font-bold text-app-label-primary">Components</h3>
+                      <h3 className="text-sm font-bold text-app-label-primary">المكوّنات</h3>
                     </div>
                     <div className="divide-y divide-app-separator">
                       {selectedBom.component_lines?.map((l) => (
@@ -284,13 +292,13 @@ export const ProductsPage: React.FC = () => {
                           </span>
                           <span className="font-mono">× {Number(l.quantity)}</span>
                           <span className="font-mono text-app-label-secondary">
-                            est. {formatNumber(l.estimated_unit_cost)}
+                            تقديري {formatNumber(l.estimated_unit_cost)}
                           </span>
                           <button
                             onClick={() =>
                               removeComponent.mutate(
                                 { bomId: selectedBom.id, lineId: l.id },
-                                { onError: (e) => fail(e, "Could not remove the component.") },
+                                { onError: (e) => fail(e, "تعذر إزالة المكوّن.") },
                               )
                             }
                             className="p-1 rounded-lg text-app-label-tertiary hover:text-app-status-danger hover:bg-app-fill-f1"
@@ -315,18 +323,18 @@ export const ProductsPage: React.FC = () => {
                           getOptionLabel={(i) => i.name}
                           getOptionSubLabel={(i) => i.sku}
                           getOptionSearchText={(i) => `${i.name} ${i.sku}`}
-                          placeholder="Add component…"
+                          placeholder="إضافة مكوّن…"
                           size="sm"
                         />
                       </div>
                       <input
-                        type="number" step="0.01" min="0.01" placeholder="qty"
+                        type="number" step="0.01" min="0.01" placeholder="الكمية"
                         value={compForm.qty}
                         onChange={(e) => setCompForm({ ...compForm, qty: e.target.value })}
                         className="w-20 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
                       />
                       <input
-                        type="number" step="0.01" min="0" placeholder="est. cost"
+                        type="number" step="0.01" min="0" placeholder="التكلفة التقديرية"
                         value={compForm.cost}
                         onChange={(e) => setCompForm({ ...compForm, cost: e.target.value })}
                         className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
@@ -345,7 +353,7 @@ export const ProductsPage: React.FC = () => {
                             },
                             {
                               onSuccess: () => setCompForm({ item: "", qty: "1", cost: "0" }),
-                              onError: (e) => fail(e, "Could not add the component."),
+                              onError: (e) => fail(e, "تعذر إضافة المكوّن."),
                             },
                           )
                         }
@@ -360,21 +368,21 @@ export const ProductsPage: React.FC = () => {
                   <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
                     <div className="border-b border-app-separator px-4 py-3 flex items-center gap-2">
                       <HardHat className="w-4 h-4 text-app-accent" />
-                      <h3 className="text-sm font-bold text-app-label-primary">Labor</h3>
+                      <h3 className="text-sm font-bold text-app-label-primary">العمالة</h3>
                     </div>
                     <div className="divide-y divide-app-separator">
                       {selectedBom.labor_requirements?.map((r) => (
                         <div key={r.id} className="flex items-center gap-3 px-4 py-2 text-xs">
-                          <span className="font-semibold text-app-label-primary flex-1 capitalize">{r.role}</span>
-                          <span className="font-mono">{Number(r.estimated_hours)} h</span>
+                          <span className="font-semibold text-app-label-primary flex-1">{LABOR_ROLE_LABEL[r.role] ?? r.role}</span>
+                          <span className="font-mono">{Number(r.estimated_hours)} ساعة</span>
                           <span className="font-mono text-app-label-secondary">
-                            @ {formatNumber(r.hourly_rate)}/h
+                            {formatNumber(r.hourly_rate)}/ساعة
                           </span>
                           <button
                             onClick={() =>
                               removeLabor.mutate(
                                 { bomId: selectedBom.id, reqId: r.id },
-                                { onError: (e) => fail(e, "Could not remove the labor row.") },
+                                { onError: (e) => fail(e, "تعذر إزالة سطر العمالة.") },
                               )
                             }
                             className="p-1 rounded-lg text-app-label-tertiary hover:text-app-status-danger hover:bg-app-fill-f1"
@@ -391,17 +399,17 @@ export const ProductsPage: React.FC = () => {
                         className="px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
                       >
                         {["tailor", "carpenter", "upholsterer", "assembler", "operator", "other"].map((r) => (
-                          <option key={r} value={r}>{r}</option>
+                          <option key={r} value={r}>{LABOR_ROLE_LABEL[r]}</option>
                         ))}
                       </select>
                       <input
-                        type="number" step="0.5" min="0.5" placeholder="hours"
+                        type="number" step="0.5" min="0.5" placeholder="الساعات"
                         value={laborForm.hours}
                         onChange={(e) => setLaborForm({ ...laborForm, hours: e.target.value })}
                         className="w-20 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
                       />
                       <input
-                        type="number" step="0.5" min="0" placeholder="rate/h"
+                        type="number" step="0.5" min="0" placeholder="الأجر/ساعة"
                         value={laborForm.rate}
                         onChange={(e) => setLaborForm({ ...laborForm, rate: e.target.value })}
                         className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
@@ -420,7 +428,7 @@ export const ProductsPage: React.FC = () => {
                             },
                             {
                               onSuccess: () => setLaborForm({ role: "tailor", hours: "1", rate: "0" }),
-                              onError: (e) => fail(e, "Could not add the labor row."),
+                              onError: (e) => fail(e, "تعذر إضافة سطر العمالة."),
                             },
                           )
                         }
@@ -436,32 +444,32 @@ export const ProductsPage: React.FC = () => {
                     <div className="rounded-2xl border border-app-accent/40 bg-app-accent-tint p-4">
                       <div className="flex items-center gap-2 mb-2">
                         <Tag className="w-4 h-4 text-app-accent" />
-                        <h3 className="text-sm font-bold text-app-label-primary">Price Preview</h3>
+                        <h3 className="text-sm font-bold text-app-label-primary">معاينة السعر</h3>
                         <span className="text-[10px] text-app-label-tertiary">
-                          estimates only — real cost comes from consumed lots
+                          تقديرات فقط — التكلفة الفعلية تُحتسب من الدفعات المستهلكة
                         </span>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                         <div>
-                          <div className="text-app-label-secondary">Material</div>
+                          <div className="text-app-label-secondary">المواد</div>
                           <div className="font-mono font-bold text-app-label-primary">
                             {formatNumber(preview.estimated_material_cost)}
                           </div>
                         </div>
                         <div>
-                          <div className="text-app-label-secondary">Labor</div>
+                          <div className="text-app-label-secondary">العمالة</div>
                           <div className="font-mono font-bold text-app-label-primary">
                             {formatNumber(preview.estimated_labor_cost)}
                           </div>
                         </div>
                         <div>
-                          <div className="text-app-label-secondary">Total × {preview.markup_factor}</div>
+                          <div className="text-app-label-secondary">الإجمالي × {preview.markup_factor}</div>
                           <div className="font-mono font-bold text-app-label-primary">
                             {formatNumber(preview.estimated_total_cost)}
                           </div>
                         </div>
                         <div>
-                          <div className="text-app-label-secondary">Suggested price</div>
+                          <div className="text-app-label-secondary">السعر المقترح</div>
                           <div className="font-mono font-bold text-app-accent">
                             {formatNumber(preview.suggested_price)} LYD
                           </div>
@@ -494,22 +502,23 @@ export const ProductsPage: React.FC = () => {
       >
         <DialogContent size="md">
           <DialogHeader>
-            <DialogTitle>New Product</DialogTitle>
+            <DialogTitle>منتج جديد</DialogTitle>
             <DialogClose />
           </DialogHeader>
           <DialogBody>
             <form id="new-product-form" onSubmit={submitProduct} className="space-y-3">
               <input
-                type="text" required placeholder="Name — 3-Seat Sofa"
+                type="text" required placeholder="الاسم — مثال: كنبة 3 مقاعد"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs border-app-separator focus:border-app-accent focus:outline-none"
               />
               <input
-                type="text" required placeholder="SKU — PROD-SOFA-3S"
+                type="text" required placeholder="رمز الصنف (SKU) — مثال: PROD-SOFA-3S"
+                dir="ltr"
                 value={form.sku}
                 onChange={(e) => setForm({ ...form, sku: e.target.value })}
-                className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none"
+                className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none text-start"
               />
 
               {hasFinishedOptions ? (
@@ -531,11 +540,11 @@ export const ProductsPage: React.FC = () => {
                     getOptionLabel={(i) => i.name}
                     getOptionSubLabel={(i) => i.sku}
                     getOptionSearchText={(i) => `${i.name} ${i.sku}`}
-                    placeholder="Finished-good inventory item…"
+                    placeholder="صنف المنتج التام…"
                     required
                   />
                   <p className="text-[10px] text-app-label-tertiary mt-1">
-                    Where the built product lands in stock.
+                    الصنف الذي يُسجَّل فيه المنتج عند اكتمال تصنيعه.
                   </p>
                   {triedSubmit && finishedPickerMissing && (
                     <p className="text-[11px] text-app-status-danger mt-1.5 font-semibold">
@@ -572,7 +581,7 @@ export const ProductsPage: React.FC = () => {
               )}
 
               <input
-                type="number" step="0.05" min="1" placeholder="Markup factor"
+                type="number" step="0.05" min="1" placeholder="معامل هامش الربح"
                 value={form.markup_factor}
                 onChange={(e) => setForm({ ...form, markup_factor: e.target.value })}
                 className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none"
@@ -585,7 +594,7 @@ export const ProductsPage: React.FC = () => {
               onClick={() => setShowCreate(false)}
               className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
             >
-              Cancel
+              إلغاء
             </button>
             <button
               type="submit"
@@ -597,7 +606,7 @@ export const ProductsPage: React.FC = () => {
               }
               className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
             >
-              {createProduct.isPending ? "Creating…" : "Create"}
+              {createProduct.isPending ? "جاري الإنشاء…" : "إنشاء"}
             </button>
           </DialogFooter>
         </DialogContent>

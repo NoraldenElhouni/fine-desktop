@@ -28,14 +28,14 @@ const STATUS_ORDER = [
 ] as const;
 
 const STATUS_LABEL: Record<string, string> = {
-  planned: "Planned",
-  configured: "Configured",
-  running: "Running",
-  consumed: "Consumed",
-  curing: "Curing",
-  ready_for_grading: "Ready for Grading",
-  graded: "Graded",
-  closed: "Closed",
+  planned: "مخطط",
+  configured: "تم الإعداد",
+  running: "قيد التشغيل",
+  consumed: "مستهلك",
+  curing: "قيد التصلب",
+  ready_for_grading: "جاهز للفرز",
+  graded: "تم الفرز",
+  closed: "مغلق",
 };
 
 interface DraftRow {
@@ -160,7 +160,7 @@ export const BatchBlocksPage: React.FC = () => {
       {
         onSuccess: () => setRows([newRow()]),
         onError: (err: unknown) =>
-          setError(apiErrorPayload(err)?.message ?? "Could not register the blocks."),
+          setError(apiErrorPayload(err)?.message ?? "تعذر تسجيل البلوكات."),
       },
     );
   };
@@ -172,7 +172,7 @@ export const BatchBlocksPage: React.FC = () => {
       { id: batchId, status: nextStatus },
       {
         onError: (err: unknown) =>
-          setError(apiErrorPayload(err)?.message ?? "Could not advance the batch."),
+          setError(apiErrorPayload(err)?.message ?? "تعذر ترقية حالة الدفعة."),
       },
     );
   };
@@ -192,7 +192,7 @@ export const BatchBlocksPage: React.FC = () => {
       {
         onSuccess: () => setChemLines({}),
         onError: (err: unknown) =>
-          setError(apiErrorPayload(err)?.message ?? "Could not record consumption."),
+          setError(apiErrorPayload(err)?.message ?? "تعذر تسجيل الاستهلاك."),
       },
     );
   };
@@ -200,31 +200,31 @@ export const BatchBlocksPage: React.FC = () => {
   if (batchLoading || !batch) {
     return (
       <div className="flex h-64 items-center justify-center text-xs text-app-label-secondary">
-        Loading batch...
+        جاري تحميل الدفعة…
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6" dir="rtl">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <button
             onClick={() => navigate("/manufacturing/batches")}
             className="flex items-center gap-1 text-xs text-app-label-secondary hover:text-app-accent mb-2 transition-colors"
           >
-            <ArrowRight className="w-3.5 h-3.5" /> Back to batches
+            <ArrowRight className="w-3.5 h-3.5" /> العودة إلى الدفعات
           </button>
           <h1 className="text-2xl font-bold text-app-label-primary flex items-center gap-2">
             <Boxes className="w-7 h-7 text-app-accent" />
-            Operation{" "}
+            العملية{" "}
             <span className="font-mono text-app-accent">{batch.operation_number}</span>
           </h1>
           <p className="text-xs text-app-label-secondary mt-1">
-            Bun width <span className="font-mono font-bold">{bunWidth} m</span> (machine setting,
-            applied to every block) · Density{" "}
+            عرض الكتلة <span className="font-mono font-bold">{bunWidth} م</span> (إعداد الماكينة،
+            يُطبق على كل بلوك) · نطاق الكثافة{" "}
             <span className="font-mono">{batch.formula_params?.density_band ?? "—"}</span> ·{" "}
-            {batch.formula_params?.cure_time_minutes ?? "—"} min ·  Speed{" "}
+            {batch.formula_params?.cure_time_minutes ?? "—"} دقيقة · سرعة السير الناقل{" "}
             {batch.formula_params?.conveyor_speed ?? "—"}
           </p>
         </div>
@@ -266,7 +266,7 @@ export const BatchBlocksPage: React.FC = () => {
               className="ms-auto flex items-center gap-1.5 rounded-xl bg-app-accent px-3 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
             >
               <ChevronLeft className="w-4 h-4" />
-              {transitionMutation.isPending ? "Advancing..." : `Advance to ${STATUS_LABEL[nextStatus]}`}
+              {transitionMutation.isPending ? "جاري الترقية…" : `ترقية إلى ${STATUS_LABEL[nextStatus]}`}
             </button>
           )}
         </div>
@@ -276,14 +276,14 @@ export const BatchBlocksPage: React.FC = () => {
       <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
         <div className="border-b border-app-separator px-4 py-3 flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-bold text-app-label-primary">Chemical Consumption</h2>
+            <h2 className="text-sm font-bold text-app-label-primary">استهلاك المواد الكيميائية</h2>
             <p className="text-xs text-app-label-secondary mt-0.5">
-              Drawn from tank stock at the tank's current average cost, snapshotted at this moment.
+              يُسحب من مخزون الخزان بمتوسط تكلفة الخزان الحالي، بلقطة لحظية عند هذه العملية.
             </p>
           </div>
           {consumption && (
             <span className="text-xs font-mono text-app-label-secondary">
-              Material cost: {formatNumber(consumption.material_cost)} LYD
+              تكلفة المواد: {formatNumber(consumption.material_cost)} LYD
             </span>
           )}
         </div>
@@ -292,10 +292,10 @@ export const BatchBlocksPage: React.FC = () => {
           <table className="w-full text-start text-xs">
             <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
               <tr>
-                <th className="px-4 py-2 text-start">Chemical</th>
-                <th className="px-4 py-2 text-start">Consumed</th>
-                <th className="px-4 py-2 text-start">Unit Cost at Consumption</th>
-                <th className="px-4 py-2 text-end">Line Cost</th>
+                <th className="px-4 py-2 text-start">المادة الكيميائية</th>
+                <th className="px-4 py-2 text-start">المستهلك</th>
+                <th className="px-4 py-2 text-start">تكلفة الوحدة عند الاستهلاك</th>
+                <th className="px-4 py-2 text-end">تكلفة البند</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-app-separator">
@@ -331,7 +331,7 @@ export const BatchBlocksPage: React.FC = () => {
                 </div>
               ))}
               {chemicalData?.data.length === 0 && (
-                <p className="text-xs text-app-label-tertiary">No raw material items defined yet.</p>
+                <p className="text-xs text-app-label-tertiary">لا توجد أصناف مواد خام معرّفة بعد.</p>
               )}
             </div>
             <button
@@ -340,7 +340,7 @@ export const BatchBlocksPage: React.FC = () => {
               className="flex items-center gap-1.5 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
             >
               <Beaker className="w-4 h-4" />
-              {consumptionMutation.isPending ? "Recording..." : "Record Consumption"}
+              {consumptionMutation.isPending ? "جاري التسجيل…" : "تسجيل الاستهلاك"}
             </button>
           </div>
         )}
@@ -349,16 +349,16 @@ export const BatchBlocksPage: React.FC = () => {
       {/* Registration form — mirrors the paper production report */}
       <div className={`rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm ${acceptsBlocks ? "" : "opacity-60"}`}>
         <div className="border-b border-app-separator px-4 py-3">
-          <h2 className="text-sm font-bold text-app-label-primary">Register Output</h2>
+          <h2 className="text-sm font-bold text-app-label-primary">تسجيل الإنتاج</h2>
           <p className="text-xs text-app-label-secondary mt-0.5">
-            Enter rows as they appear on the production report. Each block row becomes that many
-            individually labelled blocks; scrap rows record volume only.
+            أدخل الصفوف كما تظهر في تقرير الإنتاج. كل صف بلوك يتحول إلى ذلك العدد من البلوكات
+            الموسومة فردياً؛ صفوف الهدر تسجل الحجم فقط.
           </p>
           {!acceptsBlocks && (
             <p className="mt-2 flex items-start gap-1.5 text-xs text-app-status-yellow">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-              Blocks are keyed in after grading. Advance the batch to{" "}
-              <strong>Ready for Grading</strong> first.
+              يتم إدخال البلوكات بعد الفرز. رقّي الدفعة إلى{" "}
+              <strong>جاهز للفرز</strong> أولاً.
             </p>
           )}
         </div>
@@ -366,7 +366,7 @@ export const BatchBlocksPage: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-app-bg-secondary border-b border-app-separator">
           <div>
             <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-              Block Product
+              صنف البلوك
             </label>
             <SearchableSelect<InventoryItem>
               options={itemData?.data ?? []}
@@ -376,12 +376,12 @@ export const BatchBlocksPage: React.FC = () => {
               getOptionLabel={(i) => i.name}
               getOptionSubLabel={(i) => i.sku}
               getOptionSearchText={(i) => `${i.name} ${i.sku}`}
-              placeholder="Select foam block item…"
+              placeholder="اختر صنف بلوك الإسفنج…"
             />
           </div>
           <div>
             <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-              Scrap Product
+              صنف الهدر
             </label>
             <SearchableSelect<InventoryItem>
               options={scrapItems?.data ?? []}
@@ -394,17 +394,17 @@ export const BatchBlocksPage: React.FC = () => {
               getOptionSubLabel={(i) => i.sku}
               getOptionSearchText={(i) => `${i.name} ${i.sku}`}
               placeholder={
-                hasScrapRow ? "Select scrap item…" : "Only needed for scrap rows"
+                hasScrapRow ? "اختر صنف الهدر…" : "مطلوب فقط لصفوف الهدر"
               }
             />
             <p className="text-[10px] text-app-label-tertiary mt-1">
-              Scrap enters stock at zero cost
+              الهدر يدخل المخزون بتكلفة صفرية
             </p>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-              Warehouse
+              المخزن
             </label>
             <SearchableSelect<{ id: string; name: string }>
               options={warehouses ?? []}
@@ -412,7 +412,7 @@ export const BatchBlocksPage: React.FC = () => {
               onChange={(w) => setWarehouseId(w ? w.id : "")}
               getOptionId={(w) => w.id}
               getOptionLabel={(w) => w.name}
-              placeholder="Select warehouse…"
+              placeholder="اختر المخزن…"
             />
           </div>
         </div>
@@ -420,15 +420,15 @@ export const BatchBlocksPage: React.FC = () => {
         <table className="w-full text-start text-xs">
           <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
             <tr>
-              <th className="px-3 py-2 text-start">Type</th>
-              <th className="px-3 py-2 text-start">Length (m)</th>
-              <th className="px-3 py-2 text-start">Height (m)</th>
-              <th className="px-3 py-2 text-start">Count</th>
-              <th className="px-3 py-2 text-start">Pressure</th>
-              <th className="px-3 py-2 text-start">Grade</th>
-              <th className="px-3 py-2 text-start">Colour</th>
-              <th className="px-3 py-2 text-start">Unit Cost</th>
-              <th className="px-3 py-2 text-end">Volume (m³)</th>
+              <th className="px-3 py-2 text-start">النوع</th>
+              <th className="px-3 py-2 text-start">الطول (م)</th>
+              <th className="px-3 py-2 text-start">الارتفاع (م)</th>
+              <th className="px-3 py-2 text-start">العدد</th>
+              <th className="px-3 py-2 text-start">الضغط</th>
+              <th className="px-3 py-2 text-start">الدرجة</th>
+              <th className="px-3 py-2 text-start">اللون</th>
+              <th className="px-3 py-2 text-start">تكلفة الوحدة</th>
+              <th className="px-3 py-2 text-end">الحجم (م³)</th>
               <th className="px-3 py-2" />
             </tr>
           </thead>
@@ -443,8 +443,8 @@ export const BatchBlocksPage: React.FC = () => {
                     }
                     className="w-full px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
                   >
-                    <option value="block">Block</option>
-                    <option value="scrap">Scrap</option>
+                    <option value="block">بلوك</option>
+                    <option value="scrap">هدر</option>
                   </select>
                 </td>
                 <td className="px-3 py-2">
@@ -498,10 +498,10 @@ export const BatchBlocksPage: React.FC = () => {
                       }
                       className="px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
                     >
-                      <option value="standard">Standard</option>
-                      <option value="acceptable_variant">Variant</option>
-                      <option value="defective_usable">Defective</option>
-                      <option value="reject">Reject</option>
+                      <option value="standard">قياسي</option>
+                      <option value="acceptable_variant">متغيّر مقبول</option>
+                      <option value="defective_usable">معيب قابل للاستخدام</option>
+                      <option value="reject">مرفوض</option>
                     </select>
                   ) : (
                     <span className="text-app-label-tertiary">—</span>
@@ -537,7 +537,7 @@ export const BatchBlocksPage: React.FC = () => {
                   <div className="font-bold text-app-label-primary">
                     {rowTotal(row).toFixed(4)}
                   </div>
-                  <div className="text-[10px]">{rowVolume(row).toFixed(4)} each</div>
+                  <div className="text-[10px]">{rowVolume(row).toFixed(4)} لكل واحدة</div>
                 </td>
                 <td className="px-3 py-2 text-end">
                   {rows.length > 1 && (
@@ -555,15 +555,15 @@ export const BatchBlocksPage: React.FC = () => {
           <tfoot className="border-t-2 border-app-separator bg-app-bg-secondary font-bold text-app-label-primary">
             <tr>
               <td className="px-3 py-3" colSpan={3}>
-                Run total
+                إجمالي التشغيلة
               </td>
               <td className="px-3 py-3 font-mono">{totals.blockCount}</td>
               <td className="px-3 py-3 text-app-label-secondary font-normal" colSpan={4}>
-                blocks
+                بلوك
                 {totals.scrapVolume > 0 && (
                   <span className="ms-2">
-                    · scrap{" "}
-                    <span className="font-mono">{totals.scrapVolume.toFixed(4)} m³</span>
+                    · هدر{" "}
+                    <span className="font-mono">{totals.scrapVolume.toFixed(4)} م³</span>
                   </span>
                 )}
               </td>
@@ -580,7 +580,7 @@ export const BatchBlocksPage: React.FC = () => {
             onClick={() => setRows((prev) => [...prev, newRow()])}
             className="flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1 transition-colors"
           >
-            <Plus className="w-4 h-4" /> Add Row
+            <Plus className="w-4 h-4" /> إضافة صف
           </button>
 
           <button
@@ -590,8 +590,8 @@ export const BatchBlocksPage: React.FC = () => {
           >
             <Save className="w-4 h-4" />
             {registerMutation.isPending
-              ? "Registering..."
-              : `Register ${totals.blockCount} Block${totals.blockCount === 1 ? "" : "s"}`}
+              ? "جاري التسجيل…"
+              : `تسجيل ${totals.blockCount} بلوك`}
           </button>
         </div>
       </div>
@@ -600,28 +600,28 @@ export const BatchBlocksPage: React.FC = () => {
       <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
         <div className="border-b border-app-separator px-4 py-3 flex items-center justify-between">
           <h2 className="text-sm font-bold text-app-label-primary">
-            Registered Blocks ({blocks?.length ?? 0})
+            البلوكات المسجلة ({blocks?.length ?? 0})
           </h2>
           <span className="text-xs text-app-label-secondary font-mono">
-            Scrap recorded: {Number(batch.scrap_volume_m3).toFixed(4)} m³
+            الهدر المسجل: {Number(batch.scrap_volume_m3).toFixed(4)} م³
           </span>
         </div>
 
         {blocksLoading ? (
           <div className="flex h-32 items-center justify-center text-xs text-app-label-secondary">
-            Loading blocks...
+            جاري تحميل البلوكات…
           </div>
         ) : (
           <table className="w-full text-start text-xs">
             <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
               <tr>
-                <th className="px-4 py-3 text-start">Block Code</th>
-                <th className="px-4 py-3 text-start">Seq</th>
-                <th className="px-4 py-3 text-start">Pressure</th>
-                <th className="px-4 py-3 text-start">Dimensions</th>
-                <th className="px-4 py-3 text-start">Volume</th>
-                <th className="px-4 py-3 text-start">Grade</th>
-                <th className="px-4 py-3 text-start">Status</th>
+                <th className="px-4 py-3 text-start">كود البلوك</th>
+                <th className="px-4 py-3 text-start">التسلسل</th>
+                <th className="px-4 py-3 text-start">الضغط</th>
+                <th className="px-4 py-3 text-start">الأبعاد</th>
+                <th className="px-4 py-3 text-start">الحجم</th>
+                <th className="px-4 py-3 text-start">الدرجة</th>
+                <th className="px-4 py-3 text-start">الحالة</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-app-separator text-app-label-primary">
@@ -633,9 +633,9 @@ export const BatchBlocksPage: React.FC = () => {
                   <td className="px-4 py-3 font-mono">{lot.sequence_in_batch ?? "—"}</td>
                   <td className="px-4 py-3 font-mono">{lot.pressure ?? "—"}</td>
                   <td className="px-4 py-3 font-mono text-app-label-secondary">
-                    {lot.length_m}m × {lot.width_m}m × {lot.height_m}m
+                    {lot.length_m}م × {lot.width_m}م × {lot.height_m}م
                   </td>
-                  <td className="px-4 py-3 font-mono">{lot.volume_m3} m³</td>
+                  <td className="px-4 py-3 font-mono">{lot.volume_m3} م³</td>
                   <td className="px-4 py-3">
                     <span className="px-2 py-1 text-xs font-semibold rounded-full bg-app-accent-subtle text-app-accent">
                       {lot.grade}
@@ -647,7 +647,7 @@ export const BatchBlocksPage: React.FC = () => {
               {blocks?.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-app-label-tertiary">
-                    No blocks registered for this operation yet.
+                    لا توجد بلوكات مسجلة لهذه العملية بعد.
                   </td>
                 </tr>
               )}

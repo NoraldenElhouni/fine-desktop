@@ -65,15 +65,15 @@ export const InventoryItemsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6" dir="rtl">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-app-label-primary flex items-center gap-2">
             <Package className="w-7 h-7 text-app-accent" />
-            Inventory Item Master
+            سجل الأصناف الرئيسي
           </h1>
           <p className="text-xs text-app-label-secondary mt-1">
-            Catalog of raw materials, foam blocks, cut pieces, slices, sellable items, and custom product attribute assignments.
+            كتالوج المواد الخام وقوالب الإسفنج والقطع المشذبة والشرائح والأصناف القابلة للبيع، مع تعيينات الخصائص المخصصة.
           </p>
         </div>
 
@@ -88,7 +88,7 @@ export const InventoryItemsPage: React.FC = () => {
             onClick={() => setIsModalOpen(true)}
             className="flex items-center gap-2 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all active:scale-95"
           >
-            <Plus className="w-4 h-4" /> Add Inventory Item
+            <Plus className="w-4 h-4" /> إضافة صنف مخزون
           </button>
         </div>
       </div>
@@ -96,13 +96,13 @@ export const InventoryItemsPage: React.FC = () => {
       {/* Filter Bar */}
       <div className="flex flex-col sm:flex-row gap-4 bg-app-bg-primary p-4 rounded-2xl border border-app-separator shadow-sm">
         <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-3 text-app-label-tertiary" />
+          <Search className="w-4 h-4 absolute start-3 top-3 text-app-label-tertiary" />
           <input
             type="text"
-            placeholder="Search by SKU or item name..."
+            placeholder="بحث برمز الصنف (SKU) أو الاسم…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs text-app-label-primary placeholder-app-label-tertiary focus:border-app-accent focus:outline-none"
+            className="w-full ps-9 pe-4 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs text-app-label-primary placeholder-app-label-tertiary focus:border-app-accent focus:outline-none"
           />
         </div>
 
@@ -117,7 +117,7 @@ export const InventoryItemsPage: React.FC = () => {
               onChange={(c) => setCategoryFilter(c ? c.id : "")}
               getOptionId={(c) => c.id}
               getOptionLabel={(c) => c.name}
-              placeholder="All Categories"
+              placeholder="كل الفئات"
               size="sm"
             />
           </div>
@@ -127,15 +127,15 @@ export const InventoryItemsPage: React.FC = () => {
             onChange={(e) => setTypeFilter(e.target.value)}
             className="px-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
           >
-            <option value="">All Item Types</option>
-            <option value="raw_material">Raw Material</option>
-            <option value="foam_block">Foam Block</option>
-            <option value="cut_template_piece">Cut Template Piece</option>
-            <option value="slice">Slice</option>
-            <option value="byproduct_fill">Byproduct Fill</option>
-            <option value="furniture_finished_good">Furniture Finished Good</option>
-            <option value="barrel">Barrel</option>
-            <option value="pallet">Pallet</option>
+            <option value="">كل أنواع الأصناف</option>
+            <option value="raw_material">مادة خام</option>
+            <option value="foam_block">قالب إسفنج</option>
+            <option value="cut_template_piece">قطعة قالب تشذيب</option>
+            <option value="slice">شريحة</option>
+            <option value="byproduct_fill">حشو ثانوي</option>
+            <option value="furniture_finished_good">منتج أثاث تام</option>
+            <option value="barrel">برميل</option>
+            <option value="pallet">منصة نقالة</option>
           </select>
         </div>
       </div>
@@ -144,18 +144,18 @@ export const InventoryItemsPage: React.FC = () => {
       <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
         {isLoading ? (
           <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">
-            Loading inventory items...
+            جاري تحميل أصناف المخزون…
           </div>
         ) : (
           <table className="w-full text-start text-xs">
             <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
               <tr>
-                <th className="px-4 py-3 text-start">SKU</th>
-                <th className="px-4 py-3 text-start">Name</th>
-                <th className="px-4 py-3 text-start">Category</th>
-                <th className="px-4 py-3 text-start">Assigned Attributes</th>
-                <th className="px-4 py-3 text-start">Dual UOM (Container / Measure)</th>
-                <th className="px-4 py-3 text-start">Created Date</th>
+                <th className="px-4 py-3 text-start">رمز الصنف (SKU)</th>
+                <th className="px-4 py-3 text-start">الاسم</th>
+                <th className="px-4 py-3 text-start">الفئة</th>
+                <th className="px-4 py-3 text-start">الخصائص المسندة</th>
+                <th className="px-4 py-3 text-start">وحدة القياس المزدوجة (حاوية / قياس)</th>
+                <th className="px-4 py-3 text-start">تاريخ الإنشاء</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-app-separator text-app-label-primary">
@@ -169,7 +169,7 @@ export const InventoryItemsPage: React.FC = () => {
                         <Tags className="w-3 h-3" /> {item.category.name}
                       </span>
                     ) : (
-                      <span className="text-app-label-tertiary">Uncategorized</span>
+                      <span className="text-app-label-tertiary">بدون فئة</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -182,7 +182,7 @@ export const InventoryItemsPage: React.FC = () => {
                         ))}
                       </div>
                     ) : (
-                      <span className="text-app-label-tertiary text-[10px]">No attributes</span>
+                      <span className="text-app-label-tertiary text-[10px]">لا توجد خصائص</span>
                     )}
                   </td>
                   <td className="px-4 py-3 font-mono font-medium text-app-label-secondary">
@@ -194,7 +194,7 @@ export const InventoryItemsPage: React.FC = () => {
               {itemData?.data.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-app-label-tertiary">
-                    No inventory items found.
+                    لا توجد أصناف مخزون.
                   </td>
                 </tr>
               )}
@@ -207,13 +207,13 @@ export const InventoryItemsPage: React.FC = () => {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent size="lg">
           <DialogHeader>
-            <DialogTitle>Create Inventory Item</DialogTitle>
+            <DialogTitle>إنشاء صنف مخزون</DialogTitle>
             <DialogClose />
           </DialogHeader>
           <DialogBody>
             <form id="inventory-item-form" onSubmit={handleCreate} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">Item Category</label>
+                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">فئة الصنف</label>
                 <SearchableSelect<{ id: string; name: string; code?: string }>
                   options={categories ?? []}
                   value={
@@ -224,12 +224,12 @@ export const InventoryItemsPage: React.FC = () => {
                   getOptionLabel={(c) => c.name}
                   getOptionSubLabel={(c) => c.code}
                   getOptionSearchText={(c) => `${c.name} ${c.code ?? ""}`}
-                  placeholder="Select Product Category Template"
+                  placeholder="اختر قالب فئة المنتج"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">Item Name</label>
+                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">اسم الصنف</label>
                 <input
                   type="text"
                   required
@@ -240,7 +240,7 @@ export const InventoryItemsPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">SKU</label>
+                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">رمز الصنف (SKU)</label>
                 <input
                   type="text"
                   required
@@ -252,35 +252,35 @@ export const InventoryItemsPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">Item Type</label>
+                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">نوع الصنف</label>
                   <select
                     value={itemType}
                     onChange={(e) => setItemType(e.target.value)}
                     className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
                   >
-                    <option value="raw_material">Raw Material</option>
-                    <option value="foam_block">Foam Block</option>
-                    <option value="cut_template_piece">Cut Template Piece</option>
-                    <option value="slice">Slice</option>
-                    <option value="byproduct_fill">Byproduct Fill</option>
-                    <option value="furniture_finished_good">Furniture Finished Good</option>
-                    <option value="barrel">Barrel</option>
-                    <option value="pallet">Pallet</option>
+                    <option value="raw_material">مادة خام</option>
+                    <option value="foam_block">قالب إسفنج</option>
+                    <option value="cut_template_piece">قطعة قالب تشذيب</option>
+                    <option value="slice">شريحة</option>
+                    <option value="byproduct_fill">حشو ثانوي</option>
+                    <option value="furniture_finished_good">منتج أثاث تام</option>
+                    <option value="barrel">برميل</option>
+                    <option value="pallet">منصة نقالة</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">Base UOM</label>
+                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">وحدة القياس الأساسية</label>
                   <select
                     value={uom}
                     onChange={(e) => setUom(e.target.value)}
                     className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
                   >
-                    <option value="each">Each</option>
-                    <option value="m3">m³</option>
-                    <option value="kg">kg</option>
-                    <option value="meter">Meter</option>
-                    <option value="liter">Liter</option>
+                    <option value="each">وحدة</option>
+                    <option value="m3">م³</option>
+                    <option value="kg">كجم</option>
+                    <option value="meter">متر</option>
+                    <option value="liter">لتر</option>
                   </select>
                 </div>
               </div>
@@ -288,7 +288,7 @@ export const InventoryItemsPage: React.FC = () => {
               {/* Product Attributes Many-to-Many Assignment */}
               <div className="space-y-2 p-3 bg-app-bg-secondary rounded-xl border border-app-separator">
                 <label className="block text-xs font-semibold text-app-label-primary uppercase flex items-center gap-1.5">
-                  <Sliders className="w-3.5 h-3.5 text-app-accent" /> Assign Product Attributes
+                  <Sliders className="w-3.5 h-3.5 text-app-accent" /> إسناد خصائص المنتج
                 </label>
                 <div className="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto">
                   {attributeLibrary?.map((attr) => {
@@ -316,7 +316,7 @@ export const InventoryItemsPage: React.FC = () => {
                   })}
                   {attributeLibrary?.length === 0 && (
                     <div className="col-span-2 text-xs text-app-label-tertiary text-center py-2">
-                      No master attributes available. Add them in Attribute Library.
+                      لا توجد خصائص رئيسية متاحة. أضفها من مكتبة الخصائص.
                     </div>
                   )}
                 </div>
@@ -324,20 +324,20 @@ export const InventoryItemsPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3 p-3 bg-app-bg-secondary rounded-xl border border-app-separator">
                 <div>
-                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">Container UOM</label>
+                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">وحدة الحاوية</label>
                   <input
                     type="text"
-                    placeholder="e.g. barrel, block"
+                    placeholder="مثال: barrel, block"
                     value={primaryUom}
                     onChange={(e) => setPrimaryUom(e.target.value)}
                     className="w-full px-3 py-2 border rounded-xl bg-app-bg-primary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">Measure UOM</label>
+                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">وحدة القياس</label>
                   <input
                     type="text"
-                    placeholder="e.g. liter, m3, kg"
+                    placeholder="مثال: liter, m3, kg"
                     value={secondaryUom}
                     onChange={(e) => setSecondaryUom(e.target.value)}
                     className="w-full px-3 py-2 border rounded-xl bg-app-bg-primary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
@@ -353,7 +353,7 @@ export const InventoryItemsPage: React.FC = () => {
               onClick={() => setIsModalOpen(false)}
               className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
             >
-              Cancel
+              إلغاء
             </button>
             <button
               type="submit"
@@ -361,7 +361,7 @@ export const InventoryItemsPage: React.FC = () => {
               disabled={createItemMutation.isPending}
               className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
             >
-              {createItemMutation.isPending ? "Saving..." : "Save Item"}
+              {createItemMutation.isPending ? "جاري الحفظ…" : "حفظ الصنف"}
             </button>
           </DialogFooter>
         </DialogContent>

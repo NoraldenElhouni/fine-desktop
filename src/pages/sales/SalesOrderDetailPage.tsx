@@ -32,8 +32,8 @@ export const SalesOrderDetailPage: React.FC = () => {
 
   if (isLoading || !order) {
     return (
-      <div className="flex h-64 items-center justify-center text-xs text-app-label-secondary">
-        Loading order…
+      <div className="flex h-64 items-center justify-center text-xs text-app-label-secondary" dir="rtl">
+        جاري تحميل الطلب…
       </div>
     );
   }
@@ -45,13 +45,13 @@ export const SalesOrderDetailPage: React.FC = () => {
   const approval = order.credit_approval_request;
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6" dir="rtl">
       <div>
         <button
           onClick={() => navigate("/sales/orders")}
           className="flex items-center gap-1 text-xs text-app-label-secondary hover:text-app-accent mb-2"
         >
-          <ArrowRight className="w-3.5 h-3.5" /> Back to orders
+          <ArrowRight className="w-3.5 h-3.5" /> العودة إلى الطلبات
         </button>
         <h1 className="text-2xl font-bold text-app-label-primary flex items-center gap-2">
           <ShoppingCart className="w-7 h-7 text-app-accent" />
@@ -62,14 +62,14 @@ export const SalesOrderDetailPage: React.FC = () => {
         </h1>
         <p className="text-xs text-app-label-secondary mt-1">
           {order.buyer_type === "client"
-            ? `Client: ${order.client?.entity?.name ?? "—"}`
+            ? `العميل: ${order.client?.entity?.name ?? "—"}`
             : order.buyer_type === "internal_unit"
-              ? `Internal transfer to ${order.buyer_unit?.name ?? "—"}`
-              : "Walk-in"}
-          {" · "}total <span className="font-mono font-bold">{formatNumber(order.total_amount)}</span>
+              ? `تحويل داخلي إلى ${order.buyer_unit?.name ?? "—"}`
+              : "زبون مباشر"}
+          {" · "}الإجمالي <span className="font-mono font-bold">{formatNumber(order.total_amount)}</span>
           {order.status !== "draft" && (
             <>
-              {" · "}paid <span className="font-mono">{formatNumber(order.amount_paid)}</span>
+              {" · "}المدفوع <span className="font-mono">{formatNumber(order.amount_paid)}</span>
             </>
           )}
         </p>
@@ -88,33 +88,33 @@ export const SalesOrderDetailPage: React.FC = () => {
           <div className="flex items-start gap-2 text-xs text-app-label-primary">
             <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5 text-app-status-yellow" />
             <span>
-              This order takes the client{" "}
+              هذا الطلب يتجاوز بالعميل{" "}
               <span className="font-mono font-bold">
                 {formatNumber(approval.amount_over_limit)}
               </span>{" "}
-              over their credit limit. It stays blocked until someone with the authority decides.
+              فوق حده الائتماني. يبقى الطلب موقوفًا حتى يبتّ فيه صاحب الصلاحية.
             </span>
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => creditMutation.mutate(
                 { approvalId: approval.id, approve: true },
-                { onError: (e) => fail(e, "Could not approve.") },
+                { onError: (e) => fail(e, "تعذّرت الموافقة.") },
               )}
               disabled={creditMutation.isPending}
               className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
             >
-              Approve Over-Limit
+              الموافقة على تجاوز الحد
             </button>
             <button
               onClick={() => creditMutation.mutate(
                 { approvalId: approval.id, approve: false },
-                { onError: (e) => fail(e, "Could not reject.") },
+                { onError: (e) => fail(e, "تعذّر الرفض.") },
               )}
               disabled={creditMutation.isPending}
               className="rounded-xl border border-app-status-danger/40 px-4 py-2 text-xs font-bold text-app-status-danger hover:bg-app-status-danger/10 disabled:opacity-50"
             >
-              Reject Order
+              رفض الطلب
             </button>
           </div>
         </div>
@@ -124,22 +124,22 @@ export const SalesOrderDetailPage: React.FC = () => {
       <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm p-4 flex flex-wrap items-center gap-2">
         {order.status === "draft" && (
           <button
-            onClick={() => { setError(null); submitMutation.mutate(orderId as string, { onError: (e) => fail(e, "Submit failed.") }); }}
+            onClick={() => { setError(null); submitMutation.mutate(orderId as string, { onError: (e) => fail(e, "فشل الإرسال.") }); }}
             disabled={submitMutation.isPending}
             className="flex items-center gap-1.5 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
           >
             <Send className="w-4 h-4" />
-            {order.buyer_type === "client" ? "Submit for Credit Check" : "Submit"}
+            {order.buyer_type === "client" ? "الإرسال لفحص الائتمان" : "إرسال"}
           </button>
         )}
 
         {order.status === "confirmed" && (
           <button
-            onClick={() => { setError(null); fulfillMutation.mutate(orderId as string, { onError: (e) => fail(e, "Fulfillment failed.") }); }}
+            onClick={() => { setError(null); fulfillMutation.mutate(orderId as string, { onError: (e) => fail(e, "فشل التنفيذ.") }); }}
             disabled={fulfillMutation.isPending}
             className="flex items-center gap-1.5 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
           >
-            <PackageCheck className="w-4 h-4" /> Fulfill — Issue Goods
+            <PackageCheck className="w-4 h-4" /> تنفيذ — صرف البضاعة
           </button>
         )}
 
@@ -147,7 +147,7 @@ export const SalesOrderDetailPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <input
               type="number" step="0.01" min="0.01" max={outstanding}
-              placeholder={`Outstanding ${formatNumber(outstanding)}`}
+              placeholder={`المتبقي ${formatNumber(outstanding)}`}
               value={paymentAmount}
               onChange={(e) => setPaymentAmount(e.target.value)}
               className="w-44 px-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
@@ -157,24 +157,24 @@ export const SalesOrderDetailPage: React.FC = () => {
                 setError(null);
                 paymentMutation.mutate(
                   { id: orderId as string, amount: Number(paymentAmount) },
-                  { onSuccess: () => setPaymentAmount(""), onError: (e) => fail(e, "Payment failed.") },
+                  { onSuccess: () => setPaymentAmount(""), onError: (e) => fail(e, "فشل الدفع.") },
                 );
               }}
               disabled={paymentMutation.isPending || Number(paymentAmount) <= 0}
               className="flex items-center gap-1.5 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
             >
-              <Banknote className="w-4 h-4" /> Record Payment
+              <Banknote className="w-4 h-4" /> تسجيل دفعة
             </button>
           </div>
         )}
 
         {order.status === "fulfilled" && order.buyer_type === "internal_unit" && (
           <button
-            onClick={() => { setError(null); completeMutation.mutate(orderId as string, { onError: (e) => fail(e, "Completion failed.") }); }}
+            onClick={() => { setError(null); completeMutation.mutate(orderId as string, { onError: (e) => fail(e, "فشل الإكمال.") }); }}
             disabled={completeMutation.isPending}
             className="flex items-center gap-1.5 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
           >
-            <CheckCircle2 className="w-4 h-4" /> Complete Transfer
+            <CheckCircle2 className="w-4 h-4" /> إكمال التحويل
           </button>
         )}
 
@@ -183,7 +183,7 @@ export const SalesOrderDetailPage: React.FC = () => {
             onClick={() => setShowInvoice(!showInvoice)}
             className="ms-auto flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-semibold hover:bg-app-fill-f1"
           >
-            <FileText className="w-4 h-4" /> {showInvoice ? "Hide Invoice" : "View Invoice"}
+            <FileText className="w-4 h-4" /> {showInvoice ? "إخفاء الفاتورة" : "عرض الفاتورة"}
           </button>
         )}
 
@@ -192,13 +192,13 @@ export const SalesOrderDetailPage: React.FC = () => {
             onClick={() => window.print()}
             className="flex items-center gap-1.5 rounded-xl bg-app-accent px-3 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90"
           >
-            <Printer className="w-4 h-4" /> Print / PDF
+            <Printer className="w-4 h-4" /> طباعة / PDF
           </button>
         )}
 
         {order.status === "paid" && (
           <span className="flex items-center gap-1 text-xs font-semibold text-app-status-positive">
-            <CheckCircle2 className="w-4 h-4" /> Settled in full
+            <CheckCircle2 className="w-4 h-4" /> تمت التسوية بالكامل
           </span>
         )}
       </div>
@@ -219,7 +219,7 @@ export const SalesOrderDetailPage: React.FC = () => {
                 {formatNumber(invoice.total_amount)} LYD
               </div>
               <div className="text-xs text-app-label-secondary font-mono">
-                outstanding {formatNumber(invoice.outstanding)}
+                المتبقي {formatNumber(invoice.outstanding)}
               </div>
             </div>
           </div>
@@ -247,16 +247,16 @@ export const SalesOrderDetailPage: React.FC = () => {
       {/* Lines */}
       <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
         <div className="border-b border-app-separator px-4 py-3">
-          <h2 className="text-sm font-bold text-app-label-primary">Lines</h2>
+          <h2 className="text-sm font-bold text-app-label-primary">بنود الطلب</h2>
         </div>
         <table className="w-full text-start text-xs">
           <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
             <tr>
-              <th className="px-4 py-2 text-start">Item</th>
-              <th className="px-4 py-2 text-end">Qty</th>
-              <th className="px-4 py-2 text-end">Price</th>
-              <th className="px-4 py-2 text-end">Total</th>
-              <th className="px-4 py-2 text-end">Actual Cost</th>
+              <th className="px-4 py-2 text-start">الصنف</th>
+              <th className="px-4 py-2 text-end">الكمية</th>
+              <th className="px-4 py-2 text-end">السعر</th>
+              <th className="px-4 py-2 text-end">الإجمالي</th>
+              <th className="px-4 py-2 text-end">التكلفة الفعلية</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-app-separator text-app-label-primary">

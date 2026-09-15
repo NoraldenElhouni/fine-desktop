@@ -72,15 +72,15 @@ export const CategoryAttributeManagerPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6" dir="rtl">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-app-label-primary flex items-center gap-2">
             <Tags className="w-7 h-7 text-app-accent" />
-            Category & Attribute Template Manager
+            إدارة قوالب الفئات والخصائص
           </h1>
           <p className="text-xs text-app-label-secondary mt-1">
-            Configure item categories and define required dynamic specs (Pressure, Weight, Density, Purity).
+            تهيئة فئات الأصناف وتحديد الحقول الديناميكية المطلوبة (الضغط، الوزن، الكثافة، النقاء).
           </p>
         </div>
 
@@ -88,7 +88,7 @@ export const CategoryAttributeManagerPage: React.FC = () => {
           onClick={() => setIsCatModalOpen(true)}
           className="flex items-center gap-2 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all active:scale-95"
         >
-          <Plus className="w-4 h-4" /> Add Item Category
+          <Plus className="w-4 h-4" /> إضافة فئة صنف
         </button>
       </div>
 
@@ -96,11 +96,11 @@ export const CategoryAttributeManagerPage: React.FC = () => {
         {/* Categories List */}
         <div className="bg-app-bg-primary rounded-2xl border border-app-separator p-4 shadow-sm space-y-3">
           <h3 className="text-sm font-bold text-app-label-primary flex items-center gap-2">
-            <Layers className="w-4 h-4 text-app-accent" /> Product Categories
+            <Layers className="w-4 h-4 text-app-accent" /> فئات المنتجات
           </h3>
 
           {isLoading ? (
-            <div className="p-4 text-center text-xs text-app-label-secondary">Loading categories...</div>
+            <div className="p-4 text-center text-xs text-app-label-secondary">جاري تحميل الفئات…</div>
           ) : (
             <div className="space-y-2">
               {categories?.map((cat) => {
@@ -125,13 +125,13 @@ export const CategoryAttributeManagerPage: React.FC = () => {
                       <p className="text-[11px] text-app-label-secondary mt-1 line-clamp-1">{cat.description}</p>
                     )}
                     <div className="text-[10px] text-app-label-tertiary mt-2">
-                      {cat.attribute_definitions?.length || 0} Dynamic Attributes Configured
+                      {cat.attribute_definitions?.length || 0} خاصية ديناميكية معرّفة
                     </div>
                   </div>
                 );
               })}
               {categories?.length === 0 && (
-                <div className="p-6 text-center text-xs text-app-label-tertiary">No categories created yet.</div>
+                <div className="p-6 text-center text-xs text-app-label-tertiary">لا توجد فئات بعد.</div>
               )}
             </div>
           )}
@@ -144,17 +144,17 @@ export const CategoryAttributeManagerPage: React.FC = () => {
               <div className="flex items-center justify-between border-b border-app-separator pb-4">
                 <div>
                   <h2 className="text-base font-bold text-app-label-primary">
-                    Attribute Template: {selectedCategory.name}
+                    قالب الخصائص: {selectedCategory.name}
                   </h2>
                   <p className="text-xs text-app-label-secondary">
-                    Define custom spec fields enforced on items & serialized stock lots.
+                    تحديد حقول المواصفات المخصصة المطبّقة على الأصناف ودفعات المخزون المسلسلة.
                   </p>
                 </div>
                 <button
                   onClick={() => setIsAttrModalOpen(true)}
                   className="flex items-center gap-1.5 rounded-xl bg-app-accent px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all"
                 >
-                  <Plus className="w-3.5 h-3.5" /> Add Attribute Field
+                  <Plus className="w-3.5 h-3.5" /> إضافة حقل خاصية
                 </button>
               </div>
 
@@ -163,12 +163,12 @@ export const CategoryAttributeManagerPage: React.FC = () => {
                 <table className="w-full text-start text-xs">
                   <thead className="border-b border-app-separator bg-app-bg-primary text-app-label-secondary font-bold">
                     <tr>
-                      <th className="px-4 py-3 text-start">Field Name</th>
-                      <th className="px-4 py-3 text-start">Slug</th>
-                      <th className="px-4 py-3 text-start">Data Type</th>
-                      <th className="px-4 py-3 text-start">UOM</th>
-                      <th className="px-4 py-3 text-start">Required on Lot</th>
-                      <th className="px-4 py-3 text-end">Action</th>
+                      <th className="px-4 py-3 text-start">اسم الحقل</th>
+                      <th className="px-4 py-3 text-start">المعرف (Slug)</th>
+                      <th className="px-4 py-3 text-start">نوع البيانات</th>
+                      <th className="px-4 py-3 text-start">وحدة القياس</th>
+                      <th className="px-4 py-3 text-start">مطلوب في الدفعة</th>
+                      <th className="px-4 py-3 text-end">إجراء</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-app-separator text-app-label-primary">
@@ -180,9 +180,9 @@ export const CategoryAttributeManagerPage: React.FC = () => {
                         <td className="px-4 py-3 font-semibold text-app-label-secondary">{attr.unit_of_measure || "--"}</td>
                         <td className="px-4 py-3">
                           {attr.is_required_on_lot ? (
-                            <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800">Required</span>
+                            <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800">مطلوب</span>
                           ) : (
-                            <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-app-fill-f1 text-app-label-tertiary">Optional</span>
+                            <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-app-fill-f1 text-app-label-tertiary">اختياري</span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-end">
@@ -198,7 +198,7 @@ export const CategoryAttributeManagerPage: React.FC = () => {
                     {selectedCategory.attribute_definitions?.length === 0 && (
                       <tr>
                         <td colSpan={6} className="px-4 py-8 text-center text-app-label-tertiary">
-                          No attribute fields configured for this category yet.
+                          لا توجد حقول خصائص معرّفة لهذه الفئة بعد.
                         </td>
                       </tr>
                     )}
@@ -209,7 +209,7 @@ export const CategoryAttributeManagerPage: React.FC = () => {
           ) : (
             <div className="flex flex-col items-center justify-center h-64 text-center text-app-label-tertiary space-y-2">
               <Sliders className="w-8 h-8 text-app-label-tertiary" />
-              <p className="text-xs">Select a product category from the left panel to configure its dynamic attribute template.</p>
+              <p className="text-xs">اختر فئة منتج من اللوحة الجانبية لتهيئة قالب خصائصها الديناميكية.</p>
             </div>
           )}
         </div>
@@ -219,17 +219,17 @@ export const CategoryAttributeManagerPage: React.FC = () => {
       <Dialog open={isCatModalOpen} onOpenChange={setIsCatModalOpen}>
         <DialogContent size="md">
           <DialogHeader>
-            <DialogTitle>Create Item Category</DialogTitle>
+            <DialogTitle>إنشاء فئة صنف</DialogTitle>
             <DialogClose />
           </DialogHeader>
           <DialogBody>
             <form id="category-create-form" onSubmit={handleCreateCategory} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">Category Name</label>
+                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">اسم الفئة</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Foam Blocks"
+                  placeholder="مثال: قوالب الإسفنج"
                   value={catName}
                   onChange={(e) => setCatName(e.target.value)}
                   className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
@@ -237,11 +237,11 @@ export const CategoryAttributeManagerPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">Category Code</label>
+                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">رمز الفئة</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. CAT-FOAM"
+                  placeholder="مثال: CAT-FOAM"
                   value={catCode}
                   onChange={(e) => setCatCode(e.target.value)}
                   className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
@@ -249,7 +249,7 @@ export const CategoryAttributeManagerPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">Description</label>
+                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">الوصف</label>
                 <textarea
                   value={catDesc}
                   onChange={(e) => setCatDesc(e.target.value)}
@@ -265,7 +265,7 @@ export const CategoryAttributeManagerPage: React.FC = () => {
               onClick={() => setIsCatModalOpen(false)}
               className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
             >
-              Cancel
+              إلغاء
             </button>
             <button
               type="submit"
@@ -273,7 +273,7 @@ export const CategoryAttributeManagerPage: React.FC = () => {
               disabled={createCatMutation.isPending}
               className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
             >
-              {createCatMutation.isPending ? "Creating..." : "Save Category"}
+              {createCatMutation.isPending ? "جاري الإنشاء…" : "حفظ الفئة"}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -283,17 +283,17 @@ export const CategoryAttributeManagerPage: React.FC = () => {
       <Dialog open={isAttrModalOpen && Boolean(selectedCategory)} onOpenChange={setIsAttrModalOpen}>
         <DialogContent size="md">
           <DialogHeader>
-            <DialogTitle>Add Attribute to {selectedCategory?.name}</DialogTitle>
+            <DialogTitle>إضافة خاصية إلى {selectedCategory?.name}</DialogTitle>
             <DialogClose />
           </DialogHeader>
           <DialogBody>
             <form id="attribute-create-form" onSubmit={handleCreateAttribute} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">Field Name</label>
+                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">اسم الحقل</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Pressure Rating"
+                  placeholder="مثال: تصنيف الضغط"
                   value={attrName}
                   onChange={(e) => setAttrName(e.target.value)}
                   className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
@@ -302,10 +302,10 @@ export const CategoryAttributeManagerPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">Field Slug</label>
+                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">معرف الحقل (Slug)</label>
                   <input
                     type="text"
-                    placeholder="e.g. pressure_kpa"
+                    placeholder="مثال: pressure_kpa"
                     value={attrSlug}
                     onChange={(e) => setAttrSlug(e.target.value)}
                     className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
@@ -313,25 +313,25 @@ export const CategoryAttributeManagerPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">Data Type</label>
+                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">نوع البيانات</label>
                   <select
                     value={attrDataType}
                     onChange={(e) => setAttrDataType(e.target.value as any)}
                     className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
                   >
-                    <option value="number">Number</option>
-                    <option value="text">Text</option>
-                    <option value="select">Select Dropdown</option>
-                    <option value="boolean">Boolean (Yes/No)</option>
+                    <option value="number">رقم</option>
+                    <option value="text">نص</option>
+                    <option value="select">قائمة اختيار</option>
+                    <option value="boolean">منطقي (نعم/لا)</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">Unit of Measure (Optional)</label>
+                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">وحدة القياس (اختياري)</label>
                 <input
                   type="text"
-                  placeholder="e.g. kPa, kg/m³, L, %"
+                  placeholder="مثال: kPa, kg/m³, L, %"
                   value={attrUom}
                   onChange={(e) => setAttrUom(e.target.value)}
                   className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
@@ -347,7 +347,7 @@ export const CategoryAttributeManagerPage: React.FC = () => {
                   className="rounded border-app-separator text-app-accent focus:ring-app-accent"
                 />
                 <label htmlFor="attrReq" className="text-xs font-medium text-app-label-primary">
-                  Required when logging a Stock Lot
+                  مطلوب عند تسجيل دفعة مخزون
                 </label>
               </div>
 
@@ -359,7 +359,7 @@ export const CategoryAttributeManagerPage: React.FC = () => {
               onClick={() => setIsAttrModalOpen(false)}
               className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
             >
-              Cancel
+              إلغاء
             </button>
             <button
               type="submit"
@@ -367,7 +367,7 @@ export const CategoryAttributeManagerPage: React.FC = () => {
               disabled={createAttrMutation.isPending}
               className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
             >
-              {createAttrMutation.isPending ? "Adding..." : "Save Attribute Field"}
+              {createAttrMutation.isPending ? "جاري الإضافة…" : "حفظ حقل الخاصية"}
             </button>
           </DialogFooter>
         </DialogContent>

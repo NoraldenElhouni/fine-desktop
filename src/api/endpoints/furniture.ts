@@ -29,12 +29,12 @@ export const ORDER_NEXT_STATUS: Record<ProductionOrderStatus, ProductionOrderSta
 };
 
 export const ORDER_STATUS_LABEL: Record<ProductionOrderStatus, string> = {
-  requested: "Requested",
-  bom_confirmed: "BOM Confirmed",
-  in_production: "In Production",
-  quality_check: "Quality Check",
-  ready_for_collection: "Ready for Collection",
-  completed: "Completed",
+  requested: "مطلوب",
+  bom_confirmed: "تم تأكيد قائمة المواد",
+  in_production: "قيد الإنتاج",
+  quality_check: "فحص الجودة",
+  ready_for_collection: "جاهز للاستلام",
+  completed: "مكتمل",
 };
 
 /** Late entries are allowed through QC, but not after the FG journal posts. */
