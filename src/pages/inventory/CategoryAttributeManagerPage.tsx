@@ -1,8 +1,10 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useItemCategories, useCreateItemCategory, useCreateAttributeDefinition, useDeleteAttributeDefinition } from "../../hooks/useCategories";
-import { ItemCategory, InventoryAttributeDefinition } from "../../api/endpoints/categories";
-import { Tags, Plus, Trash2, Layers, CheckCircle2, Sliders } from "lucide-react";
+import { ItemCategory } from "../../api/endpoints/categories";
+import { Tags, Plus, Layers, CheckCircle2, Sliders } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { useCategoryAttributeColumns } from "../../components/table-columns/categoryAttributeColumns";
 
 export const CategoryAttributeManagerPage: React.FC = () => {
   const { data: categories, isLoading } = useItemCategories();
@@ -70,6 +72,18 @@ export const CategoryAttributeManagerPage: React.FC = () => {
   const handleDeleteAttribute = (id: string) => {
     deleteAttrMutation.mutate(id);
   };
+
+  const attributeColumns = useCategoryAttributeColumns({ onDelete: handleDeleteAttribute });
+
+  const attributeData = useMemo(() => selectedCategory?.attribute_definitions ?? [], [selectedCategory]);
+  const attributesTable = useDataTable({
+    columns: attributeColumns,
+    data: attributeData,
+    enableSorting: true,
+    enableGlobalFilter: true,
+    pageSize: 10,
+    getRowId: (attr) => attr.id,
+  });
 
   return (
     <div className="space-y-6 p-6" dir="rtl">
@@ -159,52 +173,18 @@ export const CategoryAttributeManagerPage: React.FC = () => {
               </div>
 
               {/* Attribute Definitions Table */}
-              <div className="overflow-hidden rounded-xl border border-app-separator bg-app-bg-secondary">
-                <table className="w-full text-start text-xs">
-                  <thead className="border-b border-app-separator bg-app-bg-primary text-app-label-secondary font-bold">
-                    <tr>
-                      <th className="px-4 py-3 text-start">اسم الحقل</th>
-                      <th className="px-4 py-3 text-start">المعرف (Slug)</th>
-                      <th className="px-4 py-3 text-start">نوع البيانات</th>
-                      <th className="px-4 py-3 text-start">وحدة القياس</th>
-                      <th className="px-4 py-3 text-start">مطلوب في الدفعة</th>
-                      <th className="px-4 py-3 text-end">إجراء</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-app-separator text-app-label-primary">
-                    {selectedCategory.attribute_definitions?.map((attr: InventoryAttributeDefinition) => (
-                      <tr key={attr.id} className="hover:bg-app-fill-f1 transition-colors">
-                        <td className="px-4 py-3 font-medium">{attr.name}</td>
-                        <td className="px-4 py-3 font-mono text-app-accent">{attr.slug}</td>
-                        <td className="px-4 py-3 uppercase font-semibold text-[10px]">{attr.data_type}</td>
-                        <td className="px-4 py-3 font-semibold text-app-label-secondary">{attr.unit_of_measure || "--"}</td>
-                        <td className="px-4 py-3">
-                          {attr.is_required_on_lot ? (
-                            <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800">مطلوب</span>
-                          ) : (
-                            <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-app-fill-f1 text-app-label-tertiary">اختياري</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-end">
-                          <button
-                            onClick={() => handleDeleteAttribute(attr.id)}
-                            className="p-1 text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {selectedCategory.attribute_definitions?.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-app-label-tertiary">
-                          لا توجد حقول خصائص معرّفة لهذه الفئة بعد.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable table={attributesTable}>
+                <DataTable.Header>
+                  <DataTable.Toolbar>
+                    <DataTable.SearchInput placeholder="بحث في الخصائص..." />
+                  </DataTable.Toolbar>
+                </DataTable.Header>
+                <DataTable.Content
+                  emptyMessage="لا توجد حقول خصائص معرّفة لهذه الفئة بعد."
+                  emptyIcon={Sliders}
+                />
+                <DataTable.Pagination />
+              </DataTable>
             </>
           ) : (
             <div className="flex flex-col items-center justify-center h-64 text-center text-app-label-tertiary space-y-2">

@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Truck, Plus, RefreshCw, Building, MapPin } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { Truck, Plus, RefreshCw, Building } from "lucide-react";
 import { isAxiosError } from "axios";
 import { CreateSupplierPayload } from "../../types/procurement";
 import { useSuppliers, useCreateSupplier } from "../../hooks/useProcurement";
@@ -8,6 +8,8 @@ import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { useSuppliersColumns } from "../../components/table-columns/suppliersColumns";
 
 export const SuppliersPage: React.FC = () => {
   const { data: suppliers = [], isLoading, error: queryError, refetch } = useSuppliers();
@@ -58,6 +60,17 @@ export const SuppliersPage: React.FC = () => {
     });
   };
 
+  const columns = useSuppliersColumns();
+  const tableData = useMemo(() => suppliers, [suppliers]);
+  const suppliersTable = useDataTable({
+    columns,
+    data: tableData,
+    enableSorting: true,
+    enableGlobalFilter: true,
+    pageSize: 10,
+    getRowId: (sup) => sup.id,
+  });
+
   const errorMessage = queryError
     ? apiErrorPayload(queryError)?.message ||
       (isAxiosError(queryError) ? queryError.response?.data?.message : null) ||
@@ -97,61 +110,24 @@ export const SuppliersPage: React.FC = () => {
       </div>
 
       {/* Main Table */}
-      {isLoading ? (
-        <div className="flex h-40 items-center justify-center rounded-2xl border border-app-separator bg-app-bg-primary">
-          <RefreshCw className="h-6 w-6 animate-spin text-app-accent" />
-        </div>
-      ) : errorMessage ? (
+      {errorMessage ? (
         <div className="rounded-2xl border border-app-status-danger/30 bg-app-status-danger/10 p-4 text-center text-xs text-app-status-danger">
           {errorMessage}
         </div>
-      ) : suppliers.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-app-separator bg-app-bg-primary p-6 text-center">
-          <Building className="h-10 w-10 text-app-label-secondary mb-2 opacity-40" />
-          <p className="text-sm font-bold text-app-label-primary">لا يوجد موردون مسجلون</p>
-          <p className="text-xs text-app-label-secondary mt-1">
-            قم بإنشاء سجل للموردين البدء في إصدار أوامر الاستيراد
-          </p>
-        </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
-          <table className="w-full text-start text-xs">
-            <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary">
-              <tr>
-                <th className="px-4 py-3 text-start font-bold">اسم المورد</th>
-                <th className="px-4 py-3 text-start font-bold">العملة الافتراضية</th>
-                <th className="px-4 py-3 text-start font-bold">معلومات الاتصال</th>
-                <th className="px-4 py-3 text-start font-bold">العنوان / المرفأ</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-app-separator text-app-label-primary">
-              {suppliers.map((sup) => (
-                <tr key={sup.id} className="hover:bg-app-fill-f1 transition-colors">
-                  <td className="px-4 py-3 font-bold">
-                    <div className="flex items-center gap-2">
-                      <Building className="h-4 w-4 text-app-accent" />
-                      <span>{sup.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 font-mono">
-                    <span className="rounded-md bg-app-bg-secondary px-2 py-1 font-bold text-app-label-primary">
-                      {sup.default_currency}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 font-semibold text-app-label-secondary">
-                    {sup.contact || "—"}
-                  </td>
-                  <td className="px-4 py-3 text-app-label-secondary">
-                    <div className="flex items-center gap-1">
-                      <MapPin className="h-3.5 w-3.5 text-app-label-secondary" />
-                      <span>{sup.address || "غير محدد"}</span>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable table={suppliersTable}>
+          <DataTable.Header>
+            <DataTable.Toolbar>
+              <DataTable.SearchInput placeholder="بحث بالاسم أو العملة أو الاتصال..." />
+            </DataTable.Toolbar>
+          </DataTable.Header>
+          <DataTable.Content
+            isLoading={isLoading}
+            emptyMessage="لا يوجد موردون مسجلون — قم بإنشاء سجل للموردين للبدء في إصدار أوامر الاستيراد"
+            emptyIcon={Building}
+          />
+          <DataTable.Pagination />
+        </DataTable>
       )}
 
       {/* Add Supplier Modal */}

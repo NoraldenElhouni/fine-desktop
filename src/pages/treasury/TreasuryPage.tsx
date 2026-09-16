@@ -29,7 +29,11 @@ import { PayablesPanel } from "./PayablesPanel";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
-import { formatNumber, formatDateTime } from "../../lib/utils/format";
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { formatNumber } from "../../lib/utils/format";
+import { useTreasuryFxRatesColumns } from "../../components/table-columns/treasuryFxRatesColumns";
+import { useTreasuryBankHoldsColumns } from "../../components/table-columns/treasuryBankHoldsColumns";
+import { useBlackMarketColumns } from "../../components/table-columns/blackMarketColumns";
 
 type RouteTab = "all" | "bank" | "market";
 
@@ -154,6 +158,28 @@ export const TreasuryPage: React.FC = () => {
     );
   };
 
+  const fxRateColumns = useTreasuryFxRatesColumns();
+  const fxRateTableData = useMemo(() => fxRates, [fxRates]);
+  const fxRateTable = useDataTable({
+    columns: fxRateColumns,
+    data: fxRateTableData,
+    enableSorting: true,
+    enableGlobalFilter: true,
+    pageSize: 10,
+    getRowId: (fx) => fx.id,
+  });
+
+  const bankHoldColumns = useTreasuryBankHoldsColumns();
+  const bankHoldTableData = useMemo(() => bankHolds, [bankHolds]);
+  const bankHoldTable = useDataTable({
+    columns: bankHoldColumns,
+    data: bankHoldTableData,
+    enableSorting: true,
+    enableGlobalFilter: true,
+    pageSize: 10,
+    getRowId: (bh) => bh.id,
+  });
+
   return (
     <div className="space-y-6" dir="rtl">
       {/* Header */}
@@ -254,32 +280,19 @@ export const TreasuryPage: React.FC = () => {
             <span>أسعار الصرف الرسمية والسائدة</span>
           </h3>
 
-          {fxRates.length === 0 ? (
-            <p className="text-xs text-app-label-secondary">لا توجد أسعار صرف مسجلة بالمنظومة.</p>
-          ) : (
-            <div className="overflow-hidden rounded-xl border border-app-separator bg-app-bg-secondary">
-              <table className="w-full text-xs text-start">
-                <thead className="border-b border-app-separator bg-app-bg-primary text-app-label-secondary">
-                  <tr>
-                    <th className="px-3 py-2 text-start font-bold">الزوج النقدي</th>
-                    <th className="px-3 py-2 text-start font-bold">سعر الصرف</th>
-                    <th className="px-3 py-2 text-start font-bold">تاريخ التسجيل</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-app-separator text-app-label-primary">
-                  {fxRates.map((fx) => (
-                    <tr key={fx.id}>
-                      <td className="px-3 py-2 font-bold">{fx.from_currency} / {fx.to_currency}</td>
-                      <td className="px-3 py-2 font-mono font-extrabold text-app-status-positive">{Number(fx.rate).toFixed(4)}</td>
-                      <td className="px-3 py-2 text-app-label-secondary font-mono text-[11px]">
-                        {formatDateTime(fx.captured_at)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <DataTable table={fxRateTable}>
+            <DataTable.Header>
+              <DataTable.Toolbar>
+                <DataTable.SearchInput placeholder="بحث في أسعار الصرف..." />
+              </DataTable.Toolbar>
+            </DataTable.Header>
+            <DataTable.Content
+              isLoading={isLoadingFx}
+              emptyMessage="لا توجد أسعار صرف مسجلة بالمنظومة."
+              emptyIcon={TrendingUp}
+            />
+            <DataTable.Pagination />
+          </DataTable>
         </div>
       </div>
 
@@ -332,34 +345,19 @@ export const TreasuryPage: React.FC = () => {
           <span>سجل الحجوزات البنكية والإفراج عن الفروقات (Bank Buffer Holds)</span>
         </h3>
 
-        {bankHolds.length === 0 ? (
-          <p className="text-xs text-app-label-secondary">لا توجد حركات حجز احتياطي مصرفية مسجلة.</p>
-        ) : (
-          <div className="overflow-hidden rounded-xl border border-app-separator bg-app-bg-secondary">
-            <table className="w-full text-xs text-start">
-              <thead className="border-b border-app-separator bg-app-bg-primary text-app-label-secondary">
-                <tr>
-                  <th className="px-3 py-2 text-start font-bold">معرف الحجز</th>
-                  <th className="px-3 py-2 text-start font-bold">المبلغ المحجوز بالدينار (Held LYD)</th>
-                  <th className="px-3 py-2 text-start font-bold">المبلغ الفعلي المنصرف</th>
-                  <th className="px-3 py-2 text-start font-bold">المبلغ المفرج عنه لحساب الشركة</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-app-separator text-app-label-primary">
-                {bankHolds.map((bh) => (
-                  <tr key={bh.id}>
-                    <td className="px-3 py-2 font-mono font-bold">#{bh.id.slice(0, 6)}</td>
-                    <td className="px-3 py-2 font-mono">{formatNumber(bh.held_amount_lyd)} LYD</td>
-                    <td className="px-3 py-2 font-mono text-app-status-warning">{formatNumber(bh.exact_amount_used)} LYD</td>
-                    <td className="px-3 py-2 font-mono font-bold text-app-status-positive">
-                      +{formatNumber(bh.released_amount)} LYD (مفرج)
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <DataTable table={bankHoldTable}>
+          <DataTable.Header>
+            <DataTable.Toolbar>
+              <DataTable.SearchInput placeholder="بحث في الحجوزات البنكية..." />
+            </DataTable.Toolbar>
+          </DataTable.Header>
+          <DataTable.Content
+            isLoading={isLoadingHolds}
+            emptyMessage="لا توجد حركات حجز احتياطي مصرفية مسجلة."
+            emptyIcon={ShieldAlert}
+          />
+          <DataTable.Pagination />
+        </DataTable>
       </div>
 
       {/* Record FX Rate Modal */}
@@ -564,99 +562,30 @@ interface BlackMarketTableProps {
 
 const BlackMarketTable: React.FC<BlackMarketTableProps> = ({ tab, allRows, marketRows }) => {
   const rows = tab === "market" ? marketRows : allRows;
-  const visible = tab === "bank" ? rows.filter((r) => r.route === ("bank" as PaymentRoute)) : rows;
+  const visible = useMemo(
+    () => (tab === "bank" ? rows.filter((r) => r.route === ("bank" as PaymentRoute)) : rows),
+    [tab, rows]
+  );
 
-  if (visible.length === 0) {
-    return (
-      <p className="text-xs text-app-label-secondary">
-        {tab === "market" ? "لا توجد حوالات سوق حالية." : "لا توجد طلبات دفع مسجلة."}
-      </p>
-    );
-  }
+  const columns = useBlackMarketColumns();
+
+  const table = useDataTable({
+    columns,
+    data: visible,
+    enableSorting: true,
+    enableGlobalFilter: false,
+    pageSize: 10,
+    getRowId: (r) => r.id,
+  });
 
   return (
-    <div className="overflow-hidden rounded-xl border border-app-separator bg-app-bg-secondary">
-      <table className="w-full text-xs text-start">
-        <thead className="border-b border-app-separator bg-app-bg-primary text-app-label-secondary">
-          <tr>
-            <th className="px-3 py-2 text-start font-bold">المعرف</th>
-            <th className="px-3 py-2 text-start font-bold">المسار</th>
-            <th className="px-3 py-2 text-start font-bold">المبلغ الأجنبي</th>
-            <th className="px-3 py-2 text-start font-bold">سعر الصرف</th>
-            <th className="px-3 py-2 text-start font-bold">التكلفة الإضافية (LYD)</th>
-            <th className="px-3 py-2 text-start font-bold">الملاحظة</th>
-            <th className="px-3 py-2 text-start font-bold">الحالة</th>
-            <th className="px-3 py-2 text-start font-bold">التاريخ</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-app-separator text-app-label-primary">
-          {visible.map((row) => {
-            const extra = row.extra_allocation_lyd;
-            return (
-              <tr key={row.id} className="hover:bg-app-fill-f1/40">
-                <td className="px-3 py-2 font-mono">#{row.id.slice(0, 6)}</td>
-                <td className="px-3 py-2">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                      row.route === "bank"
-                        ? "bg-app-accent-subtle text-app-accent"
-                        : "bg-app-status-warning/15 text-app-status-warning"
-                    }`}
-                  >
-                    {row.route === "bank" ? "اعتماد مصرفي" : "سوق حر"}
-                  </span>
-                </td>
-                <td className="px-3 py-2 font-mono font-bold">
-                  {formatNumber(row.amount_requested)} USD
-                </td>
-                <td className="px-3 py-2 font-mono">
-                  {row.fx_rate_used !== null && row.fx_rate_used !== undefined
-                    ? Number(row.fx_rate_used).toFixed(4)
-                    : "—"}
-                </td>
-                <td className="px-3 py-2 font-mono">
-                  {extra === null || extra === undefined ? (
-                    <span className="text-app-label-tertiary">—</span>
-                  ) : Math.abs(Number(extra)) < 0.0001 ? (
-                    <span className="text-app-label-tertiary">0.0000</span>
-                  ) : (
-                    <span
-                      className={
-                        Number(extra) > 0
-                          ? "text-app-status-warning font-bold"
-                          : "text-app-status-positive font-bold"
-                      }
-                    >
-                      {Number(extra) > 0 ? "+" : ""}
-                      {formatNumber(extra)}
-                    </span>
-                  )}
-                </td>
-                <td className="px-3 py-2 text-app-label-secondary max-w-xs truncate">
-                  {row.extra_allocation_note || "—"}
-                </td>
-                <td className="px-3 py-2">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                      row.status === "paid"
-                        ? "bg-app-status-positive/15 text-app-status-positive"
-                        : row.status === "rejected"
-                        ? "bg-app-status-danger/15 text-app-status-danger"
-                        : "bg-app-status-warning/15 text-app-status-warning"
-                    }`}
-                  >
-                    {row.status === "paid" ? "مدفوع" : row.status === "rejected" ? "مرفوض" : "معلق"}
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-app-label-secondary font-mono text-[10px]">
-                  {row.created_at ? formatDateTime(row.created_at) : "—"}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <DataTable table={table}>
+      <DataTable.Content
+        emptyMessage={tab === "market" ? "لا توجد حوالات سوق حالية." : "لا توجد طلبات دفع مسجلة."}
+        emptyIcon={Send}
+      />
+      <DataTable.Pagination />
+    </DataTable>
   );
 };
 

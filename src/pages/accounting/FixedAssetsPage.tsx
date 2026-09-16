@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Building, Plus, AlertTriangle, CalendarClock, Wrench, PackageX, Play } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { Building, Plus, AlertTriangle, CalendarClock } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
   useFixedAssets,
@@ -14,9 +14,10 @@ import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { useFixedAssetsColumns } from "../../components/table-columns/fixedAssetsColumns";
+import { useFixedAssetsScheduleColumns } from "../../components/table-columns/fixedAssetsScheduleColumns";
 import {
-  ASSET_STATUS_LABEL,
-  DEPRECIATION_METHOD_LABEL,
   type DepreciationMethod,
   type FixedAsset,
 } from "../../api/endpoints/fixedAssets";
@@ -24,12 +25,6 @@ import {
 const num = (v: string): number => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
-};
-
-const STATUS_STYLE: Record<FixedAsset["status"], string> = {
-  active: "bg-app-status-positive/10 text-app-status-positive",
-  under_maintenance: "bg-app-status-yellow/15 text-app-status-yellow",
-  disposed: "bg-app-fill-f1 text-app-label-tertiary",
 };
 
 export const FixedAssetsPage: React.FC = () => {
@@ -111,6 +106,48 @@ export const FixedAssetsPage: React.FC = () => {
   const bookValue = (a: FixedAsset) =>
     Number(a.acquisition_cost) - Number(a.accumulated_depreciation);
 
+  const openDispose = (asset: FixedAsset) => {
+    setDisposing(asset);
+    setError(null);
+  };
+
+  const toggleSchedule = (asset: FixedAsset) =>
+    setScheduleFor(scheduleFor?.id === asset.id ? null : asset);
+
+  const transitionAsset = (id: string, status: "active" | "under_maintenance") =>
+    transitionMutation.mutate({ id, status });
+
+  const columns = useFixedAssetsColumns({
+    period,
+    isDepreciating: depreciateMutation.isPending,
+    bookValue,
+    onDepreciate: runDepreciation,
+    onTransition: transitionAsset,
+    onOpenDispose: openDispose,
+    onToggleSchedule: toggleSchedule,
+  });
+
+  const tableData = useMemo(() => assets?.data ?? [], [assets]);
+  const assetsTable = useDataTable({
+    columns,
+    data: tableData,
+    enableSorting: true,
+    enableGlobalFilter: true,
+    pageSize: 10,
+    getRowId: (a) => a.id,
+  });
+
+  const scheduleColumns = useFixedAssetsScheduleColumns();
+  const scheduleData = useMemo(() => schedule?.rows ?? [], [schedule]);
+  const scheduleTable = useDataTable({
+    columns: scheduleColumns,
+    data: scheduleData,
+    enableSorting: false,
+    enableGlobalFilter: false,
+    enablePagination: false,
+    getRowId: (row) => row.period,
+  });
+
   return (
     <div className="space-y-6 p-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -149,98 +186,15 @@ export const FixedAssetsPage: React.FC = () => {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
-        {isLoading ? (
-          <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">جارٍ التحميل…</div>
-        ) : (
-          <table className="w-full text-xs">
-            <thead className="text-app-label-secondary border-b border-app-separator bg-app-bg-secondary">
-              <tr>
-                <th className="px-4 py-2.5 text-start font-bold">الرمز</th>
-                <th className="px-4 py-2.5 text-start font-bold">الأصل</th>
-                <th className="px-4 py-2.5 text-start font-bold">الوحدة</th>
-                <th className="px-4 py-2.5 text-start font-bold">الطريقة</th>
-                <th className="px-4 py-2.5 text-end font-bold">التكلفة</th>
-                <th className="px-4 py-2.5 text-end font-bold">مجمع الإهلاك</th>
-                <th className="px-4 py-2.5 text-end font-bold">القيمة الدفترية</th>
-                <th className="px-4 py-2.5 text-start font-bold">الحالة</th>
-                <th className="px-4 py-2.5 text-start font-bold">إجراءات</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-app-separator">
-              {assets?.data.map((asset) => (
-                <tr key={asset.id} className="hover:bg-app-fill-f1">
-                  <td className="px-4 py-2 font-mono font-bold text-app-accent">{asset.asset_code}</td>
-                  <td className="px-4 py-2 text-app-label-primary">{asset.name}</td>
-                  <td className="px-4 py-2 text-app-label-secondary">{asset.operating_unit?.name ?? "الشركة"}</td>
-                  <td className="px-4 py-2 text-app-label-secondary">{DEPRECIATION_METHOD_LABEL[asset.depreciation_method]}</td>
-                  <td className="px-4 py-2 text-end font-mono">{formatNumber(asset.acquisition_cost)}</td>
-                  <td className="px-4 py-2 text-end font-mono">{formatNumber(asset.accumulated_depreciation)}</td>
-                  <td className="px-4 py-2 text-end font-mono font-bold">{formatNumber(bookValue(asset))}</td>
-                  <td className="px-4 py-2">
-                    <span className={`px-2 py-1 text-[10px] font-bold rounded-full ${STATUS_STYLE[asset.status]}`}>
-                      {ASSET_STATUS_LABEL[asset.status]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2">
-                    <div className="flex items-center gap-1.5">
-                      {asset.status === "active" && (
-                        <>
-                          <button
-                            title={`تسجيل إهلاك ${period}`}
-                            onClick={() => runDepreciation(asset)}
-                            disabled={depreciateMutation.isPending}
-                            className="rounded-lg bg-app-accent px-2 py-1 text-[10px] font-bold text-white hover:opacity-90 disabled:opacity-50"
-                          >
-                            إهلاك {period}
-                          </button>
-                          <button
-                            title="إيقاف للصيانة"
-                            onClick={() => transitionMutation.mutate({ id: asset.id, status: "under_maintenance" })}
-                            className="p-1 text-app-label-tertiary hover:text-app-status-yellow"
-                          >
-                            <Wrench className="w-3.5 h-3.5" />
-                          </button>
-                        </>
-                      )}
-                      {asset.status === "under_maintenance" && (
-                        <button
-                          title="إعادة تشغيل"
-                          onClick={() => transitionMutation.mutate({ id: asset.id, status: "active" })}
-                          className="p-1 text-app-label-tertiary hover:text-app-status-positive"
-                        >
-                          <Play className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      {asset.status !== "disposed" && (
-                        <button
-                          title="استبعاد"
-                          onClick={() => { setDisposing(asset); setError(null); }}
-                          className="p-1 text-app-label-tertiary hover:text-app-status-danger"
-                        >
-                          <PackageX className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      <button
-                        title="جدول الإهلاك"
-                        onClick={() => setScheduleFor(scheduleFor?.id === asset.id ? null : asset)}
-                        className="p-1 text-app-label-tertiary hover:text-app-accent"
-                      >
-                        <CalendarClock className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {assets?.data.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="p-10 text-center text-app-label-tertiary">لا توجد أصول مسجلة.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <DataTable table={assetsTable}>
+        <DataTable.Header>
+          <DataTable.Toolbar>
+            <DataTable.SearchInput placeholder="بحث بالاسم أو الرمز أو الوحدة..." />
+          </DataTable.Toolbar>
+        </DataTable.Header>
+        <DataTable.Content isLoading={isLoading} emptyMessage="لا توجد أصول مسجلة." emptyIcon={Building} />
+        <DataTable.Pagination />
+      </DataTable>
 
       {scheduleFor && schedule && (
         <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
@@ -253,26 +207,13 @@ export const FixedAssetsPage: React.FC = () => {
               القيمة الدفترية الحالية: {formatNumber(schedule.book_value)}
             </span>
           </div>
-          <div className="max-h-64 overflow-y-auto">
-            <table className="w-full text-xs">
-              <thead className="text-app-label-secondary border-b border-app-separator sticky top-0 bg-app-bg-secondary">
-                <tr>
-                  <th className="px-4 py-2 text-start font-bold">الفترة</th>
-                  <th className="px-4 py-2 text-end font-bold">قسط الإهلاك</th>
-                  <th className="px-4 py-2 text-end font-bold">القيمة الدفترية بعده</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-app-separator">
-                {schedule.rows.map((row) => (
-                  <tr key={row.period}>
-                    <td className="px-4 py-1.5 font-mono">{row.period}</td>
-                    <td className="px-4 py-1.5 text-end font-mono">{formatNumber(row.amount)}</td>
-                    <td className="px-4 py-1.5 text-end font-mono">{formatNumber(row.book_value_after)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable table={scheduleTable} className="rounded-none border-0 shadow-none">
+            <DataTable.Content
+              className="max-h-64 overflow-y-auto"
+              emptyMessage="لا توجد بيانات جدول إهلاك."
+              emptyIcon={CalendarClock}
+            />
+          </DataTable>
         </div>
       )}
 

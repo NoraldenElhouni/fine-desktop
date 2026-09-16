@@ -1,14 +1,15 @@
-import React, { useState } from "react";
-import { Banknote, Plus, AlertTriangle, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { Banknote, Plus, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import {
   usePayrollRuns,
   usePayslips,
   useOpenPayrollRun,
   usePayrollAction,
-  useSetDeductions,
 } from "../../hooks/useHr";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { PAYROLL_STATUS_LABEL, type PayrollRun, type Payslip } from "../../api/endpoints/hr";
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { usePayslipsColumns } from "../../components/table-columns/payslipsColumns";
 
 const fmt = (v: number | string) =>
   Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
@@ -30,79 +31,27 @@ const NEXT_ACTION: Partial<Record<PayrollRun["status"], { action: "calculate" | 
   paid: { action: "post", label: "ترحيل للدفاتر" },
 };
 
-const DeductionEditor: React.FC<{ payslip: Payslip; editable: boolean; onError: (m: string) => void }> = ({
-  payslip,
-  editable,
+const PayslipsTable: React.FC<{ payslips: Payslip[]; run: PayrollRun; onError: (m: string) => void }> = ({
+  payslips,
+  run,
   onError,
 }) => {
-  const [editing, setEditing] = useState(false);
-  const [items, setItems] = useState(payslip.deductions ?? []);
-  const setDeductions = useSetDeductions();
+  const columns = usePayslipsColumns({ run, onError });
 
-  if (!editing) {
-    return (
-      <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-app-label-secondary">
-        {(payslip.deductions ?? []).map((d, i) => (
-          <span key={i}>{d.type}: {fmt(d.amount)}</span>
-        ))}
-        {editable && (
-          <button
-            onClick={() => { setItems(payslip.deductions ?? []); setEditing(true); }}
-            className="text-app-accent font-bold hover:opacity-80"
-          >
-            تعديل الاستقطاعات
-          </button>
-        )}
-      </div>
-    );
-  }
+  const tableData = useMemo(() => payslips, [payslips]);
+  const table = useDataTable({
+    columns,
+    data: tableData,
+    enableSorting: true,
+    enableGlobalFilter: false,
+    enablePagination: false,
+    getRowId: (p) => p.id,
+  });
 
   return (
-    <div className="space-y-1.5">
-      {items.map((d, i) => (
-        <div key={i} className="flex items-center gap-1.5">
-          <input
-            type="text" value={d.type} placeholder="النوع"
-            onChange={(e) => setItems(items.map((x, j) => (j === i ? { ...x, type: e.target.value } : x)))}
-            className="w-32 rounded-lg border border-app-separator bg-app-bg-secondary px-2 py-1 text-[10px] focus:border-app-accent focus:outline-none"
-          />
-          <input
-            type="number" step="0.01" min="0" value={d.amount}
-            onChange={(e) => setItems(items.map((x, j) => (j === i ? { ...x, amount: Number(e.target.value) } : x)))}
-            className="w-24 rounded-lg border border-app-separator bg-app-bg-secondary px-2 py-1 text-[10px] font-mono focus:border-app-accent focus:outline-none"
-          />
-          <button onClick={() => setItems(items.filter((_, j) => j !== i))} className="p-0.5 text-app-label-tertiary hover:text-app-status-danger">
-            <Trash2 className="w-3 h-3" />
-          </button>
-        </div>
-      ))}
-      <div className="flex items-center gap-2 text-[10px] font-bold">
-        <button
-          onClick={() => setItems([...items, { type: "social_security", amount: 0 }])}
-          className="text-app-accent hover:opacity-80"
-        >
-          + سطر
-        </button>
-        <button
-          onClick={() =>
-            setDeductions.mutate(
-              { payslipId: payslip.id, deductions: items.filter((d) => d.type.trim() !== "") },
-              {
-                onSuccess: () => setEditing(false),
-                onError: (err) => onError(apiErrorPayload(err)?.message ?? "تعذر حفظ الاستقطاعات."),
-              },
-            )
-          }
-          disabled={setDeductions.isPending}
-          className="rounded-lg bg-app-accent px-2 py-1 text-white hover:opacity-90 disabled:opacity-50"
-        >
-          حفظ
-        </button>
-        <button onClick={() => setEditing(false)} className="text-app-label-secondary hover:opacity-80">
-          إلغاء
-        </button>
-      </div>
-    </div>
+    <DataTable table={table}>
+      <DataTable.Content emptyMessage="لم يُحتسب المسير بعد." emptyIcon={Banknote} />
+    </DataTable>
   );
 };
 
@@ -205,51 +154,7 @@ export const PayrollPage: React.FC = () => {
 
                 {expanded === run.id && payslips && (
                   <div className="px-4 pb-4">
-                    <table className="w-full text-xs">
-                      <thead className="text-app-label-secondary border-b border-app-separator">
-                        <tr>
-                          <th className="px-2 py-1.5 text-start font-bold">الموظف</th>
-                          <th className="px-2 py-1.5 text-start font-bold">الوحدة</th>
-                          <th className="px-2 py-1.5 text-end font-bold">أساسي</th>
-                          <th className="px-2 py-1.5 text-end font-bold">حضور</th>
-                          <th className="px-2 py-1.5 text-end font-bold">إنتاج</th>
-                          <th className="px-2 py-1.5 text-end font-bold">إجمالي</th>
-                          <th className="px-2 py-1.5 text-start font-bold">استقطاعات</th>
-                          <th className="px-2 py-1.5 text-end font-bold">صافي</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-app-separator">
-                        {payslips.map((slip) => (
-                          <tr key={slip.id}>
-                            <td className="px-2 py-1.5 font-bold text-app-label-primary">
-                              {slip.employee?.entity?.name ?? slip.employee_id.slice(0, 8)}
-                            </td>
-                            <td className="px-2 py-1.5 text-app-label-secondary">{slip.operating_unit?.name}</td>
-                            <td className="px-2 py-1.5 text-end font-mono">{fmt(slip.base_pay)}</td>
-                            <td className="px-2 py-1.5 text-end font-mono">{fmt(slip.attendance_pay)}</td>
-                            <td className="px-2 py-1.5 text-end font-mono">{fmt(slip.labor_log_pay)}</td>
-                            <td className="px-2 py-1.5 text-end font-mono font-bold">{fmt(slip.gross_pay)}</td>
-                            <td className="px-2 py-1.5">
-                              <DeductionEditor
-                                payslip={slip}
-                                editable={run.status === "calculated"}
-                                onError={setError}
-                              />
-                            </td>
-                            <td className="px-2 py-1.5 text-end font-mono font-bold text-app-status-positive">
-                              {fmt(slip.net_pay)}
-                            </td>
-                          </tr>
-                        ))}
-                        {payslips.length === 0 && (
-                          <tr>
-                            <td colSpan={8} className="p-4 text-center text-app-label-tertiary">
-                              لم يُحتسب المسير بعد.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
+                    <PayslipsTable payslips={payslips} run={run} onError={setError} />
                   </div>
                 )}
               </div>

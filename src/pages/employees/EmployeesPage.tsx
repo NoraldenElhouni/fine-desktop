@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { UserCheck, Plus, RefreshCw, Briefcase, Building } from "lucide-react";
+import { UserCheck, Plus, RefreshCw } from "lucide-react";
 import { isAxiosError } from "axios";
 import { PayType, EmployeeStatus } from "../../types/entities";
 import { useEmployees, useCreateEmployee } from "../../hooks/useEmployees";
@@ -7,9 +7,10 @@ import { useEntities, useOperatingUnits } from "../../hooks/usePartners";
 import { useServerConfigStore } from "../../stores/serverConfigStore";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
-import { formatNumber } from "../../lib/utils/format";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { useEmployeesColumns } from "../../components/table-columns/employeesColumns";
 
 export const EmployeesPage: React.FC = () => {
   const { allowManualEntitySelection } = useServerConfigStore();
@@ -117,6 +118,18 @@ export const EmployeesPage: React.FC = () => {
       "تعذر تحميل سجلات الموظفين"
     : null;
 
+  const columns = useEmployeesColumns();
+
+  const tableData = useMemo(() => employees, [employees]);
+  const employeesTable = useDataTable({
+    columns,
+    data: tableData,
+    enableSorting: true,
+    enableGlobalFilter: true,
+    pageSize: 10,
+    getRowId: (emp) => emp.id,
+  });
+
   return (
     <div className="space-y-6 p-6" dir="rtl">
       {/* Header Bar */}
@@ -148,96 +161,24 @@ export const EmployeesPage: React.FC = () => {
       </div>
 
       {/* Main Table */}
-      {isLoading ? (
-        <div className="flex h-48 items-center justify-center rounded-2xl border border-app-separator bg-app-bg-primary">
-          <RefreshCw className="h-6 w-6 animate-spin text-app-accent" />
-        </div>
-      ) : errorMessage ? (
+      {errorMessage ? (
         <div className="rounded-2xl border border-app-status-danger/30 bg-app-status-danger/10 p-4 text-center text-xs text-app-status-danger">
           {errorMessage}
         </div>
-      ) : employees.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-app-separator bg-app-bg-primary p-12 text-center">
-          <UserCheck className="h-12 w-12 text-app-label-secondary mb-3 opacity-40" />
-          <p className="text-sm font-bold text-app-label-primary">لا يوجد موظفون مضافون</p>
-          <p className="text-xs text-app-label-secondary mt-1">
-            قم بإضافة موظف جديد لتسجيل بيانات الراتب والتشغيل
-          </p>
-        </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
-          <table className="w-full text-start text-xs">
-            <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary">
-              <tr>
-                <th className="px-4 py-3 text-start font-bold">اسم الموظف / الكيان</th>
-                <th className="px-4 py-3 text-start font-bold">المسمى الوظيفي</th>
-                <th className="px-4 py-3 text-start font-bold">الجهة المشغلة (Employer)</th>
-                <th className="px-4 py-3 text-start font-bold">طريقة الدفع</th>
-                <th className="px-4 py-3 text-start font-bold">الراتب / الأجر</th>
-                <th className="px-4 py-3 text-start font-bold">الحالة</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-app-separator text-app-label-primary">
-              {employees.map((emp) => {
-                const isExternal = Boolean(emp.employer_entity_id);
-                return (
-                  <tr key={emp.id} className="hover:bg-app-bg-secondary/50">
-                    <td className="px-4 py-3 font-semibold">
-                      <div className="flex flex-col">
-                        <span className="text-app-label-primary font-bold">
-                          {emp.entity?.name || "بدون اسم"}
-                        </span>
-                        <span className="text-[10px] text-app-label-secondary">
-                          {emp.entity?.tax_number ? `رقم/هوية: ${emp.entity.tax_number}` : "بدون هوية"}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 font-medium text-app-label-secondary">
-                      <div className="flex items-center gap-1.5">
-                        <Briefcase className="h-3.5 w-3.5 text-app-accent" />
-                        <span>{emp.job_title}</span>
-                        {emp.labor_role && (
-                          <span className="rounded bg-app-bg-secondary px-1.5 py-0.5 text-[10px] text-app-label-secondary">
-                            {emp.labor_role}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {isExternal ? (
-                        <div className="flex items-center gap-1 text-app-status-warning">
-                          <Building className="h-3.5 w-3.5" />
-                          <span className="font-semibold">{emp.employer_entity?.name || "جهة مشغلة خارجية"}</span>
-                        </div>
-                      ) : (
-                        <span className="text-app-label-secondary font-medium">عمالة مباشرة للمصنع</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 font-semibold text-app-label-secondary">
-                      {emp.pay_type === "monthly" ? "راتب شهري" : emp.pay_type === "hourly" ? "أجر بالساعة" : "إنتاج/قطعة"}
-                    </td>
-                    <td className="px-4 py-3 font-mono font-bold text-app-label-primary">
-                      {emp.pay_type === "monthly" && emp.monthly_salary
-                        ? `${formatNumber(emp.monthly_salary)} د.ل / شهر`
-                        : emp.pay_type === "hourly" && emp.hourly_rate
-                        ? `${formatNumber(emp.hourly_rate)} د.ل / ساعة`
-                        : "حسب الإنتاج"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                        emp.status === "active"
-                          ? "bg-app-status-positive/15 text-app-status-positive"
-                          : "bg-app-status-danger/15 text-app-status-danger"
-                      }`}>
-                        {emp.status === "active" ? "نشط" : emp.status === "terminated" ? "منتهي" : emp.status}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <DataTable table={employeesTable}>
+          <DataTable.Header>
+            <DataTable.Toolbar>
+              <DataTable.SearchInput placeholder="بحث بالاسم أو المسمى الوظيفي..." />
+            </DataTable.Toolbar>
+          </DataTable.Header>
+          <DataTable.Content
+            isLoading={isLoading}
+            emptyMessage="لا يوجد موظفون مضافون"
+            emptyIcon={UserCheck}
+          />
+          <DataTable.Pagination />
+        </DataTable>
       )}
 
       {/* Add Employee Modal */}

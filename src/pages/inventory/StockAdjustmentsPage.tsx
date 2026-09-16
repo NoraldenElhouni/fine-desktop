@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useStockAdjustments, useApproveAdjustment } from "../../hooks/useInventory";
-import { StockAdjustmentRequest } from "../../api/endpoints/inventory";
-import { ShieldCheck, Check } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { useStockAdjustmentsColumns } from "../../components/table-columns/stockAdjustmentsColumns";
 
 export const StockAdjustmentsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState("pending");
@@ -11,6 +12,18 @@ export const StockAdjustmentsPage: React.FC = () => {
   const handleApprove = (id: string) => {
     approveMutation.mutate(id);
   };
+
+  const columns = useStockAdjustmentsColumns({ onApprove: handleApprove, isApproving: approveMutation.isPending });
+
+  const tableData = useMemo(() => adjustments ?? [], [adjustments]);
+  const adjustmentsTable = useDataTable({
+    columns,
+    data: tableData,
+    enableSorting: true,
+    enableGlobalFilter: true,
+    pageSize: 10,
+    getRowId: (adj) => adj.id,
+  });
 
   return (
     <div className="space-y-6 p-6" dir="rtl">
@@ -50,79 +63,19 @@ export const StockAdjustmentsPage: React.FC = () => {
       </div>
 
       {/* Adjustments Table */}
-      <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
-        {isLoading ? (
-          <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">
-            جاري تحميل طلبات التسوية…
-          </div>
-        ) : (
-          <table className="w-full text-start text-xs">
-            <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
-              <tr>
-                <th className="px-4 py-3 text-start">رقم الدفعة</th>
-                <th className="px-4 py-3 text-start">رمز السبب</th>
-                <th className="px-4 py-3 text-start">فرق الكمية</th>
-                <th className="px-4 py-3 text-start">مقدَّم من</th>
-                <th className="px-4 py-3 text-start">الحالة</th>
-                <th className="px-4 py-3 text-end">إجراء</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-app-separator text-app-label-primary">
-              {adjustments?.map((adj: StockAdjustmentRequest) => (
-                <tr key={adj.id} className="hover:bg-app-fill-f1 transition-colors">
-                  <td className="px-4 py-3 font-mono font-bold text-app-label-primary">
-                    {adj.stock_lot?.lot_number || adj.stock_lot_id}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-app-accent-subtle text-app-accent">
-                      {adj.reason_code}
-                    </span>
-                  </td>
-                  <td className={`px-4 py-3 font-mono font-bold ${adj.quantity_delta < 0 ? "text-app-status-danger" : "text-app-status-positive"}`}>
-                    {adj.quantity_delta > 0 ? `+${adj.quantity_delta}` : adj.quantity_delta}
-                  </td>
-                  <td className="px-4 py-3 font-medium text-app-label-secondary">
-                    {adj.requested_by?.name || "مستخدم"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
-                        adj.status === "approved"
-                          ? "bg-emerald-100 text-emerald-800"
-                          : adj.status === "pending"
-                          ? "bg-amber-100 text-amber-800"
-                          : "bg-rose-100 text-rose-800"
-                      }`}
-                    >
-                      {adj.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-end">
-                    {adj.status === "pending" ? (
-                      <button
-                        onClick={() => handleApprove(adj.id)}
-                        disabled={approveMutation.isPending}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-app-accent text-white font-bold text-xs rounded-xl hover:opacity-90 transition shadow-sm disabled:opacity-50"
-                      >
-                        <Check className="w-3.5 h-3.5" /> اعتماد وترحيل
-                      </button>
-                    ) : (
-                      <span className="text-xs text-app-label-tertiary">تمت التسوية</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {adjustments?.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-app-label-tertiary">
-                    لا توجد طلبات تسوية مخزون.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <DataTable table={adjustmentsTable}>
+        <DataTable.Header>
+          <DataTable.Toolbar>
+            <DataTable.SearchInput placeholder="بحث برقم الدفعة أو رمز السبب أو مقدم الطلب..." />
+          </DataTable.Toolbar>
+        </DataTable.Header>
+        <DataTable.Content
+          isLoading={isLoading}
+          emptyMessage="لا توجد طلبات تسوية مخزون."
+          emptyIcon={ShieldCheck}
+        />
+        <DataTable.Pagination />
+      </DataTable>
     </div>
   );
 };

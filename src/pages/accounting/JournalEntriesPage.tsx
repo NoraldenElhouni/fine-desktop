@@ -2,10 +2,12 @@ import React, { useState } from "react";
 import { BookOpenText, Plus, AlertTriangle, Trash2, ChevronDown, ChevronUp, PencilLine } from "lucide-react";
 import { useJournalEntries, useCreateManualEntry, useAccounts } from "../../hooks/useAccounting";
 import { apiErrorPayload } from "../../api/endpoints/production";
-import type { JournalEntry } from "../../api/endpoints/accounting";
+import type { JournalEntry, JournalLine } from "../../api/endpoints/accounting";
 import { formatDate, formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { useJournalLinesColumns } from "../../components/table-columns/journalLinesColumns";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -27,6 +29,26 @@ const emptyLine = (side: "debit" | "credit"): FormLine => ({
   amount: "",
   memo: "",
 });
+
+/** The debit/credit breakdown shown inside an expanded journal entry row. */
+const JournalLinesTable: React.FC<{ lines: JournalLine[] }> = ({ lines }) => {
+  const columns = useJournalLinesColumns();
+
+  const table = useDataTable({
+    columns,
+    data: lines,
+    enableSorting: false,
+    enableGlobalFilter: false,
+    enablePagination: false,
+    getRowId: (l) => l.id,
+  });
+
+  return (
+    <DataTable table={table} className="rounded-none border-0 shadow-none">
+      <DataTable.Content emptyMessage="لا توجد سطور." />
+    </DataTable>
+  );
+};
 
 export const JournalEntriesPage: React.FC = () => {
   const [from, setFrom] = useState("");
@@ -163,29 +185,7 @@ export const JournalEntriesPage: React.FC = () => {
 
                 {expanded === entry.id && (
                   <div className="px-4 pb-4">
-                    <table className="w-full text-xs">
-                      <thead className="text-app-label-secondary border-b border-app-separator">
-                        <tr>
-                          <th className="px-2 py-1.5 text-start font-bold">الحساب</th>
-                          <th className="px-2 py-1.5 text-start font-bold">البيان</th>
-                          <th className="px-2 py-1.5 text-end font-bold">مدين</th>
-                          <th className="px-2 py-1.5 text-end font-bold">دائن</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-app-separator">
-                        {entry.lines?.map((line) => (
-                          <tr key={line.id}>
-                            <td className="px-2 py-1.5">
-                              <span className="font-mono font-bold">{line.account?.account_code}</span>
-                              <span className="ms-2 text-app-label-secondary">{line.account?.name}</span>
-                            </td>
-                            <td className="px-2 py-1.5 text-app-label-secondary">{line.memo ?? ""}</td>
-                            <td className="px-2 py-1.5 text-end font-mono">{Number(line.debit) > 0 ? formatNumber(line.debit) : ""}</td>
-                            <td className="px-2 py-1.5 text-end font-mono">{Number(line.credit) > 0 ? formatNumber(line.credit) : ""}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <JournalLinesTable lines={entry.lines ?? []} />
                   </div>
                 )}
               </div>

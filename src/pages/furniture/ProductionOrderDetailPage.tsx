@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -14,6 +14,8 @@ import {
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { useProductionOrderBomColumns } from "../../components/table-columns/productionOrderBomColumns";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -41,6 +43,18 @@ export const ProductionOrderDetailPage: React.FC = () => {
 
   const [error, setError] = useState<string | null>(null);
   const [laborForm, setLaborForm] = useState({ employee: "", role: "tailor", hours: "" });
+
+  // BOM lines — a small, fixed-size breakdown for this one order, so no search/pagination.
+  const bomColumns = useProductionOrderBomColumns({ orderQuantity: order?.quantity });
+  const bomTableData = useMemo(() => order?.bom?.component_lines ?? [], [order]);
+  const bomTable = useDataTable({
+    columns: bomColumns,
+    data: bomTableData,
+    enableSorting: false,
+    enableGlobalFilter: false,
+    enablePagination: false,
+    getRowId: (l) => l.id,
+  });
 
   if (isLoading || !order) {
     return (
@@ -199,21 +213,9 @@ export const ProductionOrderDetailPage: React.FC = () => {
         <div className="border-b border-app-separator px-4 py-3">
           <h2 className="text-sm font-bold text-app-label-primary">قائمة المواد (BOM)</h2>
         </div>
-        <table className="w-full text-start text-xs">
-          <tbody className="divide-y divide-app-separator text-app-label-primary">
-            {order.bom?.component_lines?.map((l) => (
-              <tr key={l.id}>
-                <td className="px-4 py-2">
-                  {l.inventory_item?.name}
-                  <span className="text-app-label-tertiary font-mono ms-2">{l.inventory_item?.sku}</span>
-                </td>
-                <td className="px-4 py-2 text-end font-mono">
-                  × {Number(l.quantity)} لكل وحدة ← {Number(l.quantity) * order.quantity} إجمالي
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <DataTable table={bomTable} className="rounded-none border-0 shadow-none bg-transparent">
+          <DataTable.Content emptyMessage="لا توجد بنود قائمة مواد." />
+        </DataTable>
       </div>
 
       {/* Labor */}

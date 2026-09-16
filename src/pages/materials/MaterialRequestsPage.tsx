@@ -1,14 +1,9 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   PackageCheck,
-  Plus,
   RefreshCw,
   AlertTriangle,
   Check,
-  X,
-  Scissors,
-  Factory,
-  ShoppingCart,
 } from "lucide-react";
 import {
   useMaterialRequests,
@@ -24,34 +19,12 @@ import {
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
-import { cn } from "../../lib/utils/utils";
-import { tokens } from "../../lib/tokens";
-
-const MODULE_LABEL: Record<MaterialRequestModule, string> = {
-  cutter: "Cutter",
-  foam: "Foam",
-  procurement: "Procurement",
-};
-
-const STATUS_STYLE: Record<MaterialRequestStatus, string> = {
-  pending: "bg-app-status-yellow/15 text-app-status-yellow",
-  in_progress: "bg-app-status-info/15 text-app-status-info",
-  fulfilled: "bg-app-status-positive/15 text-app-status-positive",
-  cancelled: "bg-app-bg-tertiary text-app-label-tertiary",
-};
-
-const STATUS_LABEL: Record<MaterialRequestStatus, string> = {
-  pending: "Pending",
-  in_progress: "In Progress",
-  fulfilled: "Fulfilled",
-  cancelled: "Cancelled",
-};
-
-function ModuleIcon({ module }: { module: MaterialRequestModule }) {
-  if (module === "cutter") return <Scissors className="h-3.5 w-3.5" />;
-  if (module === "foam") return <Factory className="h-3.5 w-3.5" />;
-  return <ShoppingCart className="h-3.5 w-3.5" />;
-}
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import {
+  useMaterialRequestsColumns,
+  MODULE_LABEL,
+  STATUS_LABEL,
+} from "../../components/table-columns/materialRequestsColumns";
 
 export const MaterialRequestsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<MaterialRequestStatus | "">("");
@@ -90,6 +63,25 @@ export const MaterialRequestsPage: React.FC = () => {
         ),
     });
   };
+
+  const columns = useMaterialRequestsColumns({
+    onStart: start,
+    onCancel: cancel,
+    startPending: startMutation.isPending,
+    cancelPending: cancelMutation.isPending,
+    fulfillPending: fulfillMutation.isPending,
+    fulfillVariables: fulfillMutation.variables,
+  });
+
+  const tableData = useMemo(() => requests, [requests]);
+  const requestsTable = useDataTable({
+    columns,
+    data: tableData,
+    enableSorting: true,
+    enableGlobalFilter: false,
+    pageSize: 10,
+    getRowId: (r) => r.id,
+  });
 
   return (
     <div className="space-y-6 p-6" dir="rtl">
@@ -157,108 +149,14 @@ export const MaterialRequestsPage: React.FC = () => {
         />
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
-        {isLoading ? (
-          <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">
-            جاري التحميل...
-          </div>
-        ) : requests.length === 0 ? (
-          <div className="p-12 text-center text-app-label-tertiary text-sm">
-            لا توجد طلبات مواد مفتوحة. الإنتاج غير محجوب.
-          </div>
-        ) : (
-          <table className="w-full text-start text-xs">
-            <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
-              <tr>
-                <th className="px-4 py-3 text-start">الصنف</th>
-                <th className="px-4 py-3 text-start">الوحدة</th>
-                <th className="px-4 py-3 text-end">الكمية</th>
-                <th className="px-4 py-3 text-start">الأبعاد المطلوبة</th>
-                <th className="px-4 py-3 text-start">الحالة</th>
-                <th className="px-4 py-3 text-start">المصدر</th>
-                <th className="px-4 py-3 text-end">الإجراءات</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-app-separator text-app-label-primary">
-              {requests.map((r) => (
-                <tr key={r.id} className="hover:bg-app-fill-f1/40 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="font-bold">{r.inventory_item?.name ?? "—"}</div>
-                    <div className="text-[10px] font-mono text-app-label-tertiary">
-                      {r.inventory_item?.sku ?? ""}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={cn(
-                        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold bg-app-bg-secondary border border-app-separator",
-                      )}
-                    >
-                      <ModuleIcon module={r.fulfilling_module} />
-                      {MODULE_LABEL[r.fulfilling_module]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-end font-mono font-bold">
-                    {r.quantity}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-[11px] text-app-label-secondary">
-                    {r.target_dimensions
-                      ? `${r.target_dimensions.length_m ?? "-"} × ${r.target_dimensions.width_m ?? "-"} × ${r.target_dimensions.height_m ?? "-"} م`
-                      : "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={cn(
-                        "inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold",
-                        STATUS_STYLE[r.status],
-                      )}
-                    >
-                      {STATUS_LABEL[r.status]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-[10px] text-app-label-tertiary font-mono">
-                    {r.requested_for_type && r.requested_for_id
-                      ? `${r.requested_for_type}#${r.requested_for_id.slice(0, 8)}`
-                      : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-end">
-                    <div className="inline-flex items-center gap-1">
-                      {r.status === "pending" && (
-                        <button
-                          onClick={() => start(r.id)}
-                          disabled={startMutation.isPending}
-                          className="inline-flex items-center gap-1 rounded-lg border border-app-status-info/40 bg-app-status-info/10 px-2 py-1 text-[11px] font-bold text-app-status-info hover:bg-app-status-info/15 disabled:opacity-50"
-                        >
-                          <Plus className="h-3 w-3" /> بدء
-                        </button>
-                      )}
-                      {(r.status === "pending" || r.status === "in_progress") && (
-                        <button
-                          onClick={() => cancel(r.id)}
-                          disabled={cancelMutation.isPending}
-                          className="inline-flex items-center gap-1 rounded-lg border border-app-status-danger/40 bg-app-status-danger/10 px-2 py-1 text-[11px] font-bold text-app-status-danger hover:bg-app-status-danger/15 disabled:opacity-50"
-                        >
-                          <X className="h-3 w-3" /> إلغاء
-                        </button>
-                      )}
-                      <span
-                        className={cn(
-                          tokens.typography.webUI.c1Regular,
-                          "text-[10px] text-app-label-tertiary italic",
-                        )}
-                      >
-                        {fulfillMutation.isPending && r.id === (fulfillMutation.variables as { id: string } | undefined)?.id
-                          ? "..."
-                          : ""}
-                      </span>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <DataTable table={requestsTable}>
+        <DataTable.Content
+          isLoading={isLoading}
+          emptyMessage="لا توجد طلبات مواد مفتوحة. الإنتاج غير محجوب."
+          emptyIcon={PackageCheck}
+        />
+        <DataTable.Pagination />
+      </DataTable>
     </div>
   );
 };

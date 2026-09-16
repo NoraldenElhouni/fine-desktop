@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ShoppingCart, Plus, RefreshCw, AlertTriangle, Trash2, Building2, Home, Package } from "lucide-react";
+import { ShoppingCart, Plus, RefreshCw, AlertTriangle, Trash2, Package } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useSalesOrders, useCreateSalesOrder } from "../../hooks/useSales";
 import { useInventoryItems } from "../../hooks/useInventory";
@@ -13,6 +13,8 @@ import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { InventoryItem } from "../../api/endpoints/inventory";
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { useSalesOrdersColumns } from "../../components/table-columns/salesOrdersColumns";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -34,11 +36,6 @@ const newLine = (): DraftLine => ({
   qty: "1",
   price: "",
 });
-
-const CHANNEL_LABEL: Record<string, string> = {
-  standard: "عادي",
-  pos: "نقطة بيع",
-};
 
 export const SalesOrdersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -65,6 +62,18 @@ export const SalesOrdersPage: React.FC = () => {
 
   const orders = data?.data ?? [];
   const orderTotal = lines.reduce((s, l) => s + num(l.qty) * num(l.price), 0);
+
+  const columns = useSalesOrdersColumns({ navigate });
+
+  const tableData = useMemo(() => orders, [orders]);
+  const ordersTable = useDataTable({
+    columns,
+    data: tableData,
+    enableSorting: true,
+    enableGlobalFilter: false,
+    pageSize: 10,
+    getRowId: (o) => o.id,
+  });
 
   const selectedClient = clients?.find((c) => c.id === clientId);
 
@@ -177,78 +186,14 @@ export const SalesOrdersPage: React.FC = () => {
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
-        {isLoading ? (
-          <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">جاري التحميل…</div>
-        ) : (
-          <table className="w-full text-start text-xs">
-            <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
-              <tr>
-                <th className="px-4 py-3 text-start">الطلب</th>
-                <th className="px-4 py-3 text-start">المشتري</th>
-                <th className="px-4 py-3 text-start">القناة</th>
-                <th className="px-4 py-3 text-start">الإجمالي</th>
-                <th className="px-4 py-3 text-start">المدفوع</th>
-                <th className="px-4 py-3 text-start">الحالة</th>
-                <th className="px-4 py-3 text-end">الإجراءات</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-app-separator text-app-label-primary">
-              {orders.map((o) => (
-                <tr key={o.id} className="hover:bg-app-fill-f1 transition-colors">
-                  <td className="px-4 py-3 font-mono font-bold text-app-accent">{o.order_number}</td>
-                  <td className="px-4 py-3">
-                    {o.buyer_type === "client" ? (
-                      <span className="inline-flex items-center gap-1">
-                        <Building2 className="w-3.5 h-3.5" /> {o.client?.entity?.name ?? "عميل"}
-                      </span>
-                    ) : o.buyer_type === "internal_unit" ? (
-                      <span className="inline-flex items-center gap-1 text-app-label-secondary">
-                        <Home className="w-3.5 h-3.5" /> {o.buyer_unit?.name ?? "داخلي"}
-                      </span>
-                    ) : (
-                      <span className="text-app-label-tertiary">زبون مباشر</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-app-label-secondary">{CHANNEL_LABEL[o.channel] ?? o.channel}</td>
-                  <td className="px-4 py-3 font-mono">{formatNumber(o.total_amount)}</td>
-                  <td className="px-4 py-3 font-mono text-app-label-secondary">
-                    {formatNumber(o.amount_paid)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        o.status === "pending_approval"
-                          ? "bg-app-status-yellow/15 text-app-status-yellow"
-                          : o.status === "rejected"
-                            ? "bg-app-status-danger/10 text-app-status-danger"
-                            : "bg-app-accent-subtle text-app-accent"
-                      }`}
-                    >
-                      {SALES_STATUS_LABEL[o.status]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-end">
-                    <button
-                      onClick={() => navigate(`/sales/orders/${o.id}`)}
-                      className="inline-flex items-center gap-1 rounded-xl bg-app-accent px-2.5 py-1 text-xs font-bold text-white hover:opacity-90"
-                    >
-                      فتح
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {orders.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-app-label-tertiary">
-                    لا توجد طلبات مبيعات{statusFilter ? ` بحالة ${SALES_STATUS_LABEL[statusFilter as SalesOrderStatus]}` : ""}.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <DataTable table={ordersTable}>
+        <DataTable.Content
+          isLoading={isLoading}
+          emptyMessage={`لا توجد طلبات مبيعات${statusFilter ? ` بحالة ${SALES_STATUS_LABEL[statusFilter as SalesOrderStatus]}` : ""}.`}
+          emptyIcon={ShoppingCart}
+        />
+        <DataTable.Pagination />
+      </DataTable>
 
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent size="2xl">

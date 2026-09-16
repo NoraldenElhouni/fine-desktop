@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { HandCoins, AlertTriangle } from "lucide-react";
 import {
   getPayableOutstanding,
@@ -8,8 +8,10 @@ import {
   type PayableSettlement,
 } from "../../api/endpoints/procurement";
 import { apiErrorPayload } from "../../api/endpoints/production";
-import { formatDate, formatNumber } from "../../lib/utils/format";
+import { formatNumber } from "../../lib/utils/format";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { usePayablesSettlementsColumns } from "../../components/table-columns/payablesSettlementsColumns";
 
 const ACCOUNT_LABEL: Record<string, string> = {
   "2100": "الذمم الدائنة (مشتريات آجلة)",
@@ -47,6 +49,17 @@ export const PayablesPanel: React.FC = () => {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  const settlementColumns = usePayablesSettlementsColumns();
+  const settlementTableData = useMemo(() => settlements, [settlements]);
+  const settlementTable = useDataTable({
+    columns: settlementColumns,
+    data: settlementTableData,
+    enableSorting: true,
+    enableGlobalFilter: true,
+    pageSize: 10,
+    getRowId: (s) => s.id,
+  });
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,32 +120,15 @@ export const PayablesPanel: React.FC = () => {
       </div>
 
       {settlements.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-app-separator bg-app-bg-secondary">
-          <table className="w-full text-xs text-start">
-            <thead className="border-b border-app-separator bg-app-bg-primary text-app-label-secondary">
-              <tr>
-                <th className="px-3 py-2 text-start font-bold">الحساب</th>
-                <th className="px-3 py-2 text-end font-bold">المبلغ</th>
-                <th className="px-3 py-2 text-start font-bold">المرجع</th>
-                <th className="px-3 py-2 text-start font-bold">التاريخ</th>
-                <th className="px-3 py-2 text-start font-bold">بواسطة</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-app-separator">
-              {settlements.slice(0, 8).map((s) => (
-                <tr key={s.id}>
-                  <td className="px-3 py-2">
-                    <span className="font-mono font-bold text-app-accent me-1">{s.account_code}</span>
-                  </td>
-                  <td className="px-3 py-2 text-end font-mono font-bold">{formatNumber(s.amount)}</td>
-                  <td className="px-3 py-2 text-app-label-secondary">{s.reference ?? "—"}</td>
-                  <td className="px-3 py-2 font-mono text-app-label-secondary">{formatDate(s.settled_at)}</td>
-                  <td className="px-3 py-2 text-app-label-secondary">{s.settled_by?.name ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable table={settlementTable}>
+          <DataTable.Header>
+            <DataTable.Toolbar>
+              <DataTable.SearchInput placeholder="بحث في سجل التسويات..." />
+            </DataTable.Toolbar>
+          </DataTable.Header>
+          <DataTable.Content emptyMessage="لا توجد تسويات مسجلة." emptyIcon={HandCoins} />
+          <DataTable.Pagination />
+        </DataTable>
       )}
 
       <Dialog open={Boolean(settling)} onOpenChange={(next) => !next && setSettling(null)}>

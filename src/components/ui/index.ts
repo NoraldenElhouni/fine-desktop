@@ -2,6 +2,7 @@ export * from "./Dialog";
 export * from "./ConfirmDialog";
 export * from "./StatusBadge";
 export * from "./DataTable";
+export * from "./RowActionsMenu";
 export * from "./Toast";
 export * from "./ConflictModal";
 export * from "./PasswordInput";

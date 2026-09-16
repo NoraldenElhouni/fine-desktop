@@ -1,15 +1,11 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ShieldCheck,
   Plus,
   RefreshCw,
   AlertTriangle,
-  KeyRound,
-  UserCheck,
-  UserX,
   Pencil,
-  Trash2,
 } from "lucide-react";
 import {
   useUsers,
@@ -28,6 +24,8 @@ import { toast } from "../../stores/toastStore";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { useUsersColumns } from "../../components/table-columns/usersColumns";
 import { useAuthStore } from "../../stores/authStore";
 
 const UsersPage: React.FC = () => {
@@ -121,6 +119,13 @@ const UsersPage: React.FC = () => {
     );
   };
 
+  const openRoles = (u: AppUser) => {
+    setRolesFor(u);
+    setFormError(null);
+    setRoleId("");
+    setUnitId("");
+  };
+
   const openEdit = (u: AppUser) => {
     setEditing(u);
     setEditName(u.name);
@@ -174,6 +179,25 @@ const UsersPage: React.FC = () => {
     });
   };
 
+  const columns = useUsersColumns({
+    currentUserId,
+    unitName,
+    onOpenRoles: openRoles,
+    onEdit: openEdit,
+    onToggleActive: toggleActive,
+    onDelete: setDeleting,
+  });
+
+  const tableData = useMemo(() => users ?? [], [users]);
+  const usersTable = useDataTable({
+    columns,
+    data: tableData,
+    enableSorting: true,
+    enableGlobalFilter: true,
+    pageSize: 10,
+    getRowId: (u) => u.id,
+  });
+
   if (isError) {
     const payload = apiErrorPayload(error);
     return (
@@ -220,123 +244,15 @@ const UsersPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
-        {isLoading ? (
-          <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">
-            جاري تحميل المستخدمين...
-          </div>
-        ) : (
-          <table className="w-full text-start text-xs">
-            <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
-              <tr>
-                <th className="px-4 py-3 text-start">المستخدم</th>
-                <th className="px-4 py-3 text-start">الأدوار</th>
-                <th className="px-4 py-3 text-start">الحالة</th>
-                <th className="px-4 py-3 text-end">إجراءات</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-app-separator text-app-label-primary">
-              {users?.map((u) => (
-                <tr key={u.id} className="hover:bg-app-fill-f1 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="font-bold">{u.name}</div>
-                    <div className="text-app-label-secondary font-mono" dir="ltr">
-                      {u.email}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1.5">
-                      {u.roles?.length ? (
-                        u.roles.map((r, i) => (
-                          <span
-                            key={`${r.id}-${r.pivot?.operating_unit_id ?? "company"}-${i}`}
-                            className="inline-flex items-center gap-1 rounded-full bg-app-accent-subtle px-2.5 py-1 text-[11px] font-semibold text-app-accent"
-                          >
-                            {r.name}
-                            <span className="text-app-label-tertiary">
-                              · {unitName(r.pivot?.operating_unit_id ?? null)}
-                            </span>
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-app-label-tertiary">بدون أدوار</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                        u.is_active
-                          ? "bg-app-status-positive/15 text-app-status-positive"
-                          : "bg-app-status-danger/15 text-app-status-danger"
-                      }`}
-                    >
-                      {u.is_active ? "مفعل" : "معطل"}
-                    </span>
-                    {u.must_change_password && (
-                      <span className="ms-2 inline-flex items-center gap-1 text-[10px] text-app-label-tertiary">
-                        <KeyRound className="w-3 h-3" /> بانتظار تغيير كلمة المرور
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-end">
-                    <div className="inline-flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setRolesFor(u);
-                          setFormError(null);
-                          setRoleId("");
-                          setUnitId("");
-                        }}
-                        className="inline-flex items-center gap-1 rounded-xl border border-app-separator bg-app-bg-secondary px-2.5 py-1 text-xs font-semibold hover:bg-app-fill-f1"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5" /> الأدوار
-                      </button>
-                      <button
-                        onClick={() => openEdit(u)}
-                        className="inline-flex items-center gap-1 rounded-xl border border-app-separator bg-app-bg-secondary px-2.5 py-1 text-xs font-semibold hover:bg-app-fill-f1"
-                      >
-                        <Pencil className="w-3.5 h-3.5" /> تعديل
-                      </button>
-                      {u.id !== currentUserId && (
-                        <button
-                          onClick={() => setDeleting(u)}
-                          disabled={deleteUser.isPending}
-                          className="inline-flex items-center gap-1 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 px-2.5 py-1 text-xs font-semibold text-app-status-danger hover:bg-app-status-danger/15 disabled:opacity-50"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" /> حذف
-                        </button>
-                      )}
-                      <button
-                        onClick={() => toggleActive(u)}
-                        disabled={updateUser.isPending}
-                        className="inline-flex items-center gap-1 rounded-xl border border-app-separator bg-app-bg-secondary px-2.5 py-1 text-xs font-semibold hover:bg-app-fill-f1 disabled:opacity-50"
-                      >
-                        {u.is_active ? (
-                          <>
-                            <UserX className="w-3.5 h-3.5" /> تعطيل
-                          </>
-                        ) : (
-                          <>
-                            <UserCheck className="w-3.5 h-3.5" /> تفعيل
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {users?.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-app-label-tertiary">
-                    لا يوجد مستخدمون.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <DataTable table={usersTable}>
+        <DataTable.Header>
+          <DataTable.Toolbar>
+            <DataTable.SearchInput placeholder="بحث بالاسم أو البريد أو الدور..." />
+          </DataTable.Toolbar>
+        </DataTable.Header>
+        <DataTable.Content isLoading={isLoading} emptyMessage="لا يوجد مستخدمون." emptyIcon={ShieldCheck} />
+        <DataTable.Pagination />
+      </DataTable>
 
       {/* Create user modal */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>

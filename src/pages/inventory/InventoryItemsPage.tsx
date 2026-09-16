@@ -1,12 +1,12 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useInventoryItems, useCreateInventoryItem } from "../../hooks/useInventory";
 import { useItemCategories, useAttributeLibrary } from "../../hooks/useCategories";
-import { InventoryItem } from "../../api/endpoints/inventory";
-import { formatDate } from "../../lib/utils/format";
-import { Package, PackagePlus, Plus, Search, Filter, Tags, Sliders } from "lucide-react";
+import { Package, PackagePlus, Plus, Search, Filter, Sliders } from "lucide-react";
 import { StockIntakeModal } from "./StockIntakeModal";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { useInventoryItemsColumns } from "../../components/table-columns/inventoryItemsColumns";
 
 export const InventoryItemsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -63,6 +63,18 @@ export const InventoryItemsPage: React.FC = () => {
       }
     );
   };
+
+  const columns = useInventoryItemsColumns();
+
+  const tableData = useMemo(() => itemData?.data ?? [], [itemData]);
+  const itemsTable = useDataTable({
+    columns,
+    data: tableData,
+    enableSorting: true,
+    enableGlobalFilter: false,
+    pageSize: 10,
+    getRowId: (item) => item.id,
+  });
 
   return (
     <div className="space-y-6 p-6" dir="rtl">
@@ -141,67 +153,14 @@ export const InventoryItemsPage: React.FC = () => {
       </div>
 
       {/* Items Table */}
-      <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
-        {isLoading ? (
-          <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">
-            جاري تحميل أصناف المخزون…
-          </div>
-        ) : (
-          <table className="w-full text-start text-xs">
-            <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
-              <tr>
-                <th className="px-4 py-3 text-start">رمز الصنف (SKU)</th>
-                <th className="px-4 py-3 text-start">الاسم</th>
-                <th className="px-4 py-3 text-start">الفئة</th>
-                <th className="px-4 py-3 text-start">الخصائص المسندة</th>
-                <th className="px-4 py-3 text-start">وحدة القياس المزدوجة (حاوية / قياس)</th>
-                <th className="px-4 py-3 text-start">تاريخ الإنشاء</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-app-separator text-app-label-primary">
-              {itemData?.data.map((item: InventoryItem) => (
-                <tr key={item.id} className="hover:bg-app-fill-f1 transition-colors">
-                  <td className="px-4 py-3 font-mono font-bold text-app-accent">{item.sku}</td>
-                  <td className="px-4 py-3 font-medium">{item.name}</td>
-                  <td className="px-4 py-3">
-                    {item.category ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-indigo-50 text-indigo-700">
-                        <Tags className="w-3 h-3" /> {item.category.name}
-                      </span>
-                    ) : (
-                      <span className="text-app-label-tertiary">بدون فئة</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {item.attribute_definitions && item.attribute_definitions.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {item.attribute_definitions.map((attr) => (
-                          <span key={attr.id} className="px-2 py-0.5 text-[10px] font-medium rounded bg-app-bg-secondary border border-app-separator text-app-label-primary">
-                            {attr.name} ({attr.unit_of_measure || attr.data_type})
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-app-label-tertiary text-[10px]">لا توجد خصائص</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 font-mono font-medium text-app-label-secondary">
-                    {item.primary_uom || "each"} / {item.secondary_uom || item.unit_of_measure}
-                  </td>
-                  <td className="px-4 py-3 text-app-label-tertiary">{formatDate(item.created_at)}</td>
-                </tr>
-              ))}
-              {itemData?.data.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-app-label-tertiary">
-                    لا توجد أصناف مخزون.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <DataTable table={itemsTable}>
+        <DataTable.Content
+          isLoading={isLoading}
+          emptyMessage="لا توجد أصناف مخزون."
+          emptyIcon={Package}
+        />
+        <DataTable.Pagination />
+      </DataTable>
 
       {/* Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>

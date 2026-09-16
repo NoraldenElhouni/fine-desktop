@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowRight, ShoppingCart, AlertTriangle, Send, PackageCheck, Banknote, CheckCircle2,
-  ShieldAlert, FileText, Printer,
+  ShieldAlert, FileText, Printer, Package,
 } from "lucide-react";
 import {
   useSalesOrder, useSubmitOrder, useFulfillOrder, useRecordPayment, useCompleteOrder,
@@ -11,6 +11,8 @@ import {
 import { SALES_STATUS_LABEL } from "../../api/endpoints/sales";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatNumber } from "../../lib/utils/format";
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { useSalesOrderLinesColumns } from "../../components/table-columns/salesOrderLinesColumns";
 
 export const SalesOrderDetailPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
@@ -29,6 +31,17 @@ export const SalesOrderDetailPage: React.FC = () => {
 
   const invoiceEnabled = Boolean(order && ["fulfilled", "partially_paid", "paid", "completed"].includes(order.status));
   const { data: invoice } = useInvoice(orderId, invoiceEnabled && showInvoice);
+
+  const lineColumns = useSalesOrderLinesColumns();
+  const lineRows = useMemo(() => order?.lines ?? [], [order?.lines]);
+  const linesTable = useDataTable({
+    columns: lineColumns,
+    data: lineRows,
+    enableSorting: false,
+    enableGlobalFilter: false,
+    enablePagination: false,
+    getRowId: (l) => l.id,
+  });
 
   if (isLoading || !order) {
     return (
@@ -245,39 +258,13 @@ export const SalesOrderDetailPage: React.FC = () => {
       )}
 
       {/* Lines */}
-      <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
+      <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm overflow-hidden">
         <div className="border-b border-app-separator px-4 py-3">
           <h2 className="text-sm font-bold text-app-label-primary">بنود الطلب</h2>
         </div>
-        <table className="w-full text-start text-xs">
-          <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
-            <tr>
-              <th className="px-4 py-2 text-start">الصنف</th>
-              <th className="px-4 py-2 text-end">الكمية</th>
-              <th className="px-4 py-2 text-end">السعر</th>
-              <th className="px-4 py-2 text-end">الإجمالي</th>
-              <th className="px-4 py-2 text-end">التكلفة الفعلية</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-app-separator text-app-label-primary">
-            {order.lines?.map((l) => (
-              <tr key={l.id}>
-                <td className="px-4 py-2">
-                  {l.inventory_item?.name}
-                  <span className="text-app-label-tertiary font-mono ms-2">{l.inventory_item?.sku}</span>
-                </td>
-                <td className="px-4 py-2 text-end font-mono">{Number(l.quantity)}</td>
-                <td className="px-4 py-2 text-end font-mono">{formatNumber(l.unit_price)}</td>
-                <td className="px-4 py-2 text-end font-mono font-bold">
-                  {formatNumber(Number(l.quantity) * Number(l.unit_price))}
-                </td>
-                <td className="px-4 py-2 text-end font-mono text-app-label-secondary">
-                  {Number(l.unit_cost_actual) > 0 ? formatNumber(l.unit_cost_actual) : "—"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <DataTable table={linesTable} className="rounded-none border-0 shadow-none">
+          <DataTable.Content emptyMessage="لا توجد بنود لهذا الطلب." emptyIcon={Package} />
+        </DataTable>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Building, Plus, RefreshCw, FileText, Percent } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { Building, Plus, RefreshCw, FileText } from "lucide-react";
 import { isAxiosError } from "axios";
 import { EntityType } from "../../types/entities";
 import {
@@ -13,6 +13,8 @@ import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { useExternalEmployersColumns } from "../../components/table-columns/externalEmployersColumns";
 
 export const ExternalEmployersPage: React.FC = () => {
   const { allowManualEntitySelection } = useServerConfigStore();
@@ -92,6 +94,18 @@ export const ExternalEmployersPage: React.FC = () => {
       "تعذر تحميل سجلات الجهات المشغلة"
     : null;
 
+  const columns = useExternalEmployersColumns();
+
+  const tableData = useMemo(() => employers, [employers]);
+  const employersTable = useDataTable({
+    columns,
+    data: tableData,
+    enableSorting: true,
+    enableGlobalFilter: true,
+    pageSize: 10,
+    getRowId: (emp) => emp.id,
+  });
+
   return (
     <div className="space-y-6 p-6" dir="rtl">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -142,65 +156,24 @@ export const ExternalEmployersPage: React.FC = () => {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="flex h-48 items-center justify-center rounded-2xl border border-app-separator bg-app-bg-primary">
-          <RefreshCw className="h-6 w-6 animate-spin text-app-accent" />
-        </div>
-      ) : errorMessage ? (
+      {errorMessage ? (
         <div className="rounded-2xl border border-app-status-danger/30 bg-app-status-danger/10 p-4 text-center text-xs text-app-status-danger">
           {errorMessage}
         </div>
-      ) : employers.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-app-separator bg-app-bg-primary p-12 text-center">
-          <Building className="h-12 w-12 text-app-label-secondary mb-3 opacity-40" />
-          <p className="text-sm font-bold text-app-label-primary">لا توجد جهات مشغلة مضافة</p>
-          <p className="text-xs text-app-label-secondary mt-1">
-            أضف الشركات الوسيطة التي تقوم بتوريد العمالة لحساب تكاليف التشغيل
-          </p>
-        </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
-          <table className="w-full text-start text-xs">
-            <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary">
-              <tr>
-                <th className="px-4 py-3 text-start font-bold">اسم الشركة / الجهة</th>
-                <th className="px-4 py-3 text-start font-bold">مرجع العقد (Contract Ref)</th>
-                <th className="px-4 py-3 text-start font-bold">مضاعف الفوترة (Multiplier)</th>
-                <th className="px-4 py-3 text-start font-bold">عدد العمالة التابعة</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-app-separator text-app-label-primary">
-              {employers.map((emp) => (
-                <tr key={emp.id} className="hover:bg-app-bg-secondary/50">
-                  <td className="px-4 py-3 font-semibold">
-                    <div className="flex flex-col">
-                      <span className="text-app-label-primary font-bold">
-                        {emp.entity?.name || "بدون اسم"}
-                      </span>
-                      <span className="text-[10px] text-app-label-secondary">
-                        {emp.entity?.tax_number ? `ضريبي: ${emp.entity.tax_number}` : "بدون رقم ضريبي"}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 font-mono font-medium text-app-label-secondary">
-                    {emp.contract_reference || "-"}
-                  </td>
-                  <td className="px-4 py-3 font-mono font-bold text-app-label-primary">
-                    <span className="inline-flex items-center gap-1 rounded bg-app-bg-secondary px-2 py-0.5">
-                      <Percent className="h-3 w-3 text-app-accent" />
-                      <span>{emp.billing_rate_multiplier}x</span>
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="rounded-full bg-app-bg-secondary px-2.5 py-0.5 text-[11px] font-semibold text-app-label-primary">
-                      {(emp as unknown as { employees_count?: number }).employees_count || 0} عامل
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable table={employersTable}>
+          <DataTable.Header>
+            <DataTable.Toolbar>
+              <DataTable.SearchInput placeholder="بحث بالاسم أو مرجع العقد..." />
+            </DataTable.Toolbar>
+          </DataTable.Header>
+          <DataTable.Content
+            isLoading={isLoading}
+            emptyMessage="لا توجد جهات مشغلة مضافة"
+            emptyIcon={Building}
+          />
+          <DataTable.Pagination />
+        </DataTable>
       )}
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>

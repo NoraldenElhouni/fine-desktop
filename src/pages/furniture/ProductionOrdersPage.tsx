@@ -1,14 +1,15 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Hammer, Plus, RefreshCw, AlertTriangle } from "lucide-react";
 import { useProductionOrders, useCreateProductionOrder, useProducts } from "../../hooks/useFurniture";
 import {
-  ORDER_STATUS_ORDER, ORDER_STATUS_LABEL, ProductionOrderStatus, Product,
+  ORDER_STATUS_ORDER, ORDER_STATUS_LABEL, ProductionOrderStatus, ProductionOrder, Product,
 } from "../../api/endpoints/furniture";
 import { apiErrorPayload } from "../../api/endpoints/production";
-import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { useProductionOrdersColumns } from "../../components/table-columns/productionOrdersColumns";
 
 export const ProductionOrdersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -48,6 +49,20 @@ export const ProductionOrdersPage: React.FC = () => {
       },
     );
   };
+
+  const openOrder = (order: ProductionOrder) => navigate(`/furniture/orders/${order.id}`);
+
+  const columns = useProductionOrdersColumns({ onOpenOrder: openOrder });
+
+  const tableData = useMemo(() => orders, [orders]);
+  const ordersTable = useDataTable({
+    columns,
+    data: tableData,
+    enableSorting: true,
+    enableGlobalFilter: false,
+    pageSize: 10,
+    getRowId: (o) => o.id,
+  });
 
   return (
     <div className="space-y-6 p-6" dir="rtl">
@@ -107,60 +122,14 @@ export const ProductionOrdersPage: React.FC = () => {
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
-        {isLoading ? (
-          <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">جاري التحميل…</div>
-        ) : (
-          <table className="w-full text-start text-xs">
-            <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
-              <tr>
-                <th className="px-4 py-3 text-start">الطلب</th>
-                <th className="px-4 py-3 text-start">المنتج</th>
-                <th className="px-4 py-3 text-start">الكمية</th>
-                <th className="px-4 py-3 text-start">المواد</th>
-                <th className="px-4 py-3 text-start">العمالة</th>
-                <th className="px-4 py-3 text-start">الحالة</th>
-                <th className="px-4 py-3 text-end">الإجراءات</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-app-separator text-app-label-primary">
-              {orders.map((o) => (
-                <tr key={o.id} className="hover:bg-app-fill-f1 transition-colors">
-                  <td className="px-4 py-3 font-mono font-bold text-app-accent">{o.order_number}</td>
-                  <td className="px-4 py-3">{o.product?.name ?? "—"}</td>
-                  <td className="px-4 py-3 font-bold">{o.quantity}</td>
-                  <td className="px-4 py-3 font-mono text-app-label-secondary">
-                    {formatNumber(o.material_cost)}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-app-label-secondary">
-                    {formatNumber(o.labor_cost)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="px-2 py-1 text-xs font-semibold rounded-full bg-app-accent-subtle text-app-accent">
-                      {ORDER_STATUS_LABEL[o.status]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-end">
-                    <button
-                      onClick={() => navigate(`/furniture/orders/${o.id}`)}
-                      className="inline-flex items-center gap-1 rounded-xl bg-app-accent px-2.5 py-1 text-xs font-bold text-white hover:opacity-90"
-                    >
-                      <Hammer className="w-3.5 h-3.5" /> فتح
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {orders.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-app-label-tertiary">
-                    لا توجد أوامر إنتاج{statusFilter ? ` بحالة ${ORDER_STATUS_LABEL[statusFilter as ProductionOrderStatus]}` : ""}.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <DataTable table={ordersTable}>
+        <DataTable.Content
+          isLoading={isLoading}
+          emptyMessage={`لا توجد أوامر إنتاج${statusFilter ? ` بحالة ${ORDER_STATUS_LABEL[statusFilter as ProductionOrderStatus]}` : ""}.`}
+          emptyIcon={Hammer}
+        />
+        <DataTable.Pagination />
+      </DataTable>
 
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent size="md">

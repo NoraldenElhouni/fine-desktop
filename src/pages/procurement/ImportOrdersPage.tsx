@@ -3,10 +3,8 @@ import {
   FileCheck,
   Plus,
   RefreshCw,
-  Building,
   DollarSign,
   Package,
-  ArrowRight,
   CheckCircle2,
   AlertCircle,
   Clock,
@@ -28,6 +26,7 @@ import {
   TransitionImportOrderPayload,
   PaymentRoute,
   LandedCostType,
+  LandedCostLine,
 } from "../../types/procurement";
 import {
   useImportOrders,
@@ -45,12 +44,15 @@ import { useWarehouses, Warehouse } from "../../hooks/useWarehouses";
 import { InventoryItem } from "../../api/endpoints/inventory";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
-import { AllocationPaymentActions } from "../../components/allocations/AllocationPaymentActions";
 import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { cn } from "../../lib/utils/utils";
 import { tokens } from "../../lib/tokens";
+import { useImportOrdersColumns } from "../../components/table-columns/importOrdersColumns";
+import { useImportOrderLineItemsColumns } from "../../components/table-columns/importOrderLineItemsColumns";
+import { useImportOrderLandedCostColumns } from "../../components/table-columns/importOrderLandedCostColumns";
 
 const STAGES: { key: ImportOrderStatus; label: string; icon: React.FC<{ className?: string }> }[] = [
   { key: "draft", label: "مسودة", icon: Clock },
@@ -321,6 +323,87 @@ export const ImportOrdersPage: React.FC = () => {
   };
 
 
+  const orderColumns = useImportOrdersColumns({
+    getStatusBadge,
+    onOpenDetail: openOrderDetail,
+  });
+  const ordersTableData = useMemo(() => orders, [orders]);
+  const ordersTable = useDataTable({
+    columns: orderColumns,
+    data: ordersTableData,
+    enableSorting: true,
+    enableGlobalFilter: true,
+    pageSize: 10,
+    getRowId: (ord) => ord.id,
+  });
+
+  const lineItemColumns = useImportOrderLineItemsColumns();
+  const lineItemsData = useMemo(() => selectedOrder?.items?.data ?? [], [selectedOrder]);
+  const lineItemsTable = useDataTable({
+    columns: lineItemColumns,
+    data: lineItemsData,
+    enableSorting: false,
+    enableGlobalFilter: false,
+    enablePagination: false,
+    getRowId: (line) => line.id,
+  });
+
+  const approveLandedCostLine = (lc: LandedCostLine, note: string) => {
+    if (!selectedOrder) return;
+    approveLandedCostMutation.mutate(
+      { orderId: selectedOrder.id, lineId: lc.id, note },
+      {
+        onSuccess: () =>
+          setLineError((prev) => {
+            const { [lc.id]: _drop, ...rest } = prev;
+            return rest;
+          }),
+        onError: (err: unknown) =>
+          setLineError((prev) => ({
+            ...prev,
+            [lc.id]: apiErrorPayload(err)?.message ?? "تعذر الاعتماد.",
+          })),
+      },
+    );
+  };
+
+  const markLandedCostLinePaid = (lc: LandedCostLine, note: string) => {
+    if (!selectedOrder) return;
+    markLandedCostPaidMutation.mutate(
+      { orderId: selectedOrder.id, lineId: lc.id, note },
+      {
+        onSuccess: () =>
+          setLineError((prev) => {
+            const { [lc.id]: _drop, ...rest } = prev;
+            return rest;
+          }),
+        onError: (err: unknown) =>
+          setLineError((prev) => ({
+            ...prev,
+            [lc.id]: apiErrorPayload(err)?.message ?? "تعذر تأكيد الدفع.",
+          })),
+      },
+    );
+  };
+
+  const landedCostColumns = useImportOrderLandedCostColumns({
+    selectedOrder,
+    operatingUnits,
+    approveLandedCostMutation,
+    markLandedCostPaidMutation,
+    lineError,
+    onApprove: approveLandedCostLine,
+    onMarkPaid: markLandedCostLinePaid,
+  });
+  const landedCostsTable = useDataTable({
+    columns: landedCostColumns,
+    data: landedCosts,
+    enableSorting: false,
+    enableGlobalFilter: false,
+    enablePagination: false,
+    getRowId: (lc) => lc.id,
+  });
+
   return (
 <div className="space-y-6" dir="rtl">
       {/* Header */}
@@ -354,68 +437,19 @@ export const ImportOrdersPage: React.FC = () => {
       </div>
 
       {/* Main Table */}
-      {isLoading ? (
-        <div className="flex h-40 items-center justify-center rounded-2xl border border-app-separator bg-app-bg-primary">
-          <RefreshCw className="h-6 w-6 animate-spin text-app-accent" />
-        </div>
-      ) : orders.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-app-separator bg-app-bg-primary p-6 text-center">
-          <Package className="h-10 w-10 text-app-label-secondary mb-2 opacity-40" />
-          <p className="text-sm font-bold text-app-label-primary">لا توجد أوامر استيراد حالية</p>
-          <p className="text-xs text-app-label-secondary mt-1">
-            قم بإنشاء أمر استيراد جديد للبدء في تتبع الاعتمادات المستندية والشحن
-          </p>
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
-          <table className="w-full text-start text-xs">
-            <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary">
-              <tr>
-                <th className="px-4 py-3 text-start font-bold">المورد الخارجي</th>
-                <th className="px-4 py-3 text-start font-bold">الكمية المتعاقد عليها</th>
-                <th className="px-4 py-3 text-start font-bold">سعر الوحدة النقدية</th>
-                <th className="px-4 py-3 text-start font-bold">إجمالي الاعتماد المستهدف</th>
-                <th className="px-4 py-3 text-start font-bold">الحالة الحالية</th>
-                <th className="px-4 py-3 text-end font-bold">الإجراء</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-app-separator text-app-label-primary">
-              {orders.map((ord) => {
-                const totalAmount = Number(ord.negotiated_price) * Number(ord.quantity);
-                return (
-                  <tr key={ord.id} className="hover:bg-app-fill-f1 transition-colors">
-                    <td className="px-4 py-3 font-bold">
-                      <div className="flex items-center gap-2">
-                        <Building className="h-4 w-4 text-app-accent" />
-                        <span>{ord.supplier?.name || "مورد غير محدد"}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 font-mono font-semibold">
-                      {formatNumber(ord.quantity)} وحدة
-                    </td>
-                    <td className="px-4 py-3 font-mono">
-                      {formatNumber(ord.negotiated_price)} {ord.currency}
-                    </td>
-                    <td className="px-4 py-3 font-mono font-bold text-emerald-700">
-                      {formatNumber(totalAmount)} {ord.currency}
-                    </td>
-                    <td className="px-4 py-3">{getStatusBadge(ord.status)}</td>
-                    <td className="px-4 py-3 text-end">
-                      <button
-                        onClick={() => openOrderDetail(ord)}
-                        className="inline-flex items-center gap-1 rounded-lg bg-app-bg-secondary px-3 py-1 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1"
-                      >
-                        <span>تتبع التفاصيل</span>
-                        <ArrowRight className="h-3.5 w-3.5 rotate-180 text-app-accent" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <DataTable table={ordersTable}>
+        <DataTable.Header>
+          <DataTable.Toolbar>
+            <DataTable.SearchInput placeholder="بحث بالمورد أو الحالة..." />
+          </DataTable.Toolbar>
+        </DataTable.Header>
+        <DataTable.Content
+          isLoading={isLoading}
+          emptyMessage="لا توجد أوامر استيراد حالية — قم بإنشاء أمر استيراد جديد للبدء في تتبع الاعتمادات المستندية والشحن"
+          emptyIcon={Package}
+        />
+        <DataTable.Pagination />
+      </DataTable>
 
       {/* Add New Import Order Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -770,59 +804,18 @@ export const ImportOrdersPage: React.FC = () => {
                   <ListChecks className="h-3.5 w-3.5 text-app-accent" />
                   بنود الأمر ({selectedOrder.items.data.length})
                 </h4>
-                <div className="overflow-hidden rounded-xl border border-app-separator bg-app-bg-secondary">
-                  <table className="w-full text-xs">
-                    <thead className="bg-app-bg-primary text-app-label-secondary">
-                      <tr>
-                        <th className="px-3 py-2 text-start font-bold">الصنف</th>
-                        <th className="px-3 py-2 text-start font-bold">SKU</th>
-                        <th className="px-3 py-2 text-end font-bold">الكمية</th>
-                        <th className="px-3 py-2 text-end font-bold">
-                          سعر الوحدة
-                        </th>
-                        <th className="px-3 py-2 text-end font-bold">الإجمالي</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-app-separator">
-                      {selectedOrder.items.data.map((line) => (
-                        <tr key={line.id} className="text-app-label-primary">
-                          <td className="px-3 py-2 font-semibold">
-                            {line.inventory_item?.name ?? "—"}
-                          </td>
-                          <td className="px-3 py-2 font-mono text-app-label-secondary">
-                            {line.inventory_item?.sku ?? "—"}
-                          </td>
-                          <td className="px-3 py-2 font-mono text-end">
-                            {formatNumber(Number(line.quantity))}{" "}
-                            <span className="text-[10px] text-app-label-tertiary">
-                              {line.inventory_item?.unit_of_measure ?? ""}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 font-mono text-end">
-                            {formatNumber(Number(line.unit_price))} {line.currency}
-                          </td>
-                          <td className="px-3 py-2 font-mono font-bold text-end text-app-accent">
-                            {formatNumber(Number(line.line_total))} {line.currency}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-app-bg-primary border-t border-app-separator">
-                        <td
-                          colSpan={4}
-                          className="px-3 py-2 text-start text-[11px] font-bold uppercase text-app-label-secondary"
-                        >
-                          الإجمالي
-                        </td>
-                        <td className="px-3 py-2 font-mono font-bold text-end text-app-accent">
-                          {formatNumber(Number(selectedOrder.items.items_total))}{" "}
-                          {selectedOrder.currency}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
+                <DataTable table={lineItemsTable}>
+                  <DataTable.Content emptyMessage="لا توجد بنود." />
+                  <div className="flex items-center justify-between border-t border-app-separator bg-app-bg-primary px-4 py-3">
+                    <span className="text-[11px] font-bold uppercase text-app-label-secondary">
+                      الإجمالي
+                    </span>
+                    <span className="font-mono font-bold text-end text-app-accent">
+                      {formatNumber(Number(selectedOrder.items.items_total))}{" "}
+                      {selectedOrder.currency}
+                    </span>
+                  </div>
+                </DataTable>
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-app-separator bg-app-bg-secondary p-3 text-center text-xs text-app-label-tertiary">
@@ -1137,95 +1130,13 @@ export const ImportOrdersPage: React.FC = () => {
               </form>
 
               {/* Cost Lines List */}
-              {isLoadingCosts ? (
-                <div className="flex justify-center p-3">
-                  <RefreshCw className="h-4 w-4 animate-spin text-app-accent" />
-                </div>
-              ) : landedCosts.length === 0 ? (
-                <p className="text-xs text-app-label-secondary">لا توجد خطوط تكلفة مضافة حتى الآن.</p>
-              ) : (
-                <div className="overflow-hidden rounded-xl border border-app-separator bg-app-bg-secondary">
-                  <table className="w-full text-xs text-start">
-                    <thead className="border-b border-app-separator bg-app-bg-primary text-app-label-secondary">
-                      <tr>
-                        <th className="px-3 py-2 text-start font-bold">نوع التكلفة</th>
-                        <th className="px-3 py-2 text-start font-bold">المبلغ</th>
-                        <th className="px-3 py-2 text-start font-bold">الملاحظة</th>
-                        <th className="px-3 py-2 text-start font-bold">المسؤول</th>
-                        <th className="px-3 py-2 text-end font-bold">الحالة والإجراء</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-app-separator">
-                      {landedCosts.map((lc) => {
-                        const orderUnitId = selectedOrder.operating_unit_id;
-                        const unit = operatingUnits.find((u) => u.id === orderUnitId);
-                        const managerId = unit?.manager_user_id ?? null;
-                        return (
-                          <tr key={lc.id}>
-                            <td className="px-3 py-2 font-semibold">{lc.type}</td>
-                            <td className="px-3 py-2 font-mono font-bold">{formatNumber(lc.amount)} {lc.currency}</td>
-                            <td className="px-3 py-2 text-app-label-secondary max-w-xs truncate">
-                              {lc.note || "—"}
-                            </td>
-                            <td className="px-3 py-2 text-app-label-secondary">
-                              {lc.payer?.name ?? lc.approver?.name ?? "—"}
-                            </td>
-                            <td className="px-3 py-2 text-end">
-                              <AllocationPaymentActions
-                                status={lc.status}
-                                managerId={managerId}
-                                isPending={
-                                  approveLandedCostMutation.isPending &&
-                                  approveLandedCostMutation.variables?.lineId === lc.id
-                                }
-                                isMarkingPaid={
-                                  markLandedCostPaidMutation.isPending &&
-                                  markLandedCostPaidMutation.variables?.lineId === lc.id
-                                }
-                                errorMessage={lineError[lc.id] ?? null}
-                                onApprove={(note) =>
-                                  approveLandedCostMutation.mutate(
-                                    { orderId: selectedOrder.id, lineId: lc.id, note },
-                                    {
-                                      onSuccess: () =>
-                                        setLineError((prev) => {
-                                          const { [lc.id]: _drop, ...rest } = prev;
-                                          return rest;
-                                        }),
-                                      onError: (err: unknown) =>
-                                        setLineError((prev) => ({
-                                          ...prev,
-                                          [lc.id]: apiErrorPayload(err)?.message ?? "تعذر الاعتماد.",
-                                        })),
-                                    },
-                                  )
-                                }
-                                onMarkPaid={(note) =>
-                                  markLandedCostPaidMutation.mutate(
-                                    { orderId: selectedOrder.id, lineId: lc.id, note },
-                                    {
-                                      onSuccess: () =>
-                                        setLineError((prev) => {
-                                          const { [lc.id]: _drop, ...rest } = prev;
-                                          return rest;
-                                        }),
-                                      onError: (err: unknown) =>
-                                        setLineError((prev) => ({
-                                          ...prev,
-                                          [lc.id]: apiErrorPayload(err)?.message ?? "تعذر تأكيد الدفع.",
-                                        })),
-                                    },
-                                  )
-                                }
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              <DataTable table={landedCostsTable}>
+                <DataTable.Content
+                  isLoading={isLoadingCosts}
+                  emptyMessage="لا توجد خطوط تكلفة مضافة حتى الآن."
+                  emptyIcon={Percent}
+                />
+              </DataTable>
             </div>
           </>
           )}

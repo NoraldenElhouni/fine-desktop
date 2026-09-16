@@ -1,0 +1,108 @@
+import { useMemo } from "react";
+import { ColumnDef } from "../ui/DataTable";
+import { formatNumber, formatDateTime } from "../../lib/utils/format";
+import { PaymentRequest } from "../../types/procurement";
+
+export function useBlackMarketColumns(): ColumnDef<PaymentRequest, unknown>[] {
+  return useMemo<ColumnDef<PaymentRequest, unknown>[]>(
+    () => [
+      {
+        id: "id",
+        header: "المعرف",
+        accessorKey: "id",
+        cell: ({ row }) => `#${row.original.id.slice(0, 6)}`,
+        meta: { className: "font-mono" },
+      },
+      {
+        id: "route",
+        header: "المسار",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+              row.original.route === "bank"
+                ? "bg-app-accent-subtle text-app-accent"
+                : "bg-app-status-warning/15 text-app-status-warning"
+            }`}
+          >
+            {row.original.route === "bank" ? "اعتماد مصرفي" : "سوق حر"}
+          </span>
+        ),
+      },
+      {
+        id: "amount_requested",
+        header: "المبلغ الأجنبي",
+        accessorFn: (r) => Number(r.amount_requested),
+        cell: ({ row }) => `${formatNumber(row.original.amount_requested)} USD`,
+        meta: { className: "font-mono font-bold" },
+      },
+      {
+        id: "fx_rate_used",
+        header: "سعر الصرف",
+        accessorFn: (r) => (r.fx_rate_used !== null && r.fx_rate_used !== undefined ? Number(r.fx_rate_used) : null),
+        cell: ({ row }) =>
+          row.original.fx_rate_used !== null && row.original.fx_rate_used !== undefined
+            ? Number(row.original.fx_rate_used).toFixed(4)
+            : "—",
+        meta: { className: "font-mono" },
+      },
+      {
+        id: "extra_allocation_lyd",
+        header: "التكلفة الإضافية (LYD)",
+        enableSorting: false,
+        cell: ({ row }) => {
+          const extra = row.original.extra_allocation_lyd;
+          return extra === null || extra === undefined ? (
+            <span className="text-app-label-tertiary">—</span>
+          ) : Math.abs(Number(extra)) < 0.0001 ? (
+            <span className="text-app-label-tertiary">0.0000</span>
+          ) : (
+            <span
+              className={
+                Number(extra) > 0
+                  ? "text-app-status-warning font-bold"
+                  : "text-app-status-positive font-bold"
+              }
+            >
+              {Number(extra) > 0 ? "+" : ""}
+              {formatNumber(extra)}
+            </span>
+          );
+        },
+        meta: { className: "font-mono" },
+      },
+      {
+        id: "extra_allocation_note",
+        header: "الملاحظة",
+        accessorFn: (r) => r.extra_allocation_note || "—",
+        meta: { className: "text-app-label-secondary max-w-xs truncate" },
+      },
+      {
+        id: "status",
+        header: "الحالة",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+              row.original.status === "paid"
+                ? "bg-app-status-positive/15 text-app-status-positive"
+                : row.original.status === "rejected"
+                ? "bg-app-status-danger/15 text-app-status-danger"
+                : "bg-app-status-warning/15 text-app-status-warning"
+            }`}
+          >
+            {row.original.status === "paid" ? "مدفوع" : row.original.status === "rejected" ? "مرفوض" : "معلق"}
+          </span>
+        ),
+      },
+      {
+        id: "created_at",
+        header: "التاريخ",
+        accessorKey: "created_at",
+        cell: ({ row }) => (row.original.created_at ? formatDateTime(row.original.created_at) : "—"),
+        meta: { className: "text-app-label-secondary font-mono text-[10px]" },
+      },
+    ],
+    []
+  );
+}

@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { RefreshCw, UserPlus, KeyRound } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { RefreshCw, UserPlus } from "lucide-react";
 import { isAxiosError } from "axios";
 import { Entity } from "../../types/entities";
 import { useEntities, useProvisionUserAccount } from "../../hooks/usePartners";
@@ -7,6 +7,8 @@ import { useUsers } from "../../hooks/useUsers";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { useAdminEntitiesColumns } from "../../components/table-columns/adminEntitiesColumns";
 
 export const AdminEntitiesPage: React.FC = () => {
   const { data: entities = [], isLoading, error: queryError, refetch } = useEntities();
@@ -49,6 +51,24 @@ export const AdminEntitiesPage: React.FC = () => {
       "تعذر تحميل قائمة الكيانات"
     : null;
 
+  const openProvision = (entity: Entity) => {
+    setProvisioningEntity(entity);
+    setProvisionEmail(entity.primary_contact?.email ?? "");
+    setProvisionPassword("");
+  };
+
+  const columns = useAdminEntitiesColumns({ onProvision: openProvision });
+
+  const tableData = useMemo(() => entities, [entities]);
+  const entitiesTable = useDataTable({
+    columns,
+    data: tableData,
+    enableSorting: true,
+    enableGlobalFilter: true,
+    pageSize: 10,
+    getRowId: (entity) => entity.id,
+  });
+
   return (
     <div className="space-y-6 p-6" dir="rtl">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -68,76 +88,24 @@ export const AdminEntitiesPage: React.FC = () => {
         </button>
       </div>
 
-      {isLoading ? (
-        <div className="flex h-48 items-center justify-center rounded-2xl border border-app-separator bg-app-bg-primary">
-          <RefreshCw className="h-6 w-6 animate-spin text-app-accent" />
-        </div>
-      ) : errorMessage ? (
+      {errorMessage ? (
         <div className="rounded-2xl border border-app-status-danger/30 bg-app-status-danger/10 p-4 text-center text-xs text-app-status-danger">
           {errorMessage}
         </div>
-      ) : entities.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-app-separator bg-app-bg-primary p-12 text-center">
-          <UserPlus className="h-12 w-12 text-app-label-secondary mb-3 opacity-40" />
-          <p className="text-sm font-bold text-app-label-primary">لا توجد كيانات</p>
-          <p className="text-xs text-app-label-secondary mt-1">
-            تظهر الكيانات تلقائياً عند إضافة موظف أو عميل أو مورد
-          </p>
-        </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
-          <table className="w-full text-start text-xs">
-            <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary">
-              <tr>
-                <th className="px-4 py-3 text-start font-bold">اسم الكيان</th>
-                <th className="px-4 py-3 text-start font-bold">النوع</th>
-                <th className="px-4 py-3 text-start font-bold">الرقم الضريبي</th>
-                <th className="px-4 py-3 text-start font-bold">حساب النظام</th>
-                <th className="px-4 py-3 text-end font-bold">إجراءات</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-app-separator text-app-label-primary">
-              {entities.map((entity) => (
-                <tr key={entity.id} className="hover:bg-app-bg-secondary/50">
-                  <td className="px-4 py-3 font-semibold">{entity.name}</td>
-                  <td className="px-4 py-3 text-app-label-secondary">
-                    {entity.entity_type === "organization" ? "شركة" : "فرد"}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-app-label-secondary">
-                    {entity.tax_number || "-"}
-                  </td>
-                  <td className="px-4 py-3">
-                    {entity.user_id ? (
-                      <span className="rounded-full bg-app-status-positive/15 px-2 py-0.5 text-[10px] font-bold text-app-status-positive">
-                        مربوط
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-app-status-warning/15 px-2 py-0.5 text-[10px] font-bold text-app-status-warning">
-                        بدون حساب
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-end">
-                    {!entity.user_id && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProvisioningEntity(entity);
-                          setProvisionEmail(entity.primary_contact?.email ?? "");
-                          setProvisionPassword("");
-                        }}
-                        className="inline-flex items-center gap-1 rounded-lg border border-app-separator bg-app-bg-secondary px-2.5 py-1 text-[11px] font-semibold text-app-label-primary hover:bg-app-fill-f1"
-                      >
-                        <KeyRound className="h-3 w-3 text-app-accent" />
-                        <span>تزويد حساب</span>
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable table={entitiesTable}>
+          <DataTable.Header>
+            <DataTable.Toolbar>
+              <DataTable.SearchInput placeholder="بحث بالاسم..." />
+            </DataTable.Toolbar>
+          </DataTable.Header>
+          <DataTable.Content
+            isLoading={isLoading}
+            emptyMessage="لا توجد كيانات"
+            emptyIcon={UserPlus}
+          />
+          <DataTable.Pagination />
+        </DataTable>
       )}
 
       <Dialog

@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { BarChart3, CheckCircle2, AlertTriangle } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { BarChart3, CheckCircle2, AlertTriangle, Landmark } from "lucide-react";
 import {
   useIncomeStatement,
   useBalanceSheet,
@@ -7,6 +7,8 @@ import {
 } from "../../hooks/useAccounting";
 import type { ReportRow } from "../../api/endpoints/accounting";
 import { formatNumber } from "../../lib/utils/format";
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { useUnitProfitabilityColumns } from "../../components/table-columns/financialReportsColumns";
 
 type Tab = "income" | "balance" | "units";
 
@@ -50,6 +52,17 @@ export const FinancialReportsPage: React.FC = () => {
   const income = useIncomeStatement(tab === "income" ? period : undefined);
   const balance = useBalanceSheet(tab === "balance" ? asOf || undefined : undefined);
   const units = useUnitProfitability(tab === "units" ? period : undefined);
+
+  const unitColumns = useUnitProfitabilityColumns();
+  const unitsData = useMemo(() => units.data?.rows ?? [], [units.data]);
+  const unitsTable = useDataTable({
+    columns: unitColumns,
+    data: unitsData,
+    enableSorting: true,
+    enableGlobalFilter: true,
+    pageSize: 10,
+    getRowId: (r) => r.operating_unit_id ?? "unallocated",
+  });
 
   return (
     <div className="space-y-6 p-6">
@@ -157,47 +170,25 @@ export const FinancialReportsPage: React.FC = () => {
         units.isLoading ? (
           <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">جارٍ التحميل…</div>
         ) : units.data && (
-          <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
-            <table className="w-full text-xs">
-              <thead className="text-app-label-secondary border-b border-app-separator bg-app-bg-secondary">
-                <tr>
-                  <th className="px-4 py-2.5 text-start font-bold">الوحدة التشغيلية</th>
-                  <th className="px-4 py-2.5 text-end font-bold">الإيرادات</th>
-                  <th className="px-4 py-2.5 text-end font-bold">المصروفات</th>
-                  <th className="px-4 py-2.5 text-end font-bold">الصافي</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-app-separator">
-                {units.data.rows.map((row) => (
-                  <tr key={row.operating_unit_id ?? "unallocated"} className="hover:bg-app-fill-f1">
-                    <td className="px-4 py-2 font-bold text-app-label-primary">
-                      {row.operating_unit_id ? row.unit_name : "غير موزّع (على مستوى الشركة)"}
-                    </td>
-                    <td className="px-4 py-2 text-end font-mono">{formatNumber(row.revenue)}</td>
-                    <td className="px-4 py-2 text-end font-mono">{formatNumber(row.expenses)}</td>
-                    <td className={`px-4 py-2 text-end font-mono font-bold ${row.net < 0 ? "text-app-status-danger" : "text-app-status-positive"}`}>
-                      {formatNumber(row.net)}
-                    </td>
-                  </tr>
-                ))}
-                {units.data.rows.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="p-10 text-center text-app-label-tertiary">لا توجد حركة في هذه الفترة.</td>
-                  </tr>
-                )}
-              </tbody>
-              {units.data.rows.length > 0 && (
-                <tfoot className="border-t-2 border-app-separator bg-app-bg-secondary font-bold">
-                  <tr>
-                    <td colSpan={3} className="px-4 py-2.5 text-app-label-primary">صافي الشركة</td>
-                    <td className={`px-4 py-2.5 text-end font-mono ${units.data.total_net < 0 ? "text-app-status-danger" : "text-app-status-positive"}`}>
-                      {formatNumber(units.data.total_net)}
-                    </td>
-                  </tr>
-                </tfoot>
-              )}
-            </table>
-          </div>
+          <DataTable table={unitsTable}>
+            <DataTable.Header>
+              <DataTable.Toolbar>
+                <DataTable.SearchInput placeholder="بحث بالوحدة التشغيلية..." />
+              </DataTable.Toolbar>
+            </DataTable.Header>
+            <DataTable.Content emptyMessage="لا توجد حركة في هذه الفترة." emptyIcon={Landmark} />
+            {units.data.rows.length > 0 && (
+              <div className="flex items-center justify-between gap-4 border-t-2 border-app-separator bg-app-bg-secondary px-4 py-2.5 text-xs font-bold">
+                <span className="text-app-label-primary">صافي الشركة</span>
+                <span
+                  className={`font-mono ${units.data.total_net < 0 ? "text-app-status-danger" : "text-app-status-positive"}`}
+                >
+                  {formatNumber(units.data.total_net)}
+                </span>
+              </div>
+            )}
+            <DataTable.Pagination />
+          </DataTable>
         )
       )}
     </div>

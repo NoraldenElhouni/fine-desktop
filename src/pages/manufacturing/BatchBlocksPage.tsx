@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, Boxes, Plus, Trash2, AlertTriangle, Save, Beaker, ChevronLeft } from "lucide-react";
+import { ArrowRight, Boxes, Plus, AlertTriangle, Save, Beaker, ChevronLeft } from "lucide-react";
 import {
   useProductionBatch,
   useBatchBlocks,
@@ -18,9 +18,13 @@ import {
   BLOCK_ENTRY_STATES,
   NEXT_STATUS,
 } from "../../api/endpoints/production";
-import { StockLot, InventoryItem } from "../../api/endpoints/inventory";
+import { InventoryItem } from "../../api/endpoints/inventory";
 import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { useChemicalConsumptionColumns } from "../../components/table-columns/chemicalConsumptionColumns";
+import { useBatchDraftRowsColumns } from "../../components/table-columns/batchDraftRowsColumns";
+import { useRegisteredBlocksColumns } from "../../components/table-columns/registeredBlocksColumns";
 
 const STATUS_ORDER = [
   "planned", "configured", "running", "consumed",
@@ -38,7 +42,7 @@ const STATUS_LABEL: Record<string, string> = {
   closed: "مغلق",
 };
 
-interface DraftRow {
+export interface DraftRow {
   key: string;
   kind: "block" | "scrap";
   length_m: string;
@@ -109,6 +113,9 @@ export const BatchBlocksPage: React.FC = () => {
 
   const updateRow = (key: string, patch: Partial<DraftRow>) =>
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+
+  const removeRow = (key: string) =>
+    setRows((prev) => prev.filter((r) => r.key !== key));
 
   const hasScrapRow = rows.some((r) => r.kind === "scrap");
 
@@ -196,6 +203,49 @@ export const BatchBlocksPage: React.FC = () => {
       },
     );
   };
+
+  // Chemical consumption report — a handful of lines per batch, no search/pagination needed.
+  const consumptionColumns = useChemicalConsumptionColumns();
+  const consumptionTableData = useMemo(() => consumption?.report.lines ?? [], [consumption]);
+  const consumptionTable = useDataTable({
+    columns: consumptionColumns,
+    data: consumptionTableData,
+    enableSorting: false,
+    enableGlobalFilter: false,
+    enablePagination: false,
+    getRowId: (l) => l.id,
+  });
+
+  // Draft registration rows — a small, user-built list (typically 1-5 rows) edited inline
+  // before submit, so no search/pagination/sorting here either.
+  const draftColumns = useBatchDraftRowsColumns({
+    rowsCount: rows.length,
+    rowTotal,
+    rowVolume,
+    onUpdateRow: updateRow,
+    onRemoveRow: removeRow,
+  });
+  const draftTable = useDataTable({
+    columns: draftColumns,
+    data: rows,
+    enableSorting: false,
+    enableGlobalFilter: false,
+    enablePagination: false,
+    getRowId: (r) => r.key,
+  });
+
+  // Registered blocks — the page's main per-batch list; can grow large, so it gets
+  // sorting/search/pagination like a top-level list would.
+  const blocksColumns = useRegisteredBlocksColumns();
+  const blocksTableData = useMemo(() => blocks ?? [], [blocks]);
+  const blocksTable = useDataTable({
+    columns: blocksColumns,
+    data: blocksTableData,
+    enableSorting: true,
+    enableGlobalFilter: true,
+    pageSize: 10,
+    getRowId: (lot) => lot.id,
+  });
 
   if (batchLoading || !batch) {
     return (
@@ -289,28 +339,9 @@ export const BatchBlocksPage: React.FC = () => {
         </div>
 
         {consumption ? (
-          <table className="w-full text-start text-xs">
-            <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
-              <tr>
-                <th className="px-4 py-2 text-start">المادة الكيميائية</th>
-                <th className="px-4 py-2 text-start">المستهلك</th>
-                <th className="px-4 py-2 text-start">تكلفة الوحدة عند الاستهلاك</th>
-                <th className="px-4 py-2 text-end">تكلفة البند</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-app-separator">
-              {consumption.report.lines.map((l) => (
-                <tr key={l.id}>
-                  <td className="px-4 py-2">{l.chemical_item?.name ?? l.chemical_item?.sku ?? "—"}</td>
-                  <td className="px-4 py-2 font-mono">{l.quantity_consumed}</td>
-                  <td className="px-4 py-2 font-mono">{l.unit_cost_at_consumption}</td>
-                  <td className="px-4 py-2 text-end font-mono">
-                    {(Number(l.quantity_consumed) * Number(l.unit_cost_at_consumption)).toFixed(2)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable table={consumptionTable} className="rounded-none border-0 shadow-none bg-transparent">
+            <DataTable.Content emptyMessage="لا توجد بنود استهلاك." emptyIcon={Beaker} />
+          </DataTable>
         ) : (
           <div className="p-4 space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -417,163 +448,27 @@ export const BatchBlocksPage: React.FC = () => {
           </div>
         </div>
 
-        <table className="w-full text-start text-xs">
-          <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
-            <tr>
-              <th className="px-3 py-2 text-start">النوع</th>
-              <th className="px-3 py-2 text-start">الطول (م)</th>
-              <th className="px-3 py-2 text-start">الارتفاع (م)</th>
-              <th className="px-3 py-2 text-start">العدد</th>
-              <th className="px-3 py-2 text-start">الضغط</th>
-              <th className="px-3 py-2 text-start">الدرجة</th>
-              <th className="px-3 py-2 text-start">اللون</th>
-              <th className="px-3 py-2 text-start">تكلفة الوحدة</th>
-              <th className="px-3 py-2 text-end">الحجم (م³)</th>
-              <th className="px-3 py-2" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-app-separator text-app-label-primary">
-            {rows.map((row) => (
-              <tr key={row.key}>
-                <td className="px-3 py-2">
-                  <select
-                    value={row.kind}
-                    onChange={(e) =>
-                      updateRow(row.key, { kind: e.target.value as DraftRow["kind"] })
-                    }
-                    className="w-full px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
-                  >
-                    <option value="block">بلوك</option>
-                    <option value="scrap">هدر</option>
-                  </select>
-                </td>
-                <td className="px-3 py-2">
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    value={row.length_m}
-                    onChange={(e) => updateRow(row.key, { length_m: e.target.value })}
-                    className="w-20 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
-                  />
-                </td>
-                <td className="px-3 py-2">
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    value={row.height_m}
-                    onChange={(e) => updateRow(row.key, { height_m: e.target.value })}
-                    className="w-20 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
-                  />
-                </td>
-                <td className="px-3 py-2">
-                  <input
-                    type="number"
-                    min="1"
-                    value={row.count}
-                    onChange={(e) => updateRow(row.key, { count: e.target.value })}
-                    className="w-16 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
-                  />
-                </td>
-                <td className="px-3 py-2">
-                  {row.kind === "block" ? (
-                    <input
-                      type="number"
-                      min="1"
-                      value={row.pressure}
-                      onChange={(e) => updateRow(row.key, { pressure: e.target.value })}
-                      className="w-16 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
-                    />
-                  ) : (
-                    <span className="text-app-label-tertiary">—</span>
-                  )}
-                </td>
-                <td className="px-3 py-2">
-                  {row.kind === "block" ? (
-                    <select
-                      value={row.grade}
-                      onChange={(e) =>
-                        updateRow(row.key, { grade: e.target.value as DraftRow["grade"] })
-                      }
-                      className="px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
-                    >
-                      <option value="standard">قياسي</option>
-                      <option value="acceptable_variant">متغيّر مقبول</option>
-                      <option value="defective_usable">معيب قابل للاستخدام</option>
-                      <option value="reject">مرفوض</option>
-                    </select>
-                  ) : (
-                    <span className="text-app-label-tertiary">—</span>
-                  )}
-                </td>
-                <td className="px-3 py-2">
-                  {row.kind === "block" ? (
-                    <input
-                      type="text"
-                      value={row.color}
-                      onChange={(e) => updateRow(row.key, { color: e.target.value })}
-                      className="w-20 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
-                    />
-                  ) : (
-                    <span className="text-app-label-tertiary">—</span>
-                  )}
-                </td>
-                <td className="px-3 py-2">
-                  {row.kind === "block" ? (
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={row.unit_cost}
-                      onChange={(e) => updateRow(row.key, { unit_cost: e.target.value })}
-                      className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
-                    />
-                  ) : (
-                    <span className="text-app-label-tertiary">—</span>
-                  )}
-                </td>
-                <td className="px-3 py-2 text-end font-mono text-app-label-secondary">
-                  <div className="font-bold text-app-label-primary">
-                    {rowTotal(row).toFixed(4)}
-                  </div>
-                  <div className="text-[10px]">{rowVolume(row).toFixed(4)} لكل واحدة</div>
-                </td>
-                <td className="px-3 py-2 text-end">
-                  {rows.length > 1 && (
-                    <button
-                      onClick={() => setRows((prev) => prev.filter((r) => r.key !== row.key))}
-                      className="p-1.5 rounded-lg text-app-label-tertiary hover:bg-app-fill-f1 hover:text-app-status-danger transition-colors"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot className="border-t-2 border-app-separator bg-app-bg-secondary font-bold text-app-label-primary">
-            <tr>
-              <td className="px-3 py-3" colSpan={3}>
-                إجمالي التشغيلة
-              </td>
-              <td className="px-3 py-3 font-mono">{totals.blockCount}</td>
-              <td className="px-3 py-3 text-app-label-secondary font-normal" colSpan={4}>
-                بلوك
-                {totals.scrapVolume > 0 && (
-                  <span className="ms-2">
-                    · هدر{" "}
-                    <span className="font-mono">{totals.scrapVolume.toFixed(4)} م³</span>
-                  </span>
-                )}
-              </td>
-              <td className="px-3 py-3 text-end font-mono">
-                {(totals.blockVolume + totals.scrapVolume).toFixed(4)}
-              </td>
-              <td />
-            </tr>
-          </tfoot>
-        </table>
+        <DataTable table={draftTable} className="rounded-none border-0 shadow-none bg-transparent">
+          <DataTable.Content />
+        </DataTable>
+
+        {/* DataTable.Content has no tfoot slot, so the running totals render as a matching summary bar. */}
+        <div className="flex flex-wrap items-center gap-3 border-t-2 border-app-separator bg-app-bg-secondary px-3 py-3 text-xs font-bold text-app-label-primary">
+          <span>إجمالي التشغيلة</span>
+          <span className="font-mono">{totals.blockCount}</span>
+          <span className="text-app-label-secondary font-normal">
+            بلوك
+            {totals.scrapVolume > 0 && (
+              <span className="ms-2">
+                · هدر{" "}
+                <span className="font-mono">{totals.scrapVolume.toFixed(4)} م³</span>
+              </span>
+            )}
+          </span>
+          <span className="ms-auto font-mono">
+            {(totals.blockVolume + totals.scrapVolume).toFixed(4)}
+          </span>
+        </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-app-separator px-4 py-3">
           <button
@@ -607,53 +502,19 @@ export const BatchBlocksPage: React.FC = () => {
           </span>
         </div>
 
-        {blocksLoading ? (
-          <div className="flex h-32 items-center justify-center text-xs text-app-label-secondary">
-            جاري تحميل البلوكات…
-          </div>
-        ) : (
-          <table className="w-full text-start text-xs">
-            <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
-              <tr>
-                <th className="px-4 py-3 text-start">كود البلوك</th>
-                <th className="px-4 py-3 text-start">التسلسل</th>
-                <th className="px-4 py-3 text-start">الضغط</th>
-                <th className="px-4 py-3 text-start">الأبعاد</th>
-                <th className="px-4 py-3 text-start">الحجم</th>
-                <th className="px-4 py-3 text-start">الدرجة</th>
-                <th className="px-4 py-3 text-start">الحالة</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-app-separator text-app-label-primary">
-              {blocks?.map((lot: StockLot) => (
-                <tr key={lot.id} className="hover:bg-app-fill-f1 transition-colors">
-                  <td className="px-4 py-3 font-mono font-bold text-app-accent">
-                    {lot.lot_number}
-                  </td>
-                  <td className="px-4 py-3 font-mono">{lot.sequence_in_batch ?? "—"}</td>
-                  <td className="px-4 py-3 font-mono">{lot.pressure ?? "—"}</td>
-                  <td className="px-4 py-3 font-mono text-app-label-secondary">
-                    {lot.length_m}م × {lot.width_m}م × {lot.height_m}م
-                  </td>
-                  <td className="px-4 py-3 font-mono">{lot.volume_m3} م³</td>
-                  <td className="px-4 py-3">
-                    <span className="px-2 py-1 text-xs font-semibold rounded-full bg-app-accent-subtle text-app-accent">
-                      {lot.grade}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-app-label-secondary">{lot.status}</td>
-                </tr>
-              ))}
-              {blocks?.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-app-label-tertiary">
-                    لا توجد بلوكات مسجلة لهذه العملية بعد.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
+        <DataTable table={blocksTable} className="rounded-none border-0 shadow-none bg-transparent">
+          <DataTable.Header>
+            <DataTable.Toolbar>
+              <DataTable.SearchInput placeholder="بحث في البلوكات..." />
+            </DataTable.Toolbar>
+          </DataTable.Header>
+          <DataTable.Content
+            isLoading={blocksLoading}
+            emptyMessage="لا توجد بلوكات مسجلة لهذه العملية بعد."
+            emptyIcon={Boxes}
+          />
+          <DataTable.Pagination />
+        </DataTable>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Factory, Plus, RefreshCw, AlertTriangle, Boxes, Trash2 } from "lucide-react";
+import { Factory, Plus, RefreshCw, AlertTriangle } from "lucide-react";
 import {
   useProductionBatches,
   useCreateProductionBatch,
@@ -16,17 +16,8 @@ import {
   NonSequentialOperationError,
 } from "../../api/endpoints/production";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
-
-const STATUS_LABELS: Record<string, string> = {
-  planned: "مخطط",
-  configured: "تم الإعداد",
-  running: "قيد التشغيل",
-  consumed: "مستهلك",
-  curing: "قيد التصلب",
-  ready_for_grading: "جاهز للفرز",
-  graded: "تم الفرز",
-  closed: "مغلق",
-};
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { useProductionBatchesColumns } from "../../components/table-columns/productionBatchesColumns";
 
 const emptyForm = {
   operation_number: "",
@@ -101,6 +92,23 @@ export const ProductionBatchesPage: React.FC = () => {
     });
   };
 
+  const openBlocks = (batch: ProductionBatch) => navigate(`/manufacturing/batches/${batch.id}`);
+
+  const columns = useProductionBatchesColumns({
+    onOpenBlocks: openBlocks,
+    onDelete: handleDelete,
+  });
+
+  const tableData = useMemo(() => batches, [batches]);
+  const batchesTable = useDataTable({
+    columns,
+    data: tableData,
+    enableSorting: true,
+    enableGlobalFilter: true,
+    pageSize: 10,
+    getRowId: (b) => b.id,
+  });
+
   return (
     <div className="space-y-6 p-6" dir="rtl">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -142,83 +150,19 @@ export const ProductionBatchesPage: React.FC = () => {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
-        {isLoading ? (
-          <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">
-            جاري تحميل دفعات الإنتاج…
-          </div>
-        ) : (
-          <table className="w-full text-start text-xs">
-            <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
-              <tr>
-                <th className="px-4 py-3 text-start">رقم العملية</th>
-                <th className="px-4 py-3 text-start">عرض الكتلة</th>
-                <th className="px-4 py-3 text-start">الكثافة / الوقت / السرعة</th>
-                <th className="px-4 py-3 text-start">البلوكات</th>
-                <th className="px-4 py-3 text-start">الهدر</th>
-                <th className="px-4 py-3 text-start">الحالة</th>
-                <th className="px-4 py-3 text-end">الإجراءات</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-app-separator text-app-label-primary">
-              {batches.map((batch) => (
-                <tr key={batch.id} className="hover:bg-app-fill-f1 transition-colors">
-                  <td className="px-4 py-3 font-mono font-bold text-app-accent">
-                    {batch.operation_number}
-                  </td>
-                  <td className="px-4 py-3 font-mono">{batch.bun_width_m} م</td>
-                  <td className="px-4 py-3 text-app-label-secondary font-mono">
-                    {batch.formula_params?.density_band ?? "—"}
-                    {" · "}
-                    {batch.formula_params?.cure_time_minutes ?? "—"} دقيقة
-                    {" · "}
-                    {batch.formula_params?.conveyor_speed ?? "—"}
-                  </td>
-                  <td className="px-4 py-3 font-bold">{batch.blocks_count ?? 0}</td>
-                  <td className="px-4 py-3 font-mono text-app-label-secondary">
-                    {Number(batch.scrap_volume_m3).toFixed(3)} م³
-                    {(batch.scrap_lots_count ?? 0) > 0 && (
-                      <span className="text-app-label-tertiary">
-                        {" "}({batch.scrap_lots_count} لوت)
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="px-2 py-1 text-xs font-semibold rounded-full bg-app-accent-subtle text-app-accent">
-                      {STATUS_LABELS[batch.status] ?? batch.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-end">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => navigate(`/manufacturing/batches/${batch.id}`)}
-                        className="inline-flex items-center gap-1 rounded-xl bg-app-accent px-2.5 py-1 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all"
-                      >
-                        <Boxes className="w-3.5 h-3.5" /> البلوكات
-                      </button>
-                      {(batch.blocks_count ?? 0) === 0 && (batch.scrap_lots_count ?? 0) === 0 && (
-                        <button
-                          onClick={() => handleDelete(batch)}
-                          className="inline-flex items-center gap-1 rounded-xl border border-app-separator px-2.5 py-1 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {batches.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-app-label-tertiary">
-                    لا توجد دفعات إنتاج مسجلة بعد.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <DataTable table={batchesTable}>
+        <DataTable.Header>
+          <DataTable.Toolbar>
+            <DataTable.SearchInput placeholder="بحث برقم العملية أو الحالة..." />
+          </DataTable.Toolbar>
+        </DataTable.Header>
+        <DataTable.Content
+          isLoading={isLoading}
+          emptyMessage="لا توجد دفعات إنتاج مسجلة بعد."
+          emptyIcon={Factory}
+        />
+        <DataTable.Pagination />
+      </DataTable>
 
       <Dialog
         open={showForm}

@@ -2,7 +2,9 @@ import React, { useMemo, useState } from "react";
 import { ListTree, X } from "lucide-react";
 import { useAccounts, useAccountLedger } from "../../hooks/useAccounting";
 import { ACCOUNT_TYPE_LABEL, type Account } from "../../api/endpoints/accounting";
-import { formatDate, formatNumber } from "../../lib/utils/format";
+import { formatNumber } from "../../lib/utils/format";
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { useChartOfAccountsLedgerColumns } from "../../components/table-columns/chartOfAccountsColumns";
 
 const TYPE_STYLE: Record<Account["type"], string> = {
   asset: "bg-app-accent-subtle text-app-accent",
@@ -39,6 +41,17 @@ export const ChartOfAccountsPage: React.FC = () => {
   const { data: ledger, isLoading: ledgerLoading } = useAccountLedger(selected?.id, ledgerPage);
 
   const tree = useMemo(() => buildTree(accounts ?? []), [accounts]);
+
+  const ledgerColumns = useChartOfAccountsLedgerColumns();
+  const ledgerData = useMemo(() => ledger?.data ?? [], [ledger]);
+  const ledgerTable = useDataTable({
+    columns: ledgerColumns,
+    data: ledgerData,
+    enableSorting: false,
+    enableGlobalFilter: false,
+    enablePagination: false,
+    getRowId: (l) => l.id,
+  });
 
   const renderNode = (node: TreeNode, depth: number): React.ReactNode => (
     <React.Fragment key={node.account.id}>
@@ -98,33 +111,9 @@ export const ChartOfAccountsPage: React.FC = () => {
               <div className="flex h-32 items-center justify-center text-xs text-app-label-secondary">جارٍ التحميل…</div>
             ) : (
               <>
-                <table className="w-full text-xs">
-                  <thead className="text-app-label-secondary border-b border-app-separator">
-                    <tr>
-                      <th className="px-3 py-2 text-start font-bold">المرجع</th>
-                      <th className="px-3 py-2 text-start font-bold">التاريخ</th>
-                      <th className="px-3 py-2 text-start font-bold">الوصف</th>
-                      <th className="px-3 py-2 text-end font-bold">مدين</th>
-                      <th className="px-3 py-2 text-end font-bold">دائن</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-app-separator">
-                    {ledger?.data.map((line) => (
-                      <tr key={line.id}>
-                        <td className="px-3 py-2 font-mono font-bold text-app-accent">{line.journal_entry?.reference}</td>
-                        <td className="px-3 py-2 font-mono text-app-label-secondary">{line.journal_entry?.entry_date ? formatDate(line.journal_entry.entry_date) : ""}</td>
-                        <td className="px-3 py-2 text-app-label-secondary">{line.journal_entry?.description}</td>
-                        <td className="px-3 py-2 text-end font-mono">{Number(line.debit) > 0 ? formatNumber(line.debit) : ""}</td>
-                        <td className="px-3 py-2 text-end font-mono">{Number(line.credit) > 0 ? formatNumber(line.credit) : ""}</td>
-                      </tr>
-                    ))}
-                    {ledger?.data.length === 0 && (
-                      <tr>
-                        <td colSpan={5} className="p-6 text-center text-app-label-tertiary">لا توجد حركة على هذا الحساب.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                <DataTable table={ledgerTable} className="rounded-none border-0 shadow-none">
+                  <DataTable.Content emptyMessage="لا توجد حركة على هذا الحساب." />
+                </DataTable>
 
                 {ledger && ledger.last_page > 1 && (
                   <div className="flex items-center justify-center gap-3 p-3 text-xs border-t border-app-separator">

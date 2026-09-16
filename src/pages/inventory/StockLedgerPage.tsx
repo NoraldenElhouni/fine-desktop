@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useStockLots, useInventoryValuation, useProcessCutRemnant } from "../../hooks/useInventory";
 import { useItemCategories } from "../../hooks/useCategories";
 import { StockLot } from "../../api/endpoints/inventory";
@@ -6,6 +6,8 @@ import { formatNumber } from "../../lib/utils/format";
 import { Layers, Box, CheckCircle, DollarSign, RefreshCw, Scissors, AlertCircle, Tags } from "lucide-react";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { useStockLedgerColumns } from "../../components/table-columns/stockLedgerColumns";
 
 export const StockLedgerPage: React.FC = () => {
   const [gradeFilter, setGradeFilter] = useState("");
@@ -53,6 +55,25 @@ export const StockLedgerPage: React.FC = () => {
       }
     );
   };
+
+  const openCutModal = (lot: StockLot) => {
+    setSelectedLotForCut(lot);
+    setLengthM(lot.length_m ? Number((lot.length_m / 2).toFixed(2)) : 1.0);
+    setWidthM(lot.width_m || 2.0);
+    setHeightM(lot.height_m || 1.0);
+  };
+
+  const columns = useStockLedgerColumns({ onOpenCutModal: openCutModal });
+
+  const tableData = useMemo(() => lotData?.data ?? [], [lotData]);
+  const stockLotsTable = useDataTable({
+    columns,
+    data: tableData,
+    enableSorting: true,
+    enableGlobalFilter: false,
+    pageSize: 10,
+    getRowId: (lot) => lot.id,
+  });
 
   return (
     <div className="space-y-6 p-6" dir="rtl">
@@ -156,102 +177,14 @@ export const StockLedgerPage: React.FC = () => {
       </div>
 
       {/* Stock Lots Table */}
-      <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
-        {isLoading ? (
-          <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">جاري تحميل دفعات المخزون…</div>
-        ) : (
-          <table className="w-full text-start text-xs">
-            <thead className="border-b border-app-separator bg-app-bg-secondary text-app-label-secondary font-bold">
-              <tr>
-                <th className="px-4 py-3 text-start">رقم الدفعة</th>
-                <th className="px-4 py-3 text-start">الصنف / رمز الصنف (SKU)</th>
-                <th className="px-4 py-3 text-start">كمية الحاوية والقياس</th>
-                <th className="px-4 py-3 text-start">الأبعاد / الخصائص</th>
-                <th className="px-4 py-3 text-start">سعر الوحدة</th>
-                <th className="px-4 py-3 text-start">الدرجة</th>
-                <th className="px-4 py-3 text-start">الحالة</th>
-                <th className="px-4 py-3 text-end">إجراء التشذيب</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-app-separator text-app-label-primary">
-              {lotData?.data.map((lot: StockLot) => (
-                <tr key={lot.id} className="hover:bg-app-fill-f1 transition-colors">
-                  <td className="px-4 py-3 font-mono font-bold text-app-accent">{lot.lot_number}</td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-app-label-primary">{lot.inventory_item?.name || "قالب إسفنج"}</div>
-                    <div className="text-xs text-app-label-tertiary font-mono">{lot.inventory_item?.sku}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="font-bold text-app-label-primary">
-                      {lot.container_quantity || 1} {lot.inventory_item?.primary_uom || "unit"}
-                    </div>
-                    <div className="text-xs text-indigo-600 font-mono">
-                      {lot.volume_m3 ? `${lot.volume_m3} m³` : `${lot.quantity} ${lot.inventory_item?.secondary_uom || lot.inventory_item?.unit_of_measure || ""}`}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-xs font-mono text-app-label-secondary">
-                    {lot.length_m ? (
-                      <div>{`${lot.length_m}m × ${lot.width_m}m × ${lot.height_m}m`}</div>
-                    ) : null}
-                    {lot.attribute_values && Object.keys(lot.attribute_values).length > 0 ? (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {Object.entries(lot.attribute_values).map(([k, v]) => (
-                          <span key={k} className="px-1.5 py-0.5 text-[10px] rounded bg-slate-100 text-slate-700 font-sans">
-                            {k}: <strong>{String(v)}</strong>
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-app-label-primary">
-                    {formatNumber(lot.unit_cost)} LYD
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">
-                      {lot.grade}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        lot.status === "available"
-                          ? "bg-emerald-100 text-emerald-800"
-                          : "bg-app-fill-f1 text-app-label-secondary"
-                      }`}
-                    >
-                      {lot.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-end">
-                    {lot.status === "available" && lot.length_m ? (
-                      <button
-                        onClick={() => {
-                          setSelectedLotForCut(lot);
-                          setLengthM(lot.length_m ? Number((lot.length_m / 2).toFixed(2)) : 1.0);
-                          setWidthM(lot.width_m || 2.0);
-                          setHeightM(lot.height_m || 1.0);
-                        }}
-                        className="inline-flex items-center gap-1 rounded-xl bg-app-accent px-2.5 py-1 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all"
-                      >
-                        <Scissors className="w-3.5 h-3.5" /> تشذيب البقايا
-                      </button>
-                    ) : (
-                      <span className="text-xs text-app-label-tertiary">--</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {lotData?.data.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-app-label-tertiary">
-                    لا توجد دفعات مخزون مسلسلة مطابقة للمرشحات.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <DataTable table={stockLotsTable}>
+        <DataTable.Content
+          isLoading={isLoading}
+          emptyMessage="لا توجد دفعات مخزون مسلسلة مطابقة للمرشحات."
+          emptyIcon={Layers}
+        />
+        <DataTable.Pagination />
+      </DataTable>
 
       {/* Option C: Cutter Completion Modal */}
       <Dialog open={Boolean(selectedLotForCut)} onOpenChange={(next) => !next && setSelectedLotForCut(null)}>

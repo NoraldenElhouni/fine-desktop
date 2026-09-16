@@ -1,15 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { CalendarCheck2, AlertTriangle, Save } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAttendance, useSaveAttendance } from "../../hooks/useHr";
 import { getEmployees } from "../../api/endpoints/employees";
 import { apiErrorPayload } from "../../api/endpoints/production";
-import { ATTENDANCE_STATUS_LABEL, type AttendanceStatus } from "../../api/endpoints/hr";
-
-interface RowState {
-  status: AttendanceStatus;
-  hours: string;
-}
+import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { useAttendanceColumns, type RowState } from "../../components/table-columns/attendanceColumns";
 
 const DEFAULT_ROW: RowState = { status: "present", hours: "8" };
 
@@ -41,6 +37,18 @@ export const AttendancePage: React.FC = () => {
 
   const patch = (employeeId: string, patch: Partial<RowState>) =>
     setRows((prev) => ({ ...prev, [employeeId]: { ...rowFor(employeeId), ...patch } }));
+
+  const columns = useAttendanceColumns({ rowFor, onPatch: patch, rows });
+
+  const tableData = useMemo(() => employees ?? [], [employees]);
+  const attendanceTable = useDataTable({
+    columns,
+    data: tableData,
+    enableSorting: true,
+    enableGlobalFilter: true,
+    pageSize: 10,
+    getRowId: (e) => e.id,
+  });
 
   const save = () => {
     setError(null);
@@ -104,62 +112,19 @@ export const AttendancePage: React.FC = () => {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
-        {isLoading ? (
-          <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">جارٍ التحميل…</div>
-        ) : (
-          <table className="w-full text-xs">
-            <thead className="text-app-label-secondary border-b border-app-separator bg-app-bg-secondary">
-              <tr>
-                <th className="px-4 py-2.5 text-start font-bold">الموظف</th>
-                <th className="px-4 py-2.5 text-start font-bold">الوظيفة</th>
-                <th className="px-4 py-2.5 text-start font-bold">الحالة</th>
-                <th className="px-4 py-2.5 text-start font-bold">الساعات</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-app-separator">
-              {employees?.map((employee) => {
-                const row = rowFor(employee.id);
-                const payable = row.status === "present" || row.status === "half_day";
-
-                return (
-                  <tr key={employee.id} className="hover:bg-app-fill-f1">
-                    <td className="px-4 py-2 font-bold text-app-label-primary">
-                      {employee.entity?.name ?? employee.job_title}
-                    </td>
-                    <td className="px-4 py-2 text-app-label-secondary">{employee.job_title}</td>
-                    <td className="px-4 py-2">
-                      <select
-                        value={row.status}
-                        onChange={(e) => patch(employee.id, { status: e.target.value as AttendanceStatus })}
-                        className="rounded-lg border border-app-separator bg-app-bg-secondary px-2 py-1.5 text-xs focus:border-app-accent focus:outline-none"
-                      >
-                        {(Object.keys(ATTENDANCE_STATUS_LABEL) as AttendanceStatus[]).map((s) => (
-                          <option key={s} value={s}>{ATTENDANCE_STATUS_LABEL[s]}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-4 py-2">
-                      <input
-                        type="number" step="0.5" min="0" max="24"
-                        value={payable ? row.hours : "0"}
-                        disabled={!payable}
-                        onChange={(e) => patch(employee.id, { hours: e.target.value })}
-                        className="w-20 rounded-lg border border-app-separator bg-app-bg-secondary px-2 py-1.5 text-xs font-mono focus:border-app-accent focus:outline-none disabled:opacity-40"
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-              {!employees?.length && (
-                <tr>
-                  <td colSpan={4} className="p-10 text-center text-app-label-tertiary">لا يوجد موظفون مسجلون.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <DataTable table={attendanceTable}>
+        <DataTable.Header>
+          <DataTable.Toolbar>
+            <DataTable.SearchInput placeholder="بحث عن موظف..." />
+          </DataTable.Toolbar>
+        </DataTable.Header>
+        <DataTable.Content
+          isLoading={isLoading}
+          emptyMessage="لا يوجد موظفون مسجلون."
+          emptyIcon={CalendarCheck2}
+        />
+        <DataTable.Pagination />
+      </DataTable>
     </div>
   );
 };
