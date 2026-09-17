@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { KeyRound, Pencil, ShieldCheck, UserCheck, UserX, Trash2 } from "lucide-react";
+import { KeyRound, Pencil, ShieldCheck, Undo2, UserCheck, UserX, Trash2 } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { RowActionsMenu, RowActionItem } from "../ui/RowActionsMenu";
 import { AppUser } from "../../api/endpoints/users";
@@ -11,6 +11,7 @@ export interface UseUsersColumnsArgs {
   onEdit: (user: AppUser) => void;
   onToggleActive: (user: AppUser) => void;
   onDelete: (user: AppUser) => void;
+  onRestore: (user: AppUser) => void;
 }
 
 export function useUsersColumns({
@@ -20,6 +21,7 @@ export function useUsersColumns({
   onEdit,
   onToggleActive,
   onDelete,
+  onRestore,
 }: UseUsersColumnsArgs): ColumnDef<AppUser, unknown>[] {
   return useMemo<ColumnDef<AppUser, unknown>[]>(
     () => [
@@ -91,6 +93,18 @@ export function useUsersColumns({
         meta: { align: "end" },
         cell: ({ row }) => {
           const u = row.original;
+          if (u.deleted_at) {
+            return (
+              <button
+                type="button"
+                onClick={() => onRestore(u)}
+                className="rounded-lg border border-app-accent/40 bg-app-accent/10 px-2 py-1 text-[11px] font-bold text-app-accent hover:bg-app-accent/20"
+              >
+                <Undo2 className="me-1 inline h-3 w-3" />
+                استعادة
+              </button>
+            );
+          }
           const items: RowActionItem[] = [
             { label: "الأدوار", icon: ShieldCheck, onClick: () => onOpenRoles(u) },
             { label: "تعديل", icon: Pencil, onClick: () => onEdit(u) },
@@ -112,6 +126,6 @@ export function useUsersColumns({
         },
       },
     ],
-    [currentUserId, unitName, onOpenRoles, onEdit, onToggleActive, onDelete]
+    [currentUserId, unitName, onOpenRoles, onEdit, onToggleActive, onDelete, onRestore]
   );
 }

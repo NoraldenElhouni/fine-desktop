@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usersApi } from "../api/endpoints/users";
 
-export function useUsers() {
+export function useUsers(options: { withTrashed?: boolean } = {}) {
   return useQuery({
-    queryKey: ["users"],
-    queryFn: async () => (await usersApi.list()).data.data,
+    queryKey: ["users", options],
+    queryFn: async () => (await usersApi.list({ withTrashed: options.withTrashed })).data.data,
   });
 }
 
@@ -39,6 +39,10 @@ export function useUpdateUser() {
 
 export function useDeleteUser() {
   return useUserAction((id: string) => usersApi.delete(id));
+}
+
+export function useRestoreUser() {
+  return useUserAction((id: string) => usersApi.restore(id));
 }
 
 export function useAssignRole() {

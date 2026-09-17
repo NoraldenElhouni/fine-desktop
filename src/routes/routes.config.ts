@@ -13,6 +13,7 @@ import {
   CalendarOff,
   Droplets,
   Factory,
+  Layers,
   LayoutGrid,
   ListTree,
   Package,
@@ -44,6 +45,8 @@ export interface BreadcrumbEntry {
 export const navItems: AppNavItem[] = [
   { id: "dashboard", path: "/", label: "لوحة التحكم", icon: LayoutGrid },
   { id: "admin-entities", path: "/admin/entities", label: "إدارة الكيانات (مشرف)", icon: Building2, allowedRoles: ["owner", "admin"] },
+  { id: "admin-units", path: "/admin/units", label: "إدارة الوحدات التشغيلية", icon: Building, allowedRoles: ["owner", "admin"] },
+  { id: "admin-blueprints", path: "/admin/blueprints", label: "قوالب الوحدات", icon: Layers, allowedRoles: ["owner", "admin"] },
   { id: "suppliers", path: "/suppliers", label: "الموردون", icon: Truck, allowedRoles: ["owner", "admin", "procurement-manager", "treasury-officer", "accounting-manager", "unit_manager", "manager"] },
   { id: "import-orders", path: "/import-orders", label: "أوامر الاستيراد", icon: Package, allowedRoles: ["owner", "admin", "procurement-manager", "treasury-officer", "accounting-manager", "unit_manager", "manager"] },
   { id: "treasury", path: "/treasury", label: "الخزينة وسعر الصرف", icon: Wallet, allowedRoles: ["owner", "admin", "treasury-officer", "accounting-manager", "procurement-manager", "unit_manager", "manager"] },
