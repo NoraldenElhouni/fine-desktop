@@ -63,6 +63,7 @@ export interface Employee {
   id: string;
   entity_id: string;
   operating_unit_id: string;
+  operating_unit?: { id: string; name: string };
   employer_entity_id?: string | null;
   job_title: string;
   labor_role?: string | null;
@@ -82,6 +83,7 @@ export interface Client {
   id: string;
   entity_id: string;
   operating_unit_id: string;
+  operating_unit?: { id: string; name: string };
   credit_limit: string | number;
   current_balance?: string | number;
   payment_terms_days: number;
