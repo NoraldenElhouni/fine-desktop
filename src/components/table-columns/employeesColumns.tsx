@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Briefcase, Building } from "lucide-react";
+import { Briefcase } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { Employee } from "../../types/entities";
 import { formatNumber } from "../../lib/utils/format";
@@ -38,23 +38,6 @@ export function useEmployeesColumns(): ColumnDef<Employee, unknown>[] {
             )}
           </div>
         ),
-      },
-      {
-        id: "employer",
-        header: "الجهة المشغلة (Employer)",
-        accessorFn: (emp) => emp.employer_entity?.name ?? "",
-        cell: ({ row }) => {
-          const emp = row.original;
-          const isExternal = Boolean(emp.employer_entity_id);
-          return isExternal ? (
-            <div className="flex items-center gap-1 text-app-status-warning">
-              <Building className="h-3.5 w-3.5" />
-              <span className="font-semibold">{emp.employer_entity?.name || "جهة مشغلة خارجية"}</span>
-            </div>
-          ) : (
-            <span className="text-app-label-secondary font-medium">عمالة مباشرة للمصنع</span>
-          );
-        },
       },
       {
         accessorKey: "pay_type",

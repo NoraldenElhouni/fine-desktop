@@ -1,6 +1,6 @@
 export type EntityType = 'individual' | 'organization';
 
-export type EntityRoleType = 'employee' | 'client' | 'vendor' | 'external_employer';
+export type EntityRoleType = 'employee' | 'client' | 'vendor';
 
 export type PayType = 'hourly' | 'monthly' | 'piece_rate';
 
@@ -54,7 +54,6 @@ export interface Entity {
   primary_contact?: EntityContact | null;
   employee?: Employee | null;
   client?: Client | null;
-  external_employer?: ExternalEmployer | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -63,7 +62,6 @@ export interface Employee {
   id: string;
   entity_id: string;
   operating_unit_id: string;
-  employer_entity_id?: string | null;
   job_title: string;
   labor_role?: string | null;
   pay_type: PayType;
@@ -73,7 +71,6 @@ export interface Employee {
   status: EmployeeStatus;
   record_version?: number;
   entity?: Entity;
-  employer_entity?: Entity | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -93,24 +90,12 @@ export interface Client {
   updated_at?: string;
 }
 
-export interface ExternalEmployer {
-  id: string;
-  entity_id: string;
-  contract_reference?: string | null;
-  billing_rate_multiplier: string | number;
-  account_id?: string | null;
-  entity?: Entity;
-  created_at?: string;
-  updated_at?: string;
-}
-
 export interface CreateEmployeePayload {
   entity_id?: string;
   name?: string;
   entity_type?: EntityType;
   tax_number?: string;
   operating_unit_id: string;
-  employer_entity_id?: string | null;
   job_title: string;
   labor_role?: string | null;
   pay_type: PayType;
@@ -130,15 +115,4 @@ export interface CreateClientPayload {
   payment_terms_days?: number;
   account_id?: string | null;
   status?: ClientStatus;
-}
-
-export interface CreateExternalEmployerPayload {
-  entity_id?: string;
-  name?: string;
-  entity_type?: EntityType;
-  tax_number?: string;
-  operating_unit_id: string;
-  contract_reference?: string;
-  billing_rate_multiplier?: number;
-  account_id?: string | null;
 }

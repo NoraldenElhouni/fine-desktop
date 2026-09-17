@@ -30,10 +30,10 @@ export const categoryGroups: CategoryGroup[] = [
   {
     id: "partners",
     label: "الكيانات والشركاء",
-    description: "إدارة الكيانات المستقلة والعملاء والموردين والجهات المشغلة والعمالة",
+    description: "إدارة الكيانات المستقلة والعملاء والموردين والعمالة",
     icon: Building2,
     path: "/hub/partners",
-    itemIds: ["suppliers", "clients", "external-employers", "employees"],
+    itemIds: ["suppliers", "clients", "employees"],
     get items() {
       return findItems(this.itemIds);
     },
