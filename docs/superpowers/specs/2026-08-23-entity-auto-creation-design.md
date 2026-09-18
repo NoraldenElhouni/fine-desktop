@@ -8,7 +8,7 @@
 
 ## 1. Executive Summary & Goal
 
-Streamline data entry across **Al-Amana Foam & Furniture Co.** management modules by eliminating prerequisite entity creation steps. Users will create Clients, Employees, Suppliers, and External Employers directly through single-step creation modals. The system will automatically create and link the underlying `Entity` record (capturing name, type, tax number, and contact info) transparently in a single transaction.
+Streamline data entry across **Fine** management modules by eliminating prerequisite entity creation steps. Users will create Clients, Employees, Suppliers, and External Employers directly through single-step creation modals. The system will automatically create and link the underlying `Entity` record (capturing name, type, tax number, and contact info) transparently in a single transaction.
 
 ---
 

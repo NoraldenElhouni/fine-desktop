@@ -17,6 +17,7 @@ export interface RoleEntry {
   pivot?: { operating_unit_id: string | null };
   created_at?: string;
   updated_at?: string;
+  deleted_at?: string | null;
 }
 
 export interface RolePayload {
@@ -33,10 +34,15 @@ export interface RoleUpdatePayload {
 }
 
 export const rolesApi = {
-  list: () => apiClient.get<{ data: RoleEntry[] }>("/roles"),
+  list: (options: { withTrashed?: boolean } = {}) =>
+    apiClient.get<{ data: RoleEntry[] }>("/roles", {
+      params: options.withTrashed ? { with_trashed: 1 } : {},
+    }),
 
-  show: (id: string) =>
-    apiClient.get<{ data: RoleEntry }>(`/roles/${id}`),
+  show: (id: string, options: { withTrashed?: boolean } = {}) =>
+    apiClient.get<{ data: RoleEntry }>(`/roles/${id}`, {
+      params: options.withTrashed ? { with_trashed: 1 } : {},
+    }),
 
   permissions: () =>
     apiClient.get<{ data: PermissionEntry[] }>("/permissions"),
@@ -49,4 +55,7 @@ export const rolesApi = {
 
   delete: (id: string) =>
     apiClient.delete<{ message: string }>(`/roles/${id}`),
+
+  restore: (id: string) =>
+    apiClient.post<{ data: RoleEntry }>(`/roles/${id}/restore`),
 };

@@ -10,6 +10,7 @@ import { useAuthStore } from "../../stores/authStore";
 import { useLogoutMutation } from "../../hooks/useAuthQuery";
 import { useServerConfigStore } from "../../stores/serverConfigStore";
 import { useOperatingUnits } from "../../hooks/usePartners";
+import { useIsCompanyWide } from "../../hooks/useAccounting";
 
 interface AppShellProps {
   children: ReactNode;
@@ -24,8 +25,17 @@ const AppShell = ({ children }: AppShellProps) => {
   const location = useLocation();
 
   const { data: operatingUnits } = useOperatingUnits();
+  const isCompanyWide = useIsCompanyWide();
 
   useEffect(() => {
+    // Unit-scoped users get auto-pinned to the only unit their role binds them
+    // to. Company-wide users (owner, admin, accounting manager) land with no
+    // unit pinned so they can see every unit's data simultaneously; they can
+    // pick one from the navbar switcher if they want to drill down.
+    if (isCompanyWide) {
+      return;
+    }
+
     if (!operatingUnitId && operatingUnits && operatingUnits.length > 0) {
       setOperatingUnitId(operatingUnits[0].id);
       return;
@@ -38,7 +48,7 @@ const AppShell = ({ children }: AppShellProps) => {
     ) {
       setOperatingUnitId(null);
     }
-  }, [operatingUnitId, operatingUnits, setOperatingUnitId]);
+  }, [isCompanyWide, operatingUnitId, operatingUnits, setOperatingUnitId]);
 
   const handleLogout = () => {
     logoutMutation.mutate(undefined, {

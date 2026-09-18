@@ -99,7 +99,7 @@ export const categoryGroups: CategoryGroup[] = [
     description: "إدارة حسابات المستخدمين وصلاحيات الأدوار وسجلات الأمان في النظام",
     icon: ShieldCheck,
     path: "/hub/admin",
-    itemIds: ["users", "admin-entities"],
+    itemIds: ["users", "admin-entities", "admin-units", "admin-blueprints"],
     get items() {
       return findItems(this.itemIds);
     },

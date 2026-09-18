@@ -4,8 +4,10 @@ import { useRouteDisplayName } from "../../../hooks/useRouteDisplayName";
 import { getBreadcrumbEntries } from "../../../routes/routes.config";
 import Breadcrumb from "../Breadcrumb/Breadcrumb";
 import { useServerConfigStore } from "../../../stores/serverConfigStore";
+import { useIsCompanyWide } from "../../../hooks/useAccounting";
 import { cn } from "../../../lib/utils/utils";
 import { tokens } from "../../../lib/tokens";
+import UnitSwitcher from "./UnitSwitcher";
 
 interface NavbarProps {
   isCollapsed: boolean;
@@ -17,6 +19,7 @@ const Navbar = ({ isCollapsed, onToggleCollapse }: NavbarProps) => {
   const navigate = useNavigate();
   const displayName = useRouteDisplayName(location.pathname);
   const { isServerConnected } = useServerConfigStore();
+  const isCompanyWide = useIsCompanyWide();
 
   const breadcrumbItems = getBreadcrumbEntries(location.pathname, displayName);
 
@@ -51,6 +54,8 @@ const Navbar = ({ isCollapsed, onToggleCollapse }: NavbarProps) => {
       </div>
 
       <div className="flex items-center gap-3">
+        {isCompanyWide && <UnitSwitcher />}
+
         <button
           type="button"
           onClick={() => navigate("/settings")}

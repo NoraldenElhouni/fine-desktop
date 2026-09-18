@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Building, MapPin } from "lucide-react";
+import { Building, Building2, MapPin } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { Supplier } from "../../types/procurement";
 
@@ -17,6 +17,19 @@ export function useSuppliersColumns(): ColumnDef<Supplier, unknown>[] {
           </div>
         ),
         meta: { className: "font-bold" },
+      },
+      {
+        id: "operating_unit",
+        header: "الوحدة التشغيلية",
+        accessorFn: (sup) => sup.operating_unit?.name ?? "",
+        enableSorting: true,
+        meta: { className: "text-app-label-secondary" },
+        cell: ({ row }) => (
+          <div className="flex items-center gap-1 text-[11px] text-app-label-secondary">
+            <Building2 className="h-3 w-3 shrink-0" />
+            <span>{row.original.operating_unit?.name ?? "—"}</span>
+          </div>
+        ),
       },
       {
         id: "default_currency",

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Briefcase } from "lucide-react";
+import { Briefcase, Building2 } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { Employee } from "../../types/entities";
 import { formatNumber } from "../../lib/utils/format";
@@ -20,6 +20,19 @@ export function useEmployeesColumns(): ColumnDef<Employee, unknown>[] {
             <span className="text-[10px] text-app-label-secondary">
               {row.original.entity?.tax_number ? `رقم/هوية: ${row.original.entity.tax_number}` : "بدون هوية"}
             </span>
+          </div>
+        ),
+      },
+      {
+        id: "operating_unit",
+        header: "الوحدة التشغيلية",
+        accessorFn: (emp) => emp.operating_unit?.name ?? "",
+        enableSorting: true,
+        meta: { className: "text-app-label-secondary" },
+        cell: ({ row }) => (
+          <div className="flex items-center gap-1 text-[11px] text-app-label-secondary">
+            <Building2 className="h-3 w-3 shrink-0" />
+            <span>{row.original.operating_unit?.name ?? "—"}</span>
           </div>
         ),
       },

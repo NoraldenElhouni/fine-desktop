@@ -12,6 +12,8 @@ import UsersRoutes from "../routes/UsersRoutes";
 import ClientsRoutes from "../routes/ClientsRoutes";
 import AdminEntitiesRoutes from "../routes/AdminEntitiesRoutes";
 import EmployeesRoutes from "../routes/EmployeesRoutes";
+import OperatingUnitsRoutes from "../routes/OperatingUnitsRoutes";
+import BlueprintsRoutes from "../routes/BlueprintsRoutes";
 import { InventoryRoutes } from "../routes/InventoryRoutes";
 import { ManufacturingRoutes } from "../routes/ManufacturingRoutes";
 import { CutterRoutes } from "../routes/CutterRoutes";
@@ -57,6 +59,22 @@ const App = () => {
               element={
                 <AuthorizedRoute allowedRoles={["owner", "admin"]}>
                   <AdminEntitiesRoutes />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="admin/units/*"
+              element={
+                <AuthorizedRoute allowedRoles={["owner", "admin"]}>
+                  <OperatingUnitsRoutes />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="admin/blueprints/*"
+              element={
+                <AuthorizedRoute allowedRoles={["owner", "admin"]}>
+                  <BlueprintsRoutes />
                 </AuthorizedRoute>
               }
             />
