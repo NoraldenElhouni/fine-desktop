@@ -12,12 +12,13 @@ import {
   useCreateUser,
   useUpdateUser,
   useDeleteUser,
+  useRestoreUser,
   useAssignRole,
   useRemoveRole,
 } from "../../hooks/useUsers";
 import { useRoles } from "../../hooks/useRoles";
 import { AppUser } from "../../api/endpoints/users";
-import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
+import { useOperatingUnits } from "../../hooks/useOperatingUnits";
 import { OperatingUnit } from "../../types/entities";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { toast } from "../../stores/toastStore";
@@ -27,18 +28,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useUsersColumns } from "../../components/table-columns/usersColumns";
 import { useAuthStore } from "../../stores/authStore";
+import { cn } from "../../lib/utils/utils";
 
 const UsersPage: React.FC = () => {
-  const { data: users, isLoading, isError, error, refetch } = useUsers();
+  const [tab, setTab] = useState<"active" | "deleted">("active");
+  const { data: users, isLoading, isError, error, refetch } = useUsers({ withTrashed: tab === "deleted" });
   const { data: roles } = useRoles();
-  const { data: units } = useQuery<OperatingUnit[]>({
-    queryKey: ["operatingUnits"],
-    queryFn: getOperatingUnits,
-  });
+  const { data: units } = useOperatingUnits();
 
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
   const deleteUser = useDeleteUser();
+  const restoreUser = useRestoreUser();
   const assignRole = useAssignRole();
   const removeRole = useRemoveRole();
 
@@ -48,6 +49,7 @@ const UsersPage: React.FC = () => {
   const [rolesFor, setRolesFor] = useState<AppUser | null>(null);
   const [editing, setEditing] = useState<AppUser | null>(null);
   const [deleting, setDeleting] = useState<AppUser | null>(null);
+  const [restoring, setRestoring] = useState<AppUser | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -186,6 +188,7 @@ const UsersPage: React.FC = () => {
     onEdit: openEdit,
     onToggleActive: toggleActive,
     onDelete: setDeleting,
+    onRestore: setRestoring,
   });
 
   const tableData = useMemo(() => users ?? [], [users]);
@@ -223,6 +226,33 @@ const UsersPage: React.FC = () => {
           <p className="text-xs text-app-label-secondary mt-1">
             حسابات الدخول وأدوارها — الدور بلا وحدة يسري على مستوى الشركة كاملة.
           </p>
+        </div>
+
+        <div className="flex gap-2 border-b border-app-separator self-end">
+          <button
+            type="button"
+            onClick={() => setTab("active")}
+            className={cn(
+              "px-4 py-2 text-xs font-bold transition-colors",
+              tab === "active"
+                ? "border-b-2 border-app-accent text-app-accent"
+                : "text-app-label-secondary hover:text-app-label-primary",
+            )}
+          >
+            نشط ({users?.filter((u) => !u.deleted_at).length ?? 0})
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("deleted")}
+            className={cn(
+              "px-4 py-2 text-xs font-bold transition-colors",
+              tab === "deleted"
+                ? "border-b-2 border-app-accent text-app-accent"
+                : "text-app-label-secondary hover:text-app-label-primary",
+            )}
+          >
+            محذوف ({users?.filter((u) => u.deleted_at).length ?? 0})
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -518,11 +548,31 @@ const UsersPage: React.FC = () => {
         }}
         onConfirm={confirmDelete}
         title="حذف المستخدم"
-        message={`سيتم حذف "${deleting?.name ?? ""}" نهائياً. لا يمكن التراجع عن هذا الإجراء.`}
+        message={`سيتم حذف "${deleting?.name ?? ""}" ناعماً. يمكن استعادته لاحقاً من تبويب "محذوف".`}
         confirmText="حذف"
         cancelText="إلغاء"
         variant="danger"
         isLoading={deleteUser.isPending}
+      />
+
+      <ConfirmDialog
+        isOpen={!!restoring}
+        onClose={() => setRestoring(null)}
+        onConfirm={async () => {
+          if (!restoring) return;
+          try {
+            await restoreUser.mutateAsync(restoring.id);
+            toast.success("تمت استعادة المستخدم.");
+            setRestoring(null);
+            setTab("active");
+          } catch (err) {
+            toast.error(apiErrorPayload(err)?.message ?? "فشل الاستعادة.");
+          }
+        }}
+        title="استعادة مستخدم"
+        message={`سيتم استعادة "${restoring?.name ?? ""}".`}
+        confirmText="استعادة"
+        isLoading={restoreUser.isPending}
       />
     </div>
   );

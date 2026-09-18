@@ -32,6 +32,7 @@ export const LANDED_COST_STATUS_LABEL: Record<LandedCostStatus, string> = {
 export interface Supplier {
   id: string;
   operating_unit_id: string;
+  operating_unit?: { id: string; name: string };
   name: string;
   contact?: string | null;
   default_currency: string;

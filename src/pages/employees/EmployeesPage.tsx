@@ -26,14 +26,6 @@ export const EmployeesPage: React.FC = () => {
   const { data: operatingUnits = [] } = useOperatingUnits();
   const createEmployeeMutation = useCreateEmployee();
 
-  const externalEmployers = useMemo(() => {
-    return entities.filter(
-      (e) =>
-        e.roles?.some((r) => r.role_type === "external_employer") ||
-        Boolean(e.external_employer)
-    );
-  }, [entities]);
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [entityMode, setEntityMode] = useState<"auto" | "existing">("auto");
   const [employeeName, setEmployeeName] = useState("");
@@ -45,7 +37,6 @@ export const EmployeesPage: React.FC = () => {
   const [monthlySalary, setMonthlySalary] = useState<string>("");
   const [hourlyRate, setHourlyRate] = useState<string>("");
   const [hireDate, setHireDate] = useState(new Date().toISOString().split("T")[0]);
-  const [employerEntityId, setEmployerEntityId] = useState<string>("");
 
   const resetForm = () => {
     setEmployeeName("");
@@ -55,7 +46,6 @@ export const EmployeesPage: React.FC = () => {
     setLaborRole("");
     setMonthlySalary("");
     setHourlyRate("");
-    setEmployerEntityId("");
     setEntityMode("auto");
   };
 
@@ -78,14 +68,8 @@ export const EmployeesPage: React.FC = () => {
       return;
     }
 
-    const validEmployerEntityId =
-      employerEntityId.trim() && employerEntityId !== selectedEntityId
-        ? employerEntityId.trim()
-        : undefined;
-
     const payload = {
       operating_unit_id: unitId,
-      employer_entity_id: validEmployerEntityId,
       job_title: jobTitle,
       labor_role: laborRole.trim() || undefined,
       pay_type: payType,
@@ -137,7 +121,7 @@ export const EmployeesPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-app-label-primary">إدارة الموظفين والعمالة</h1>
           <p className="text-xs text-app-label-secondary mt-1">
-            متابعة القوى العاملة بالوحدة التشغيلية (العمالة المباشرة والعمالة عبر الجهات المشغلة)
+            متابعة القوى العاملة المباشرة بالوحدة التشغيلية
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -343,24 +327,7 @@ export const EmployeesPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                الجهة المشغلة (اختياري - للعمالة الموردة)
-              </label>
-              <SearchableSelect<{ id: string; name: string }>
-                options={externalEmployers}
-                value={
-                  externalEmployers.find(
-                    (e) => e.id === employerEntityId
-                  ) ?? null
-                }
-                onChange={(e) => setEmployerEntityId(e ? e.id : "")}
-                getOptionId={(e) => e.id}
-                getOptionLabel={(e) => e.name}
-                placeholder="-- عمالة مباشرة (بدون وسيط) --"
-              />
-            </div>
+          <div className="grid grid-cols-1 gap-3">
             <div>
               <label className="block text-xs font-semibold text-app-label-secondary mb-1">
                 تاريخ التعيين

@@ -6,6 +6,7 @@ import {
   Check,
   Trash2,
   Lock,
+  Undo2,
 } from "lucide-react";
 import {
   useRoles,
@@ -13,6 +14,7 @@ import {
   useCreateRole,
   useUpdateRole,
   useDeleteRole,
+  useRestoreRole,
 } from "../../hooks/useRoles";
 import { PermissionEntry, RoleEntry } from "../../api/endpoints/roles";
 import { apiErrorPayload } from "../../api/endpoints/production";
@@ -47,16 +49,19 @@ const emptyForm: RoleFormState = {
 
 export const RolesPage: React.FC = () => {
   const { isOwner } = usePermissions();
-  const { data: roles, isLoading } = useRoles();
+  const [tab, setTab] = useState<"active" | "deleted">("active");
+  const { data: roles, isLoading } = useRoles({ withTrashed: tab === "deleted" });
   const { data: permissions } = useRolePermissions();
 
   const createRole = useCreateRole();
   const updateRole = useUpdateRole();
   const deleteRole = useDeleteRole();
+  const restoreRole = useRestoreRole();
 
   const [editing, setEditing] = useState<RoleEntry | null>(null);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<RoleEntry | null>(null);
+  const [restoring, setRestoring] = useState<RoleEntry | null>(null);
   const [form, setForm] = useState<RoleFormState>(emptyForm);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -200,6 +205,33 @@ export const RolesPage: React.FC = () => {
           </p>
         </div>
 
+        <div className="flex gap-2 border-b border-app-separator self-end">
+          <button
+            type="button"
+            onClick={() => setTab("active")}
+            className={cn(
+              "px-4 py-2 text-xs font-bold transition-colors",
+              tab === "active"
+                ? "border-b-2 border-app-accent text-app-accent"
+                : "text-app-label-secondary hover:text-app-label-primary",
+            )}
+          >
+            نشطة ({roles?.filter((r) => !r.deleted_at).length ?? 0})
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("deleted")}
+            className={cn(
+              "px-4 py-2 text-xs font-bold transition-colors",
+              tab === "deleted"
+                ? "border-b-2 border-app-accent text-app-accent"
+                : "text-app-label-secondary hover:text-app-label-primary",
+            )}
+          >
+            محذوفة ({roles?.filter((r) => r.deleted_at).length ?? 0})
+          </button>
+        </div>
+
         {!creating && !editing && (
           <button
             onClick={openCreate}
@@ -262,22 +294,35 @@ export const RolesPage: React.FC = () => {
                         </div>
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
-                        <button
-                          onClick={() => openEdit(r)}
-                          className="rounded-lg p-1 text-app-label-secondary hover:bg-app-fill-f1 hover:text-app-label-primary"
-                          title="تعديل"
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                        </button>
-                        {!isProtected && (
+                        {r.deleted_at ? (
                           <button
-                            onClick={() => setDeleting(r)}
-                            disabled={deleteRole.isPending}
-                            className="rounded-lg p-1 text-app-status-danger hover:bg-app-status-danger/10 disabled:opacity-50"
-                            title="حذف"
+                            onClick={() => setRestoring(r)}
+                            disabled={restoreRole.isPending}
+                            className="rounded-lg p-1 text-app-accent hover:bg-app-accent/10 disabled:opacity-50"
+                            title="استعادة"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Undo2 className="h-3.5 w-3.5" />
                           </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => openEdit(r)}
+                              className="rounded-lg p-1 text-app-label-secondary hover:bg-app-fill-f1 hover:text-app-label-primary"
+                              title="تعديل"
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </button>
+                            {!isProtected && (
+                              <button
+                                onClick={() => setDeleting(r)}
+                                disabled={deleteRole.isPending}
+                                className="rounded-lg p-1 text-app-status-danger hover:bg-app-status-danger/10 disabled:opacity-50"
+                                title="حذف"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
@@ -502,11 +547,31 @@ export const RolesPage: React.FC = () => {
         onClose={() => setDeleting(null)}
         onConfirm={confirmDelete}
         title="حذف الدور"
-        message={`سيتم حذف الدور "${deleting?.name ?? ""}" وإزالته من جميع المستخدمين المسندة لهم. لا يمكن التراجع.`}
+        message={`سيتم حذف الدور "${deleting?.name ?? ""}" ناعماً وإزالته من جميع المستخدمين المسندة لهم. يمكن استعادته من تبويب "محذوفة".`}
         confirmText="حذف"
         cancelText="إلغاء"
         variant="danger"
         isLoading={deleteRole.isPending}
+      />
+
+      <ConfirmDialog
+        isOpen={!!restoring}
+        onClose={() => setRestoring(null)}
+        onConfirm={async () => {
+          if (!restoring) return;
+          try {
+            await restoreRole.mutateAsync(restoring.id);
+            toast.success("تمت استعادة الدور.");
+            setRestoring(null);
+            setTab("active");
+          } catch (err) {
+            toast.error(apiErrorPayload(err)?.message ?? "فشل الاستعادة.");
+          }
+        }}
+        title="استعادة دور"
+        message={`سيتم استعادة الدور "${restoring?.name ?? ""}".`}
+        confirmText="استعادة"
+        isLoading={restoreRole.isPending}
       />
     </div>
   );

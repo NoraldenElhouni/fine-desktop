@@ -32,7 +32,10 @@ apiClient.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // Attach Operating Unit Scoping Header
+    // Attach Operating Unit Scoping Header. Company-wide roles (owner,
+    // admin, accounting manager) intentionally leave this unpinned so they
+    // can see every unit at once; a pinned id is only sent when the user
+    // (or the navbar switcher) has explicitly chosen one.
     const user = useAuthStore.getState().user as any;
     const operatingUnitId =
       useServerConfigStore.getState().operatingUnitId ||

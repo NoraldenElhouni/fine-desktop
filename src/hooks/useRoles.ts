@@ -7,10 +7,10 @@ import {
   rolesApi,
 } from "../api/endpoints/roles";
 
-export function useRoles() {
+export function useRoles(options: { withTrashed?: boolean } = {}) {
   return useQuery({
-    queryKey: ["roles"],
-    queryFn: async () => (await rolesApi.list()).data.data,
+    queryKey: ["roles", options],
+    queryFn: async () => (await rolesApi.list({ withTrashed: options.withTrashed })).data.data,
   });
 }
 
@@ -45,6 +45,10 @@ export function useUpdateRole() {
 
 export function useDeleteRole() {
   return useRoleAction((id: string) => rolesApi.delete(id));
+}
+
+export function useRestoreRole() {
+  return useRoleAction((id: string) => rolesApi.restore(id));
 }
 
 export type { RoleEntry, PermissionEntry };

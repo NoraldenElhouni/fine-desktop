@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Building2 } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { Client } from "../../types/entities";
 import { formatNumber } from "../../lib/utils/format";
@@ -19,6 +20,19 @@ export function useClientsColumns(): ColumnDef<Client, unknown>[] {
             <span className="text-[10px] text-app-label-secondary">
               {row.original.entity?.tax_number ? `ضريبي: ${row.original.entity.tax_number}` : "بدون رقم ضريبي"}
             </span>
+          </div>
+        ),
+      },
+      {
+        id: "operating_unit",
+        header: "الوحدة التشغيلية",
+        accessorFn: (c) => c.operating_unit?.name ?? "",
+        enableSorting: true,
+        meta: { className: "text-app-label-secondary" },
+        cell: ({ row }) => (
+          <div className="flex items-center gap-1 text-[11px] text-app-label-secondary">
+            <Building2 className="h-3 w-3 shrink-0" />
+            <span>{row.original.operating_unit?.name ?? "—"}</span>
           </div>
         ),
       },
