@@ -9,6 +9,7 @@ import {
   OperatingUnitUpdatePayload,
   UnitBlueprintCreatePayload,
   UnitBlueprintUpdatePayload,
+  Warehouse,
 } from "../../types/entities";
 
 export interface RoleEntry {
@@ -114,6 +115,35 @@ export const restoreUnitBlueprint = async (id: string): Promise<BlueprintEntry> 
   return response.data.data;
 };
 
+export const getOperatingUnitWarehouses = async (unitId: string): Promise<Warehouse[]> => {
+  const response = await apiClient.get<Warehouse[]>(`/operating-units/${unitId}/warehouses`);
+  return response.data;
+};
+
+export const createOperatingUnitWarehouse = async (
+  unitId: string,
+  payload: { name: string; is_internal_unit?: boolean },
+): Promise<Warehouse> => {
+  const response = await apiClient.post<Warehouse>(
+    `/operating-units/${unitId}/warehouses`,
+    payload,
+  );
+  return response.data;
+};
+
+export const updateWarehouse = async (
+  id: string,
+  payload: { name?: string; is_internal_unit?: boolean },
+): Promise<Warehouse> => {
+  const response = await apiClient.put<Warehouse>(`/warehouses/${id}`, payload);
+  return response.data;
+};
+
+export const deleteWarehouse = async (id: string): Promise<{ message: string }> => {
+  const response = await apiClient.delete<{ message: string }>(`/warehouses/${id}`);
+  return response.data;
+};
+
 // Re-export the role/entity/user/etc types that adjacent hooks/pages consume.
 export type {
   BlueprintEntry,
@@ -125,4 +155,5 @@ export type {
   OperatingUnitUpdatePayload,
   UnitBlueprintCreatePayload,
   UnitBlueprintUpdatePayload,
+  Warehouse,
 };

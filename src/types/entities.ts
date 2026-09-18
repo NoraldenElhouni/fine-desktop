@@ -19,9 +19,19 @@ export interface OperatingUnit {
   status?: "provisioning" | "active" | "inactive" | string;
   manager_user_id?: string | null;
   manager?: { id: string; name: string } | null;
+  warehouses?: Warehouse[];
   created_at?: string;
   updated_at?: string;
   deleted_at?: string | null;
+}
+
+export interface Warehouse {
+  id: string;
+  operating_unit_id: string;
+  name: string;
+  is_internal_unit?: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface EntityContact {

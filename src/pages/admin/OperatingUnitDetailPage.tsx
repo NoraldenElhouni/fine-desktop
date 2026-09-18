@@ -1,13 +1,30 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, Building2, MapPin, RefreshCw, ShieldCheck, User as UserIcon } from "lucide-react";
+import {
+  ArrowRight,
+  Building2,
+  MapPin,
+  Pencil,
+  Plus,
+  RefreshCw,
+  ShieldCheck,
+  Trash2,
+  User as UserIcon,
+  Warehouse as WarehouseIcon,
+} from "lucide-react";
 import { isAxiosError } from "axios";
 import {
   useOperatingUnit,
   useAuditLog,
   useRestoreOperatingUnit,
 } from "../../hooks/useOperatingUnits";
-import { useWarehouses } from "../../hooks/useWarehouses";
+import {
+  useOperatingUnitWarehouses,
+  useCreateOperatingUnitWarehouse,
+  useUpdateWarehouse,
+  useDeleteWarehouse,
+  Warehouse,
+} from "../../hooks/useWarehouses";
 import { useUsers } from "../../hooks/useUsers";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
@@ -15,6 +32,14 @@ import { AuditLogFiltersBar } from "../../components/audit-log/AuditLogFilters";
 import { AuditLogTimeline } from "../../components/audit-log/AuditLogTimeline";
 import { AuditLogFilters } from "../../types/entities";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/Dialog";
 
 const formatDateTime = (iso?: string): string => {
   if (!iso) return "—";
@@ -37,9 +62,22 @@ export const OperatingUnitDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const unitQuery = useOperatingUnit(id);
-  const warehousesQuery = useWarehouses();
+  const warehousesQuery = useOperatingUnitWarehouses(id);
   const usersQuery = useUsers();
   const restoreMutation = useRestoreOperatingUnit();
+  const createWarehouseMutation = useCreateOperatingUnitWarehouse(id);
+  const updateWarehouseMutation = useUpdateWarehouse(id);
+  const deleteWarehouseMutation = useDeleteWarehouse(id);
+
+  const [addWarehouseOpen, setAddWarehouseOpen] = useState(false);
+  const [newWarehouseName, setNewWarehouseName] = useState("");
+  const [newWarehouseInternal, setNewWarehouseInternal] = useState(true);
+
+  const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null);
+  const [editWarehouseName, setEditWarehouseName] = useState("");
+  const [editWarehouseInternal, setEditWarehouseInternal] = useState(true);
+
+  const [deletingWarehouse, setDeletingWarehouse] = useState<Warehouse | null>(null);
 
   const [filters, setFilters] = useState<AuditLogFilters>({});
   const auditQuery = useAuditLog({
@@ -52,10 +90,11 @@ export const OperatingUnitDetailPage: React.FC = () => {
 
   const unit = unitQuery.data;
   const isDeleted = Boolean(unit?.deleted_at);
-  const warehouses = useMemo(
-    () => (warehousesQuery.data ?? []).filter((w) => w.operating_unit_id === id),
-    [warehousesQuery.data, id],
-  );
+  const warehouses = useMemo(() => {
+    if (warehousesQuery.data) return warehousesQuery.data;
+    if (unit?.warehouses) return unit.warehouses;
+    return [];
+  }, [warehousesQuery.data, unit?.warehouses]);
 
   const userLookup = useMemo(() => {
     const map: Record<string, string> = {};
@@ -177,20 +216,79 @@ export const OperatingUnitDetailPage: React.FC = () => {
         </div>
 
         <div className="rounded-2xl border border-app-separator bg-app-bg-primary p-4">
-          <h2 className="mb-3 text-xs font-bold uppercase text-app-label-secondary">
-            المستودعات ({warehouses.length})
-          </h2>
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <WarehouseIcon className="h-4 w-4 text-app-accent" />
+              <h2 className="text-xs font-bold uppercase text-app-label-secondary">
+                المستودعات ({warehouses.length})
+              </h2>
+            </div>
+            {!isDeleted && (
+              <button
+                type="button"
+                onClick={() => {
+                  setNewWarehouseName("");
+                  setNewWarehouseInternal(true);
+                  setAddWarehouseOpen(true);
+                }}
+                className="flex items-center gap-1 rounded-lg bg-app-accent/10 px-2.5 py-1 text-xs font-semibold text-app-accent hover:bg-app-accent/20 transition-colors"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                إضافة مستودع
+              </button>
+            )}
+          </div>
           {warehouses.length === 0 ? (
-            <div className="text-xs text-app-label-secondary">لا توجد مستودعات.</div>
+            <div className="py-6 text-center text-xs text-app-label-secondary">
+              لا توجد مستودعات تابعة لهذه الوحدة التشغيلية.
+            </div>
           ) : (
-            <ul className="space-y-1.5">
+            <ul className="space-y-2">
               {warehouses.map((w) => (
                 <li
                   key={w.id}
-                  className="flex items-center gap-2 rounded-lg bg-app-bg-secondary px-2 py-1.5 text-xs"
+                  className="flex items-center justify-between rounded-xl border border-app-separator/50 bg-app-bg-secondary p-2.5 text-xs transition-colors hover:border-app-separator"
                 >
-                  <MapPin className="h-3 w-3 text-app-label-secondary" />
-                  <span className="font-semibold text-app-label-primary">{w.name}</span>
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-app-accent/10 text-app-accent">
+                      <MapPin className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-app-label-primary">{w.name}</div>
+                      <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-app-label-secondary">
+                        <span
+                          className={`inline-block h-1.5 w-1.5 rounded-full ${
+                            w.is_internal_unit ? "bg-app-status-positive" : "bg-app-accent"
+                          }`}
+                        />
+                        <span>{w.is_internal_unit ? "مستودع داخلي" : "مستودع خارجي"}</span>
+                      </div>
+                    </div>
+                  </div>
+                  {!isDeleted && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingWarehouse(w);
+                          setEditWarehouseName(w.name);
+                          setEditWarehouseInternal(Boolean(w.is_internal_unit));
+                        }}
+                        className="rounded-lg p-1.5 text-app-label-secondary hover:bg-app-fill-f1 hover:text-app-label-primary transition-colors"
+                        title="تعديل المستودع"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeletingWarehouse(w)}
+                        className="rounded-lg p-1.5 text-app-status-danger/70 hover:bg-app-status-danger/10 hover:text-app-status-danger transition-colors"
+                        title="حذف المستودع"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
@@ -219,6 +317,176 @@ export const OperatingUnitDetailPage: React.FC = () => {
           />
         )}
       </section>
+
+      {/* Add Warehouse Dialog */}
+      <Dialog open={addWarehouseOpen} onOpenChange={setAddWarehouseOpen}>
+        <DialogContent size="md">
+          <DialogHeader>
+            <DialogTitle>إضافة مستودع جديد</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!newWarehouseName.trim()) {
+                toast.error("يرجى إدخال اسم المستودع.");
+                return;
+              }
+              try {
+                await createWarehouseMutation.mutateAsync({
+                  name: newWarehouseName.trim(),
+                  is_internal_unit: newWarehouseInternal,
+                });
+                toast.success("تمت إضافة المستودع بنجاح.");
+                setAddWarehouseOpen(false);
+              } catch (err) {
+                toast.error(apiErrorPayload(err)?.message || "تعذر إضافة المستودع.");
+              }
+            }}
+          >
+            <DialogBody className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-app-label-secondary">
+                  اسم المستودع <span className="text-app-status-danger">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newWarehouseName}
+                  onChange={(e) => setNewWarehouseName(e.target.value)}
+                  placeholder="مثال: مستودع المواد الخام، مستودع المعرض"
+                  required
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary placeholder:text-app-label-tertiary focus:border-app-accent focus:outline-none"
+                />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={newWarehouseInternal}
+                  onChange={(e) => setNewWarehouseInternal(e.target.checked)}
+                  className="h-4 w-4 rounded border-app-separator text-app-accent focus:ring-app-accent"
+                />
+                <span className="text-xs text-app-label-primary">مستودع داخلي تابع للمنشأة</span>
+              </label>
+            </DialogBody>
+            <DialogFooter>
+              <button
+                type="button"
+                onClick={() => setAddWarehouseOpen(false)}
+                className="rounded-xl border border-app-separator px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
+              >
+                إلغاء
+              </button>
+              <button
+                type="submit"
+                disabled={createWarehouseMutation.isPending}
+                className="flex items-center gap-1.5 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+              >
+                {createWarehouseMutation.isPending ? "جاري الحفظ..." : "حفظ المستودع"}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Warehouse Dialog */}
+      <Dialog
+        open={Boolean(editingWarehouse)}
+        onOpenChange={(open) => !open && setEditingWarehouse(null)}
+      >
+        <DialogContent size="md">
+          <DialogHeader>
+            <DialogTitle>تعديل بيانات المستودع</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!editingWarehouse || !editWarehouseName.trim()) {
+                toast.error("يرجى إدخال اسم المستودع.");
+                return;
+              }
+              try {
+                await updateWarehouseMutation.mutateAsync({
+                  id: editingWarehouse.id,
+                  name: editWarehouseName.trim(),
+                  is_internal_unit: editWarehouseInternal,
+                });
+                toast.success("تم تحديث المستودع بنجاح.");
+                setEditingWarehouse(null);
+              } catch (err) {
+                toast.error(apiErrorPayload(err)?.message || "تعذر تحديث المستودع.");
+              }
+            }}
+          >
+            <DialogBody className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-app-label-secondary">
+                  اسم المستودع <span className="text-app-status-danger">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editWarehouseName}
+                  onChange={(e) => setEditWarehouseName(e.target.value)}
+                  required
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
+                />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={editWarehouseInternal}
+                  onChange={(e) => setEditWarehouseInternal(e.target.checked)}
+                  className="h-4 w-4 rounded border-app-separator text-app-accent focus:ring-app-accent"
+                />
+                <span className="text-xs text-app-label-primary">مستودع داخلي تابع للمنشأة</span>
+              </label>
+            </DialogBody>
+            <DialogFooter>
+              <button
+                type="button"
+                onClick={() => setEditingWarehouse(null)}
+                className="rounded-xl border border-app-separator px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
+              >
+                إلغاء
+              </button>
+              <button
+                type="submit"
+                disabled={updateWarehouseMutation.isPending}
+                className="flex items-center gap-1.5 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+              >
+                {updateWarehouseMutation.isPending ? "جاري التحديث..." : "حفظ التعديلات"}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm Delete Warehouse Dialog */}
+      <ConfirmDialog
+        isOpen={Boolean(deletingWarehouse)}
+        onClose={() => setDeletingWarehouse(null)}
+        title="تأكيد حذف المستودع"
+        message={`هل أنت متأكد من رغبتك في حذف مستودع "${deletingWarehouse?.name}"؟ لا يمكن حذف المستودع إذا كان يحتوي على مخزون أو إذا كان المستودع الوحيد للوحدة.`}
+        confirmText="حذف المستودع"
+        cancelText="إلغاء"
+        variant="danger"
+        isLoading={deleteWarehouseMutation.isPending}
+        onConfirm={async () => {
+          if (!deletingWarehouse) return;
+          try {
+            await deleteWarehouseMutation.mutateAsync(deletingWarehouse.id);
+            toast.success("تم حذف المستودع بنجاح.");
+            setDeletingWarehouse(null);
+          } catch (err) {
+            const errPayload = apiErrorPayload(err);
+            if (errPayload?.code === "WAREHOUSE_NOT_EMPTY") {
+              toast.error("لا يمكن حذف المستودع لوجود مخزون وأرصدة حالية مسجلة به.");
+            } else if (errPayload?.code === "CANNOT_DELETE_LAST_WAREHOUSE") {
+              toast.error("لا يمكن حذف المستودع الوحيد للوحدة التشغيلية.");
+            } else {
+              toast.error(errPayload?.message || "تعذر حذف المستودع.");
+            }
+          }
+        }}
+      />
     </div>
   );
 };
