@@ -12,7 +12,6 @@ import UsersRoutes from "../routes/UsersRoutes";
 import ClientsRoutes from "../routes/ClientsRoutes";
 import AdminEntitiesRoutes from "../routes/AdminEntitiesRoutes";
 import EmployeesRoutes from "../routes/EmployeesRoutes";
-import ExternalEmployersRoutes from "../routes/ExternalEmployersRoutes";
 import { InventoryRoutes } from "../routes/InventoryRoutes";
 import { ManufacturingRoutes } from "../routes/ManufacturingRoutes";
 import { CutterRoutes } from "../routes/CutterRoutes";
@@ -98,14 +97,6 @@ const App = () => {
               element={
                 <AuthorizedRoute allowedRoles={["owner", "admin", "store-manager", "pos-cashier", "accounting-manager", "unit_manager", "manager"]}>
                   <ClientsRoutes />
-                </AuthorizedRoute>
-              }
-            />
-            <Route
-              path="external-employers/*"
-              element={
-                <AuthorizedRoute allowedRoles={["owner", "admin", "hr-manager", "accounting-manager"]}>
-                  <ExternalEmployersRoutes />
                 </AuthorizedRoute>
               }
             />

@@ -6,7 +6,6 @@ import {
   BarChart3,
   BookOpenText,
   Boxes,
-  Briefcase,
   Building,
   Building2,
   CalendarCheck2,
@@ -49,7 +48,6 @@ export const navItems: AppNavItem[] = [
   { id: "treasury", path: "/treasury", label: "الخزينة وسعر الصرف", icon: Wallet, allowedRoles: ["owner", "admin", "treasury-officer", "accounting-manager", "procurement-manager", "unit_manager", "manager"] },
   { id: "employees", path: "/employees", label: "الموظفون والعمالة", icon: UserCheck, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"] },
   { id: "clients", path: "/clients", label: "العملاء", icon: Users, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "accounting-manager", "unit_manager", "manager"] },
-  { id: "external-employers", path: "/external-employers", label: "الجهات المشغلة", icon: Briefcase, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager"] },
   { id: "orders", path: "/orders", label: "الطلبات", icon: ShoppingCart, allowedRoles: ["owner", "admin", "furniture-manager", "store-manager", "unit_manager", "manager"] },
   { id: "inventory", path: "/inventory/items", label: "المخزون والقطع", icon: Boxes, allowedRoles: ["owner", "admin", "inventory-manager", "foam-manager", "foam-operator", "cutter-manager", "cutter-operator", "furniture-manager", "assembler", "store-manager", "unit_manager", "manager"] },
   {
