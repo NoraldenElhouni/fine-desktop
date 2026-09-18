@@ -32,7 +32,7 @@ export const Dashboard: React.FC = () => {
 
   const { data: units } = useQuery<OperatingUnit[]>({
     queryKey: ["operatingUnits"],
-    queryFn: getOperatingUnits,
+    queryFn: () => getOperatingUnits(),
   });
 
   const { data: posReport, isLoading: isPosLoading } = usePosDailyReport();
