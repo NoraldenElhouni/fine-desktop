@@ -3,7 +3,7 @@ import { useStockLots, useInventoryValuation, useProcessCutRemnant, useInventory
 import { useItemCategories } from "../../hooks/useCategories";
 import { StockLot } from "../../api/endpoints/inventory";
 import { formatNumber } from "../../lib/utils/format";
-import { Layers, Box, CheckCircle, DollarSign, RefreshCw, Scissors, AlertCircle, Tags, PackagePlus } from "lucide-react";
+import { Layers, Box, CheckCircle, DollarSign, RefreshCw, Scissors, AlertCircle, PackagePlus } from "lucide-react";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
