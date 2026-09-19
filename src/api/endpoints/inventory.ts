@@ -150,6 +150,11 @@ export const inventoryApi = {
     warehouse_id: string;
     lot_number?: string;
     quantity: number;
+    container_quantity?: number;
+    container_capacity?: number;
+    primary_uom?: string;
+    secondary_uom?: string;
+    save_as_item_default?: boolean;
     unit_cost: number;
     source: "opening_balance" | "purchase_cash" | "purchase_credit" | "import_receipt";
     import_order_id?: string;

@@ -48,6 +48,7 @@ export function useStockIntake() {
     mutationFn: (data: Parameters<typeof inventoryApi.intakeLot>[0]) => inventoryApi.intakeLot(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["stockLots"] });
+      queryClient.invalidateQueries({ queryKey: ["inventoryItems"] });
       queryClient.invalidateQueries({ queryKey: ["inventoryValuation"] });
       queryClient.invalidateQueries({ queryKey: ["journalEntries"] });
       queryClient.invalidateQueries({ queryKey: ["trialBalance"] });
