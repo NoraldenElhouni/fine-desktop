@@ -136,7 +136,16 @@ export const getBreadcrumbEntries = (
   }
 
   if (normalizedPath.startsWith("/settings/")) {
-    entries.push({ path: normalizedPath, label: "الإعدادات" });
+    entries.push({ path: "/settings", label: "الإعدادات" });
+    if (normalizedPath.startsWith("/settings/server")) {
+      entries.push({ path: "/settings/server", label: "إعدادات السيرفر" });
+    } else if (normalizedPath.startsWith("/settings/products")) {
+      entries.push({ path: "/settings/products", label: "المنتجات وقوائم المواد" });
+    } else if (normalizedPath.startsWith("/settings/roles")) {
+      entries.push({ path: "/settings/roles", label: "الأدوار والصلاحيات" });
+    } else if (normalizedPath.startsWith("/settings/units")) {
+      entries.push({ path: "/settings/units", label: "الوحدات التشغيلية" });
+    }
   }
 
   return entries;
