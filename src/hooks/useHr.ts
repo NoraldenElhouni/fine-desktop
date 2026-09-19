@@ -1,7 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { hrApi, type Deduction, type AttendanceStatus, type LeaveType } from "../api/endpoints/hr";
 
-export function useAttendance(params?: { work_date?: string; employee_id?: string; page?: number }) {
+export function useAttendance(params?: {
+  work_date?: string;
+  from?: string;
+  to?: string;
+  employee_id?: string;
+  status?: string;
+  search?: string;
+  page?: number;
+  per_page?: number;
+}) {
   return useQuery({
     queryKey: ["attendance", params],
     queryFn: async () => (await hrApi.getAttendance(params)).data,
@@ -15,6 +24,31 @@ export function useSaveAttendance() {
       work_date: string;
       entries: { employee_id: string; status: AttendanceStatus; hours_worked?: number; notes?: string }[];
     }) => hrApi.saveAttendance(payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance"] }),
+  });
+}
+
+export function useCreateAttendance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: hrApi.createAttendance,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance"] }),
+  });
+}
+
+export function useUpdateAttendance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: { status?: AttendanceStatus; hours_worked?: number; notes?: string } }) =>
+      hrApi.updateAttendance(id, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance"] }),
+  });
+}
+
+export function useDeleteAttendance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => hrApi.deleteAttendance(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance"] }),
   });
 }

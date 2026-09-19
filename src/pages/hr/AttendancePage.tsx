@@ -1,78 +1,340 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { CalendarCheck2, AlertTriangle, Save } from "lucide-react";
+import {
+  CalendarCheck2,
+  List,
+  AlertTriangle,
+  Save,
+  Plus,
+  RefreshCw,
+  UserCheck,
+  UserX,
+  Clock,
+  CheckCircle2,
+  Calendar,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { useAttendance, useSaveAttendance } from "../../hooks/useHr";
+import {
+  useAttendance,
+  useSaveAttendance,
+  useCreateAttendance,
+  useUpdateAttendance,
+  useDeleteAttendance,
+} from "../../hooks/useHr";
 import { getEmployees } from "../../api/endpoints/employees";
 import { apiErrorPayload } from "../../api/endpoints/production";
+import {
+  ATTENDANCE_STATUS_LABEL,
+  type Attendance,
+  type AttendanceStatus,
+} from "../../api/endpoints/hr";
+import { Employee } from "../../types/entities";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { useAttendanceRecordsColumns } from "../../components/table-columns/attendanceRecordsColumns";
 import { useAttendanceColumns, type RowState } from "../../components/table-columns/attendanceColumns";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogBody,
+  DialogFooter,
+} from "../../components/ui/Dialog";
 
 const DEFAULT_ROW: RowState = { status: "present", hours: "8" };
 
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
+const getWeekStartIso = () => {
+  const d = new Date();
+  d.setDate(d.getDate() - 7);
+  return d.toISOString().slice(0, 10);
+};
+
+const getMonthStartIso = () => {
+  const d = new Date();
+  d.setDate(1);
+  return d.toISOString().slice(0, 10);
+};
+
 export const AttendancePage: React.FC = () => {
-  const [workDate, setWorkDate] = useState(new Date().toISOString().slice(0, 10));
-  const [rows, setRows] = useState<Record<string, RowState>>({});
+  const [activeTab, setActiveTab] = useState<"list" | "sheet">("list");
+
+  // Filter states for Attendance List
+  const [datePreset, setDatePreset] = useState<"today" | "week" | "month" | "all" | "custom">("month");
+  const [fromDate, setFromDate] = useState<string>(getMonthStartIso());
+  const [toDate, setToDate] = useState<string>(todayIso());
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [employeeFilter, setEmployeeFilter] = useState<string>("");
+
+  // Daily Sheet states
+  const [sheetWorkDate, setSheetWorkDate] = useState<string>(todayIso());
+  const [sheetRows, setSheetRows] = useState<Record<string, RowState>>({});
+  const [sheetSaved, setSheetSaved] = useState(false);
+
+  // Dialog states
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-  const { data: employees } = useQuery({ queryKey: ["employees"], queryFn: () => getEmployees() });
-  const { data: attendance, isLoading } = useAttendance({ work_date: workDate });
-  const saveMutation = useSaveAttendance();
+  const [selectedRecord, setSelectedRecord] = useState<Attendance | null>(null);
 
-  // Seed the grid from what is already recorded for the day.
+  // Form states for Add Single Record
+  const [addEmployeeId, setAddEmployeeId] = useState("");
+  const [addWorkDate, setAddWorkDate] = useState(todayIso());
+  const [addStatus, setAddStatus] = useState<AttendanceStatus>("present");
+  const [addHours, setAddHours] = useState("8");
+  const [addNotes, setAddNotes] = useState("");
+
+  // Form states for Edit Record
+  const [editStatus, setEditStatus] = useState<AttendanceStatus>("present");
+  const [editHours, setEditHours] = useState("8");
+  const [editNotes, setEditNotes] = useState("");
+
+  // Queries
+  const { data: employees, isLoading: employeesLoading } = useQuery({
+    queryKey: ["employees"],
+    queryFn: () => getEmployees(),
+  });
+
+  // Main attendance list query with filters
+  const {
+    data: attendanceListData,
+    isLoading: listLoading,
+    refetch: refetchList,
+  } = useAttendance({
+    from: fromDate || undefined,
+    to: toDate || undefined,
+    status: statusFilter || undefined,
+    employee_id: employeeFilter || undefined,
+    per_page: 200,
+  });
+
+  // Query for the daily sheet date
+  const {
+    data: dailyAttendance,
+    isLoading: dailyLoading,
+  } = useAttendance({
+    work_date: sheetWorkDate,
+  });
+
+  // Mutations
+  const saveSheetMutation = useSaveAttendance();
+  const createMutation = useCreateAttendance();
+  const updateMutation = useUpdateAttendance();
+  const deleteMutation = useDeleteAttendance();
+
+  // Seed daily sheet grid whenever the selected date's attendance arrives
   useEffect(() => {
-    if (!attendance) return;
+    if (!dailyAttendance) return;
     const seeded: Record<string, RowState> = {};
-    for (const record of attendance.data) {
+    for (const record of dailyAttendance.data) {
       seeded[record.employee_id] = {
         status: record.status,
         hours: String(Number(record.hours_worked)),
       };
     }
-    setRows(seeded);
-    setSaved(false);
-  }, [attendance]);
+    setSheetRows(seeded);
+    setSheetSaved(false);
+  }, [dailyAttendance]);
 
-  const rowFor = (employeeId: string): RowState => rows[employeeId] ?? DEFAULT_ROW;
+  const sheetRowFor = (employeeId: string): RowState => sheetRows[employeeId] ?? DEFAULT_ROW;
 
-  const patch = (employeeId: string, patch: Partial<RowState>) =>
-    setRows((prev) => ({ ...prev, [employeeId]: { ...rowFor(employeeId), ...patch } }));
+  const patchSheetRow = (employeeId: string, patch: Partial<RowState>) =>
+    setSheetRows((prev) => ({ ...prev, [employeeId]: { ...sheetRowFor(employeeId), ...patch } }));
 
-  const columns = useAttendanceColumns({ rowFor, onPatch: patch, rows });
+  const markAllPresent = () => {
+    const next: Record<string, RowState> = {};
+    for (const emp of employees ?? []) {
+      next[emp.id] = { status: "present", hours: "8" };
+    }
+    setSheetRows(next);
+  };
 
-  const tableData = useMemo(() => employees ?? [], [employees]);
-  const attendanceTable = useDataTable({
-    columns,
-    data: tableData,
-    enableSorting: true,
-    enableGlobalFilter: true,
-    pageSize: 10,
-    getRowId: (e) => e.id,
-  });
+  const handleDatePreset = (preset: "today" | "week" | "month" | "all" | "custom") => {
+    setDatePreset(preset);
+    const today = todayIso();
+    if (preset === "today") {
+      setFromDate(today);
+      setToDate(today);
+    } else if (preset === "week") {
+      setFromDate(getWeekStartIso());
+      setToDate(today);
+    } else if (preset === "month") {
+      setFromDate(getMonthStartIso());
+      setToDate(today);
+    } else if (preset === "all") {
+      setFromDate("");
+      setToDate("");
+    }
+  };
 
-  const save = () => {
+  // Metrics calculation over current attendance list data
+  const metrics = useMemo(() => {
+    const list = attendanceListData?.data ?? [];
+    let presentCount = 0;
+    let absentCount = 0;
+    let otherCount = 0;
+    let totalHours = 0;
+
+    for (const record of list) {
+      if (record.status === "present") presentCount++;
+      else if (record.status === "absent") absentCount++;
+      else otherCount++;
+
+      totalHours += Number(record.hours_worked) || 0;
+    }
+
+    return {
+      totalRecords: list.length,
+      presentCount,
+      absentCount,
+      otherCount,
+      totalHours: Math.round(totalHours * 10) / 10,
+    };
+  }, [attendanceListData]);
+
+  // Handlers for edit & delete actions
+  const openEditModal = (record: Attendance) => {
+    setSelectedRecord(record);
+    setEditStatus(record.status);
+    setEditHours(String(Number(record.hours_worked) || 0));
+    setEditNotes(record.notes || "");
     setError(null);
-    setSaved(false);
-    saveMutation.mutate(
+    setEditDialogOpen(true);
+  };
+
+  const openDeleteModal = (record: Attendance) => {
+    setSelectedRecord(record);
+    setError(null);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!selectedRecord) return;
+    setError(null);
+
+    const hours = editStatus === "present" || editStatus === "half_day" ? Number(editHours) || 0 : 0;
+
+    updateMutation.mutate(
       {
-        work_date: workDate,
-        entries: (employees ?? []).map((e) => ({
-          employee_id: e.id,
-          status: rowFor(e.id).status,
-          hours_worked: rowFor(e.id).status === "present" || rowFor(e.id).status === "half_day"
-            ? Number(rowFor(e.id).hours) || 0
-            : 0,
-        })),
+        id: selectedRecord.id,
+        payload: {
+          status: editStatus,
+          hours_worked: hours,
+          notes: editNotes || undefined,
+        },
       },
       {
-        onSuccess: () => setSaved(true),
-        onError: (err) => setError(apiErrorPayload(err)?.message ?? "تعذر حفظ الحضور."),
+        onSuccess: () => {
+          setEditDialogOpen(false);
+          setSelectedRecord(null);
+        },
+        onError: (err) => setError(apiErrorPayload(err)?.message ?? "تعذر تعديل السجل."),
       },
     );
   };
 
+  const handleConfirmDelete = () => {
+    if (!selectedRecord) return;
+    setError(null);
+
+    deleteMutation.mutate(selectedRecord.id, {
+      onSuccess: () => {
+        setDeleteDialogOpen(false);
+        setSelectedRecord(null);
+      },
+      onError: (err) => setError(apiErrorPayload(err)?.message ?? "تعذر حذف السجل."),
+    });
+  };
+
+  const handleSaveAdd = () => {
+    if (!addEmployeeId) {
+      setError("يرجى اختيار الموظف.");
+      return;
+    }
+    setError(null);
+
+    const hours = addStatus === "present" || addStatus === "half_day" ? Number(addHours) || 0 : 0;
+
+    createMutation.mutate(
+      {
+        employee_id: addEmployeeId,
+        work_date: addWorkDate,
+        status: addStatus,
+        hours_worked: hours,
+        notes: addNotes || undefined,
+      },
+      {
+        onSuccess: () => {
+          setAddDialogOpen(false);
+          setAddNotes("");
+        },
+        onError: (err) => setError(apiErrorPayload(err)?.message ?? "تعذر إضافة السجل."),
+      },
+    );
+  };
+
+  const handleSaveSheet = () => {
+    setError(null);
+    setSheetSaved(false);
+    saveSheetMutation.mutate(
+      {
+        work_date: sheetWorkDate,
+        entries: (employees ?? []).map((e) => ({
+          employee_id: e.id,
+          status: sheetRowFor(e.id).status,
+          hours_worked:
+            sheetRowFor(e.id).status === "present" || sheetRowFor(e.id).status === "half_day"
+              ? Number(sheetRowFor(e.id).hours) || 0
+              : 0,
+        })),
+      },
+      {
+        onSuccess: () => setSheetSaved(true),
+        onError: (err) => setError(apiErrorPayload(err)?.message ?? "تعذر حفظ الكشف."),
+      },
+    );
+  };
+
+  // Table definitions
+  const listColumns = useAttendanceRecordsColumns({
+    onEdit: openEditModal,
+    onDelete: openDeleteModal,
+  });
+
+  const listTableData = useMemo(() => attendanceListData?.data ?? [], [attendanceListData]);
+
+  const listTable = useDataTable({
+    columns: listColumns,
+    data: listTableData,
+    enableSorting: true,
+    enableGlobalFilter: true,
+    pageSize: 15,
+    getRowId: (a) => a.id,
+  });
+
+  const sheetColumns = useAttendanceColumns({
+    rowFor: sheetRowFor,
+    onPatch: patchSheetRow,
+    rows: sheetRows,
+  });
+
+  const sheetTableData = useMemo(() => employees ?? [], [employees]);
+
+  const sheetTable = useDataTable({
+    columns: sheetColumns,
+    data: sheetTableData,
+    enableSorting: true,
+    enableGlobalFilter: true,
+    pageSize: 20,
+    getRowId: (e) => e.id,
+  });
+
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6" dir="rtl">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-app-label-primary flex items-center gap-2">
@@ -80,54 +342,599 @@ export const AttendancePage: React.FC = () => {
             الحضور والانصراف (Attendance)
           </h1>
           <p className="text-xs text-app-label-secondary mt-1">
-            كشف يومي واحد لكل الموظفين. إعادة الحفظ تصحّح اليوم نفسه، وساعات الحضور تدخل مباشرة في حساب الرواتب.
+            سجل وتوثيق الحضور اليومي للموظفين، وتدقيق الساعات المحتسبة لجدول الرواتب.
           </p>
         </div>
-        <div className="flex items-end gap-2">
-          <div>
-            <label className="block text-xs font-semibold text-app-label-secondary mb-1">تاريخ الكشف</label>
-            <input
-              type="date" value={workDate} max={new Date().toISOString().slice(0, 10)}
-              onChange={(e) => { setWorkDate(e.target.value); setRows({}); }}
-              className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono text-app-label-primary focus:border-app-accent focus:outline-none"
-            />
+
+        {/* Tab switcher and primary action */}
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-xl border border-app-separator bg-app-bg-secondary p-1">
+            <button
+              onClick={() => setActiveTab("list")}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                activeTab === "list"
+                  ? "bg-app-bg-primary text-app-accent shadow-sm"
+                  : "text-app-label-secondary hover:text-app-label-primary"
+              }`}
+            >
+              <List className="w-4 h-4" />
+              سجل وقائمة الحضور
+            </button>
+            <button
+              onClick={() => setActiveTab("sheet")}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                activeTab === "sheet"
+                  ? "bg-app-bg-primary text-app-accent shadow-sm"
+                  : "text-app-label-secondary hover:text-app-label-primary"
+              }`}
+            >
+              <CalendarCheck2 className="w-4 h-4" />
+              كشف التحضير اليومي
+            </button>
           </div>
-          <button
-            onClick={save}
-            disabled={saveMutation.isPending || !employees?.length}
-            className="flex items-center gap-1.5 rounded-xl bg-app-accent px-3 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
-          >
-            <Save className="w-4 h-4" /> {saveMutation.isPending ? "جارٍ الحفظ…" : "حفظ الكشف"}
-          </button>
+
+          {activeTab === "list" && (
+            <button
+              onClick={() => {
+                setError(null);
+                setAddDialogOpen(true);
+              }}
+              className="flex items-center gap-1.5 rounded-xl bg-app-accent px-3 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-opacity"
+            >
+              <Plus className="w-4 h-4" />
+              تسجيل حضور فردي
+            </button>
+          )}
         </div>
       </div>
 
-      {error && (
+      {/* Global Error Banner */}
+      {error && !addDialogOpen && !editDialogOpen && !deleteDialogOpen && (
         <div className="flex items-start gap-2 rounded-2xl border border-app-status-danger/30 bg-app-status-danger/10 p-4 text-xs text-app-status-danger">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
       )}
 
-      {saved && (
-        <div className="rounded-2xl border border-app-status-positive/30 bg-app-status-positive/10 p-4 text-xs font-bold text-app-status-positive">
-          حُفظ كشف {workDate}.
+      {/* TAB 1: ATTENDANCE LIST VIEW */}
+      {activeTab === "list" && (
+        <div className="space-y-4">
+          {/* Summary Metric Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="rounded-2xl border border-app-separator bg-app-bg-primary p-3.5 shadow-sm">
+              <span className="text-[11px] font-semibold text-app-label-secondary block mb-1">
+                إجمالي السجلات
+              </span>
+              <span className="text-xl font-bold font-mono text-app-label-primary">
+                {metrics.totalRecords}
+              </span>
+            </div>
+
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 shadow-sm">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                  حاضر
+                </span>
+                <UserCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <span className="text-xl font-bold font-mono text-emerald-700 dark:text-emerald-400">
+                {metrics.presentCount}
+              </span>
+            </div>
+
+            <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 p-3.5 shadow-sm">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-400">
+                  غائب
+                </span>
+                <UserX className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+              </div>
+              <span className="text-xl font-bold font-mono text-rose-700 dark:text-rose-400">
+                {metrics.absentCount}
+              </span>
+            </div>
+
+            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-3.5 shadow-sm">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                  نصف يوم / إجازة
+                </span>
+                <Calendar className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              </div>
+              <span className="text-xl font-bold font-mono text-amber-700 dark:text-amber-400">
+                {metrics.otherCount}
+              </span>
+            </div>
+
+            <div className="rounded-2xl border border-app-separator bg-app-bg-primary p-3.5 shadow-sm">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] font-semibold text-app-label-secondary">
+                  إجمالي الساعات
+                </span>
+                <Clock className="w-4 h-4 text-app-accent" />
+              </div>
+              <span className="text-xl font-bold font-mono text-app-accent">
+                {metrics.totalHours} <span className="text-xs font-normal">ساعة</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Filtering & Toolbar */}
+          <div className="rounded-2xl border border-app-separator bg-app-bg-primary p-4 shadow-sm space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {/* Date Presets */}
+              <div className="flex items-center gap-1 bg-app-bg-secondary p-1 rounded-xl border border-app-separator text-xs">
+                <button
+                  onClick={() => handleDatePreset("today")}
+                  className={`px-2.5 py-1 rounded-lg font-semibold transition-colors ${
+                    datePreset === "today"
+                      ? "bg-app-bg-primary text-app-accent shadow-sm"
+                      : "text-app-label-secondary hover:text-app-label-primary"
+                  }`}
+                >
+                  اليوم
+                </button>
+                <button
+                  onClick={() => handleDatePreset("week")}
+                  className={`px-2.5 py-1 rounded-lg font-semibold transition-colors ${
+                    datePreset === "week"
+                      ? "bg-app-bg-primary text-app-accent shadow-sm"
+                      : "text-app-label-secondary hover:text-app-label-primary"
+                  }`}
+                >
+                  آخر 7 أيام
+                </button>
+                <button
+                  onClick={() => handleDatePreset("month")}
+                  className={`px-2.5 py-1 rounded-lg font-semibold transition-colors ${
+                    datePreset === "month"
+                      ? "bg-app-bg-primary text-app-accent shadow-sm"
+                      : "text-app-label-secondary hover:text-app-label-primary"
+                  }`}
+                >
+                  هذا الشهر
+                </button>
+                <button
+                  onClick={() => handleDatePreset("all")}
+                  className={`px-2.5 py-1 rounded-lg font-semibold transition-colors ${
+                    datePreset === "all"
+                      ? "bg-app-bg-primary text-app-accent shadow-sm"
+                      : "text-app-label-secondary hover:text-app-label-primary"
+                  }`}
+                >
+                  جميع التواريخ
+                </button>
+              </div>
+
+              {/* Refresh button */}
+              <button
+                onClick={() => refetchList()}
+                disabled={listLoading}
+                className="flex items-center gap-1 text-xs text-app-label-secondary hover:text-app-label-primary p-1.5 rounded-lg border border-app-separator hover:bg-app-bg-secondary transition-colors"
+                title="تحديث البيانات"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${listLoading ? "animate-spin" : ""}`} />
+                تحديث
+              </button>
+            </div>
+
+            {/* Granular Filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2 border-t border-app-separator">
+              <div>
+                <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
+                  من تاريخ
+                </label>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => {
+                    setFromDate(e.target.value);
+                    setDatePreset("custom");
+                  }}
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs font-mono text-app-label-primary focus:border-app-accent focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
+                  إلى تاريخ
+                </label>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => {
+                    setToDate(e.target.value);
+                    setDatePreset("custom");
+                  }}
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs font-mono text-app-label-primary focus:border-app-accent focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
+                  الحالة
+                </label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
+                >
+                  <option value="">جميع الحالات</option>
+                  {(Object.keys(ATTENDANCE_STATUS_LABEL) as AttendanceStatus[]).map((s) => (
+                    <option key={s} value={s}>
+                      {ATTENDANCE_STATUS_LABEL[s]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
+                  الموظف
+                </label>
+                <select
+                  value={employeeFilter}
+                  onChange={(e) => setEmployeeFilter(e.target.value)}
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
+                >
+                  <option value="">جميع الموظفين</option>
+                  {employees?.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.entity?.name ?? emp.job_title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* DataTable of Attendance Records */}
+          <DataTable table={listTable}>
+            <DataTable.Header>
+              <DataTable.Toolbar>
+                <DataTable.SearchInput placeholder="بحث باسم الموظف، الوظيفة، أو الملاحظات..." />
+              </DataTable.Toolbar>
+            </DataTable.Header>
+            <DataTable.Content
+              isLoading={listLoading}
+              emptyMessage="لا توجد سجلات حضور مسجلة تطابق هذه الفلاتر."
+              emptyIcon={CalendarCheck2}
+            />
+            <DataTable.Pagination />
+          </DataTable>
         </div>
       )}
 
-      <DataTable table={attendanceTable}>
-        <DataTable.Header>
-          <DataTable.Toolbar>
-            <DataTable.SearchInput placeholder="بحث عن موظف..." />
-          </DataTable.Toolbar>
-        </DataTable.Header>
-        <DataTable.Content
-          isLoading={isLoading}
-          emptyMessage="لا يوجد موظفون مسجلون."
-          emptyIcon={CalendarCheck2}
-        />
-        <DataTable.Pagination />
-      </DataTable>
+      {/* TAB 2: DAILY ROSTER SHEET VIEW */}
+      {activeTab === "sheet" && (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-app-separator bg-app-bg-primary p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-sm font-bold text-app-label-primary">
+                كشف التحضير السريع لكافة الموظفين
+              </h2>
+              <p className="text-xs text-app-label-secondary mt-0.5">
+                اختر التاريخ، ثم حدد حالة الحضور وساعات العمل لكل موظف، ثم احفظ الكشف.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <div>
+                <label className="block text-[10px] font-semibold text-app-label-secondary mb-0.5">
+                  تاريخ الكشف
+                </label>
+                <input
+                  type="date"
+                  value={sheetWorkDate}
+                  max={todayIso()}
+                  onChange={(e) => {
+                    setSheetWorkDate(e.target.value);
+                    setSheetRows({});
+                  }}
+                  className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono text-app-label-primary focus:border-app-accent focus:outline-none"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={markAllPresent}
+                className="mt-4 flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1 transition-colors"
+              >
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                تحضير الكل كحاضر (8س)
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSaveSheet}
+                disabled={saveSheetMutation.isPending || !employees?.length}
+                className="mt-4 flex items-center gap-1.5 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
+              >
+                <Save className="w-4 h-4" />
+                {saveSheetMutation.isPending ? "جارٍ الحفظ…" : "حفظ الكشف اليومي"}
+              </button>
+            </div>
+          </div>
+
+          {sheetSaved && (
+            <div className="flex items-center gap-2 rounded-2xl border border-app-status-positive/30 bg-app-status-positive/10 p-4 text-xs font-bold text-app-status-positive">
+              <CheckCircle2 className="w-4 h-4" />
+              حُفظ كشف الحضور لتاريخ {sheetWorkDate} بنجاح. تم تحديث سجلات الحضور.
+            </div>
+          )}
+
+          <DataTable table={sheetTable}>
+            <DataTable.Header>
+              <DataTable.Toolbar>
+                <DataTable.SearchInput placeholder="بحث عن موظف في الكشف..." />
+              </DataTable.Toolbar>
+            </DataTable.Header>
+            <DataTable.Content
+              isLoading={dailyLoading || employeesLoading}
+              emptyMessage="لا يوجد موظفون مسجلون بالمنشأة."
+              emptyIcon={CalendarCheck2}
+            />
+            <DataTable.Pagination />
+          </DataTable>
+        </div>
+      )}
+
+      {/* MODAL: ADD SINGLE ATTENDANCE RECORD */}
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <DialogContent size="md">
+          <DialogHeader>
+            <DialogTitle>تسجيل حضور جديد لموظف</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            {error && (
+              <div className="mb-3 flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                  الموظف <span className="text-app-status-danger">*</span>
+                </label>
+                <SearchableSelect<Employee>
+                  options={employees ?? []}
+                  value={employees?.find((e) => e.id === addEmployeeId) ?? null}
+                  onChange={(emp) => setAddEmployeeId(emp ? emp.id : "")}
+                  getOptionId={(e) => e.id}
+                  getOptionLabel={(e) => e.entity?.name ?? e.job_title}
+                  getOptionSubLabel={(e) => e.job_title}
+                  getOptionSearchText={(e) => `${e.entity?.name ?? ""} ${e.job_title}`}
+                  placeholder="اختر الموظف..."
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                    التاريخ <span className="text-app-status-danger">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={addWorkDate}
+                    max={todayIso()}
+                    onChange={(e) => setAddWorkDate(e.target.value)}
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono text-app-label-primary focus:border-app-accent focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                    الحالة <span className="text-app-status-danger">*</span>
+                  </label>
+                  <select
+                    value={addStatus}
+                    onChange={(e) => {
+                      const next = e.target.value as AttendanceStatus;
+                      setAddStatus(next);
+                      if (next === "present") setAddHours("8");
+                      else if (next === "half_day") setAddHours("4");
+                      else setAddHours("0");
+                    }}
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
+                  >
+                    {(Object.keys(ATTENDANCE_STATUS_LABEL) as AttendanceStatus[]).map((s) => (
+                      <option key={s} value={s}>
+                        {ATTENDANCE_STATUS_LABEL[s]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                  ساعات العمل
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  max="24"
+                  disabled={addStatus === "absent" || addStatus === "leave"}
+                  value={addHours}
+                  onChange={(e) => setAddHours(e.target.value)}
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono text-app-label-primary focus:border-app-accent focus:outline-none disabled:opacity-40"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                  ملاحظات
+                </label>
+                <textarea
+                  rows={2}
+                  value={addNotes}
+                  onChange={(e) => setAddNotes(e.target.value)}
+                  placeholder="ملاحظات اختيارية..."
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary p-2 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
+                />
+              </div>
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <button
+              onClick={() => setAddDialogOpen(false)}
+              className="px-3 py-2 text-xs font-semibold rounded-xl border border-app-separator hover:bg-app-bg-secondary"
+            >
+              إلغاء
+            </button>
+            <button
+              onClick={handleSaveAdd}
+              disabled={createMutation.isPending || !addEmployeeId}
+              className="px-4 py-2 text-xs font-bold rounded-xl bg-app-accent text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {createMutation.isPending ? "جارٍ الحفظ…" : "حفظ السجل"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL: EDIT ATTENDANCE RECORD */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent size="md">
+          <DialogHeader>
+            <DialogTitle>تعديل سجل الحضور</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            {error && (
+              <div className="mb-3 flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
+            {selectedRecord && (
+              <div className="space-y-3">
+                <div className="rounded-xl bg-app-bg-secondary p-3 border border-app-separator text-xs space-y-1">
+                  <div>
+                    <span className="text-app-label-secondary">الموظف: </span>
+                    <span className="font-bold text-app-label-primary">
+                      {selectedRecord.employee?.entity?.name ?? selectedRecord.employee?.job_title}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-app-label-secondary">التاريخ: </span>
+                    <span className="font-mono text-app-label-primary">
+                      {selectedRecord.work_date?.slice(0, 10)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                      الحالة <span className="text-app-status-danger">*</span>
+                    </label>
+                    <select
+                      value={editStatus}
+                      onChange={(e) => {
+                        const next = e.target.value as AttendanceStatus;
+                        setEditStatus(next);
+                        if (next === "present" && Number(editHours) <= 0) setEditHours("8");
+                        else if (next === "half_day" && Number(editHours) <= 0) setEditHours("4");
+                        else if (next === "absent" || next === "leave") setEditHours("0");
+                      }}
+                      className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
+                    >
+                      {(Object.keys(ATTENDANCE_STATUS_LABEL) as AttendanceStatus[]).map((s) => (
+                        <option key={s} value={s}>
+                          {ATTENDANCE_STATUS_LABEL[s]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                      ساعات العمل
+                    </label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      max="24"
+                      disabled={editStatus === "absent" || editStatus === "leave"}
+                      value={editHours}
+                      onChange={(e) => setEditHours(e.target.value)}
+                      className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono text-app-label-primary focus:border-app-accent focus:outline-none disabled:opacity-40"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                    ملاحظات
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={editNotes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                    placeholder="ملاحظات اختيارية..."
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary p-2 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
+                  />
+                </div>
+              </div>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              onClick={() => setEditDialogOpen(false)}
+              className="px-3 py-2 text-xs font-semibold rounded-xl border border-app-separator hover:bg-app-bg-secondary"
+            >
+              إلغاء
+            </button>
+            <button
+              onClick={handleSaveEdit}
+              disabled={updateMutation.isPending}
+              className="px-4 py-2 text-xs font-bold rounded-xl bg-app-accent text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {updateMutation.isPending ? "جارٍ الحفظ…" : "حفظ التعديلات"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL: DELETE CONFIRMATION */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent size="sm">
+          <DialogHeader>
+            <DialogTitle>تأكيد حذف سجل الحضور</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            <p className="text-xs text-app-label-secondary leading-relaxed">
+              هل أنت متأكد من رغبتك في حذف هذا السجل للموظف{" "}
+              <strong className="text-app-label-primary">
+                {selectedRecord?.employee?.entity?.name ?? selectedRecord?.employee?.job_title}
+              </strong>{" "}
+              لتاريخ{" "}
+              <span className="font-mono text-app-label-primary">
+                {selectedRecord?.work_date?.slice(0, 10)}
+              </span>
+              ؟ لن يتم احتساب هذا اليوم في حساب الرواتب.
+            </p>
+          </DialogBody>
+          <DialogFooter>
+            <button
+              onClick={() => setDeleteDialogOpen(false)}
+              className="px-3 py-2 text-xs font-semibold rounded-xl border border-app-separator hover:bg-app-bg-secondary"
+            >
+              إلغاء
+            </button>
+            <button
+              onClick={handleConfirmDelete}
+              disabled={deleteMutation.isPending}
+              className="px-4 py-2 text-xs font-bold rounded-xl bg-app-status-danger text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {deleteMutation.isPending ? "جارٍ الحذف…" : "تأكيد الحذف"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -106,13 +106,40 @@ export interface LeaveRequest {
 }
 
 export const hrApi = {
-  getAttendance: (params?: { work_date?: string; from?: string; to?: string; employee_id?: string; page?: number }) =>
-    apiClient.get<Paginated<Attendance>>("/attendance", { params }),
+  getAttendance: (params?: {
+    work_date?: string;
+    from?: string;
+    to?: string;
+    employee_id?: string;
+    status?: string;
+    search?: string;
+    page?: number;
+    per_page?: number;
+  }) => apiClient.get<Paginated<Attendance>>("/attendance", { params }),
 
   saveAttendance: (payload: {
     work_date: string;
     entries: { employee_id: string; status: AttendanceStatus; hours_worked?: number; notes?: string }[];
   }) => apiClient.post<{ message: string; count: number }>("/attendance/bulk", payload),
+
+  createAttendance: (payload: {
+    employee_id: string;
+    work_date: string;
+    status: AttendanceStatus;
+    hours_worked?: number;
+    notes?: string;
+  }) => apiClient.post<Attendance>("/attendance", payload),
+
+  updateAttendance: (
+    id: string,
+    payload: {
+      status?: AttendanceStatus;
+      hours_worked?: number;
+      notes?: string;
+    },
+  ) => apiClient.put<Attendance>(`/attendance/${id}`, payload),
+
+  deleteAttendance: (id: string) => apiClient.delete(`/attendance/${id}`),
 
   getRates: () => apiClient.get<{ data: LaborRoleRate[] }>("/labor-role-rates"),
 
