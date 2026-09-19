@@ -2,7 +2,7 @@ import { useMemo, type ReactNode } from "react";
 import { Building, ArrowRight } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { formatNumber } from "../../lib/utils/format";
-import { ImportOrder, ImportOrderStatus } from "../../types/procurement";
+import { ImportOrder, ImportOrderStatus, getImportOrderTotal } from "../../types/procurement";
 
 export interface UseImportOrdersColumnsArgs {
   getStatusBadge: (status: ImportOrderStatus) => ReactNode;
@@ -25,7 +25,6 @@ export function useImportOrdersColumns({
             <span>{row.original.supplier?.name || "مورد غير محدد"}</span>
           </div>
         ),
-        meta: { className: "font-bold" },
       },
       {
         id: "quantity",
@@ -37,16 +36,34 @@ export function useImportOrdersColumns({
       {
         id: "negotiated_price",
         header: "سعر الوحدة النقدية",
-        accessorFn: (ord) => Number(ord.negotiated_price),
-        cell: ({ row }) => `${formatNumber(row.original.negotiated_price)} ${row.original.currency}`,
+        accessorFn: (ord) => {
+          const items = ord.items?.data;
+          if (items && items.length > 1) {
+            return items.length;
+          }
+          if (items && items.length === 1) {
+            return Number(items[0].unit_price);
+          }
+          return Number(ord.negotiated_price);
+        },
+        cell: ({ row }) => {
+          const items = row.original.items?.data;
+          if (items && items.length > 1) {
+            return `${items.length} أصناف`;
+          }
+          if (items && items.length === 1) {
+            return `${formatNumber(items[0].unit_price)} ${row.original.currency}`;
+          }
+          return `${formatNumber(row.original.negotiated_price)} ${row.original.currency}`;
+        },
         meta: { className: "font-mono" },
       },
       {
         id: "total_amount",
         header: "إجمالي الاعتماد المستهدف",
-        accessorFn: (ord) => Number(ord.negotiated_price) * Number(ord.quantity),
+        accessorFn: (ord) => getImportOrderTotal(ord),
         cell: ({ row }) =>
-          `${formatNumber(Number(row.original.negotiated_price) * Number(row.original.quantity))} ${row.original.currency}`,
+          `${formatNumber(getImportOrderTotal(row.original))} ${row.original.currency}`,
         meta: { className: "font-mono font-bold text-emerald-700" },
       },
       {

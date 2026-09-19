@@ -8,6 +8,8 @@ import { apiErrorPayload } from "../../api/endpoints/production";
 import type { InventoryItem } from "../../api/endpoints/inventory";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
+import { ImportOrder, getImportOrderTotal } from "../../types/procurement";
+import { formatNumber } from "../../lib/utils/format";
 
 type IntakeSource = "opening_balance" | "purchase_cash" | "purchase_credit" | "import_receipt";
 
@@ -150,10 +152,10 @@ export const StockIntakeModal: React.FC<{
             </select>
 
             {source === "import_receipt" && (
-              <SearchableSelect<{ id: string; supplier?: { name?: string }; quantity?: number | string; negotiated_price?: number | string; currency?: string }>
-                options={(importOrders as unknown as Array<{ id: string; supplier?: { name?: string }; quantity?: number | string; negotiated_price?: number | string; currency?: string }>) ?? []}
+              <SearchableSelect<ImportOrder>
+                options={(importOrders as ImportOrder[]) ?? []}
                 value={
-                  (importOrders as unknown as Array<{ id: string }>)?.find?.(
+                  (importOrders as ImportOrder[])?.find?.(
                     (o) => o.id === importOrderId
                   ) ?? null
                 }
@@ -161,7 +163,7 @@ export const StockIntakeModal: React.FC<{
                 getOptionId={(o) => o.id}
                 getOptionLabel={(o) => o.supplier?.name ?? "—"}
                 getOptionSubLabel={(o) =>
-                  `${Number(o.quantity)} × ${Number(o.negotiated_price)} ${o.currency ?? ""}`
+                  `الكمية: ${formatNumber(o.quantity)} | الإجمالي: ${formatNumber(getImportOrderTotal(o))} ${o.currency ?? ""}`
                 }
                 getOptionSearchText={(o) =>
                   `${o.supplier?.name ?? ""} ${o.currency ?? ""}`

@@ -143,6 +143,7 @@ export interface ImportOrder {
   currency: string;
   negotiated_price: number;
   quantity: number;
+  total_amount?: number;
   status: ImportOrderStatus;
   record_version: number;
   arrived_warehouse_id?: string | null;
@@ -153,6 +154,19 @@ export interface ImportOrder {
   goods_receipt?: GoodsReceipt | null;
   created_at?: string;
   updated_at?: string;
+}
+
+export function getImportOrderTotal(order: ImportOrder): number {
+  if (order.total_amount !== undefined && order.total_amount !== null) {
+    return Number(order.total_amount);
+  }
+  if (order.items?.items_total !== undefined && order.items.items_total !== null && order.items.items_total > 0) {
+    return Number(order.items.items_total);
+  }
+  if (Array.isArray(order.items?.data) && order.items.data.length > 0) {
+    return order.items.data.reduce((sum, item) => sum + Number(item.quantity) * Number(item.unit_price), 0);
+  }
+  return Number(order.negotiated_price || 0) * Number(order.quantity || 0);
 }
 
 export interface FxRate {

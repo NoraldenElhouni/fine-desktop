@@ -27,6 +27,7 @@ import {
   PaymentRoute,
   LandedCostType,
   LandedCostLine,
+  getImportOrderTotal,
 } from "../../types/procurement";
 import {
   useImportOrders,
@@ -157,7 +158,7 @@ export const ImportOrdersPage: React.FC = () => {
 
   const openOrderDetail = (order: ImportOrder) => {
     setSelectedOrder(order);
-    setAmountRequested(Number(order.negotiated_price) * Number(order.quantity));
+    setAmountRequested(getImportOrderTotal(order));
     setReceivedQty(Number(order.quantity));
     // Pre-fill from the order's existing arrival warehouse so the picker
     // shows the right value as soon as the operator opens the drawer.
@@ -781,10 +782,7 @@ export const ImportOrdersPage: React.FC = () => {
                     </span>{" "}
                     | الكمية: {formatNumber(selectedOrder.quantity)} | إجمالي العقد:{" "}
                     <span className="font-bold text-emerald-600 font-mono">
-                      {formatNumber(
-                        Number(selectedOrder.negotiated_price) *
-                          Number(selectedOrder.quantity),
-                      )}{" "}
+                      {formatNumber(getImportOrderTotal(selectedOrder))}{" "}
                       {selectedOrder.currency}
                     </span>
                   </DialogDescription>
