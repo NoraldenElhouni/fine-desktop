@@ -148,7 +148,7 @@ export const inventoryApi = {
   intakeLot: (data: {
     inventory_item_id: string;
     warehouse_id: string;
-    lot_number: string;
+    lot_number?: string;
     quantity: number;
     unit_cost: number;
     source: "opening_balance" | "purchase_cash" | "purchase_credit" | "import_receipt";
