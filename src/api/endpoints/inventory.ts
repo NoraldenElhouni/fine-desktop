@@ -52,6 +52,8 @@ export interface StockLot {
   sequence_in_batch?: number;
   /** Measured at grading; part of the block code. Null for non-foam lots. */
   pressure?: number;
+  /** Block type: block (بلوك), separator (فاصل), head (بداية), or scrap (هدر). */
+  block_type?: "block" | "separator" | "head" | "scrap";
   remnant_of_lot_id?: string;
   record_version: number;
   inventory_item?: InventoryItem;

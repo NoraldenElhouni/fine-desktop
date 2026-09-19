@@ -44,7 +44,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export interface DraftRow {
   key: string;
-  kind: "block" | "scrap";
+  kind: "block" | "separator" | "head" | "scrap";
   length_m: string;
   height_m: string;
   count: string;
@@ -103,10 +103,16 @@ export const BatchBlocksPage: React.FC = () => {
 
   const totals = useMemo(() => {
     const blockRows = rows.filter((r) => r.kind === "block");
+    const separatorRows = rows.filter((r) => r.kind === "separator");
+    const headRows = rows.filter((r) => r.kind === "head");
     const scrapRows = rows.filter((r) => r.kind === "scrap");
     return {
       blockCount: blockRows.reduce((sum, r) => sum + num(r.count), 0),
       blockVolume: blockRows.reduce((sum, r) => sum + rowTotal(r), 0),
+      separatorCount: separatorRows.reduce((sum, r) => sum + num(r.count), 0),
+      separatorVolume: separatorRows.reduce((sum, r) => sum + rowTotal(r), 0),
+      headCount: headRows.reduce((sum, r) => sum + num(r.count), 0),
+      headVolume: headRows.reduce((sum, r) => sum + rowTotal(r), 0),
       scrapVolume: scrapRows.reduce((sum, r) => sum + rowTotal(r), 0),
     };
   }, [rows, bunWidth]);
@@ -130,7 +136,7 @@ export const BatchBlocksPage: React.FC = () => {
         num(r.length_m) > 0 &&
         num(r.height_m) > 0 &&
         num(r.count) > 0 &&
-        (r.kind === "scrap" || num(r.pressure) > 0),
+        (r.kind !== "block" || num(r.pressure) > 0),
     );
 
   const submit = () => {
@@ -141,6 +147,7 @@ export const BatchBlocksPage: React.FC = () => {
       r.kind === "scrap"
         ? {
             kind: "scrap",
+            block_type: "scrap",
             count: num(r.count),
             length_m: num(r.length_m),
             height_m: num(r.height_m),
@@ -149,11 +156,12 @@ export const BatchBlocksPage: React.FC = () => {
             warehouse_id: warehouseId,
           }
         : {
-            kind: "block",
+            kind: r.kind,
+            block_type: r.kind,
             count: num(r.count),
             length_m: num(r.length_m),
             height_m: num(r.height_m),
-            pressure: num(r.pressure),
+            ...(num(r.pressure) > 0 ? { pressure: num(r.pressure) } : {}),
             inventory_item_id: itemId,
             warehouse_id: warehouseId,
             unit_cost: num(r.unit_cost),
@@ -454,19 +462,28 @@ export const BatchBlocksPage: React.FC = () => {
 
         {/* DataTable.Content has no tfoot slot, so the running totals render as a matching summary bar. */}
         <div className="flex flex-wrap items-center gap-3 border-t-2 border-app-separator bg-app-bg-secondary px-3 py-3 text-xs font-bold text-app-label-primary">
-          <span>إجمالي التشغيلة</span>
-          <span className="font-mono">{totals.blockCount}</span>
-          <span className="text-app-label-secondary font-normal">
-            بلوك
-            {totals.scrapVolume > 0 && (
-              <span className="ms-2">
-                · هدر{" "}
-                <span className="font-mono">{totals.scrapVolume.toFixed(4)} م³</span>
-              </span>
-            )}
+          <span>إجمالي التشغيلة:</span>
+          <span>
+            {totals.blockCount} <span className="text-app-label-secondary font-normal">بلوك</span>
           </span>
+          {totals.separatorCount > 0 && (
+            <span>
+              · {totals.separatorCount} <span className="text-app-label-secondary font-normal">فاصل</span>
+            </span>
+          )}
+          {totals.headCount > 0 && (
+            <span>
+              · {totals.headCount} <span className="text-app-label-secondary font-normal">بداية</span>
+            </span>
+          )}
+          {totals.scrapVolume > 0 && (
+            <span className="text-app-label-secondary font-normal">
+              · هدر{" "}
+              <span className="font-mono">{totals.scrapVolume.toFixed(4)} م³</span>
+            </span>
+          )}
           <span className="ms-auto font-mono">
-            {(totals.blockVolume + totals.scrapVolume).toFixed(4)}
+            {(totals.blockVolume + totals.separatorVolume + totals.headVolume + totals.scrapVolume).toFixed(4)} م³
           </span>
         </div>
 

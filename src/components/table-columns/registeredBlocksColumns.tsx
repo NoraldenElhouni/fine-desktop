@@ -15,6 +15,42 @@ export function useRegisteredBlocksColumns(): ColumnDef<StockLot, unknown>[] {
         cell: ({ row }) => row.original.lot_number,
       },
       {
+        id: "block_type",
+        accessorKey: "block_type",
+        header: "نوع البلوك",
+        cell: ({ row }) => {
+          const type = row.original.block_type ?? "block";
+          switch (type) {
+            case "block":
+              return (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  بلوك
+                </span>
+              );
+            case "separator":
+              return (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  فاصل
+                </span>
+              );
+            case "head":
+              return (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                  بداية
+                </span>
+              );
+            case "scrap":
+              return (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-500/10 text-slate-600 dark:text-slate-400">
+                  هدر
+                </span>
+              );
+            default:
+              return <span className="text-xs text-app-label-secondary">{type}</span>;
+          }
+        },
+      },
+      {
         id: "sequence_in_batch",
         accessorKey: "sequence_in_batch",
         header: "التسلسل",

@@ -32,6 +32,8 @@ export function useBatchDraftRowsColumns({
             className="w-full px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
           >
             <option value="block">بلوك</option>
+            <option value="separator">فاصل</option>
+            <option value="head">بداية</option>
             <option value="scrap">هدر</option>
           </select>
         ),
@@ -86,6 +88,16 @@ export function useBatchDraftRowsColumns({
               type="number"
               min="1"
               value={row.original.pressure}
+              placeholder="مطلوب"
+              onChange={(e) => onUpdateRow(row.original.key, { pressure: e.target.value })}
+              className="w-16 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
+            />
+          ) : row.original.kind === "separator" || row.original.kind === "head" ? (
+            <input
+              type="number"
+              min="1"
+              value={row.original.pressure}
+              placeholder="اختياري"
               onChange={(e) => onUpdateRow(row.original.key, { pressure: e.target.value })}
               className="w-16 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
             />
@@ -97,7 +109,7 @@ export function useBatchDraftRowsColumns({
         id: "grade",
         header: "الدرجة",
         cell: ({ row }) =>
-          row.original.kind === "block" ? (
+          row.original.kind !== "scrap" ? (
             <select
               value={row.original.grade}
               onChange={(e) => onUpdateRow(row.original.key, { grade: e.target.value as DraftRow["grade"] })}
@@ -116,7 +128,7 @@ export function useBatchDraftRowsColumns({
         id: "color",
         header: "اللون",
         cell: ({ row }) =>
-          row.original.kind === "block" ? (
+          row.original.kind !== "scrap" ? (
             <input
               type="text"
               value={row.original.color}
@@ -131,7 +143,7 @@ export function useBatchDraftRowsColumns({
         id: "unit_cost",
         header: "تكلفة الوحدة",
         cell: ({ row }) =>
-          row.original.kind === "block" ? (
+          row.original.kind !== "scrap" ? (
             <input
               type="number"
               step="0.01"

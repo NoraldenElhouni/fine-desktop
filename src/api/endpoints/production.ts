@@ -47,7 +47,8 @@ export interface ProductionBatch {
  * scrap groups contribute volume only and consume no sequence numbers.
  */
 export interface BlockGroupInput {
-  kind: "block" | "scrap";
+  kind: "block" | "separator" | "head" | "scrap";
+  block_type?: "block" | "separator" | "head" | "scrap";
   count: number;
   length_m: number;
   height_m: number;
