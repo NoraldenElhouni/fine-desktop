@@ -14,6 +14,24 @@ export function useBlackMarketColumns(): ColumnDef<PaymentRequest, unknown>[] {
         meta: { className: "font-mono" },
       },
       {
+        id: "supplier",
+        header: "المورد / أمر الشراء",
+        enableSorting: false,
+        cell: ({ row }) => {
+          const supplier = row.original.import_order?.supplier;
+          const orderNumber = row.original.import_order?.order_number;
+          if (!supplier && !orderNumber) return <span className="text-app-label-tertiary">—</span>;
+          return (
+            <div className="flex flex-col">
+              <span className="font-bold text-app-label-primary text-xs">{supplier?.name ?? "—"}</span>
+              {orderNumber ? (
+                <span className="text-[10px] text-app-label-secondary font-mono">{orderNumber}</span>
+              ) : null}
+            </div>
+          );
+        },
+      },
+      {
         id: "route",
         header: "المسار",
         enableSorting: false,

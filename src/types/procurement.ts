@@ -65,6 +65,19 @@ export interface PaymentRequest {
   extra_allocation_lyd?: number | null;
   booked_fx_rate?: number | null;
   bank_hold?: BankHold | null;
+  import_order?: {
+    id: string;
+    order_number: string;
+    status?: string;
+    supplier_id?: string;
+    supplier?: {
+      id: string;
+      name: string;
+      code?: string | null;
+      contact_person?: string | null;
+      phone?: string | null;
+    } | null;
+  } | null;
   created_at?: string;
   updated_at?: string;
 }

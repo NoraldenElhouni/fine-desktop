@@ -253,19 +253,29 @@ export const TreasuryPage: React.FC = () => {
                   key={pay.id}
                   className="flex items-center justify-between p-3 rounded-xl border border-app-separator bg-app-bg-secondary"
                 >
-                  <div>
-                    <p className="text-xs font-bold text-app-label-primary">
-                      طلب دفع #{pay.id.slice(0, 6)} ({pay.route === "bank" ? "اعتماد مصرفي" : "سوق حر"})
-                    </p>
-                    <p className="text-[11px] text-app-label-secondary font-mono mt-0.5">
-                      القيمة: {formatNumber(pay.amount_requested)} USD
-                    </p>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-bold text-app-label-primary">
+                        طلب دفع #{pay.id.slice(0, 6)} ({pay.route === "bank" ? "اعتماد مصرفي" : "سوق حر"})
+                      </p>
+                      {pay.import_order?.supplier?.name ? (
+                        <span className="rounded-full bg-app-accent-subtle px-2 py-0.5 text-[10px] font-bold text-app-accent">
+                          {pay.import_order.supplier.name}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="flex items-center gap-3 text-[11px] text-app-label-secondary font-mono">
+                      {pay.import_order?.order_number ? (
+                        <span>أمر الشراء: {pay.import_order.order_number}</span>
+                      ) : null}
+                      <span>القيمة: {formatNumber(pay.amount_requested)} USD</span>
+                    </div>
                   </div>
                   <button
                     onClick={() => openExecuteModal(pay)}
-                    className="rounded-xl bg-app-accent px-3 py-1.5 text-xs font-bold text-white hover:opacity-90"
+                    className="rounded-xl bg-app-accent px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 transition-opacity"
                   >
-                    تنفيذ الدفع وتسوية
+                    قبول الطلب وتسوية الدفع
                   </button>
                 </div>
               ))}
@@ -435,9 +445,15 @@ export const TreasuryPage: React.FC = () => {
         <DialogContent size="md">
           <DialogHeader>
             <div>
-              <DialogTitle>تنفيذ تسوية الدفع وتثبيت العملة</DialogTitle>
+              <DialogTitle>قبول الطلب وتسوية الدفع بالخزينة</DialogTitle>
               {selectedPayment && (
                 <DialogDescription>
+                  {selectedPayment.import_order?.supplier?.name
+                    ? `المورد: ${selectedPayment.import_order.supplier.name} | `
+                    : ""}
+                  {selectedPayment.import_order?.order_number
+                    ? `أمر الشراء: ${selectedPayment.import_order.order_number} | `
+                    : ""}
                   المبلغ المطلوب: {formatNumber(selectedPayment.amount_requested)} USD
                 </DialogDescription>
               )}
@@ -545,7 +561,7 @@ export const TreasuryPage: React.FC = () => {
               disabled={executePaymentMutation.isPending || fxRateUsed <= 0 || noteMissing}
               className="rounded-xl bg-app-status-positive px-5 py-2 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
             >
-              {executePaymentMutation.isPending ? "جاري التأكيد..." : "تأكيد الدفع والتسوية"}
+              {executePaymentMutation.isPending ? "جاري التأكيد..." : "قبول الطلب وتسوية الدفع"}
             </button>
           </DialogFooter>
         </DialogContent>

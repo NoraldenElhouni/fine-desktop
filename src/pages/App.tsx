@@ -31,6 +31,7 @@ import ImportOrdersPage from "./procurement/ImportOrdersPage";
 import TreasuryPage from "./treasury/TreasuryPage";
 
 import { AuthorizedRoute } from "../components/AuthorizedRoute";
+import { ALL_MANAGER_ROLES } from "../routes/routes.config";
 
 /**
  * The landing screen depends on who is looking: a company-wide role gets the
@@ -81,7 +82,7 @@ const App = () => {
             <Route
               path="suppliers"
               element={
-                <AuthorizedRoute allowedRoles={["owner", "admin", "procurement-manager", "treasury-officer", "accounting-manager", "unit_manager", "manager"]}>
+                <AuthorizedRoute allowedRoles={ALL_MANAGER_ROLES}>
                   <SuppliersPage />
                 </AuthorizedRoute>
               }
@@ -89,7 +90,7 @@ const App = () => {
             <Route
               path="import-orders"
               element={
-                <AuthorizedRoute allowedRoles={["owner", "admin", "procurement-manager", "treasury-officer", "accounting-manager", "unit_manager", "manager"]}>
+                <AuthorizedRoute allowedRoles={ALL_MANAGER_ROLES}>
                   <ImportOrdersPage />
                 </AuthorizedRoute>
               }
@@ -97,7 +98,7 @@ const App = () => {
             <Route
               path="treasury"
               element={
-                <AuthorizedRoute allowedRoles={["owner", "admin", "treasury-officer", "accounting-manager", "procurement-manager", "unit_manager", "manager"]}>
+                <AuthorizedRoute allowedRoles={ALL_MANAGER_ROLES}>
                   <TreasuryPage />
                 </AuthorizedRoute>
               }

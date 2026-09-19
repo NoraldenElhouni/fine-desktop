@@ -41,14 +41,30 @@ export interface BreadcrumbEntry {
   label: string;
 }
 
+export const ALL_MANAGER_ROLES = [
+  "owner",
+  "admin",
+  "accounting-manager",
+  "treasury-officer",
+  "procurement-manager",
+  "hr-manager",
+  "inventory-manager",
+  "foam-manager",
+  "cutter-manager",
+  "furniture-manager",
+  "store-manager",
+  "unit_manager",
+  "manager",
+];
+
 export const navItems: AppNavItem[] = [
   { id: "dashboard", path: "/", label: "لوحة التحكم", icon: LayoutGrid },
   { id: "admin-entities", path: "/admin/entities", label: "إدارة الكيانات (مشرف)", icon: Building2, allowedRoles: ["owner", "admin"] },
   { id: "admin-units", path: "/admin/units", label: "إدارة الوحدات التشغيلية", icon: Building, allowedRoles: ["owner", "admin"] },
   { id: "admin-blueprints", path: "/admin/blueprints", label: "قوالب الوحدات", icon: Layers, allowedRoles: ["owner", "admin"] },
-  { id: "suppliers", path: "/suppliers", label: "الموردون", icon: Truck, allowedRoles: ["owner", "admin", "procurement-manager", "treasury-officer", "accounting-manager", "unit_manager", "manager"] },
-  { id: "import-orders", path: "/import-orders", label: "أوامر الاستيراد", icon: Package, allowedRoles: ["owner", "admin", "procurement-manager", "treasury-officer", "accounting-manager", "unit_manager", "manager"] },
-  { id: "treasury", path: "/treasury", label: "الخزينة وسعر الصرف", icon: Wallet, allowedRoles: ["owner", "admin", "treasury-officer", "accounting-manager", "procurement-manager", "unit_manager", "manager"] },
+  { id: "suppliers", path: "/suppliers", label: "الموردون", icon: Truck, allowedRoles: ALL_MANAGER_ROLES },
+  { id: "import-orders", path: "/import-orders", label: "أوامر الاستيراد", icon: Package, allowedRoles: ALL_MANAGER_ROLES },
+  { id: "treasury", path: "/treasury", label: "الخزينة وسعر الصرف", icon: Wallet, allowedRoles: ALL_MANAGER_ROLES },
   { id: "employees", path: "/employees", label: "الموظفون والعمالة", icon: UserCheck, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"] },
   { id: "clients", path: "/clients", label: "العملاء", icon: Users, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "accounting-manager", "unit_manager", "manager"] },
   { id: "orders", path: "/orders", label: "الطلبات", icon: ShoppingCart, allowedRoles: ["owner", "admin", "furniture-manager", "store-manager", "unit_manager", "manager"] },
