@@ -4,7 +4,10 @@ import {
   useCreateInventoryItem,
   useUpdateInventoryItem,
 } from "../../hooks/useInventory";
-import { useItemCategories, useAttributeLibrary } from "../../hooks/useCategories";
+import {
+  useItemCategories,
+  useAttributeLibrary,
+} from "../../hooks/useCategories";
 import { Package, Plus, Search, Filter, Sliders } from "lucide-react";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import {
@@ -34,11 +37,13 @@ export const InventoryItemsPage: React.FC = () => {
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [itemType, setItemType] = useState<any>("raw_material");
-  const [uom, setUom] = useState<any>("kg");
-  const [primaryUom, setPrimaryUom] = useState("barrel");
-  const [secondaryUom, setSecondaryUom] = useState("liter");
-  const [selectedAttributeIds, setSelectedAttributeIds] = useState<string[]>([]);
+  const [itemType, setItemType] = useState<InventoryItem["item_type"]>("raw_material");
+  const [uom, setUom] = useState<InventoryItem["unit_of_measure"]>("kg");
+  const [primaryUom, setPrimaryUom] = useState("");
+  const [secondaryUom, setSecondaryUom] = useState("");
+  const [selectedAttributeIds, setSelectedAttributeIds] = useState<string[]>(
+    [],
+  );
 
   const { data: itemData, isLoading } = useInventoryItems({
     search: searchTerm || undefined,
@@ -53,7 +58,7 @@ export const InventoryItemsPage: React.FC = () => {
 
   const toggleAttribute = (id: string) => {
     setSelectedAttributeIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
   };
 
@@ -61,7 +66,9 @@ export const InventoryItemsPage: React.FC = () => {
   // to it plus any with no category (the global library, which applies everywhere).
   const filteredAttributes = useMemo(() => {
     if (!attributeLibrary || !categoryId) return [];
-    return attributeLibrary.filter((attr) => !attr.category_id || attr.category_id === categoryId);
+    return attributeLibrary.filter(
+      (attr) => !attr.category_id || attr.category_id === categoryId,
+    );
   }, [attributeLibrary, categoryId]);
 
   const handleCategoryChange = (nextCategoryId: string) => {
@@ -70,8 +77,10 @@ export const InventoryItemsPage: React.FC = () => {
     setSelectedAttributeIds((prev) =>
       prev.filter((id) => {
         const attr = attributeLibrary?.find((a) => a.id === id);
-        return !attr || !attr.category_id || attr.category_id === nextCategoryId;
-      })
+        return (
+          !attr || !attr.category_id || attr.category_id === nextCategoryId
+        );
+      }),
     );
   };
 
@@ -162,7 +171,8 @@ export const InventoryItemsPage: React.FC = () => {
     getRowId: (item) => item.id,
   });
 
-  const isSubmitting = createItemMutation.isPending || updateItemMutation.isPending;
+  const isSubmitting =
+    createItemMutation.isPending || updateItemMutation.isPending;
 
   return (
     <div className="space-y-6 p-6" dir="rtl">
@@ -173,7 +183,8 @@ export const InventoryItemsPage: React.FC = () => {
             سجل الأصناف الرئيسي
           </h1>
           <p className="text-xs text-app-label-secondary mt-1">
-            كتالوج المواد الخام وقوالب الإسفنج والقطع المشذبة والشرائح والأصناف القابلة للبيع، مع تعيينات الخصائص المخصصة.
+            كتالوج المواد الخام وقوالب الإسفنج والقطع المشذبة والشرائح والأصناف
+            القابلة للبيع، مع تعيينات الخصائص المخصصة.
           </p>
         </div>
 
@@ -203,13 +214,13 @@ export const InventoryItemsPage: React.FC = () => {
 
         <div className="flex flex-wrap items-center gap-2">
           <Filter className="w-4 h-4 text-app-label-secondary" />
-          <span className="text-xs font-semibold text-app-label-secondary">الفئة:</span>
+          <span className="text-xs font-semibold text-app-label-secondary">
+            الفئة:
+          </span>
           <div className="min-w-[12rem]">
             <SearchableSelect<{ id: string; name: string }>
               options={categories ?? []}
-              value={
-                categories?.find((c) => c.id === categoryFilter) ?? null
-              }
+              value={categories?.find((c) => c.id === categoryFilter) ?? null}
               onChange={(c) => setCategoryFilter(c ? c.id : "")}
               getOptionId={(c) => c.id}
               getOptionLabel={(c) => c.name}
@@ -218,7 +229,9 @@ export const InventoryItemsPage: React.FC = () => {
             />
           </div>
 
-          <span className="text-xs font-semibold text-app-label-secondary">النوع:</span>
+          <span className="text-xs font-semibold text-app-label-secondary">
+            النوع:
+          </span>
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
@@ -252,24 +265,30 @@ export const InventoryItemsPage: React.FC = () => {
         <DialogContent size="lg">
           <DialogHeader>
             <DialogTitle>
-              {modalMode === "create" ? "إنشاء صنف مخزون" : `تعديل الصنف: ${editingItem?.name ?? ""}`}
+              {modalMode === "create"
+                ? "إنشاء صنف مخزون"
+                : `تعديل الصنف: ${editingItem?.name ?? ""}`}
             </DialogTitle>
             <DialogClose />
           </DialogHeader>
           <DialogBody>
-            <form id="inventory-item-form" onSubmit={handleSubmit} className="space-y-4">
+            <form
+              id="inventory-item-form"
+              onSubmit={handleSubmit}
+              className="space-y-4"
+            >
               {error && (
                 <div className="rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-2.5 text-xs text-app-status-danger">
                   {error}
                 </div>
               )}
               <div>
-                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">فئة الصنف</label>
+                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                  فئة الصنف
+                </label>
                 <SearchableSelect<{ id: string; name: string; code?: string }>
                   options={categories ?? []}
-                  value={
-                    categories?.find((c) => c.id === categoryId) ?? null
-                  }
+                  value={categories?.find((c) => c.id === categoryId) ?? null}
                   onChange={(c) => handleCategoryChange(c ? c.id : "")}
                   getOptionId={(c) => c.id}
                   getOptionLabel={(c) => c.name}
@@ -280,7 +299,9 @@ export const InventoryItemsPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">اسم الصنف</label>
+                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                  اسم الصنف
+                </label>
                 <input
                   type="text"
                   required
@@ -291,7 +312,9 @@ export const InventoryItemsPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">رمز الصنف (SKU)</label>
+                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                  رمز الصنف (SKU)
+                </label>
                 <input
                   type="text"
                   required
@@ -303,10 +326,12 @@ export const InventoryItemsPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">نوع الصنف</label>
+                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                    نوع الصنف
+                  </label>
                   <select
                     value={itemType}
-                    onChange={(e) => setItemType(e.target.value)}
+                    onChange={(e) => setItemType(e.target.value as InventoryItem["item_type"])}
                     className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
                   >
                     <option value="raw_material">مادة خام</option>
@@ -314,14 +339,18 @@ export const InventoryItemsPage: React.FC = () => {
                     <option value="cut_template_piece">قطعة قالب تشذيب</option>
                     <option value="slice">شريحة</option>
                     <option value="byproduct_fill">حشو ثانوي</option>
-                    <option value="furniture_finished_good">منتج أثاث تام</option>
+                    <option value="furniture_finished_good">
+                      منتج أثاث تام
+                    </option>
                     <option value="barrel">برميل</option>
                     <option value="pallet">منصة نقالة</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">وحدة القياس الأساسية</label>
+                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                    وحدة القياس الأساسية
+                  </label>
                   <select
                     value={uom}
                     onChange={(e) => setUom(e.target.value)}
@@ -338,8 +367,9 @@ export const InventoryItemsPage: React.FC = () => {
 
               {/* Product Attributes Many-to-Many Assignment */}
               <div className="space-y-2 p-3 bg-app-bg-secondary rounded-xl border border-app-separator">
-                <label className="block text-xs font-semibold text-app-label-primary uppercase flex items-center gap-1.5">
-                  <Sliders className="w-3.5 h-3.5 text-app-accent" /> إسناد خصائص المنتج
+                <label className="text-xs font-semibold text-app-label-primary uppercase flex items-center gap-1.5">
+                  <Sliders className="w-3.5 h-3.5 text-app-accent" /> إسناد
+                  خصائص المنتج
                 </label>
                 <div className="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto">
                   {filteredAttributes.map((attr) => {
@@ -360,7 +390,10 @@ export const InventoryItemsPage: React.FC = () => {
                           className="rounded border-app-separator text-app-accent focus:ring-app-accent"
                         />
                         <span className="truncate">
-                          {attr.name} {attr.unit_of_measure ? `(${attr.unit_of_measure})` : ""}
+                          {attr.name}{" "}
+                          {attr.unit_of_measure
+                            ? `(${attr.unit_of_measure})`
+                            : ""}
                         </span>
                       </label>
                     );
@@ -377,7 +410,9 @@ export const InventoryItemsPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3 p-3 bg-app-bg-secondary rounded-xl border border-app-separator">
                 <div>
-                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">وحدة الحاوية</label>
+                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                    وحدة الحاوية
+                  </label>
                   <input
                     type="text"
                     placeholder="مثال: barrel, block"
@@ -387,7 +422,9 @@ export const InventoryItemsPage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">وحدة القياس</label>
+                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                    وحدة القياس
+                  </label>
                   <input
                     type="text"
                     placeholder="مثال: liter, m3, kg"
@@ -397,7 +434,6 @@ export const InventoryItemsPage: React.FC = () => {
                   />
                 </div>
               </div>
-
             </form>
           </DialogBody>
           <DialogFooter>
@@ -417,8 +453,8 @@ export const InventoryItemsPage: React.FC = () => {
               {isSubmitting
                 ? "جاري الحفظ…"
                 : modalMode === "create"
-                ? "حفظ الصنف"
-                : "تحديث الصنف"}
+                  ? "حفظ الصنف"
+                  : "تحديث الصنف"}
             </button>
           </DialogFooter>
         </DialogContent>
