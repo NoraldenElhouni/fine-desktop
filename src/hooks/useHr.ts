@@ -68,10 +68,10 @@ export function useCreateLaborRate() {
   });
 }
 
-export function usePayrollRuns(page = 1) {
+export function usePayrollRuns(params?: { page?: number; period?: string; per_page?: number }) {
   return useQuery({
-    queryKey: ["payrollRuns", page],
-    queryFn: async () => (await hrApi.getPayrollRuns({ page })).data,
+    queryKey: ["payrollRuns", params],
+    queryFn: async () => (await hrApi.getPayrollRuns(params)).data,
   });
 }
 

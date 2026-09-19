@@ -148,7 +148,7 @@ export const hrApi = {
   createRate: (payload: { role: string; hourly_rate: number; effective_from: string }) =>
     apiClient.post<LaborRoleRate>("/labor-role-rates", payload),
 
-  getPayrollRuns: (params?: { page?: number }) =>
+  getPayrollRuns: (params?: { page?: number; period?: string; per_page?: number }) =>
     apiClient.get<Paginated<PayrollRun>>("/payroll-runs", { params }),
 
   openPayrollRun: (period: string) => apiClient.post<PayrollRun>("/payroll-runs", { period }),
