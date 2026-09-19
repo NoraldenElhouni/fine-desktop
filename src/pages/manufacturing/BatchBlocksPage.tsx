@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowRight, Boxes, Plus, AlertTriangle, Save, Beaker, ChevronLeft } from "lucide-react";
 import {
@@ -173,8 +173,14 @@ export const BatchBlocksPage: React.FC = () => {
     );
   };
 
-  const rowVolume = (row: DraftRow) => bunWidth * num(row.length_m) * num(row.height_m);
-  const rowTotal = (row: DraftRow) => rowVolume(row) * num(row.count);
+  // Stable identities: these feed useBatchDraftRowsColumns' useMemo deps, and its `cell`
+  // renderers are invoked as component types by TanStack Table's flexRender — a new function
+  // reference each render remounts the row <input>s (and drops focus) on every keystroke.
+  const rowVolume = useCallback(
+    (row: DraftRow) => bunWidth * num(row.length_m) * num(row.height_m),
+    [bunWidth],
+  );
+  const rowTotal = useCallback((row: DraftRow) => rowVolume(row) * num(row.count), [rowVolume]);
 
   const totals = useMemo(() => {
     const blockRows = rows.filter((r) => r.kind === "block");
@@ -192,11 +198,16 @@ export const BatchBlocksPage: React.FC = () => {
     };
   }, [rows, bunWidth]);
 
-  const updateRow = (key: string, patch: Partial<DraftRow>) =>
-    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  const updateRow = useCallback(
+    (key: string, patch: Partial<DraftRow>) =>
+      setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r))),
+    [],
+  );
 
-  const removeRow = (key: string) =>
-    setRows((prev) => prev.filter((r) => r.key !== key));
+  const removeRow = useCallback(
+    (key: string) => setRows((prev) => prev.filter((r) => r.key !== key)),
+    [],
+  );
 
   const hasScrapRow = rows.some((r) => r.kind === "scrap");
 
