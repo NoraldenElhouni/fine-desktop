@@ -5,8 +5,7 @@ import {
   useUpdateInventoryItem,
 } from "../../hooks/useInventory";
 import { useItemCategories, useAttributeLibrary } from "../../hooks/useCategories";
-import { Package, PackagePlus, Plus, Search, Filter, Sliders } from "lucide-react";
-import { StockIntakeModal } from "./StockIntakeModal";
+import { Package, Plus, Search, Filter, Sliders } from "lucide-react";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import {
   Dialog,
@@ -30,7 +29,6 @@ export const InventoryItemsPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
-  const [isIntakeOpen, setIsIntakeOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [name, setName] = useState("");
@@ -162,12 +160,6 @@ export const InventoryItemsPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsIntakeOpen(true)}
-            className="flex items-center gap-2 rounded-xl border border-app-accent px-4 py-2 text-xs font-bold text-app-accent hover:bg-app-accent-subtle transition-all active:scale-95"
-          >
-            <PackagePlus className="w-4 h-4" /> استلام مخزون
-          </button>
           <button
             onClick={openCreateModal}
             className="flex items-center gap-2 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all active:scale-95"
@@ -411,10 +403,6 @@ export const InventoryItemsPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {isIntakeOpen && (
-        <StockIntakeModal items={itemData?.data ?? []} onClose={() => setIsIntakeOpen(false)} />
-      )}
     </div>
   );
 };

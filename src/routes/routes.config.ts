@@ -68,7 +68,7 @@ export const navItems: AppNavItem[] = [
   { id: "employees", path: "/employees", label: "الموظفون والعمالة", icon: UserCheck, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"] },
   { id: "clients", path: "/clients", label: "العملاء", icon: Users, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "accounting-manager", "unit_manager", "manager"] },
   { id: "orders", path: "/orders", label: "الطلبات", icon: ShoppingCart, allowedRoles: ["owner", "admin", "furniture-manager", "store-manager", "unit_manager", "manager"] },
-  { id: "inventory", path: "/inventory/items", label: "المخزون والقطع", icon: Boxes, allowedRoles: ["owner", "admin", "inventory-manager", "foam-manager", "foam-operator", "cutter-manager", "cutter-operator", "furniture-manager", "assembler", "store-manager", "unit_manager", "manager"] },
+  { id: "inventory", path: "/inventory/ledger", label: "المخزون والقطع", icon: Boxes, allowedRoles: ["owner", "admin", "inventory-manager", "foam-manager", "foam-operator", "cutter-manager", "cutter-operator", "furniture-manager", "assembler", "store-manager", "unit_manager", "manager"] },
   {
     id: "manufacturing",
     path: "/manufacturing/batches",
@@ -155,6 +155,8 @@ export const getBreadcrumbEntries = (
     entries.push({ path: "/settings", label: "الإعدادات" });
     if (normalizedPath.startsWith("/settings/server")) {
       entries.push({ path: "/settings/server", label: "إعدادات السيرفر" });
+    } else if (normalizedPath.startsWith("/settings/items")) {
+      entries.push({ path: "/settings/items", label: "الأصناف" });
     } else if (normalizedPath.startsWith("/settings/products")) {
       entries.push({ path: "/settings/products", label: "المنتجات وقوائم المواد" });
     } else if (normalizedPath.startsWith("/settings/roles")) {
