@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, Boxes, Plus, AlertTriangle, Save, Beaker, ChevronLeft } from "lucide-react";
+import { ArrowRight, Boxes, Plus, AlertTriangle, Save, Beaker, ChevronLeft, Info } from "lucide-react";
 import {
   useProductionBatch,
   useBatchBlocks,
@@ -42,6 +42,27 @@ const STATUS_LABEL: Record<string, string> = {
   ready_for_grading: "جاهز للفرز",
   graded: "تم الفرز",
   closed: "مغلق",
+};
+
+// What can actually be done at each step, and why — shown in the step-info card so
+// the operator knows what belongs here without guessing from which sections appear.
+const STATUS_INFO: Record<string, string> = {
+  planned:
+    "الدفعة مخطط لها فقط. اضبط تركيبة الخلطة (نطاق الكثافة، وقت التصلب، سرعة السير) من قائمة دفعات الإنتاج، ثم رقِّ الدفعة إلى «تم الإعداد» لبدء التشغيل.",
+  configured:
+    "تم إعداد الماكينة بالتركيبة والمعايير المطلوبة. عند بدء تشغيل الماكينة فعلياً، رقِّ الدفعة إلى «قيد التشغيل».",
+  running:
+    "الماكينة تعمل الآن. سجّل استهلاك المواد الكيميائية الفعلي من الخزانات بعد انتهاء التشغيلة، ثم رقِّ الدفعة إلى «مستهلك».",
+  consumed:
+    "تم تسجيل استهلاك المواد وخصمه من الخزانات. بعد تقطيع الكتلة المستمرة إلى بلوكات فردية، رقِّ الدفعة إلى «قيد التصلب».",
+  curing:
+    "البلوكات في طور التصلب. عند انتهاء المهلة المحددة، رقِّ الدفعة إلى «جاهز للفرز» لبدء تسجيل الإنتاج والفرز.",
+  ready_for_grading:
+    "الدفعة جاهزة للفرز. أدخل صفوف الإنتاج كما تظهر في التقرير الورقي (الأبعاد، العدد، الضغط، الدرجة) لتسجيل كل بلوك على حدة.",
+  graded:
+    "تم تسجيل وفرز البلوكات. يمكنك إضافة صفوف إضافية أو تعديل بيانات أي بلوك قبل الإغلاق — تأكد أن كل بلوك يحمل ضغطاً مقاساً، ثم رقِّ الدفعة إلى «مغلق» لإدخالها إلى المخزون النهائي وترحيل التكلفة.",
+  closed:
+    "الدفعة مغلقة. تم ترحيل تكلفة المواد إلى البلوكات وتسجيلها كمخزون نهائي، ولا يمكن تعديل الدفعة أو بلوكاتها بعد الآن.",
 };
 
 export interface DraftRow {
@@ -110,8 +131,16 @@ export const BatchBlocksPage: React.FC = () => {
   });
 
   const bunWidth = batch ? Number(batch.bun_width_m) : 0;
+  // Blocks are keyed in only after grading starts (backend: acceptsBlockRegistration).
   const acceptsBlocks = batch ? BLOCK_ENTRY_STATES.includes(batch.status) : false;
   const nextStatus = batch ? NEXT_STATUS[batch.status] : null;
+
+  // Nothing to consume yet while the machine is only planned/configured.
+  const showConsumption = batch ? batch.status !== "planned" && batch.status !== "configured" : false;
+  // Once blocks exist they stay visible through grading and after close.
+  const showRegisteredBlocks = batch
+    ? acceptsBlocks || batch.status === "closed"
+    : false;
 
   const handleOpenEditBlock = (lot: StockLot) => {
     setEditingBlock(lot);
@@ -173,8 +202,14 @@ export const BatchBlocksPage: React.FC = () => {
     );
   };
 
-  const rowVolume = (row: DraftRow) => bunWidth * num(row.length_m) * num(row.height_m);
-  const rowTotal = (row: DraftRow) => rowVolume(row) * num(row.count);
+  // Stable identities: these feed useBatchDraftRowsColumns' useMemo deps, and its `cell`
+  // renderers are invoked as component types by TanStack Table's flexRender — a new function
+  // reference each render remounts the row <input>s (and drops focus) on every keystroke.
+  const rowVolume = useCallback(
+    (row: DraftRow) => bunWidth * num(row.length_m) * num(row.height_m),
+    [bunWidth],
+  );
+  const rowTotal = useCallback((row: DraftRow) => rowVolume(row) * num(row.count), [rowVolume]);
 
   const totals = useMemo(() => {
     const blockRows = rows.filter((r) => r.kind === "block");
@@ -192,11 +227,16 @@ export const BatchBlocksPage: React.FC = () => {
     };
   }, [rows, bunWidth]);
 
-  const updateRow = (key: string, patch: Partial<DraftRow>) =>
-    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  const updateRow = useCallback(
+    (key: string, patch: Partial<DraftRow>) =>
+      setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r))),
+    [],
+  );
 
-  const removeRow = (key: string) =>
-    setRows((prev) => prev.filter((r) => r.key !== key));
+  const removeRow = useCallback(
+    (key: string) => setRows((prev) => prev.filter((r) => r.key !== key)),
+    [],
+  );
 
   const hasScrapRow = rows.some((r) => r.kind === "scrap");
 
@@ -405,76 +445,85 @@ export const BatchBlocksPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Chemical consumption */}
-      <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
-        <div className="border-b border-app-separator px-4 py-3 flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-bold text-app-label-primary">استهلاك المواد الكيميائية</h2>
-            <p className="text-xs text-app-label-secondary mt-0.5">
-              يُسحب من مخزون الخزان بمتوسط تكلفة الخزان الحالي، بلقطة لحظية عند هذه العملية.
-            </p>
-          </div>
-          {consumption && (
-            <span className="text-xs font-mono text-app-label-secondary">
-              تكلفة المواد: {formatNumber(consumption.material_cost)} LYD
-            </span>
-          )}
+      {/* Step guide — what this status means and what to do next */}
+      <div className="flex items-start gap-3 rounded-2xl border border-app-accent/30 bg-app-accent-subtle p-4 text-xs text-app-label-primary">
+        <Info className="w-4 h-4 shrink-0 mt-0.5 text-app-accent" />
+        <div>
+          <p className="font-bold text-app-accent">{STATUS_LABEL[batch.status]}</p>
+          <p className="mt-0.5 text-app-label-secondary">{STATUS_INFO[batch.status]}</p>
         </div>
-
-        {consumption ? (
-          <DataTable table={consumptionTable} className="rounded-none border-0 shadow-none bg-transparent">
-            <DataTable.Content emptyMessage="لا توجد بنود استهلاك." emptyIcon={Beaker} />
-          </DataTable>
-        ) : (
-          <div className="p-4 space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {chemicalData?.data.map((c) => (
-                <div key={c.id} className="flex items-center gap-2">
-                  <label className="flex-1 text-xs text-app-label-primary">
-                    {c.name} <span className="text-app-label-tertiary font-mono">({c.sku})</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0"
-                    value={chemLines[c.id] ?? ""}
-                    onChange={(e) => setChemLines({ ...chemLines, [c.id]: e.target.value })}
-                    className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
-                  />
-                </div>
-              ))}
-              {chemicalData?.data.length === 0 && (
-                <p className="text-xs text-app-label-tertiary">لا توجد أصناف مواد خام معرّفة بعد.</p>
-              )}
-            </div>
-            <button
-              onClick={submitConsumption}
-              disabled={consumptionMutation.isPending || Object.values(chemLines).every((v) => v === "")}
-              className="flex items-center gap-1.5 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
-            >
-              <Beaker className="w-4 h-4" />
-              {consumptionMutation.isPending ? "جاري التسجيل…" : "تسجيل الاستهلاك"}
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* Registration form — mirrors the paper production report */}
-      <div className={`rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm ${acceptsBlocks ? "" : "opacity-60"}`}>
+      {/* Chemical consumption — nothing to consume before the machine has run */}
+      {showConsumption && (
+        <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
+          <div className="border-b border-app-separator px-4 py-3 flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-app-label-primary">استهلاك المواد الكيميائية</h2>
+              <p className="text-xs text-app-label-secondary mt-0.5">
+                يُسحب من مخزون الخزان بمتوسط تكلفة الخزان الحالي، بلقطة لحظية عند هذه العملية.
+              </p>
+            </div>
+            {consumption && (
+              <span className="text-xs font-mono text-app-label-secondary">
+                تكلفة المواد: {formatNumber(consumption.material_cost)} LYD
+              </span>
+            )}
+          </div>
+
+          {consumption ? (
+            <DataTable table={consumptionTable} className="rounded-none border-0 shadow-none bg-transparent">
+              <DataTable.Content emptyMessage="لا توجد بنود استهلاك." emptyIcon={Beaker} />
+            </DataTable>
+          ) : batch.status === "running" ? (
+            <div className="p-4 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {chemicalData?.data.map((c) => (
+                  <div key={c.id} className="flex items-center gap-2">
+                    <label className="flex-1 text-xs text-app-label-primary">
+                      {c.name} <span className="text-app-label-tertiary font-mono">({c.sku})</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0"
+                      value={chemLines[c.id] ?? ""}
+                      onChange={(e) => setChemLines({ ...chemLines, [c.id]: e.target.value })}
+                      className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
+                    />
+                  </div>
+                ))}
+                {chemicalData?.data.length === 0 && (
+                  <p className="text-xs text-app-label-tertiary">لا توجد أصناف مواد خام معرّفة بعد.</p>
+                )}
+              </div>
+              <button
+                onClick={submitConsumption}
+                disabled={consumptionMutation.isPending || Object.values(chemLines).every((v) => v === "")}
+                className="flex items-center gap-1.5 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+              >
+                <Beaker className="w-4 h-4" />
+                {consumptionMutation.isPending ? "جاري التسجيل…" : "تسجيل الاستهلاك"}
+              </button>
+            </div>
+          ) : (
+            <p className="p-4 text-xs text-app-label-tertiary">
+              لم يُسجَّل استهلاك لهذه الدفعة — التسجيل يتم فقط أثناء «قيد التشغيل».
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Registration form — mirrors the paper production report, only while grading is open */}
+      {acceptsBlocks && (
+      <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
         <div className="border-b border-app-separator px-4 py-3">
           <h2 className="text-sm font-bold text-app-label-primary">تسجيل الإنتاج</h2>
           <p className="text-xs text-app-label-secondary mt-0.5">
             أدخل الصفوف كما تظهر في تقرير الإنتاج. كل صف بلوك يتحول إلى ذلك العدد من البلوكات
             الموسومة فردياً؛ صفوف الهدر تسجل الحجم فقط.
           </p>
-          {!acceptsBlocks && (
-            <p className="mt-2 flex items-start gap-1.5 text-xs text-app-status-yellow">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-              يتم إدخال البلوكات بعد الفرز. رقّي الدفعة إلى{" "}
-              <strong>جاهز للفرز</strong> أولاً.
-            </p>
-          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-app-bg-secondary border-b border-app-separator">
@@ -582,8 +631,10 @@ export const BatchBlocksPage: React.FC = () => {
           </button>
         </div>
       </div>
+      )}
 
-      {/* Registered blocks */}
+      {/* Registered blocks — stay visible through grading and after close for reference */}
+      {showRegisteredBlocks && (
       <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
         <div className="border-b border-app-separator px-4 py-3 flex items-center justify-between">
           <h2 className="text-sm font-bold text-app-label-primary">
@@ -608,6 +659,7 @@ export const BatchBlocksPage: React.FC = () => {
           <DataTable.Pagination />
         </DataTable>
       </div>
+      )}
 
       {/* Edit Registered Block Dialog */}
       <Dialog

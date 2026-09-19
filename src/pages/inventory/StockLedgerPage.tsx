@@ -1,19 +1,21 @@
 import React, { useMemo, useState } from "react";
-import { useStockLots, useInventoryValuation, useProcessCutRemnant } from "../../hooks/useInventory";
+import { useStockLots, useInventoryValuation, useProcessCutRemnant, useInventoryItems } from "../../hooks/useInventory";
 import { useItemCategories } from "../../hooks/useCategories";
 import { StockLot } from "../../api/endpoints/inventory";
 import { formatNumber } from "../../lib/utils/format";
-import { Layers, Box, CheckCircle, DollarSign, RefreshCw, Scissors, AlertCircle, Tags } from "lucide-react";
+import { Layers, Box, CheckCircle, DollarSign, RefreshCw, Scissors, AlertCircle, Tags, PackagePlus } from "lucide-react";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useStockLedgerColumns } from "../../components/table-columns/stockLedgerColumns";
+import { StockIntakeModal } from "./StockIntakeModal";
 
 export const StockLedgerPage: React.FC = () => {
   const [gradeFilter, setGradeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [selectedLotForCut, setSelectedLotForCut] = useState<StockLot | null>(null);
+  const [isIntakeOpen, setIsIntakeOpen] = useState(false);
 
   const [remnantAction, setRemnantAction] = useState<"restock_remnant" | "convert_to_byproduct">("restock_remnant");
   const [lengthM, setLengthM] = useState<number>(1.0);
@@ -29,6 +31,7 @@ export const StockLedgerPage: React.FC = () => {
 
   const { data: categories } = useItemCategories();
   const { data: valuation } = useInventoryValuation();
+  const { data: itemData } = useInventoryItems({});
   const processCutMutation = useProcessCutRemnant();
 
   const handleCutSubmit = (e: React.FormEvent) => {
@@ -88,12 +91,20 @@ export const StockLedgerPage: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => refetch()}
-          className="flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1 transition-colors"
-        >
-          <RefreshCw className="w-4 h-4" /> تحديث
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => refetch()}
+            className="flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" /> تحديث
+          </button>
+          <button
+            onClick={() => setIsIntakeOpen(true)}
+            className="flex items-center gap-2 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all active:scale-95"
+          >
+            <PackagePlus className="w-4 h-4" /> استلام مخزون
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -330,6 +341,10 @@ export const StockLedgerPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {isIntakeOpen && (
+        <StockIntakeModal items={itemData?.data ?? []} onClose={() => setIsIntakeOpen(false)} />
+      )}
     </div>
   );
 };
