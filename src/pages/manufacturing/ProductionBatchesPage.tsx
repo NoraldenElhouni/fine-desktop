@@ -4,9 +4,12 @@ import { Factory, Plus, RefreshCw, AlertTriangle } from "lucide-react";
 import {
   useProductionBatches,
   useCreateProductionBatch,
+  useUpdateProductionBatch,
   useDeleteProductionBatch,
   expectedOperationNumber,
 } from "../../hooks/useProduction";
+import { toast } from "../../stores/toastStore";
+import { cn } from "../../lib/utils/utils";
 import {
   CreateBatchInput,
   ProductionBatch,
@@ -35,8 +38,12 @@ export const ProductionBatchesPage: React.FC = () => {
   const [warning, setWarning] = useState<NonSequentialOperationError | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [editingBatch, setEditingBatch] = useState<ProductionBatch | null>(null);
+  const [editForm, setEditForm] = useState(emptyForm);
+
   const { data, isLoading, refetch } = useProductionBatches();
   const createMutation = useCreateProductionBatch();
+  const updateMutation = useUpdateProductionBatch();
   const deleteMutation = useDeleteProductionBatch();
 
   const batches = data?.data ?? [];
@@ -83,6 +90,58 @@ export const ProductionBatchesPage: React.FC = () => {
     });
   };
 
+  const handleOpenEdit = (batch: ProductionBatch) => {
+    setEditingBatch(batch);
+    setEditForm({
+      operation_number: String(batch.operation_number),
+      bun_width_m: String(batch.bun_width_m),
+      density_band: batch.formula_params?.density_band ?? "",
+      cure_time_minutes: batch.formula_params?.cure_time_minutes ? String(batch.formula_params.cure_time_minutes) : "",
+      conveyor_speed: batch.formula_params?.conveyor_speed ? String(batch.formula_params.conveyor_speed) : "",
+      status: batch.status,
+    });
+    setError(null);
+  };
+
+  const submitEdit = () => {
+    if (!editingBatch) return;
+    setError(null);
+
+    const payload: Partial<CreateBatchInput> & { record_version: number } = {
+      bun_width_m: Number(editForm.bun_width_m),
+      status: editForm.status as CreateBatchInput["status"],
+      formula_params: {
+        density_band: editForm.density_band || undefined,
+        cure_time_minutes: editForm.cure_time_minutes ? Number(editForm.cure_time_minutes) : undefined,
+        conveyor_speed: editForm.conveyor_speed ? Number(editForm.conveyor_speed) : undefined,
+      },
+      record_version: editingBatch.record_version,
+    };
+
+    if ((editingBatch.blocks_count ?? 0) === 0 && Number(editForm.operation_number) !== editingBatch.operation_number) {
+      payload.operation_number = Number(editForm.operation_number);
+    }
+
+    updateMutation.mutate(
+      { id: editingBatch.id, data: payload },
+      {
+        onSuccess: () => {
+          setEditingBatch(null);
+          toast.success("تم تحديث دفعة الإنتاج بنجاح");
+          refetch();
+        },
+        onError: (err: unknown) => {
+          const payloadErr = apiErrorPayload(err);
+          setError(
+            payloadErr?.errors?.operation_number?.[0] ??
+              payloadErr?.message ??
+              "تعذر تعديل دفعة الإنتاج."
+          );
+        },
+      }
+    );
+  };
+
   const handleDelete = (batch: ProductionBatch) => {
     setError(null);
     deleteMutation.mutate(batch.id, {
@@ -96,6 +155,7 @@ export const ProductionBatchesPage: React.FC = () => {
 
   const columns = useProductionBatchesColumns({
     onOpenBlocks: openBlocks,
+    onEdit: handleOpenEdit,
     onDelete: handleDelete,
   });
 
@@ -313,6 +373,161 @@ export const ProductionBatchesPage: React.FC = () => {
               className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
             >
               {createMutation.isPending ? "جاري الحفظ…" : "إنشاء الدفعة"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Production Batch Dialog */}
+      <Dialog
+        open={Boolean(editingBatch)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingBatch(null);
+            setError(null);
+          }
+        }}
+      >
+        <DialogContent size="md">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-app-accent-subtle text-app-accent">
+                <Factory className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle>تعديل دفعة الإنتاج #{editingBatch?.operation_number}</DialogTitle>
+                <DialogDescription>
+                  تعديل أبعاد ومعاملات تشغيل دفعة تصنيع البلوكات
+                </DialogDescription>
+              </div>
+            </div>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody>
+            <form
+              id="edit-production-batch-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                submitEdit();
+              }}
+              className="space-y-4"
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                    رقم العملية
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    disabled={(editingBatch?.blocks_count ?? 0) > 0}
+                    value={editForm.operation_number}
+                    onChange={(e) => setEditForm({ ...editForm, operation_number: e.target.value })}
+                    className={cn(
+                      "w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono",
+                      (editingBatch?.blocks_count ?? 0) > 0 && "opacity-60 cursor-not-allowed bg-app-fill-f2"
+                    )}
+                  />
+                  {(editingBatch?.blocks_count ?? 0) > 0 && (
+                    <p className="text-[10px] text-app-label-tertiary mt-1">
+                      لا يمكن تعديل رقم العملية بعد تسجيل البلوكات
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                    عرض الكتلة (م)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    min="0.001"
+                    max={MAX_BUN_WIDTH_M}
+                    required
+                    value={editForm.bun_width_m}
+                    onChange={(e) => setEditForm({ ...editForm, bun_width_m: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                  />
+                  <p className="text-[10px] text-app-label-tertiary mt-1">
+                    الحد الأقصى للماكينة {MAX_BUN_WIDTH_M} م
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 p-4 bg-app-bg-secondary rounded-xl border border-app-separator">
+                <div>
+                  <label className="block text-xs text-app-label-secondary mb-1">نطاق الكثافة</label>
+                  <input
+                    type="text"
+                    placeholder="12-14"
+                    value={editForm.density_band}
+                    onChange={(e) => setEditForm({ ...editForm, density_band: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl bg-app-bg-primary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-app-label-secondary mb-1">الوقت (دقيقة)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editForm.cure_time_minutes}
+                    onChange={(e) => setEditForm({ ...editForm, cure_time_minutes: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl bg-app-bg-primary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-app-label-secondary mb-1">سرعة السير الناقل</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={editForm.conveyor_speed}
+                    onChange={(e) => setEditForm({ ...editForm, conveyor_speed: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl bg-app-bg-primary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                  حالة الدفعة
+                </label>
+                <select
+                  value={editForm.status}
+                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
+                >
+                  <option value="planned">مخطط (Planned)</option>
+                  <option value="configured">تم الإعداد (Configured)</option>
+                  <option value="running">قيد التشغيل (Running)</option>
+                  <option value="consumed">مستهلك (Consumed)</option>
+                  <option value="curing">قيد التصلب (Curing)</option>
+                  <option value="ready_for_grading">جاهز للفرز (Ready for Grading)</option>
+                  <option value="graded">تم الفرز (Graded)</option>
+                  <option value="closed">مغلق (Closed)</option>
+                </select>
+              </div>
+            </form>
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingBatch(null);
+                setError(null);
+              }}
+              className="px-4 py-2 text-xs font-medium text-app-label-secondary hover:text-app-label-primary"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              form="edit-production-batch-form"
+              disabled={updateMutation.isPending}
+              className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
+            >
+              {updateMutation.isPending ? "جاري الحفظ..." : "حفظ التعديلات"}
             </button>
           </DialogFooter>
         </DialogContent>

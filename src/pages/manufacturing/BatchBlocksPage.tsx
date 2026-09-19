@@ -9,7 +9,7 @@ import {
   useConsumptionReport,
   useRecordConsumption,
 } from "../../hooks/useProduction";
-import { useInventoryItems } from "../../hooks/useInventory";
+import { useInventoryItems, useUpdateStockLot } from "../../hooks/useInventory";
 import { useWarehouses } from "../../hooks/useWarehouses";
 import {
   BlockGroupInput,
@@ -18,7 +18,9 @@ import {
   BLOCK_ENTRY_STATES,
   NEXT_STATUS,
 } from "../../api/endpoints/production";
-import { InventoryItem } from "../../api/endpoints/inventory";
+import { InventoryItem, StockLot } from "../../api/endpoints/inventory";
+import { toast } from "../../stores/toastStore";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
@@ -85,6 +87,7 @@ export const BatchBlocksPage: React.FC = () => {
   const registerMutation = useRegisterBlocks();
   const transitionMutation = useTransitionBatch();
   const consumptionMutation = useRecordConsumption();
+  const updateStockLotMutation = useUpdateStockLot();
 
   const [chemLines, setChemLines] = useState<Record<string, string>>({});
 
@@ -94,9 +97,81 @@ export const BatchBlocksPage: React.FC = () => {
   const [warehouseId, setWarehouseId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  const [editingBlock, setEditingBlock] = useState<StockLot | null>(null);
+  const [blockForm, setBlockForm] = useState({
+    block_type: "block",
+    length_m: "",
+    width_m: "",
+    height_m: "",
+    pressure: "",
+    grade: "standard",
+    color: "",
+    status: "available",
+  });
+
   const bunWidth = batch ? Number(batch.bun_width_m) : 0;
   const acceptsBlocks = batch ? BLOCK_ENTRY_STATES.includes(batch.status) : false;
   const nextStatus = batch ? NEXT_STATUS[batch.status] : null;
+
+  const handleOpenEditBlock = (lot: StockLot) => {
+    setEditingBlock(lot);
+    setBlockForm({
+      block_type: lot.block_type ?? "block",
+      length_m: lot.length_m ? String(lot.length_m) : "",
+      width_m: lot.width_m ? String(lot.width_m) : String(bunWidth),
+      height_m: lot.height_m ? String(lot.height_m) : "",
+      pressure: lot.pressure ? String(lot.pressure) : "",
+      grade: lot.grade ?? "standard",
+      color: (lot.attribute_values as Record<string, string> | undefined)?.color ?? "",
+      status: lot.status ?? "available",
+    });
+    setError(null);
+  };
+
+  const submitBlockEdit = () => {
+    if (!editingBlock) return;
+    setError(null);
+
+    const length = num(blockForm.length_m);
+    const width = num(blockForm.width_m);
+    const height = num(blockForm.height_m);
+
+    if (length <= 0 || width <= 0 || height <= 0) {
+      setError("أبعاد البلوك (الطول، العرض، الارتفاع) يجب أن تكون أكبر من الصفر.");
+      return;
+    }
+
+    const payload: Partial<StockLot> & { record_version: number } = {
+      block_type: blockForm.block_type as StockLot["block_type"],
+      length_m: length,
+      width_m: width,
+      height_m: height,
+      grade: blockForm.grade as StockLot["grade"],
+      status: blockForm.status as StockLot["status"],
+      record_version: editingBlock.record_version,
+      ...(num(blockForm.pressure) > 0 ? { pressure: num(blockForm.pressure) } : {}),
+      attribute_values: {
+        ...(typeof editingBlock.attribute_values === "object" && editingBlock.attribute_values !== null
+          ? editingBlock.attribute_values
+          : {}),
+        ...(blockForm.color ? { color: blockForm.color } : {}),
+      },
+    };
+
+    updateStockLotMutation.mutate(
+      { id: editingBlock.id, data: payload },
+      {
+        onSuccess: () => {
+          setEditingBlock(null);
+          toast.success("تم تحديث بيانات البلوك بنجاح");
+        },
+        onError: (err: unknown) => {
+          const apiErr = apiErrorPayload(err);
+          setError(apiErr?.message ?? "تعذر تحديث بيانات البلوك.");
+        },
+      }
+    );
+  };
 
   const rowVolume = (row: DraftRow) => bunWidth * num(row.length_m) * num(row.height_m);
   const rowTotal = (row: DraftRow) => rowVolume(row) * num(row.count);
@@ -244,7 +319,7 @@ export const BatchBlocksPage: React.FC = () => {
 
   // Registered blocks — the page's main per-batch list; can grow large, so it gets
   // sorting/search/pagination like a top-level list would.
-  const blocksColumns = useRegisteredBlocksColumns();
+  const blocksColumns = useRegisteredBlocksColumns({ onEdit: handleOpenEditBlock });
   const blocksTableData = useMemo(() => blocks ?? [], [blocks]);
   const blocksTable = useDataTable({
     columns: blocksColumns,
@@ -533,6 +608,198 @@ export const BatchBlocksPage: React.FC = () => {
           <DataTable.Pagination />
         </DataTable>
       </div>
+
+      {/* Edit Registered Block Dialog */}
+      <Dialog
+        open={Boolean(editingBlock)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingBlock(null);
+            setError(null);
+          }
+        }}
+      >
+        <DialogContent size="md">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-app-accent-subtle text-app-accent">
+                <Boxes className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle>تعديل بيانات البلوك #{editingBlock?.lot_number}</DialogTitle>
+                <DialogDescription>
+                  تعديل الأبعاد، الضغط، ونوع وجودة البلوك
+                </DialogDescription>
+              </div>
+            </div>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody>
+            <form
+              id="edit-block-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                submitBlockEdit();
+              }}
+              className="space-y-4"
+            >
+              {error && (
+                <div className="flex items-center gap-2 p-3 text-xs rounded-xl bg-app-status-danger/10 text-app-status-danger border border-app-status-danger/20">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                    نوع البلوك
+                  </label>
+                  <select
+                    value={blockForm.block_type}
+                    onChange={(e) => setBlockForm({ ...blockForm, block_type: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
+                  >
+                    <option value="block">بلوك (Block)</option>
+                    <option value="separator">فاصل (Separator)</option>
+                    <option value="head">بداية (Head)</option>
+                    <option value="scrap">هدر (Scrap)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                    الدرجة (Grade)
+                  </label>
+                  <select
+                    value={blockForm.grade}
+                    onChange={(e) => setBlockForm({ ...blockForm, grade: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
+                  >
+                    <option value="standard">قياسي (Standard)</option>
+                    <option value="acceptable_variant">تباين مقبول (Acceptable Variant)</option>
+                    <option value="defective_usable">عيب قابل للاستخدام (Defective Usable)</option>
+                    <option value="reject">مرفوض (Reject)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="p-4 bg-app-bg-secondary rounded-xl border border-app-separator space-y-3">
+                <p className="text-xs font-bold text-app-label-primary">أبعاد البلوك (متر)</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] text-app-label-secondary mb-1">الطول (م)</label>
+                    <input
+                      type="number"
+                      step="0.001"
+                      min="0.001"
+                      required
+                      value={blockForm.length_m}
+                      onChange={(e) => setBlockForm({ ...blockForm, length_m: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl bg-app-bg-primary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-app-label-secondary mb-1">العرض (م)</label>
+                    <input
+                      type="number"
+                      step="0.001"
+                      min="0.001"
+                      required
+                      value={blockForm.width_m}
+                      onChange={(e) => setBlockForm({ ...blockForm, width_m: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl bg-app-bg-primary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-app-label-secondary mb-1">الارتفاع (م)</label>
+                    <input
+                      type="number"
+                      step="0.001"
+                      min="0.001"
+                      required
+                      value={blockForm.height_m}
+                      onChange={(e) => setBlockForm({ ...blockForm, height_m: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl bg-app-bg-primary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs font-mono pt-1 text-app-label-secondary border-t border-app-separator/50">
+                  <span>الحجم المحسوب:</span>
+                  <span className="font-bold text-app-accent">
+                    {(num(blockForm.length_m) * num(blockForm.width_m) * num(blockForm.height_m)).toFixed(4)} م³
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                {blockForm.block_type === "block" && (
+                  <div>
+                    <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                      الضغط (كجم/م³)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={blockForm.pressure}
+                      onChange={(e) => setBlockForm({ ...blockForm, pressure: e.target.value })}
+                      placeholder="30"
+                      className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                    />
+                  </div>
+                )}
+                <div className={blockForm.block_type === "block" ? "" : "col-span-2"}>
+                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                    اللون
+                  </label>
+                  <input
+                    type="text"
+                    value={blockForm.color}
+                    onChange={(e) => setBlockForm({ ...blockForm, color: e.target.value })}
+                    placeholder="أبيض / رمادي / أزرق"
+                    className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                    الحالة
+                  </label>
+                  <select
+                    value={blockForm.status}
+                    onChange={(e) => setBlockForm({ ...blockForm, status: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
+                  >
+                    <option value="available">متاح (Available)</option>
+                    <option value="reserved">محجوز (Reserved)</option>
+                    <option value="consumed">مستهلك (Consumed)</option>
+                    <option value="quarantined">حجر صحي (Quarantined)</option>
+                  </select>
+                </div>
+              </div>
+            </form>
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingBlock(null);
+                setError(null);
+              }}
+              className="px-4 py-2 text-xs font-medium text-app-label-secondary hover:text-app-label-primary"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              form="edit-block-form"
+              disabled={updateStockLotMutation.isPending}
+              className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
+            >
+              {updateStockLotMutation.isPending ? "جاري الحفظ..." : "حفظ التعديلات"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -141,6 +141,9 @@ export const inventoryApi = {
   createLot: (data: Partial<StockLot>) =>
     apiClient.post<StockLot>("/stock-lots", data),
 
+  updateLot: (id: string, data: Partial<StockLot> & { record_version: number }) =>
+    apiClient.put<StockLot>(`/stock-lots/${id}`, data),
+
   /** Goods intake: creates the lot, the INV-06 movement and the journal. */
   intakeLot: (data: {
     inventory_item_id: string;

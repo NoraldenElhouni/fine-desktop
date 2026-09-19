@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Boxes, Trash2 } from "lucide-react";
+import { Boxes, Edit, Trash2 } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { RowActionsMenu, RowActionItem } from "../ui/RowActionsMenu";
 import { ProductionBatch } from "../../api/endpoints/production";
@@ -17,11 +17,13 @@ const STATUS_LABELS: Record<string, string> = {
 
 export interface UseProductionBatchesColumnsArgs {
   onOpenBlocks: (batch: ProductionBatch) => void;
+  onEdit: (batch: ProductionBatch) => void;
   onDelete: (batch: ProductionBatch) => void;
 }
 
 export function useProductionBatchesColumns({
   onOpenBlocks,
+  onEdit,
   onDelete,
 }: UseProductionBatchesColumnsArgs): ColumnDef<ProductionBatch, unknown>[] {
   return useMemo<ColumnDef<ProductionBatch, unknown>[]>(
@@ -95,6 +97,7 @@ export function useProductionBatchesColumns({
           const batch = row.original;
           const items: RowActionItem[] = [
             { label: "البلوكات", icon: Boxes, onClick: () => onOpenBlocks(batch) },
+            { label: "تعديل", icon: Edit, onClick: () => onEdit(batch) },
           ];
           if ((batch.blocks_count ?? 0) === 0 && (batch.scrap_lots_count ?? 0) === 0) {
             items.push({ label: "حذف", icon: Trash2, onClick: () => onDelete(batch) });
@@ -103,6 +106,6 @@ export function useProductionBatchesColumns({
         },
       },
     ],
-    [onOpenBlocks, onDelete],
+    [onOpenBlocks, onEdit, onDelete],
   );
 }

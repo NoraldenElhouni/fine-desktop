@@ -56,6 +56,25 @@ export function useStockIntake() {
   });
 }
 
+export function useUpdateStockLot() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: Parameters<typeof inventoryApi.updateLot>[1];
+    }) => inventoryApi.updateLot(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["stockLots"] });
+      queryClient.invalidateQueries({ queryKey: ["batchBlocks"] });
+      queryClient.invalidateQueries({ queryKey: ["availableFoamBlocks"] });
+      queryClient.invalidateQueries({ queryKey: ["availableForCutting"] });
+    },
+  });
+}
+
 export function useAvailableForCutting(params?: { min_volume_m3?: number; grade?: string }) {
   return useQuery({
     queryKey: ["availableForCutting", params],
