@@ -57,6 +57,24 @@ export const InventoryItemsPage: React.FC = () => {
     );
   };
 
+  // Nothing to assign until a category is picked; then show attributes scoped
+  // to it plus any with no category (the global library, which applies everywhere).
+  const filteredAttributes = useMemo(() => {
+    if (!attributeLibrary || !categoryId) return [];
+    return attributeLibrary.filter((attr) => !attr.category_id || attr.category_id === categoryId);
+  }, [attributeLibrary, categoryId]);
+
+  const handleCategoryChange = (nextCategoryId: string) => {
+    setCategoryId(nextCategoryId);
+    // Drop any already-picked attribute that no longer applies under the new category.
+    setSelectedAttributeIds((prev) =>
+      prev.filter((id) => {
+        const attr = attributeLibrary?.find((a) => a.id === id);
+        return !attr || !attr.category_id || attr.category_id === nextCategoryId;
+      })
+    );
+  };
+
   const openCreateModal = () => {
     setModalMode("create");
     setEditingItem(null);
@@ -252,7 +270,7 @@ export const InventoryItemsPage: React.FC = () => {
                   value={
                     categories?.find((c) => c.id === categoryId) ?? null
                   }
-                  onChange={(c) => setCategoryId(c ? c.id : "")}
+                  onChange={(c) => handleCategoryChange(c ? c.id : "")}
                   getOptionId={(c) => c.id}
                   getOptionLabel={(c) => c.name}
                   getOptionSubLabel={(c) => c.code}
@@ -324,7 +342,7 @@ export const InventoryItemsPage: React.FC = () => {
                   <Sliders className="w-3.5 h-3.5 text-app-accent" /> إسناد خصائص المنتج
                 </label>
                 <div className="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto">
-                  {attributeLibrary?.map((attr) => {
+                  {filteredAttributes.map((attr) => {
                     const isChecked = selectedAttributeIds.includes(attr.id);
                     return (
                       <label
@@ -347,9 +365,11 @@ export const InventoryItemsPage: React.FC = () => {
                       </label>
                     );
                   })}
-                  {attributeLibrary?.length === 0 && (
+                  {filteredAttributes.length === 0 && (
                     <div className="col-span-2 text-xs text-app-label-tertiary text-center py-2">
-                      لا توجد خصائص رئيسية متاحة. أضفها من مكتبة الخصائص.
+                      {categoryId
+                        ? "لا توجد خصائص معرّفة لهذه الفئة بعد. أضفها من إدارة قوالب الفئات والخصائص."
+                        : "اختر فئة الصنف أولاً لعرض خصائصها."}
                     </div>
                   )}
                 </div>
