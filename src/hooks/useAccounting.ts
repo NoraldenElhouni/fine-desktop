@@ -24,6 +24,17 @@ export function useAccounts() {
   });
 }
 
+export function useCreateAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: accountingApi.createAccount,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+      qc.invalidateQueries({ queryKey: ["trialBalance"] });
+    },
+  });
+}
+
 export function useAccountLedger(accountId?: string, page = 1) {
   const companyWide = useIsCompanyWide();
   return useQuery({

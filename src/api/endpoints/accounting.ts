@@ -126,6 +126,14 @@ export interface ManualJournalPayload {
   }[];
 }
 
+export interface CreateAccountPayload {
+  account_code: string;
+  name: string;
+  type: AccountType;
+  parent_account_id?: string | null;
+  currency?: string;
+}
+
 /**
  * The desktop shell always pins a unit context, so accounting reads from a
  * company-wide role pass company_wide=1 to see the whole ledger. The backend
@@ -133,6 +141,9 @@ export interface ManualJournalPayload {
  */
 export const accountingApi = {
   getAccounts: () => apiClient.get<{ data: Account[] }>("/accounts"),
+
+  createAccount: (payload: CreateAccountPayload) =>
+    apiClient.post<{ message: string; data: Account }>("/accounts", payload),
 
   getAccountLedger: (accountId: string, page = 1, companyWide = false) =>
     apiClient.get<Paginated<JournalLine>>(`/accounts/${accountId}/ledger`, {
