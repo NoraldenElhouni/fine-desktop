@@ -1,10 +1,14 @@
 import { useMemo } from "react";
-import { Tags } from "lucide-react";
+import { Pencil, Tags } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { InventoryItem } from "../../api/endpoints/inventory";
 import { formatDate } from "../../lib/utils/format";
 
-export function useInventoryItemsColumns(): ColumnDef<InventoryItem, unknown>[] {
+export interface UseInventoryItemsColumnsArgs {
+  onEdit?: (item: InventoryItem) => void;
+}
+
+export function useInventoryItemsColumns({ onEdit }: UseInventoryItemsColumnsArgs = {}): ColumnDef<InventoryItem, unknown>[] {
   return useMemo<ColumnDef<InventoryItem, unknown>[]>(
     () => [
       {
@@ -65,7 +69,33 @@ export function useInventoryItemsColumns(): ColumnDef<InventoryItem, unknown>[] 
         meta: { className: "text-app-label-tertiary" },
         cell: ({ row }) => formatDate(row.original.created_at),
       },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        meta: { align: "end" },
+        cell: ({ row }) => {
+          const item = row.original;
+          return (
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit?.(item);
+                }}
+                className="flex items-center gap-1 rounded-lg border border-app-separator px-2.5 py-1 text-xs font-semibold text-app-label-secondary hover:border-app-accent hover:text-app-accent hover:bg-app-accent-subtle transition-colors"
+                title="تعديل الصنف"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>تعديل</span>
+              </button>
+            </div>
+          );
+        },
+      },
     ],
-    []
+    [onEdit]
   );
 }
+

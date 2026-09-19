@@ -21,6 +21,17 @@ export function useCreateInventoryItem() {
   });
 }
 
+export function useUpdateInventoryItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<InventoryItem> }) =>
+      inventoryApi.updateItem(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventoryItems"] });
+    },
+  });
+}
+
 export function useStockLots(params?: { category_id?: string; status?: string; grade?: string; warehouse_id?: string; inventory_item_id?: string; page?: number; attrs?: Record<string, any> }) {
   return useQuery({
     queryKey: ["stockLots", params],

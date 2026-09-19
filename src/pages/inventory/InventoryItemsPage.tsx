@@ -1,19 +1,37 @@
 import React, { useMemo, useState } from "react";
-import { useInventoryItems, useCreateInventoryItem } from "../../hooks/useInventory";
+import {
+  useInventoryItems,
+  useCreateInventoryItem,
+  useUpdateInventoryItem,
+} from "../../hooks/useInventory";
 import { useItemCategories, useAttributeLibrary } from "../../hooks/useCategories";
 import { Package, PackagePlus, Plus, Search, Filter, Sliders } from "lucide-react";
 import { StockIntakeModal } from "./StockIntakeModal";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+  DialogBody,
+  DialogFooter,
+} from "../../components/ui/Dialog";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useInventoryItemsColumns } from "../../components/table-columns/inventoryItemsColumns";
+import { type InventoryItem } from "../../api/endpoints/inventory";
+import { toast } from "../../stores/toastStore";
+import { isAxiosError } from "axios";
 
 export const InventoryItemsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"create" | "edit">("create");
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [isIntakeOpen, setIsIntakeOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
@@ -33,6 +51,7 @@ export const InventoryItemsPage: React.FC = () => {
   const { data: categories } = useItemCategories();
   const { data: attributeLibrary } = useAttributeLibrary();
   const createItemMutation = useCreateInventoryItem();
+  const updateItemMutation = useUpdateInventoryItem();
 
   const toggleAttribute = (id: string) => {
     setSelectedAttributeIds((prev) =>
@@ -40,31 +59,82 @@ export const InventoryItemsPage: React.FC = () => {
     );
   };
 
-  const handleCreate = (e: React.FormEvent) => {
-    e.preventDefault();
-    createItemMutation.mutate(
-      {
-        name,
-        sku,
-        category_id: categoryId || undefined,
-        item_type: itemType,
-        unit_of_measure: uom,
-        primary_uom: primaryUom,
-        secondary_uom: secondaryUom,
-        attribute_definition_ids: selectedAttributeIds,
-      },
-      {
-        onSuccess: () => {
-          setIsModalOpen(false);
-          setName("");
-          setSku("");
-          setSelectedAttributeIds([]);
-        },
-      }
-    );
+  const openCreateModal = () => {
+    setModalMode("create");
+    setEditingItem(null);
+    setName("");
+    setSku("");
+    setCategoryId("");
+    setItemType("raw_material");
+    setUom("kg");
+    setPrimaryUom("barrel");
+    setSecondaryUom("liter");
+    setSelectedAttributeIds([]);
+    setError(null);
+    setIsModalOpen(true);
   };
 
-  const columns = useInventoryItemsColumns();
+  const openEditModal = (item: InventoryItem) => {
+    setModalMode("edit");
+    setEditingItem(item);
+    setName(item.name);
+    setSku(item.sku);
+    setCategoryId(item.category_id ?? "");
+    setItemType(item.item_type);
+    setUom(item.unit_of_measure);
+    setPrimaryUom(item.primary_uom ?? "barrel");
+    setSecondaryUom(item.secondary_uom ?? "liter");
+    setSelectedAttributeIds(item.attribute_definitions?.map((a) => a.id) ?? []);
+    setError(null);
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    const payload = {
+      name: name.trim(),
+      sku: sku.trim(),
+      category_id: categoryId || undefined,
+      item_type: itemType,
+      unit_of_measure: uom,
+      primary_uom: primaryUom.trim() || undefined,
+      secondary_uom: secondaryUom.trim() || undefined,
+      attribute_definition_ids: selectedAttributeIds,
+    };
+
+    try {
+      if (modalMode === "create") {
+        await createItemMutation.mutateAsync(payload);
+        toast.success("تم إنشاء صنف المخزون بنجاح");
+      } else if (editingItem) {
+        await updateItemMutation.mutateAsync({
+          id: editingItem.id,
+          data: payload,
+        });
+        toast.success("تم تحديث صنف المخزون بنجاح");
+      }
+      setIsModalOpen(false);
+    } catch (err: unknown) {
+      if (isAxiosError(err)) {
+        const errors = err.response?.data?.errors;
+        if (errors && typeof errors === "object") {
+          const firstKey = Object.keys(errors)[0];
+          const firstMsg = errors[firstKey]?.[0];
+          if (firstMsg) {
+            setError(String(firstMsg));
+            return;
+          }
+        }
+        setError(err.response?.data?.message ?? "فشل حفظ صنف المخزون");
+      } else {
+        setError("فشل حفظ صنف المخزون");
+      }
+    }
+  };
+
+  const columns = useInventoryItemsColumns({ onEdit: openEditModal });
 
   const tableData = useMemo(() => itemData?.data ?? [], [itemData]);
   const itemsTable = useDataTable({
@@ -75,6 +145,8 @@ export const InventoryItemsPage: React.FC = () => {
     pageSize: 10,
     getRowId: (item) => item.id,
   });
+
+  const isSubmitting = createItemMutation.isPending || updateItemMutation.isPending;
 
   return (
     <div className="space-y-6 p-6" dir="rtl">
@@ -97,7 +169,7 @@ export const InventoryItemsPage: React.FC = () => {
             <PackagePlus className="w-4 h-4" /> استلام مخزون
           </button>
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={openCreateModal}
             className="flex items-center gap-2 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all active:scale-95"
           >
             <Plus className="w-4 h-4" /> إضافة صنف مخزون
@@ -166,11 +238,18 @@ export const InventoryItemsPage: React.FC = () => {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent size="lg">
           <DialogHeader>
-            <DialogTitle>إنشاء صنف مخزون</DialogTitle>
+            <DialogTitle>
+              {modalMode === "create" ? "إنشاء صنف مخزون" : `تعديل الصنف: ${editingItem?.name ?? ""}`}
+            </DialogTitle>
             <DialogClose />
           </DialogHeader>
           <DialogBody>
-            <form id="inventory-item-form" onSubmit={handleCreate} className="space-y-4">
+            <form id="inventory-item-form" onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-2.5 text-xs text-app-status-danger">
+                  {error}
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">فئة الصنف</label>
                 <SearchableSelect<{ id: string; name: string; code?: string }>
@@ -317,10 +396,14 @@ export const InventoryItemsPage: React.FC = () => {
             <button
               type="submit"
               form="inventory-item-form"
-              disabled={createItemMutation.isPending}
+              disabled={isSubmitting}
               className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
             >
-              {createItemMutation.isPending ? "جاري الحفظ…" : "حفظ الصنف"}
+              {isSubmitting
+                ? "جاري الحفظ…"
+                : modalMode === "create"
+                ? "حفظ الصنف"
+                : "تحديث الصنف"}
             </button>
           </DialogFooter>
         </DialogContent>
