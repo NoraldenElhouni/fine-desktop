@@ -254,6 +254,7 @@ export const ProductionOrderDetailPage: React.FC = () => {
         {canLogLabor && (
           <form onSubmit={submitLabor} className="border-t border-app-separator p-3 flex flex-wrap gap-2 items-end">
             <div className="flex-1 min-w-40">
+              <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">الموظف</label>
               <SearchableSelect<{ id: string; entity?: { name?: string }; job_title?: string }>
                 options={employees ?? []}
                 value={
@@ -270,26 +271,32 @@ export const ProductionOrderDetailPage: React.FC = () => {
                 getOptionSearchText={(e) =>
                   `${e.entity?.name ?? ""} ${e.job_title ?? ""}`
                 }
-                placeholder="الموظف…"
+                placeholder="اختر الموظف…"
                 size="sm"
                 required
               />
             </div>
-            <select
-              value={laborForm.role}
-              onChange={(e) => setLaborForm({ ...laborForm, role: e.target.value })}
-              className="px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
-            >
-              {["tailor", "carpenter", "upholsterer", "assembler", "operator", "other"].map((r) => (
-                <option key={r} value={r}>{ROLE_LABEL[r]}</option>
-              ))}
-            </select>
-            <input
-              type="number" step="0.25" min="0.25" required placeholder="الساعات"
-              value={laborForm.hours}
-              onChange={(e) => setLaborForm({ ...laborForm, hours: e.target.value })}
-              className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
-            />
+            <div>
+              <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">الدور</label>
+              <select
+                value={laborForm.role}
+                onChange={(e) => setLaborForm({ ...laborForm, role: e.target.value })}
+                className="px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
+              >
+                {["tailor", "carpenter", "upholsterer", "assembler", "operator", "other"].map((r) => (
+                  <option key={r} value={r}>{ROLE_LABEL[r]}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">الساعات</label>
+              <input
+                type="number" step="0.25" min="0.25" required placeholder="0.25"
+                value={laborForm.hours}
+                onChange={(e) => setLaborForm({ ...laborForm, hours: e.target.value })}
+                className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
+              />
+            </div>
             <button
               type="submit"
               disabled={logLaborMutation.isPending || !laborForm.employee || num(laborForm.hours) <= 0}

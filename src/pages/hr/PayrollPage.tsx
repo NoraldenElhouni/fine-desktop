@@ -93,12 +93,15 @@ export const PayrollPage: React.FC = () => {
             الاستقطاعات تُعدَّل أثناء المراجعة فقط، والصافي يُحتسب آليًا.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="month" value={period}
-            onChange={(e) => setPeriod(e.target.value)}
-            className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono text-app-label-primary focus:border-app-accent focus:outline-none"
-          />
+        <div className="flex items-end gap-2">
+          <div>
+            <label className="block text-xs font-semibold text-app-label-secondary mb-1">فترة المسير</label>
+            <input
+              type="month" value={period}
+              onChange={(e) => setPeriod(e.target.value)}
+              className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono text-app-label-primary focus:border-app-accent focus:outline-none"
+            />
+          </div>
           <button
             onClick={openRun}
             disabled={openMutation.isPending}

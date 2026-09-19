@@ -601,6 +601,7 @@ export const ImportOrdersPage: React.FC = () => {
                       >
                         <div className="flex items-start gap-2">
                           <div className="flex-1 min-w-0">
+                            <label className="block text-xs font-semibold text-app-label-secondary mb-1">الصنف</label>
                             <SearchableSelect<InventoryItem>
                               options={inventoryItems}
                               value={
@@ -1086,28 +1087,34 @@ export const ImportOrdersPage: React.FC = () => {
 
               {/* Add Cost Form */}
               <form onSubmit={handleAddLandedCost} className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <select
-                    value={costType}
-                    onChange={(e) => setCostType(e.target.value as LandedCostType)}
-                    className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
-                  >
-                    <option value="freight">شحن بحري / جوي (Freight)</option>
-                    <option value="customs">رسوم جمركية (Customs)</option>
-                    <option value="fx_spread">فوارق عملة (FX Spread)</option>
-                    <option value="local_transport">نقل داخلي (Local Transport)</option>
-                    <option value="other">مصاريف أخرى (Other)</option>
-                  </select>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    required
-                    value={costAmount || ""}
-                    onChange={(e) => setCostAmount(Number(e.target.value))}
-                    placeholder="القيمة بالدينار (LYD)"
-                    className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
-                  />
+                <div className="flex items-end gap-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-app-label-secondary mb-1">نوع التكلفة الإضافية</label>
+                    <select
+                      value={costType}
+                      onChange={(e) => setCostType(e.target.value as LandedCostType)}
+                      className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
+                    >
+                      <option value="freight">شحن بحري / جوي (Freight)</option>
+                      <option value="customs">رسوم جمركية (Customs)</option>
+                      <option value="fx_spread">فوارق عملة (FX Spread)</option>
+                      <option value="local_transport">نقل داخلي (Local Transport)</option>
+                      <option value="other">مصاريف أخرى (Other)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-app-label-secondary mb-1">المبلغ (LYD)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      required
+                      value={costAmount || ""}
+                      onChange={(e) => setCostAmount(Number(e.target.value))}
+                      placeholder="0.00"
+                      className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs text-app-label-primary focus:outline-none"
+                    />
+                  </div>
                   <button
                     type="submit"
                     disabled={isSubmitting || costAmount <= 0}

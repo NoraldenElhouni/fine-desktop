@@ -152,39 +152,48 @@ export const ProductionOrdersPage: React.FC = () => {
             )}
 
             <form id="production-order-form" onSubmit={submit} className="space-y-3">
-              <input
-                type="text" required placeholder="رقم الطلب — PO-1042"
-                value={form.order_number}
-                onChange={(e) => setForm({ ...form, order_number: e.target.value })}
-                className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none"
-              />
-              <SearchableSelect<Product>
-                options={products?.data ?? []}
-                value={
-                  products?.data.find((p) => p.id === form.product_id) ?? null
-                }
-                onChange={(p) =>
-                  setForm({ ...form, product_id: p ? p.id : "" })
-                }
-                getOptionId={(p) => p.id}
-                getOptionLabel={(p) => p.name}
-                getOptionSubLabel={(p) =>
-                  p.active_bom
-                    ? `BOM v${p.active_bom.version}`
-                    : "لا توجد قائمة مواد نشطة"
-                }
-                getOptionSearchText={(p) =>
-                  `${p.name} ${p.sku ?? ""}`
-                }
-                placeholder="اختر منتجًا…"
-                required
-              />
-              <input
-                type="number" min="1" placeholder="الكمية"
-                value={form.quantity}
-                onChange={(e) => setForm({ ...form, quantity: e.target.value })}
-                className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none"
-              />
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">رقم أمر الإنتاج</label>
+                <input
+                  type="text" required placeholder="PO-1042"
+                  value={form.order_number}
+                  onChange={(e) => setForm({ ...form, order_number: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">المنتج المراد تصنيعه</label>
+                <SearchableSelect<Product>
+                  options={products?.data ?? []}
+                  value={
+                    products?.data.find((p) => p.id === form.product_id) ?? null
+                  }
+                  onChange={(p) =>
+                    setForm({ ...form, product_id: p ? p.id : "" })
+                  }
+                  getOptionId={(p) => p.id}
+                  getOptionLabel={(p) => p.name}
+                  getOptionSubLabel={(p) =>
+                    p.active_bom
+                      ? `BOM v${p.active_bom.version}`
+                      : "لا توجد قائمة مواد نشطة"
+                  }
+                  getOptionSearchText={(p) =>
+                    `${p.name} ${p.sku ?? ""}`
+                  }
+                  placeholder="اختر منتجًا…"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">الكمية المطلوبة</label>
+                <input
+                  type="number" min="1" placeholder="1"
+                  value={form.quantity}
+                  onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none"
+                />
+              </div>
             </form>
           </DialogBody>
           <DialogFooter>

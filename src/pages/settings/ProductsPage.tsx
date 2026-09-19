@@ -310,6 +310,7 @@ export const ProductsPage: React.FC = () => {
                     </div>
                     <div className="border-t border-app-separator p-3 flex flex-wrap gap-2 items-end">
                       <div className="flex-1 min-w-40">
+                        <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">المكوّن</label>
                         <SearchableSelect<InventoryItem>
                           options={allItems?.data ?? []}
                           value={
@@ -327,18 +328,24 @@ export const ProductsPage: React.FC = () => {
                           size="sm"
                         />
                       </div>
-                      <input
-                        type="number" step="0.01" min="0.01" placeholder="الكمية"
-                        value={compForm.qty}
-                        onChange={(e) => setCompForm({ ...compForm, qty: e.target.value })}
-                        className="w-20 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
-                      />
-                      <input
-                        type="number" step="0.01" min="0" placeholder="التكلفة التقديرية"
-                        value={compForm.cost}
-                        onChange={(e) => setCompForm({ ...compForm, cost: e.target.value })}
-                        className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
-                      />
+                      <div>
+                        <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">الكمية</label>
+                        <input
+                          type="number" step="0.01" min="0.01" placeholder="0.01"
+                          value={compForm.qty}
+                          onChange={(e) => setCompForm({ ...compForm, qty: e.target.value })}
+                          className="w-20 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">التكلفة التقديرية (LYD)</label>
+                        <input
+                          type="number" step="0.01" min="0" placeholder="0.00"
+                          value={compForm.cost}
+                          onChange={(e) => setCompForm({ ...compForm, cost: e.target.value })}
+                          className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
+                        />
+                      </div>
                       <button
                         disabled={!compForm.item || num(compForm.qty) <= 0}
                         onClick={() =>
@@ -393,27 +400,36 @@ export const ProductsPage: React.FC = () => {
                       ))}
                     </div>
                     <div className="border-t border-app-separator p-3 flex flex-wrap gap-2 items-end">
-                      <select
-                        value={laborForm.role}
-                        onChange={(e) => setLaborForm({ ...laborForm, role: e.target.value })}
-                        className="px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
-                      >
-                        {["tailor", "carpenter", "upholsterer", "assembler", "operator", "other"].map((r) => (
-                          <option key={r} value={r}>{LABOR_ROLE_LABEL[r]}</option>
-                        ))}
-                      </select>
-                      <input
-                        type="number" step="0.5" min="0.5" placeholder="الساعات"
-                        value={laborForm.hours}
-                        onChange={(e) => setLaborForm({ ...laborForm, hours: e.target.value })}
-                        className="w-20 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
-                      />
-                      <input
-                        type="number" step="0.5" min="0" placeholder="الأجر/ساعة"
-                        value={laborForm.rate}
-                        onChange={(e) => setLaborForm({ ...laborForm, rate: e.target.value })}
-                        className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
-                      />
+                      <div>
+                        <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">الدور / المهنة</label>
+                        <select
+                          value={laborForm.role}
+                          onChange={(e) => setLaborForm({ ...laborForm, role: e.target.value })}
+                          className="px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
+                        >
+                          {["tailor", "carpenter", "upholsterer", "assembler", "operator", "other"].map((r) => (
+                            <option key={r} value={r}>{LABOR_ROLE_LABEL[r]}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">الساعات التقديرية</label>
+                        <input
+                          type="number" step="0.5" min="0.5" placeholder="1"
+                          value={laborForm.hours}
+                          onChange={(e) => setLaborForm({ ...laborForm, hours: e.target.value })}
+                          className="w-20 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">الأجر بالساعة (LYD)</label>
+                        <input
+                          type="number" step="0.5" min="0" placeholder="0.00"
+                          value={laborForm.rate}
+                          onChange={(e) => setLaborForm({ ...laborForm, rate: e.target.value })}
+                          className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
+                        />
+                      </div>
                       <button
                         disabled={num(laborForm.hours) <= 0}
                         onClick={() =>
@@ -507,22 +523,29 @@ export const ProductsPage: React.FC = () => {
           </DialogHeader>
           <DialogBody>
             <form id="new-product-form" onSubmit={submitProduct} className="space-y-3">
-              <input
-                type="text" required placeholder="الاسم — مثال: كنبة 3 مقاعد"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs border-app-separator focus:border-app-accent focus:outline-none"
-              />
-              <input
-                type="text" required placeholder="رمز الصنف (SKU) — مثال: PROD-SOFA-3S"
-                dir="ltr"
-                value={form.sku}
-                onChange={(e) => setForm({ ...form, sku: e.target.value })}
-                className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none text-start"
-              />
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">اسم المنتج</label>
+                <input
+                  type="text" required placeholder="مثال: كنبة 3 مقاعد"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs border-app-separator focus:border-app-accent focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">رمز الصنف (SKU)</label>
+                <input
+                  type="text" required placeholder="PROD-SOFA-3S"
+                  dir="ltr"
+                  value={form.sku}
+                  onChange={(e) => setForm({ ...form, sku: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none text-start"
+                />
+              </div>
 
               {hasFinishedOptions ? (
                 <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">صنف المنتج التام بالمخزون</label>
                   <SearchableSelect<InventoryItem>
                     options={finishedOptions}
                     value={
@@ -580,12 +603,15 @@ export const ProductsPage: React.FC = () => {
                 </div>
               )}
 
-              <input
-                type="number" step="0.05" min="1" placeholder="معامل هامش الربح"
-                value={form.markup_factor}
-                onChange={(e) => setForm({ ...form, markup_factor: e.target.value })}
-                className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none"
-              />
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">معامل هامش الربح</label>
+                <input
+                  type="number" step="0.05" min="1" placeholder="1.25"
+                  value={form.markup_factor}
+                  onChange={(e) => setForm({ ...form, markup_factor: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none"
+                />
+              </div>
             </form>
           </DialogBody>
           <DialogFooter>

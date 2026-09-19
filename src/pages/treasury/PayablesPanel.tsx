@@ -157,19 +157,25 @@ export const PayablesPanel: React.FC = () => {
 
             {settling && (
             <form id="settle-payable-form" onSubmit={submit} className="space-y-3">
-              <input
-                type="number" step="0.0001" min="0.0001" max={Number(settling.outstanding)} required
-                placeholder="المبلغ (LYD)"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
-              />
-              <input
-                type="text" placeholder="المرجع — رقم الشيك أو الحوالة (اختياري)"
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
-              />
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">المبلغ المراد سداده (LYD)</label>
+                <input
+                  type="number" step="0.0001" min="0.0001" max={Number(settling.outstanding)} required
+                  placeholder="0.00"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">المرجع (رقم الشيك أو الحوالة)</label>
+                <input
+                  type="text" placeholder="رقم الشيك أو الحوالة (اختياري)"
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
+                />
+              </div>
             </form>
             )}
           </DialogBody>

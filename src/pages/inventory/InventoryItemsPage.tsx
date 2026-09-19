@@ -183,6 +183,7 @@ export const InventoryItemsPage: React.FC = () => {
           <Search className="w-4 h-4 absolute start-3 top-3 text-app-label-tertiary" />
           <input
             type="text"
+            aria-label="بحث في الأصناف"
             placeholder="بحث برمز الصنف (SKU) أو الاسم…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -192,6 +193,7 @@ export const InventoryItemsPage: React.FC = () => {
 
         <div className="flex flex-wrap items-center gap-2">
           <Filter className="w-4 h-4 text-app-label-secondary" />
+          <span className="text-xs font-semibold text-app-label-secondary">الفئة:</span>
           <div className="min-w-[12rem]">
             <SearchableSelect<{ id: string; name: string }>
               options={categories ?? []}
@@ -206,6 +208,7 @@ export const InventoryItemsPage: React.FC = () => {
             />
           </div>
 
+          <span className="text-xs font-semibold text-app-label-secondary">النوع:</span>
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}

@@ -151,48 +151,63 @@ export const LeaveRequestsPage: React.FC = () => {
             )}
 
             <form id="leave-request-form" onSubmit={submit} className="space-y-3">
-              <SearchableSelect<{ id: string; entity?: { name?: string }; job_title?: string }>
-                options={employees ?? []}
-                value={
-                  employees?.find((e) => e.id === employeeId) ?? null
-                }
-                onChange={(e) => setEmployeeId(e ? e.id : "")}
-                getOptionId={(e) => e.id}
-                getOptionLabel={(e) => e.entity?.name ?? e.job_title ?? e.id}
-                getOptionSubLabel={(e) => e.job_title}
-                getOptionSearchText={(e) =>
-                  `${e.entity?.name ?? ""} ${e.job_title ?? ""}`
-                }
-                placeholder="الموظف…"
-                required
-              />
-              <div className="flex gap-2">
-                <input
-                  type="date" required value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="flex-1 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
-                />
-                <input
-                  type="date" required value={endDate} min={startDate || undefined}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="flex-1 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">الموظف</label>
+                <SearchableSelect<{ id: string; entity?: { name?: string }; job_title?: string }>
+                  options={employees ?? []}
+                  value={
+                    employees?.find((e) => e.id === employeeId) ?? null
+                  }
+                  onChange={(e) => setEmployeeId(e ? e.id : "")}
+                  getOptionId={(e) => e.id}
+                  getOptionLabel={(e) => e.entity?.name ?? e.job_title ?? e.id}
+                  getOptionSubLabel={(e) => e.job_title}
+                  getOptionSearchText={(e) =>
+                    `${e.entity?.name ?? ""} ${e.job_title ?? ""}`
+                  }
+                  placeholder="الموظف…"
+                  required
                 />
               </div>
-              <select
-                value={leaveType}
-                onChange={(e) => setLeaveType(e.target.value as LeaveType)}
-                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
-              >
-                {(Object.keys(LEAVE_TYPE_LABEL) as LeaveType[]).map((t) => (
-                  <option key={t} value={t}>{LEAVE_TYPE_LABEL[t]}</option>
-                ))}
-              </select>
-              <input
-                type="text" placeholder="السبب (اختياري)"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
-              />
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">تاريخ البدء</label>
+                  <input
+                    type="date" required value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">تاريخ الانتهاء</label>
+                  <input
+                    type="date" required value={endDate} min={startDate || undefined}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">نوع الإجازة</label>
+                <select
+                  value={leaveType}
+                  onChange={(e) => setLeaveType(e.target.value as LeaveType)}
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
+                >
+                  {(Object.keys(LEAVE_TYPE_LABEL) as LeaveType[]).map((t) => (
+                    <option key={t} value={t}>{LEAVE_TYPE_LABEL[t]}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">السبب (اختياري)</label>
+                <input
+                  type="text" placeholder="السبب (اختياري)"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
+                />
+              </div>
 
             </form>
           </DialogBody>

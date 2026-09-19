@@ -251,6 +251,7 @@ export const EmployeesPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="pt-1">
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">الكيان المرتبط</label>
                   <SearchableSelect<{ id: string; name: string }>
                     options={entities.filter(
                       (ent) => ent.entity_type === "individual"

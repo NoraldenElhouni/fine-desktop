@@ -92,20 +92,24 @@ export const StockIntakeModal: React.FC<{
           )}
 
           <form id="stock-intake-form" onSubmit={submit} className="space-y-3">
-            <SearchableSelect<InventoryItem>
-              options={items}
-              value={items.find((i) => i.id === itemId) ?? null}
-              onChange={(item) => setItemId(item ? item.id : "")}
-              getOptionId={(i) => i.id}
-              getOptionLabel={(i) => i.name}
-              getOptionSubLabel={(i) => i.sku}
-              getOptionSearchText={(i) => `${i.name} ${i.sku}`}
-              placeholder="الصنف…"
-              required
-            />
+            <div>
+              <label className="block text-xs font-semibold text-app-label-secondary mb-1">الصنف</label>
+              <SearchableSelect<InventoryItem>
+                options={items}
+                value={items.find((i) => i.id === itemId) ?? null}
+                onChange={(item) => setItemId(item ? item.id : "")}
+                getOptionId={(i) => i.id}
+                getOptionLabel={(i) => i.name}
+                getOptionSubLabel={(i) => i.sku}
+                getOptionSearchText={(i) => `${i.name} ${i.sku}`}
+                placeholder="الصنف…"
+                required
+              />
+            </div>
 
-            <div className="flex gap-2">
+            <div className="flex items-end gap-2">
               <div className="flex-1">
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">المخزن المستلم</label>
                 <SearchableSelect<{ id: string; name: string }>
                   options={warehouses ?? []}
                   value={
@@ -118,59 +122,74 @@ export const StockIntakeModal: React.FC<{
                   required
                 />
               </div>
-              <input
-                type="text" required placeholder="رقم الدفعة — LOT-1001"
-                value={lotNumber}
-                onChange={(e) => setLotNumber(e.target.value)}
-                className="w-40 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
-              />
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">رقم الدفعة (Lot Number)</label>
+                <input
+                  type="text" required placeholder="رقم الدفعة — LOT-1001"
+                  value={lotNumber}
+                  onChange={(e) => setLotNumber(e.target.value)}
+                  className="w-40 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
+                />
+              </div>
             </div>
 
-            <div className="flex gap-2">
-              <input
-                type="number" step="0.0001" min="0.0001" required placeholder="الكمية"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                className="flex-1 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
-              />
-              <input
-                type="number" step="0.0001" min="0" required placeholder="تكلفة الوحدة (LYD)"
-                value={unitCost}
-                onChange={(e) => setUnitCost(e.target.value)}
-                className="flex-1 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
-              />
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">الكمية</label>
+                <input
+                  type="number" step="0.0001" min="0.0001" required placeholder="الكمية"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  className="flex-1 w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">تكلفة الوحدة (LYD)</label>
+                <input
+                  type="number" step="0.0001" min="0" required placeholder="تكلفة الوحدة (LYD)"
+                  value={unitCost}
+                  onChange={(e) => setUnitCost(e.target.value)}
+                  className="flex-1 w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
+                />
+              </div>
             </div>
 
-            <select
-              value={source}
-              onChange={(e) => setSource(e.target.value as IntakeSource)}
-              className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
-            >
-              {(Object.keys(SOURCE_LABEL) as IntakeSource[]).map((s) => (
-                <option key={s} value={s}>{SOURCE_LABEL[s]}</option>
-              ))}
-            </select>
+            <div>
+              <label className="block text-xs font-semibold text-app-label-secondary mb-1">مصدر الإدخال</label>
+              <select
+                value={source}
+                onChange={(e) => setSource(e.target.value as IntakeSource)}
+                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
+              >
+                {(Object.keys(SOURCE_LABEL) as IntakeSource[]).map((s) => (
+                  <option key={s} value={s}>{SOURCE_LABEL[s]}</option>
+                ))}
+              </select>
+            </div>
 
             {source === "import_receipt" && (
-              <SearchableSelect<ImportOrder>
-                options={(importOrders as ImportOrder[]) ?? []}
-                value={
-                  (importOrders as ImportOrder[])?.find?.(
-                    (o) => o.id === importOrderId
-                  ) ?? null
-                }
-                onChange={(o) => setImportOrderId(o ? o.id : "")}
-                getOptionId={(o) => o.id}
-                getOptionLabel={(o) => o.supplier?.name ?? "—"}
-                getOptionSubLabel={(o) =>
-                  `الكمية: ${formatNumber(o.quantity)} | الإجمالي: ${formatNumber(getImportOrderTotal(o))} ${o.currency ?? ""}`
-                }
-                getOptionSearchText={(o) =>
-                  `${o.supplier?.name ?? ""} ${o.currency ?? ""}`
-                }
-                placeholder="أمر الاستيراد المستلم…"
-                required
-              />
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">أمر الشراء المرتبط</label>
+                <SearchableSelect<ImportOrder>
+                  options={(importOrders as ImportOrder[]) ?? []}
+                  value={
+                    (importOrders as ImportOrder[])?.find?.(
+                      (o) => o.id === importOrderId
+                    ) ?? null
+                  }
+                  onChange={(o) => setImportOrderId(o ? o.id : "")}
+                  getOptionId={(o) => o.id}
+                  getOptionLabel={(o) => o.supplier?.name ?? "—"}
+                  getOptionSubLabel={(o) =>
+                    `الكمية: ${formatNumber(o.quantity)} | الإجمالي: ${formatNumber(getImportOrderTotal(o))} ${o.currency ?? ""}`
+                  }
+                  getOptionSearchText={(o) =>
+                    `${o.supplier?.name ?? ""} ${o.currency ?? ""}`
+                  }
+                  placeholder="أمر الاستيراد المستلم…"
+                  required
+                />
+              </div>
             )}
           </form>
         </DialogBody>

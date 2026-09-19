@@ -194,6 +194,7 @@ export const TankStockPage: React.FC = () => {
                   <PackageOpen className="w-4 h-4" /> سحب من المخزون
                 </div>
 
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">دفعة المصدر</label>
                 <SearchableSelect<StockLot>
                   options={sourceLots?.data ?? []}
                   value={
@@ -239,6 +240,7 @@ export const TankStockPage: React.FC = () => {
 
                     {drawMode === "containers" ? (
                       <div>
+                        <label className="block text-xs font-semibold text-app-label-secondary mb-1">عدد الأوعية / البراميل</label>
                         <input
                           type="number"
                           min="1"
@@ -255,6 +257,7 @@ export const TankStockPage: React.FC = () => {
                       </div>
                     ) : (
                       <div>
+                        <label className="block text-xs font-semibold text-app-label-secondary mb-1">الكمية المسحوبة</label>
                         <input
                           type="number"
                           step="0.01"

@@ -211,40 +211,47 @@ export const SalesOrdersPage: React.FC = () => {
 
             <form id="sales-order-form" onSubmit={submit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <input
-                  type="text" required placeholder="رقم الطلب — SO-1042"
-                  value={orderNumber}
-                  onChange={(e) => setOrderNumber(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none"
-                />
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setBuyerType("client")}
-                    className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold border ${
-                      buyerType === "client"
-                        ? "border-app-accent bg-app-accent text-white"
-                        : "border-app-separator bg-app-bg-secondary text-app-label-secondary"
-                    }`}
-                  >
-                    عميل خارجي
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setBuyerType("internal_unit")}
-                    className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold border ${
-                      buyerType === "internal_unit"
-                        ? "border-app-accent bg-app-accent text-white"
-                        : "border-app-separator bg-app-bg-secondary text-app-label-secondary"
-                    }`}
-                  >
-                    وحدة داخلية
-                  </button>
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">رقم الطلب</label>
+                  <input
+                    type="text" required placeholder="رقم الطلب — SO-1042"
+                    value={orderNumber}
+                    onChange={(e) => setOrderNumber(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">نوع المشتري</label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setBuyerType("client")}
+                      className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold border ${
+                        buyerType === "client"
+                          ? "border-app-accent bg-app-accent text-white"
+                          : "border-app-separator bg-app-bg-secondary text-app-label-secondary"
+                      }`}
+                    >
+                      عميل خارجي
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBuyerType("internal_unit")}
+                      className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold border ${
+                        buyerType === "internal_unit"
+                          ? "border-app-accent bg-app-accent text-white"
+                          : "border-app-separator bg-app-bg-secondary text-app-label-secondary"
+                      }`}
+                    >
+                      وحدة داخلية
+                    </button>
+                  </div>
                 </div>
               </div>
 
               {buyerType === "client" ? (
                 <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">العميل</label>
                   <SearchableSelect<{ id: string; entity?: { name?: string } }>
                     options={clients ?? []}
                     value={
@@ -266,6 +273,7 @@ export const SalesOrdersPage: React.FC = () => {
                 </div>
               ) : (
                 <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">وحدة الشراء الداخلية</label>
                   <SearchableSelect<{ id: string; name: string }>
                     options={units ?? []}
                     value={
@@ -290,8 +298,9 @@ export const SalesOrdersPage: React.FC = () => {
                   const isFoamBlock = selectedItem?.item_type === "foam_block";
                   return (
                     <div key={l.key} className="space-y-1.5">
-                      <div className="flex gap-2 items-center">
+                      <div className="flex gap-2 items-end">
                         <div className="flex-1">
+                          <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">الصنف</label>
                           <SearchableSelect<InventoryItem>
                             options={items?.data ?? []}
                             value={
@@ -329,19 +338,25 @@ export const SalesOrdersPage: React.FC = () => {
                             <Package className="h-3.5 w-3.5" /> اختر قطعة
                           </button>
                         )}
-                        <input
-                          type="number" step="0.01" min="0.01" placeholder="الكمية"
-                          value={l.qty}
-                          readOnly={Boolean(l.stockLotId)}
-                          onChange={(e) => setLines(lines.map((x) => x.key === l.key ? { ...x, qty: e.target.value } : x))}
-                          className={`w-20 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none ${l.stockLotId ? "opacity-70 cursor-not-allowed" : ""}`}
-                        />
-                        <input
-                          type="number" step="0.01" min="0" placeholder="السعر"
-                          value={l.price}
-                          onChange={(e) => setLines(lines.map((x) => x.key === l.key ? { ...x, price: e.target.value } : x))}
-                          className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
-                        />
+                        <div>
+                          <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">الكمية</label>
+                          <input
+                            type="number" step="0.01" min="0.01" placeholder="الكمية"
+                            value={l.qty}
+                            readOnly={Boolean(l.stockLotId)}
+                            onChange={(e) => setLines(lines.map((x) => x.key === l.key ? { ...x, qty: e.target.value } : x))}
+                            className={`w-20 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none ${l.stockLotId ? "opacity-70 cursor-not-allowed" : ""}`}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">السعر (LYD)</label>
+                          <input
+                            type="number" step="0.01" min="0" placeholder="السعر"
+                            value={l.price}
+                            onChange={(e) => setLines(lines.map((x) => x.key === l.key ? { ...x, price: e.target.value } : x))}
+                            className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
+                          />
+                        </div>
                         <span className="w-20 text-end text-xs font-mono text-app-label-secondary">
                           {formatNumber(num(l.qty) * num(l.price))}
                         </span>

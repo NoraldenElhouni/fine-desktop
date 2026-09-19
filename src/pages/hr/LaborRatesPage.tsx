@@ -51,24 +51,33 @@ export const LaborRatesPage: React.FC = () => {
         </div>
       )}
 
-      <form onSubmit={submit} className="flex flex-wrap items-center gap-2">
-        <input
-          type="text" required placeholder="الدور — tailor / carpenter"
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-          className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
-        />
-        <input
-          type="number" step="0.01" min="0.01" required placeholder="الأجر بالساعة"
-          value={rate}
-          onChange={(e) => setRate(e.target.value)}
-          className="w-32 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
-        />
-        <input
-          type="date" required value={effectiveFrom}
-          onChange={(e) => setEffectiveFrom(e.target.value)}
-          className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
-        />
+      <form onSubmit={submit} className="flex flex-wrap items-end gap-2">
+        <div>
+          <label className="block text-xs font-semibold text-app-label-secondary mb-1">الدور / المسمى المهني</label>
+          <input
+            type="text" required placeholder="مثال: tailor"
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-app-label-secondary mb-1">الأجر بالساعة (LYD)</label>
+          <input
+            type="number" step="0.01" min="0.01" required placeholder="0.00"
+            value={rate}
+            onChange={(e) => setRate(e.target.value)}
+            className="w-32 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-app-label-secondary mb-1">تاريخ السريان</label>
+          <input
+            type="date" required value={effectiveFrom}
+            onChange={(e) => setEffectiveFrom(e.target.value)}
+            className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
+          />
+        </div>
         <button
           type="submit"
           disabled={createMutation.isPending || !role.trim() || Number(rate) <= 0}

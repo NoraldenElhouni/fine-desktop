@@ -200,6 +200,7 @@ export const EditImportOrderItemsModal: React.FC<EditImportOrderItemsModalProps>
                   >
                     <div className="flex items-start gap-2">
                       <div className="flex-1 min-w-0">
+                        <label className="block text-xs font-semibold text-app-label-secondary mb-1">الصنف</label>
                         <SearchableSelect<InventoryItem>
                           options={inventoryItems}
                           value={

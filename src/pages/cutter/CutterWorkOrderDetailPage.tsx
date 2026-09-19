@@ -490,6 +490,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
             </div>
             <div className="flex gap-2">
               <div className="flex-1">
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">صنف المخرجات</label>
                 <SearchableSelect<InventoryItem>
                   options={pieceItems?.data ?? []}
                   value={

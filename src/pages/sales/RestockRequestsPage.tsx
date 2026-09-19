@@ -173,26 +173,32 @@ export const RestockRequestsPage: React.FC = () => {
           </DialogHeader>
           <DialogBody>
             <form id="restock-request-form" onSubmit={submit} className="space-y-3">
-              <input
-                type="text" required placeholder="رقم الطلب — RSR-1042"
-                value={requestNumber}
-                onChange={(e) => setRequestNumber(e.target.value)}
-                className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none"
-              />
-              <SearchableSelect<{ id: string; name: string }>
-                options={units ?? []}
-                value={
-                  units?.find((u) => u.id === sourceUnitId) ?? null
-                }
-                onChange={(u) => setSourceUnitId(u ? u.id : "")}
-                getOptionId={(u) => u.id}
-                getOptionLabel={(u) => u.name}
-                placeholder="الطلب من وحدة…"
-                required
-              />
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">رقم الطلب</label>
+                <input
+                  type="text" required placeholder="رقم الطلب — RSR-1042"
+                  value={requestNumber}
+                  onChange={(e) => setRequestNumber(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs font-mono border-app-separator focus:border-app-accent focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">الطلب من وحدة</label>
+                <SearchableSelect<{ id: string; name: string }>
+                  options={units ?? []}
+                  value={
+                    units?.find((u) => u.id === sourceUnitId) ?? null
+                  }
+                  onChange={(u) => setSourceUnitId(u ? u.id : "")}
+                  getOptionId={(u) => u.id}
+                  getOptionLabel={(u) => u.name}
+                  placeholder="الطلب من وحدة…"
+                  required
+                />
+              </div>
 
               {lines.map((l) => (
-                <div key={l.key} className="flex gap-2">
+                <div key={l.key} className="flex gap-2 items-end">
                   <div className="flex-1">
                     <SearchableSelect<InventoryItem>
                       options={items?.data ?? []}
@@ -214,12 +220,15 @@ export const RestockRequestsPage: React.FC = () => {
                       size="sm"
                     />
                   </div>
-                  <input
-                    type="number" step="0.01" min="0.01"
-                    value={l.qty}
-                    onChange={(e) => setLines(lines.map((x) => x.key === l.key ? { ...x, qty: e.target.value } : x))}
-                    className="w-20 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
-                  />
+                  <div>
+                    <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">الكمية</label>
+                    <input
+                      type="number" step="0.01" min="0.01"
+                      value={l.qty}
+                      onChange={(e) => setLines(lines.map((x) => x.key === l.key ? { ...x, qty: e.target.value } : x))}
+                      className="w-20 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
+                    />
+                  </div>
                   {lines.length > 1 && (
                     <button
                       type="button"

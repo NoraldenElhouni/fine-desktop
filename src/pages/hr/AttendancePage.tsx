@@ -83,12 +83,15 @@ export const AttendancePage: React.FC = () => {
             كشف يومي واحد لكل الموظفين. إعادة الحفظ تصحّح اليوم نفسه، وساعات الحضور تدخل مباشرة في حساب الرواتب.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="date" value={workDate} max={new Date().toISOString().slice(0, 10)}
-            onChange={(e) => { setWorkDate(e.target.value); setRows({}); }}
-            className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono text-app-label-primary focus:border-app-accent focus:outline-none"
-          />
+        <div className="flex items-end gap-2">
+          <div>
+            <label className="block text-xs font-semibold text-app-label-secondary mb-1">تاريخ الكشف</label>
+            <input
+              type="date" value={workDate} max={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => { setWorkDate(e.target.value); setRows({}); }}
+              className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono text-app-label-primary focus:border-app-accent focus:outline-none"
+            />
+          </div>
           <button
             onClick={save}
             disabled={saveMutation.isPending || !employees?.length}

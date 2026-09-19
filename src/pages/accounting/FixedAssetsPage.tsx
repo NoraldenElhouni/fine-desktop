@@ -232,90 +232,120 @@ export const FixedAssetsPage: React.FC = () => {
             )}
 
             <form id="fixed-asset-form" onSubmit={submitAsset} className="space-y-3">
-              <div className="flex gap-2">
-                <input
-                  type="text" required placeholder="اسم الأصل"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="flex-1 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
-                />
-                <input
-                  type="text" required placeholder="الرمز — FA-1001"
-                  value={form.asset_code}
-                  onChange={(e) => setForm({ ...form, asset_code: e.target.value })}
-                  className="w-32 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <input
-                  type="number" step="0.01" min="0.01" required placeholder="تكلفة الشراء"
-                  value={form.acquisition_cost}
-                  onChange={(e) => setForm({ ...form, acquisition_cost: e.target.value })}
-                  className="flex-1 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
-                />
-                <input
-                  type="number" step="0.01" min="0" placeholder="قيمة الخردة"
-                  value={form.salvage_value}
-                  onChange={(e) => setForm({ ...form, salvage_value: e.target.value })}
-                  className="w-28 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
-                />
-                <input
-                  type="date" required value={form.acquisition_date} max={new Date().toISOString().slice(0, 10)}
-                  onChange={(e) => setForm({ ...form, acquisition_date: e.target.value })}
-                  className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <select
-                  value={form.depreciation_method}
-                  onChange={(e) => setForm({ ...form, depreciation_method: e.target.value as DepreciationMethod })}
-                  className="flex-1 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
-                >
-                  <option value="straight_line">قسط ثابت</option>
-                  <option value="declining_balance">قسط متناقص (مضاعف)</option>
-                </select>
-                <input
-                  type="number" min="1" max="100" required placeholder="العمر بالسنوات"
-                  value={form.useful_life_years}
-                  onChange={(e) => setForm({ ...form, useful_life_years: e.target.value })}
-                  className="w-28 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
-                />
-                <select
-                  value={form.payment_source}
-                  onChange={(e) => setForm({ ...form, payment_source: e.target.value as "cash" | "payable" })}
-                  className="flex-1 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
-                >
-                  <option value="cash">دفع نقدي</option>
-                  <option value="payable">آجل</option>
-                </select>
-              </div>
-
-              <div className="flex gap-2">
-                <select
-                  value={form.scope}
-                  onChange={(e) => setForm({ ...form, scope: e.target.value as "company" | "unit" })}
-                  className="flex-1 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
-                >
-                  <option value="unit">تابع لوحدة</option>
-                  <option value="company">على مستوى الشركة</option>
-                </select>
-                {form.scope === "unit" && (
-                  <SearchableSelect<{ id: string; name: string }>
-                    options={units ?? []}
-                    value={
-                      units?.find((u) => u.id === form.operating_unit_id) ??
-                      null
-                    }
-                    onChange={(u) =>
-                      setForm({ ...form, operating_unit_id: u ? u.id : "" })
-                    }
-                    getOptionId={(u) => u.id}
-                    getOptionLabel={(u) => u.name}
-                    placeholder="اختر الوحدة…"
-                    required
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">اسم الأصل</label>
+                  <input
+                    type="text" required placeholder="مثال: سيارة نقل"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
                   />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">الرمز (Code)</label>
+                  <input
+                    type="text" required placeholder="FA-1001"
+                    value={form.asset_code}
+                    onChange={(e) => setForm({ ...form, asset_code: e.target.value })}
+                    className="w-32 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">تكلفة الشراء (LYD)</label>
+                  <input
+                    type="number" step="0.01" min="0.01" required placeholder="0.00"
+                    value={form.acquisition_cost}
+                    onChange={(e) => setForm({ ...form, acquisition_cost: e.target.value })}
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">قيمة الخردة (LYD)</label>
+                  <input
+                    type="number" step="0.01" min="0" placeholder="0.00"
+                    value={form.salvage_value}
+                    onChange={(e) => setForm({ ...form, salvage_value: e.target.value })}
+                    className="w-28 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">تاريخ الشراء</label>
+                  <input
+                    type="date" required value={form.acquisition_date} max={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) => setForm({ ...form, acquisition_date: e.target.value })}
+                    className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">طريقة الإهلاك</label>
+                  <select
+                    value={form.depreciation_method}
+                    onChange={(e) => setForm({ ...form, depreciation_method: e.target.value as DepreciationMethod })}
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
+                  >
+                    <option value="straight_line">قسط ثابت</option>
+                    <option value="declining_balance">قسط متناقص (مضاعف)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">العمر الافتراضي (سنوات)</label>
+                  <input
+                    type="number" min="1" max="100" required placeholder="5"
+                    value={form.useful_life_years}
+                    onChange={(e) => setForm({ ...form, useful_life_years: e.target.value })}
+                    className="w-28 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">طريقة السداد</label>
+                  <select
+                    value={form.payment_source}
+                    onChange={(e) => setForm({ ...form, payment_source: e.target.value as "cash" | "payable" })}
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
+                  >
+                    <option value="cash">دفع نقدي</option>
+                    <option value="payable">آجل</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">النطاق</label>
+                  <select
+                    value={form.scope}
+                    onChange={(e) => setForm({ ...form, scope: e.target.value as "company" | "unit" })}
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
+                  >
+                    <option value="unit">تابع لوحدة</option>
+                    <option value="company">على مستوى الشركة</option>
+                  </select>
+                </div>
+                {form.scope === "unit" && (
+                  <div className="flex-1">
+                    <label className="block text-xs font-semibold text-app-label-secondary mb-1">الوحدة التشغيلية</label>
+                    <SearchableSelect<{ id: string; name: string }>
+                      options={units ?? []}
+                      value={
+                        units?.find((u) => u.id === form.operating_unit_id) ??
+                        null
+                      }
+                      onChange={(u) =>
+                        setForm({ ...form, operating_unit_id: u ? u.id : "" })
+                      }
+                      getOptionId={(u) => u.id}
+                      getOptionLabel={(u) => u.name}
+                      placeholder="اختر الوحدة…"
+                      required
+                    />
+                  </div>
                 )}
               </div>
 
@@ -365,12 +395,15 @@ export const FixedAssetsPage: React.FC = () => {
             )}
 
             <form id="dispose-asset-form" onSubmit={submitDisposal} className="space-y-3">
-              <input
-                type="number" step="0.01" min="0" required placeholder="متحصلات البيع (LYD)"
-                value={proceeds}
-                onChange={(e) => setProceeds(e.target.value)}
-                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
-              />
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">متحصلات البيع (LYD)</label>
+                <input
+                  type="number" step="0.01" min="0" required placeholder="0.00"
+                  value={proceeds}
+                  onChange={(e) => setProceeds(e.target.value)}
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
+                />
+              </div>
             </form>
           </DialogBody>
           <DialogFooter>

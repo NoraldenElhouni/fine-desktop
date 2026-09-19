@@ -157,14 +157,17 @@ export const SalesOrderDetailPage: React.FC = () => {
         )}
 
         {["fulfilled", "partially_paid"].includes(order.status) && order.buyer_type !== "internal_unit" && (
-          <div className="flex items-center gap-2">
-            <input
-              type="number" step="0.01" min="0.01" max={outstanding}
-              placeholder={`المتبقي ${formatNumber(outstanding)}`}
-              value={paymentAmount}
-              onChange={(e) => setPaymentAmount(e.target.value)}
-              className="w-44 px-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
-            />
+          <div className="flex items-end gap-2">
+            <div>
+              <label className="block text-xs font-semibold text-app-label-secondary mb-1">مبلغ الدفعة (LYD)</label>
+              <input
+                type="number" step="0.01" min="0.01" max={outstanding}
+                placeholder={`المتبقي ${formatNumber(outstanding)}`}
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                className="w-44 px-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
+              />
+            </div>
             <button
               onClick={() => {
                 setError(null);

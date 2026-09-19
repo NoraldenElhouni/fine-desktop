@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Check, ShieldCheck, DollarSign, AlertTriangle } from "lucide-react";
 import { useAuthStore } from "../../stores/authStore";
+import { usePermissions } from "../../hooks/usePermissions";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { ALLOCATION_PAYMENT_STATUS_LABEL, type AllocationPaymentStatus } from "../../api/endpoints/overhead";
@@ -42,12 +43,15 @@ export const AllocationPaymentActions: React.FC<AllocationPaymentActionsProps> =
   onMarkPaid,
 }) => {
   const user = useAuthStore((s) => s.user);
+  const { hasRole } = usePermissions();
   const [noteOpen, setNoteOpen] = useState<"approve" | "paid" | null>(null);
   const [note, setNote] = useState("");
 
   const userId = user ? String(user.id) : null;
   const isManager = managerId != null && userId === managerId;
-  const noManager = managerId == null;
+  const isFinancialApprover = hasRole(["owner", "admin", "accounting-manager", "treasury-officer"]);
+  const canDecide = isManager || isFinancialApprover;
+  const noManager = managerId == null && !isFinancialApprover;
 
   if (status === "paid") {
     return (
@@ -76,7 +80,7 @@ export const AllocationPaymentActions: React.FC<AllocationPaymentActionsProps> =
         </span>
       )}
 
-      {isManager && (status as string) !== "paid" && (
+      {canDecide && (status as string) !== "paid" && (
         <div className="flex items-center gap-2">
           {status === "pending" && (
             <button
@@ -109,7 +113,7 @@ export const AllocationPaymentActions: React.FC<AllocationPaymentActionsProps> =
         </div>
       )}
 
-      <Dialog open={isManager && Boolean(noteOpen)} onOpenChange={(next) => !next && setNoteOpen(null)}>
+      <Dialog open={canDecide && Boolean(noteOpen)} onOpenChange={(next) => !next && setNoteOpen(null)}>
         <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle className="text-sm">
@@ -118,14 +122,17 @@ export const AllocationPaymentActions: React.FC<AllocationPaymentActionsProps> =
             <DialogClose />
           </DialogHeader>
           <DialogBody>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={3}
-              maxLength={500}
-              placeholder="ملاحظة (اختياري)"
-              className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:outline-none"
-            />
+            <div>
+              <label className="block text-xs font-semibold text-app-label-secondary mb-1">ملاحظة (اختياري)</label>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={3}
+                maxLength={500}
+                placeholder="ملاحظة (اختياري)"
+                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:outline-none"
+              />
+            </div>
           </DialogBody>
           <DialogFooter>
             <button
