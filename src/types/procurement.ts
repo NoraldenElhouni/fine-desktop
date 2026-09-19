@@ -144,6 +144,7 @@ export interface ImportOrder {
   negotiated_price: number;
   quantity: number;
   total_amount?: number;
+  booked_fx_rate?: number | null;
   status: ImportOrderStatus;
   record_version: number;
   arrived_warehouse_id?: string | null;

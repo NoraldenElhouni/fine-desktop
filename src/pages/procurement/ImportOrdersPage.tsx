@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   FileCheck,
   Plus,
@@ -39,7 +39,9 @@ import {
   useCreateLandedCostLine,
   useApproveLandedCostLine,
   useMarkLandedCostLinePaid,
+  useExecutePaymentRequest,
 } from "../../hooks/useProcurement";
+import { usePermissions } from "../../hooks/usePermissions";
 import { useOperatingUnits } from "../../hooks/usePartners";
 import { useInventoryItems } from "../../hooks/useInventory";
 import { useWarehouses, Warehouse } from "../../hooks/useWarehouses";
@@ -77,11 +79,15 @@ export const ImportOrdersPage: React.FC = () => {
   const { data: suppliers = [] } = useSuppliers();
   const { data: operatingUnits = [] } = useOperatingUnits();
 
+  const { hasRole } = usePermissions();
+  const isFinance = hasRole(["owner", "admin", "accounting-manager", "treasury-officer"]);
+
   const createOrderMutation = useCreateImportOrder();
   const transitionMutation = useTransitionImportOrder();
   const createLandedCostMutation = useCreateLandedCostLine();
   const approveLandedCostMutation = useApproveLandedCostLine();
   const markLandedCostPaidMutation = useMarkLandedCostLinePaid();
+  const executePaymentMutation = useExecutePaymentRequest();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -89,7 +95,7 @@ export const ImportOrdersPage: React.FC = () => {
   const [selectedOrder, setSelectedOrder] = useState<ImportOrder | null>(null);
   const [editingOrder, setEditingOrder] = useState<ImportOrder | null>(null);
   const { data: landedCosts = [], isLoading: isLoadingCosts, refetch: refetchCosts } = useLandedCostLines(selectedOrder?.id);
-  const isSubmitting = createOrderMutation.isPending || transitionMutation.isPending || createLandedCostMutation.isPending;
+  const isSubmitting = createOrderMutation.isPending || transitionMutation.isPending || createLandedCostMutation.isPending || executePaymentMutation.isPending;
 
   // Transition Form State
   const [transitionRoute, setTransitionRoute] = useState<PaymentRoute>("bank");
@@ -99,6 +105,82 @@ export const ImportOrdersPage: React.FC = () => {
   const [arrivedWarehouseId, setArrivedWarehouseId] = useState<string>("");
   const [warehouseId, setWarehouseId] = useState<string>("");
   const [receivedQty, setReceivedQty] = useState<number>(0);
+
+  // Step 3 Payment Execution Form State
+  const [fxRateUsed, setFxRateUsed] = useState<number>(5.20);
+  const [exactAmountUsedLyd, setExactAmountUsedLyd] = useState<number>(0);
+  const [bankReference, setBankReference] = useState<string>("");
+  const [extraAllocationNote, setExtraAllocationNote] = useState<string>("");
+  const [extraAllocationTouched, setExtraAllocationTouched] = useState(false);
+
+  useEffect(() => {
+    if (selectedOrder) {
+      const pendingPayment = selectedOrder.payment_requests?.find((p) => p.status === "pending");
+      if (pendingPayment?.bank_hold?.held_amount_lyd) {
+        const held = Number(pendingPayment.bank_hold.held_amount_lyd);
+        setHeldAmountLyd(held);
+        setExactAmountUsedLyd(held);
+      } else {
+        const orderTotal = getImportOrderTotal(selectedOrder);
+        setExactAmountUsedLyd(orderTotal * 5.20);
+      }
+      setFxRateUsed(selectedOrder.booked_fx_rate ? Number(selectedOrder.booked_fx_rate) : 5.20);
+      setBankReference("");
+      setExtraAllocationNote("");
+      setExtraAllocationTouched(false);
+    }
+  }, [selectedOrder]);
+
+  const bookedRate = selectedOrder?.booked_fx_rate ?? 0;
+  const liveExtraAllocationLyd = useMemo(() => {
+    if (!selectedOrder) return 0;
+    const amount = Number(getImportOrderTotal(selectedOrder));
+    return (Number(fxRateUsed) - Number(bookedRate)) * amount;
+  }, [selectedOrder, fxRateUsed, bookedRate]);
+
+  const requiresNote = Math.abs(liveExtraAllocationLyd) > 0;
+  const noteMissing = requiresNote && extraAllocationNote.trim().length === 0;
+
+  const handleExecutePayment = async () => {
+    if (!selectedOrder) return;
+    const pendingPayment = selectedOrder.payment_requests?.find((p) => p.status === "pending");
+    if (!pendingPayment) {
+      toast.error("لا يوجد طلب دفع معلق لهذا الأمر");
+      return;
+    }
+    if (noteMissing) {
+      setExtraAllocationTouched(true);
+      toast.error("سبب التكلفة الإضافية مطلوب عند وجود فرق في سعر الصرف.");
+      return;
+    }
+
+    executePaymentMutation.mutate(
+      {
+        id: pendingPayment.id,
+        payload: {
+          fx_rate_used: fxRateUsed,
+          exact_amount_used_lyd:
+            pendingPayment.route === "bank" || selectedOrder.status === "awaiting_bank_approval"
+              ? exactAmountUsedLyd || undefined
+              : undefined,
+          bank_reference: bankReference.trim() || undefined,
+          extra_allocation_note: extraAllocationNote.trim() || undefined,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success("تم سداد الدفعة بنجاح ونقل أمر الشراء إلى مدفوع!");
+          refetch();
+          setSelectedOrder((prev) => (prev ? { ...prev, status: "paid" } : null));
+        },
+        onError: (err: unknown) => {
+          const payloadErr = apiErrorPayload(err);
+          const message = payloadErr?.message || (isAxiosError(err) ? err.response?.data?.message : null);
+          toast.error(message || "فشل تنفيذ عملية الدفع للمورد");
+        },
+      }
+    );
+  };
 
   const { data: warehouses = [] } = useWarehouses();
 
@@ -352,6 +434,23 @@ export const ImportOrdersPage: React.FC = () => {
     enablePagination: false,
     getRowId: (line) => line.id,
   });
+
+  const activeStages = useMemo(() => {
+    if (!selectedOrder) return STAGES;
+    const isMarket =
+      selectedOrder.status === "awaiting_transfer" ||
+      selectedOrder.payment_requests?.[0]?.route === "market";
+    const isBank =
+      selectedOrder.status === "awaiting_bank_approval" ||
+      selectedOrder.payment_requests?.[0]?.route === "bank";
+
+    return STAGES.filter((s) => {
+      if (s.key === "awaiting_receipt") return false;
+      if (isMarket && s.key === "awaiting_bank_approval") return false;
+      if (isBank && s.key === "awaiting_transfer") return false;
+      return true;
+    });
+  }, [selectedOrder]);
 
   const approveLandedCostLine = (lc: LandedCostLine, note: string) => {
     if (!selectedOrder) return;
@@ -842,11 +941,15 @@ export const ImportOrdersPage: React.FC = () => {
             <div>
               <h4 className="text-xs font-bold text-app-label-secondary mb-3">مسار المراحل الزمنية والاعتمادات:</h4>
               <div className="grid grid-cols-5 gap-2">
-                {STAGES.map((stg, idx) => {
-                  const currentIdx = STAGES.findIndex((s) => s.key === selectedOrder.status);
+                {activeStages.map((stg, idx) => {
+                  const currentIdx = activeStages.findIndex((s) => s.key === selectedOrder.status);
                   const isDone = idx <= currentIdx;
                   const isCurrent = idx === currentIdx;
                   const Icon = stg.icon;
+                  const isFinanceStage =
+                    stg.key === "pending_payment" ||
+                    stg.key === "awaiting_bank_approval" ||
+                    stg.key === "awaiting_transfer";
 
                   return (
                     <div
@@ -861,6 +964,11 @@ export const ImportOrdersPage: React.FC = () => {
                     >
                       <Icon className="h-5 w-5 mb-1" />
                       <span className="text-[11px] leading-tight">{stg.label}</span>
+                      {isFinanceStage && (
+                        <span className="mt-1 rounded-md bg-app-accent/15 px-1.5 py-0.5 text-[9px] font-bold text-app-accent">
+                          إجراء مالي
+                        </span>
+                      )}
                     </div>
                   );
                 })}
@@ -890,44 +998,183 @@ export const ImportOrdersPage: React.FC = () => {
               )}
 
               {selectedOrder.status === "pending_payment" && (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
+                !isFinance ? (
+                  <div className="rounded-xl border border-dashed border-app-separator bg-app-bg-primary p-3.5 text-xs text-app-label-secondary flex items-center gap-2.5">
+                    <Clock className="h-4 w-4 text-amber-600 shrink-0" />
                     <div>
-                      <label className="block text-xs font-semibold text-app-label-secondary mb-1">مسار الدفع</label>
-                      <select
-                        value={transitionRoute}
-                        onChange={(e) => setTransitionRoute(e.target.value as PaymentRoute)}
-                        className="w-full rounded-xl border border-app-separator bg-app-bg-primary px-3 py-2 text-xs focus:outline-none"
-                      >
-                        <option value="bank">اعتماد مصرفي (حجز بالدينار + موافقة)</option>
-                        <option value="market">شراء عبر سوق الصرف</option>
-                      </select>
+                      <p className="font-semibold text-app-label-primary">المرحلة 2: في انتظار تحديد مسار الدفع</p>
+                      <p className="text-[11px] text-app-label-secondary mt-0.5">
+                        أمر الشراء قيد مراجعة وتحديد وسيلة وخطة الدفع من قبل الإدارة المالية (المالية فقط مخولون بالاطلاع والاعتماد).
+                      </p>
                     </div>
-                    {transitionRoute === "bank" && (
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                          قيمة الحجز الاحتياطي بالحساب (LYD)
+                        <label className="block text-xs font-semibold text-app-label-secondary mb-1">مسار الدفع</label>
+                        <select
+                          value={transitionRoute}
+                          onChange={(e) => setTransitionRoute(e.target.value as PaymentRoute)}
+                          className="w-full rounded-xl border border-app-separator bg-app-bg-primary px-3 py-2 text-xs focus:outline-none"
+                        >
+                          <option value="bank">اعتماد مصرفي (حجز بالدينار + موافقة)</option>
+                          <option value="market">شراء عبر سوق الصرف</option>
+                        </select>
+                      </div>
+                      {transitionRoute === "bank" && (
+                        <div>
+                          <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                            قيمة الحجز الاحتياطي بالحساب (LYD)
+                          </label>
+                          <input
+                            type="number"
+                            value={heldAmountLyd || ""}
+                            onChange={(e) => setHeldAmountLyd(Number(e.target.value))}
+                            placeholder="مثال: 65000"
+                            className="w-full rounded-xl border border-app-separator bg-app-bg-primary px-3 py-2 text-xs focus:outline-none"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-end">
+                      <button
+                        onClick={() => handleApplyTransition("select_route")}
+                        disabled={isSubmitting || (transitionRoute === "bank" && heldAmountLyd <= 0)}
+                        className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white hover:opacity-90"
+                      >
+                        تأكيد خطة الدفع
+                      </button>
+                    </div>
+                  </div>
+                )
+              )}
+
+              {(selectedOrder.status === "awaiting_bank_approval" || selectedOrder.status === "awaiting_transfer") && (
+                !isFinance ? (
+                  <div className="rounded-xl border border-dashed border-app-separator bg-app-bg-primary p-3.5 text-xs text-app-label-secondary flex items-center gap-2.5">
+                    <Clock className="h-4 w-4 text-app-accent shrink-0" />
+                    <div>
+                      <p className="font-semibold text-app-label-primary">
+                        {selectedOrder.status === "awaiting_bank_approval"
+                          ? "المرحلة 3: اعتماد مصرفي — بانتظار تنفيذ الدفع"
+                          : "المرحلة 3: حوالة سوق — بانتظار تنفيذ الدفع"}
+                      </p>
+                      <p className="text-[11px] text-app-label-secondary mt-0.5">
+                        أمر الشراء بانتظار سداد الدفعة المالية للمورد من قبل إدارة الخزينة والمالية.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3 rounded-xl border border-app-accent/20 bg-app-bg-primary p-3.5">
+                    <div className="flex items-center justify-between border-b border-app-separator pb-2">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-app-accent" />
+                        <span className="text-xs font-bold text-app-label-primary">
+                          {selectedOrder.status === "awaiting_bank_approval"
+                            ? "المرحلة 3: تنفيذ سداد الاعتماد المصرفي للمورد"
+                            : "المرحلة 3: تنفيذ سداد حوالة سوق الصرف للمورد"}
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-mono font-bold text-emerald-700">
+                        {formatNumber(getImportOrderTotal(selectedOrder))} {selectedOrder.currency}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
+                          سعر الصرف المنفذ (LYD/{selectedOrder.currency})
                         </label>
                         <input
                           type="number"
-                          value={heldAmountLyd || ""}
-                          onChange={(e) => setHeldAmountLyd(Number(e.target.value))}
-                          placeholder="مثال: 65000"
-                          className="w-full rounded-xl border border-app-separator bg-app-bg-primary px-3 py-2 text-xs focus:outline-none"
+                          step="0.0001"
+                          min="0.0001"
+                          value={fxRateUsed || ""}
+                          onChange={(e) => setFxRateUsed(Number(e.target.value))}
+                          className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs focus:outline-none font-mono"
+                        />
+                      </div>
+
+                      {selectedOrder.status === "awaiting_bank_approval" ? (
+                        <div>
+                          <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
+                            المبلغ الفعلي المخصوم (LYD)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={exactAmountUsedLyd || ""}
+                            onChange={(e) => setExactAmountUsedLyd(Number(e.target.value))}
+                            placeholder="المبلغ الفعلي المخصوم"
+                            className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs focus:outline-none font-mono"
+                          />
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
+                            رقم الحوالة / الإشعار (اختياري)
+                          </label>
+                          <input
+                            type="text"
+                            value={bankReference}
+                            onChange={(e) => setBankReference(e.target.value)}
+                            placeholder="مثال: TXN-88120"
+                            className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs focus:outline-none font-mono"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {selectedOrder.status === "awaiting_bank_approval" && (
+                      <div>
+                        <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
+                          رقم إشعار المصرف (اختياري)
+                        </label>
+                        <input
+                          type="text"
+                          value={bankReference}
+                          onChange={(e) => setBankReference(e.target.value)}
+                          placeholder="مثال: BNK-REF-1092"
+                          className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs focus:outline-none font-mono"
                         />
                       </div>
                     )}
+
+                    {requiresNote && (
+                      <div className="space-y-1">
+                        <label className="block text-[11px] font-semibold text-app-label-secondary">
+                          سبب فرق سعر الصرف <span className="text-app-status-danger">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={extraAllocationNote}
+                          onChange={(e) => {
+                            setExtraAllocationNote(e.target.value);
+                            setExtraAllocationTouched(true);
+                          }}
+                          placeholder="مثال: فرق سعر التنفيذ الفعلي بالمصرف"
+                          className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs focus:outline-none"
+                        />
+                        {extraAllocationTouched && noteMissing && (
+                          <p className="text-[10px] text-app-status-danger font-bold">
+                            سبب فرق سعر الصرف مطلوب.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-end pt-1">
+                      <button
+                        onClick={handleExecutePayment}
+                        disabled={executePaymentMutation.isPending || fxRateUsed <= 0}
+                        className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
+                      >
+                        {executePaymentMutation.isPending ? "جاري التنفيذ..." : "تنفيذ وتأكيد السداد للمورد"}
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-end">
-                    <button
-                      onClick={() => handleApplyTransition("select_route")}
-                      disabled={isSubmitting || (transitionRoute === "bank" && heldAmountLyd <= 0)}
-                      className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white hover:opacity-90"
-                    >
-                      تأكيد خطة الدفع
-                    </button>
-                  </div>
-                </div>
+                )
               )}
 
               {selectedOrder.status === "paid" && (
