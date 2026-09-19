@@ -16,6 +16,7 @@ import {
   Percent,
   Trash2,
   ListChecks,
+  Edit,
 } from "lucide-react";
 import { isAxiosError } from "axios";
 import {
@@ -54,6 +55,7 @@ import { tokens } from "../../lib/tokens";
 import { useImportOrdersColumns } from "../../components/table-columns/importOrdersColumns";
 import { useImportOrderLineItemsColumns } from "../../components/table-columns/importOrderLineItemsColumns";
 import { useImportOrderLandedCostColumns } from "../../components/table-columns/importOrderLandedCostColumns";
+import { EditImportOrderItemsModal } from "./EditImportOrderItemsModal";
 
 const STAGES: { key: ImportOrderStatus; label: string; icon: React.FC<{ className?: string }> }[] = [
   { key: "draft", label: "مسودة", icon: Clock },
@@ -85,6 +87,7 @@ export const ImportOrdersPage: React.FC = () => {
 
   // Detail Modal & Stepper State
   const [selectedOrder, setSelectedOrder] = useState<ImportOrder | null>(null);
+  const [editingOrder, setEditingOrder] = useState<ImportOrder | null>(null);
   const { data: landedCosts = [], isLoading: isLoadingCosts, refetch: refetchCosts } = useLandedCostLines(selectedOrder?.id);
   const isSubmitting = createOrderMutation.isPending || transitionMutation.isPending || createLandedCostMutation.isPending;
 
@@ -327,6 +330,7 @@ export const ImportOrdersPage: React.FC = () => {
   const orderColumns = useImportOrdersColumns({
     getStatusBadge,
     onOpenDetail: openOrderDetail,
+    onEditItems: (order) => setEditingOrder(order),
   });
   const ordersTableData = useMemo(() => orders, [orders]);
   const ordersTable = useDataTable({
@@ -796,12 +800,24 @@ export const ImportOrdersPage: React.FC = () => {
           {selectedOrder && (
           <>
             {/* Line Items Breakdown */}
-            {selectedOrder.items?.data?.length ? (
-              <div>
-                <h4 className="text-xs font-bold text-app-label-secondary mb-3 flex items-center gap-2">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-xs font-bold text-app-label-secondary flex items-center gap-2">
                   <ListChecks className="h-3.5 w-3.5 text-app-accent" />
-                  بنود الأمر ({selectedOrder.items.data.length})
+                  بنود الأمر ({selectedOrder.items?.data?.length ?? 0})
                 </h4>
+                {selectedOrder.status === "draft" && (
+                  <button
+                    type="button"
+                    onClick={() => setEditingOrder(selectedOrder)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-app-accent/40 bg-app-accent-subtle px-2.5 py-1 text-xs font-bold text-app-accent hover:bg-app-accent hover:text-white transition-colors"
+                  >
+                    <Edit className="h-3 w-3" />
+                    <span>تعديل البنود</span>
+                  </button>
+                )}
+              </div>
+              {selectedOrder.items?.data?.length ? (
                 <DataTable table={lineItemsTable}>
                   <DataTable.Content emptyMessage="لا توجد بنود." />
                   <div className="flex items-center justify-between border-t border-app-separator bg-app-bg-primary px-4 py-3">
@@ -814,12 +830,12 @@ export const ImportOrdersPage: React.FC = () => {
                     </span>
                   </div>
                 </DataTable>
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-app-separator bg-app-bg-secondary p-3 text-center text-xs text-app-label-tertiary">
-                لا توجد بنود مسجلة على هذا الأمر (تم إنشاؤه قبل تحديث بنود الأصناف).
-              </div>
-            )}
+              ) : (
+                <div className="rounded-xl border border-dashed border-app-separator bg-app-bg-secondary p-3 text-center text-xs text-app-label-tertiary">
+                  لا توجد بنود مسجلة على هذا الأمر (تم إنشاؤه قبل تحديث بنود الأصناف).
+                </div>
+              )}
+            </div>
 
             {/* Stepper Progress */}
             <div>
@@ -1141,6 +1157,19 @@ export const ImportOrdersPage: React.FC = () => {
           </DialogBody>
         </DialogContent>
       </Dialog>
+
+      {editingOrder && (
+        <EditImportOrderItemsModal
+          order={editingOrder}
+          isOpen={Boolean(editingOrder)}
+          onClose={() => setEditingOrder(null)}
+          onSuccess={(updated) => {
+            if (selectedOrder?.id === updated.id) {
+              setSelectedOrder(updated);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

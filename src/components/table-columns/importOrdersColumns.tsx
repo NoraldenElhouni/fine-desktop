@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from "react";
-import { Building, ArrowRight } from "lucide-react";
+import { Building, ArrowRight, Edit } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { formatNumber } from "../../lib/utils/format";
 import { ImportOrder, ImportOrderStatus, getImportOrderTotal } from "../../types/procurement";
@@ -7,11 +7,13 @@ import { ImportOrder, ImportOrderStatus, getImportOrderTotal } from "../../types
 export interface UseImportOrdersColumnsArgs {
   getStatusBadge: (status: ImportOrderStatus) => ReactNode;
   onOpenDetail: (order: ImportOrder) => void;
+  onEditItems?: (order: ImportOrder) => void;
 }
 
 export function useImportOrdersColumns({
   getStatusBadge,
   onOpenDetail,
+  onEditItems,
 }: UseImportOrdersColumnsArgs): ColumnDef<ImportOrder, unknown>[] {
   return useMemo<ColumnDef<ImportOrder, unknown>[]>(
     () => [
@@ -78,16 +80,28 @@ export function useImportOrdersColumns({
         enableSorting: false,
         meta: { align: "end" },
         cell: ({ row }) => (
-          <button
-            onClick={() => onOpenDetail(row.original)}
-            className="inline-flex items-center gap-1 rounded-lg bg-app-bg-secondary px-3 py-1 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1"
-          >
-            <span>تتبع التفاصيل</span>
-            <ArrowRight className="h-3.5 w-3.5 rotate-180 text-app-accent" />
-          </button>
+          <div className="flex items-center justify-end gap-1.5">
+            {row.original.status === "draft" && onEditItems && (
+              <button
+                onClick={() => onEditItems(row.original)}
+                className="inline-flex items-center gap-1 rounded-lg border border-app-accent/30 bg-app-accent-subtle px-2.5 py-1 text-xs font-semibold text-app-accent hover:bg-app-accent hover:text-white transition-colors"
+                title="تعديل بنود الأمر"
+              >
+                <Edit className="h-3.5 w-3.5" />
+                <span>تعديل</span>
+              </button>
+            )}
+            <button
+              onClick={() => onOpenDetail(row.original)}
+              className="inline-flex items-center gap-1 rounded-lg bg-app-bg-secondary px-3 py-1 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1"
+            >
+              <span>تتبع التفاصيل</span>
+              <ArrowRight className="h-3.5 w-3.5 rotate-180 text-app-accent" />
+            </button>
+          </div>
         ),
       },
     ],
-    [getStatusBadge, onOpenDetail]
+    [getStatusBadge, onOpenDetail, onEditItems]
   );
 }

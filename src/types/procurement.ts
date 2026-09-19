@@ -204,6 +204,11 @@ export interface CreateImportOrderPayload {
   items?: ImportOrderItemInput[];
 }
 
+export interface UpdateImportOrderPayload {
+  supplier_id?: string;
+  items: ImportOrderItemInput[];
+}
+
 export interface TransitionImportOrderPayload {
   action:
     | 'pending_payment'

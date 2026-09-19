@@ -4,6 +4,7 @@ import {
   CreateSupplierPayload,
   ImportOrder,
   CreateImportOrderPayload,
+  UpdateImportOrderPayload,
   TransitionImportOrderPayload,
   PaymentRequest,
   ExecutePaymentPayload,
@@ -46,6 +47,14 @@ export const getImportOrder = async (id: string): Promise<ImportOrder> => {
 
 export const createImportOrder = async (payload: CreateImportOrderPayload): Promise<ImportOrder> => {
   const response = await apiClient.post<{ data: ImportOrder }>("/import-orders", payload);
+  return response.data.data;
+};
+
+export const updateImportOrder = async (
+  id: string,
+  payload: UpdateImportOrderPayload
+): Promise<ImportOrder> => {
+  const response = await apiClient.put<{ data: ImportOrder }>(`/import-orders/${id}`, payload);
   return response.data.data;
 };
 

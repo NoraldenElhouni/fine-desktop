@@ -5,6 +5,7 @@ import {
   getImportOrders,
   getImportOrder,
   createImportOrder,
+  updateImportOrder,
   transitionImportOrder,
   getPaymentRequests,
   executePaymentRequest,
@@ -17,6 +18,7 @@ import {
 import {
   CreateSupplierPayload,
   CreateImportOrderPayload,
+  UpdateImportOrderPayload,
   TransitionImportOrderPayload,
   ExecutePaymentPayload,
   CreateLandedCostLinePayload,
@@ -65,6 +67,23 @@ export function useCreateImportOrder() {
     mutationFn: (payload: CreateImportOrderPayload) => createImportOrder(payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["importOrders"] });
+    },
+  });
+}
+
+export function useUpdateImportOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: UpdateImportOrderPayload;
+    }) => updateImportOrder(id, payload),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: ["importOrders"] });
+      qc.invalidateQueries({ queryKey: ["importOrder", variables.id] });
     },
   });
 }
