@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { ListTree, Plus, X } from "lucide-react";
+import { ListTree, Plus, X, Eye, Maximize2, Search, RotateCcw } from "lucide-react";
 import { isAxiosError } from "axios";
 import { useAccounts, useAccountLedger, useCreateAccount } from "../../hooks/useAccounting";
 import { usePermissions } from "../../hooks/usePermissions";
@@ -7,6 +7,7 @@ import { ACCOUNT_TYPE_LABEL, type Account, type AccountType } from "../../api/en
 import { formatNumber } from "../../lib/utils/format";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useChartOfAccountsLedgerColumns } from "../../components/table-columns/chartOfAccountsColumns";
+import { AccountDetailsDialog } from "../../components/accounting/AccountDetailsDialog";
 import {
   Dialog,
   DialogContent,
@@ -248,12 +249,20 @@ export const ChartOfAccountsPage: React.FC = () => {
   const { data: accounts, isLoading } = useAccounts();
   const [selected, setSelected] = useState<Account | null>(null);
   const [ledgerPage, setLedgerPage] = useState(1);
+  const [sideSearch, setSideSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [detailsAccountId, setDetailsAccountId] = useState<string | null>(null);
 
   const { hasRole } = usePermissions();
   const canCreate = hasRole(["owner", "admin", "accounting-manager"]);
 
-  const { data: ledger, isLoading: ledgerLoading } = useAccountLedger(selected?.id, ledgerPage);
+  const { data: ledger, isLoading: ledgerLoading } = useAccountLedger(
+    selected?.id,
+    {
+      page: ledgerPage,
+      search: sideSearch.trim() || undefined,
+    }
+  );
 
   const tree = useMemo(() => buildTree(accounts ?? []), [accounts]);
 
@@ -270,20 +279,54 @@ export const ChartOfAccountsPage: React.FC = () => {
 
   const renderNode = (node: TreeNode, depth: number): React.ReactNode => (
     <React.Fragment key={node.account.id}>
-      <button
-        onClick={() => { setSelected(node.account); setLedgerPage(1); }}
-        className={`w-full flex items-center gap-3 px-4 py-2.5 text-start hover:bg-app-fill-f1 ${selected?.id === node.account.id ? "bg-app-accent-subtle" : ""}`}
-        style={{ paddingInlineStart: `${16 + depth * 24}px` }}
+      <div
+        className={`w-full flex items-center gap-3 px-4 py-2 text-start hover:bg-app-fill-f1 transition-colors ${
+          selected?.id === node.account.id ? "bg-app-accent-subtle" : ""
+        }`}
+        style={{ paddingInlineStart: `${16 + depth * 20}px` }}
       >
-        <span className="font-mono font-bold text-app-accent text-xs">{node.account.account_code}</span>
-        <span className={`text-xs ${node.children.length > 0 ? "font-bold" : ""} text-app-label-primary`}>
-          {node.account.name}
-        </span>
-        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${TYPE_STYLE[node.account.type]}`}>
-          {ACCOUNT_TYPE_LABEL[node.account.type]}
-        </span>
-        <span className="ms-auto font-mono text-xs text-app-label-primary">{formatNumber(node.account.balance)}</span>
-      </button>
+        <button
+          type="button"
+          onClick={() => {
+            setSelected(node.account);
+            setLedgerPage(1);
+          }}
+          className="flex-1 flex items-center gap-3 text-start min-w-0"
+        >
+          <span className="font-mono font-bold text-app-accent text-xs">
+            {node.account.account_code}
+          </span>
+          <span
+            className={`text-xs truncate ${
+              node.children.length > 0 ? "font-bold" : ""
+            } text-app-label-primary`}
+          >
+            {node.account.name}
+          </span>
+          <span
+            className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
+              TYPE_STYLE[node.account.type]
+            }`}
+          >
+            {ACCOUNT_TYPE_LABEL[node.account.type]}
+          </span>
+          <span className="ms-auto font-mono text-xs text-app-label-primary">
+            {formatNumber(node.account.balance)}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setDetailsAccountId(node.account.id);
+          }}
+          title="عرض كشف الحركة والتفاصيل"
+          className="rounded-lg p-1 text-app-label-tertiary hover:bg-app-bg-secondary hover:text-app-accent"
+        >
+          <Eye className="w-4 h-4" />
+        </button>
+      </div>
       {node.children.map((child) => renderNode(child, depth + 1))}
     </React.Fragment>
   );
@@ -297,7 +340,7 @@ export const ChartOfAccountsPage: React.FC = () => {
             شجرة الحسابات (Chart of Accounts)
           </h1>
           <p className="text-xs text-app-label-secondary mt-1">
-            الأرصدة بإشارتها الطبيعية لكل نوع. اختر حسابًا لعرض كشف حركته.
+            الأرصدة بإشارتها الطبيعية لكل نوع. اختر حسابًا لعرض كشف حركته أو انقر على زر التفاصيل للكشف الكامل.
           </p>
         </div>
         {canCreate && (
@@ -317,30 +360,120 @@ export const ChartOfAccountsPage: React.FC = () => {
         accounts={accounts ?? []}
       />
 
+      <AccountDetailsDialog
+        open={Boolean(detailsAccountId)}
+        onClose={() => setDetailsAccountId(null)}
+        accountId={detailsAccountId}
+      />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
           {isLoading ? (
-            <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">جارٍ التحميل…</div>
+            <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">
+              جارٍ التحميل…
+            </div>
           ) : (
-            <div className="divide-y divide-app-separator">{tree.map((node) => renderNode(node, 0))}</div>
+            <div className="divide-y divide-app-separator">
+              {tree.map((node) => renderNode(node, 0))}
+            </div>
           )}
         </div>
 
         {selected && (
-          <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
-            <div className="flex items-center gap-2 border-b border-app-separator p-4">
-              <span className="font-mono font-bold text-app-accent text-sm">{selected.account_code}</span>
-              <span className="text-sm font-bold text-app-label-primary">{selected.name}</span>
-              <span className="ms-auto font-mono text-xs text-app-label-secondary">
-                مدين {formatNumber(selected.total_debit)} / دائن {formatNumber(selected.total_credit)}
-              </span>
-              <button onClick={() => setSelected(null)} className="p-1 text-app-label-tertiary hover:text-app-status-danger">
-                <X className="w-4 h-4" />
-              </button>
+          <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
+            <div className="flex items-center justify-between border-b border-app-separator p-4">
+              <div className="flex items-center gap-2">
+                <span className="font-mono font-bold text-app-accent text-sm">
+                  {selected.account_code}
+                </span>
+                <span className="text-sm font-bold text-app-label-primary">
+                  {selected.name}
+                </span>
+                <span
+                  className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
+                    TYPE_STYLE[selected.type]
+                  }`}
+                >
+                  {ACCOUNT_TYPE_LABEL[selected.type]}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setDetailsAccountId(selected.id)}
+                  className="flex items-center gap-1 rounded-lg border border-app-separator bg-app-bg-secondary px-2.5 py-1 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 hover:text-app-accent"
+                  title="عرض كشف الحركة والتفاصيل الكامل"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  عرض مفصل
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelected(null)}
+                  className="rounded-lg p-1 text-app-label-tertiary hover:bg-app-fill-f1 hover:text-app-status-danger"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Quick KPI stats */}
+            <div className="grid grid-cols-3 gap-2 border-b border-app-separator bg-app-bg-secondary/40 p-3 text-xs">
+              <div className="rounded-lg border border-app-separator bg-app-bg-primary p-2">
+                <div className="text-[11px] text-app-label-secondary">الرصيد</div>
+                <div className="mt-0.5 font-mono font-bold text-app-label-primary">
+                  {formatNumber(selected.balance)}
+                </div>
+              </div>
+              <div className="rounded-lg border border-app-separator bg-app-bg-primary p-2">
+                <div className="text-[11px] text-app-label-secondary">مدين</div>
+                <div className="mt-0.5 font-mono font-semibold text-app-status-positive">
+                  {formatNumber(selected.total_debit)}
+                </div>
+              </div>
+              <div className="rounded-lg border border-app-separator bg-app-bg-primary p-2">
+                <div className="text-[11px] text-app-label-secondary">دائن</div>
+                <div className="mt-0.5 font-mono font-semibold text-app-status-danger">
+                  {formatNumber(selected.total_credit)}
+                </div>
+              </div>
+            </div>
+
+            {/* Search filter */}
+            <div className="flex items-center gap-2 border-b border-app-separator bg-app-bg-primary p-3">
+              <div className="relative flex-1">
+                <Search className="absolute start-2.5 top-2 h-3.5 w-3.5 text-app-label-tertiary" />
+                <input
+                  type="text"
+                  value={sideSearch}
+                  onChange={(e) => {
+                    setSideSearch(e.target.value);
+                    setLedgerPage(1);
+                  }}
+                  placeholder="بحث برقم القيد أو الوصف…"
+                  className="w-full rounded-lg border border-app-separator bg-app-bg-secondary py-1 pe-2 ps-7 text-xs text-app-label-primary placeholder:text-app-label-tertiary focus:outline-none focus:ring-1 focus:ring-app-accent"
+                />
+              </div>
+              {sideSearch && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSideSearch("");
+                    setLedgerPage(1);
+                  }}
+                  className="rounded-lg border border-app-separator p-1.5 text-app-label-secondary hover:bg-app-fill-f1"
+                  title="مسح البحث"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
 
             {ledgerLoading ? (
-              <div className="flex h-32 items-center justify-center text-xs text-app-label-secondary">جارٍ التحميل…</div>
+              <div className="flex h-32 items-center justify-center text-xs text-app-label-secondary">
+                جارٍ التحميل…
+              </div>
             ) : (
               <>
                 <DataTable table={ledgerTable} className="rounded-none border-0 shadow-none">
@@ -348,7 +481,7 @@ export const ChartOfAccountsPage: React.FC = () => {
                 </DataTable>
 
                 {ledger && ledger.last_page > 1 && (
-                  <div className="flex items-center justify-center gap-3 p-3 text-xs border-t border-app-separator">
+                  <div className="flex items-center justify-center gap-3 border-t border-app-separator p-3 text-xs">
                     <button
                       disabled={ledgerPage <= 1}
                       onClick={() => setLedgerPage(ledgerPage - 1)}
@@ -356,7 +489,9 @@ export const ChartOfAccountsPage: React.FC = () => {
                     >
                       السابق
                     </button>
-                    <span className="font-mono text-app-label-secondary">{ledgerPage} / {ledger.last_page}</span>
+                    <span className="font-mono text-app-label-secondary">
+                      {ledgerPage} / {ledger.last_page}
+                    </span>
                     <button
                       disabled={ledgerPage >= ledger.last_page}
                       onClick={() => setLedgerPage(ledgerPage + 1)}

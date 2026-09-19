@@ -35,12 +35,35 @@ export function useCreateAccount() {
   });
 }
 
-export function useAccountLedger(accountId?: string, page = 1) {
+export function useAccount(accountId?: string) {
   const companyWide = useIsCompanyWide();
   return useQuery({
-    queryKey: ["accountLedger", accountId, page, companyWide],
+    queryKey: ["account", accountId, companyWide],
     queryFn: async () =>
-      (await accountingApi.getAccountLedger(accountId as string, page, companyWide)).data,
+      (await accountingApi.getAccount(accountId as string, companyWide)).data.data,
+    enabled: Boolean(accountId),
+  });
+}
+
+export function useAccountLedger(
+  accountId?: string,
+  params?: {
+    page?: number;
+    from?: string;
+    to?: string;
+    search?: string;
+  }
+) {
+  const companyWide = useIsCompanyWide();
+  return useQuery({
+    queryKey: ["accountLedger", accountId, params, companyWide],
+    queryFn: async () =>
+      (
+        await accountingApi.getAccountLedger(accountId as string, {
+          ...params,
+          company_wide: companyWide,
+        })
+      ).data,
     enabled: Boolean(accountId),
   });
 }

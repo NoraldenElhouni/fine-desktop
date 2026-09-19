@@ -22,6 +22,25 @@ export interface Account {
   balance: number;
 }
 
+export interface AccountDetails extends Account {
+  parent?: {
+    id: string;
+    account_code: string;
+    name: string;
+    type: AccountType;
+  } | null;
+  transaction_count?: number;
+  created_at?: string;
+}
+
+export interface AccountLedgerParams {
+  page?: number;
+  from?: string;
+  to?: string;
+  search?: string;
+  company_wide?: boolean;
+}
+
 export interface JournalLine {
   id: string;
   journal_entry_id: string;
@@ -142,12 +161,26 @@ export interface CreateAccountPayload {
 export const accountingApi = {
   getAccounts: () => apiClient.get<{ data: Account[] }>("/accounts"),
 
+  getAccount: (id: string, companyWide = false) =>
+    apiClient.get<{ data: AccountDetails }>(`/accounts/${id}`, {
+      params: { company_wide: companyWide || undefined },
+    }),
+
   createAccount: (payload: CreateAccountPayload) =>
     apiClient.post<{ message: string; data: Account }>("/accounts", payload),
 
-  getAccountLedger: (accountId: string, page = 1, companyWide = false) =>
+  getAccountLedger: (
+    accountId: string,
+    params?: AccountLedgerParams
+  ) =>
     apiClient.get<Paginated<JournalLine>>(`/accounts/${accountId}/ledger`, {
-      params: { page, company_wide: companyWide || undefined },
+      params: {
+        page: params?.page ?? 1,
+        from: params?.from || undefined,
+        to: params?.to || undefined,
+        search: params?.search || undefined,
+        company_wide: params?.company_wide || undefined,
+      },
     }),
 
   getJournalEntries: (params?: {
