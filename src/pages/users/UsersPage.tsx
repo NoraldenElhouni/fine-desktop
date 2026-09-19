@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import {
   ShieldCheck,
   Plus,
@@ -31,6 +31,7 @@ import { useAuthStore } from "../../stores/authStore";
 import { cn } from "../../lib/utils/utils";
 
 const UsersPage: React.FC = () => {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<"active" | "deleted">("active");
   const { data: users, isLoading, isError, error, refetch } = useUsers({ withTrashed: tab === "deleted" });
   const { data: roles } = useRoles();
@@ -184,6 +185,7 @@ const UsersPage: React.FC = () => {
   const columns = useUsersColumns({
     currentUserId,
     unitName,
+    onViewDetails: (u) => navigate(`/users/${u.id}`),
     onOpenRoles: openRoles,
     onEdit: openEdit,
     onToggleActive: toggleActive,

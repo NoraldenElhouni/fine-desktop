@@ -8,12 +8,24 @@ export function useUsers(options: { withTrashed?: boolean } = {}) {
   });
 }
 
-/** Every user mutation invalidates the one list this section renders. */
+export function useUser(id?: string, options: { withTrashed?: boolean } = {}) {
+  return useQuery({
+    queryKey: ["user", id, options],
+    queryFn: async () => (await usersApi.get(id as string, { withTrashed: options.withTrashed })).data.data,
+    enabled: Boolean(id),
+  });
+}
+
+/** Every user mutation invalidates user lists and individual user cache. */
 function useUserAction<TArgs>(fn: (args: TArgs) => Promise<unknown>) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: fn,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["users"] });
+      qc.invalidateQueries({ queryKey: ["user"] });
+      qc.invalidateQueries({ queryKey: ["auditLog"] });
+    },
   });
 }
 

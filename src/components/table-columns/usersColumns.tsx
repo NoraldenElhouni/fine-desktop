@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { KeyRound, Pencil, ShieldCheck, Undo2, UserCheck, UserX, Trash2 } from "lucide-react";
+import { KeyRound, Pencil, ShieldCheck, Undo2, UserCheck, UserX, Trash2, Eye } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { RowActionsMenu, RowActionItem } from "../ui/RowActionsMenu";
 import { AppUser } from "../../api/endpoints/users";
@@ -7,6 +7,7 @@ import { AppUser } from "../../api/endpoints/users";
 export interface UseUsersColumnsArgs {
   currentUserId: string | number | undefined;
   unitName: (id: string | null) => string;
+  onViewDetails?: (user: AppUser) => void;
   onOpenRoles: (user: AppUser) => void;
   onEdit: (user: AppUser) => void;
   onToggleActive: (user: AppUser) => void;
@@ -17,6 +18,7 @@ export interface UseUsersColumnsArgs {
 export function useUsersColumns({
   currentUserId,
   unitName,
+  onViewDetails,
   onOpenRoles,
   onEdit,
   onToggleActive,
@@ -32,8 +34,18 @@ export function useUsersColumns({
           [u.name, u.email, ...(u.roles?.map((r) => r.name) ?? [])].join(" "),
         cell: ({ row }) => (
           <div>
-            <div className="font-bold">{row.original.name}</div>
-            <div className="text-app-label-secondary font-mono" dir="ltr">
+            {onViewDetails ? (
+              <button
+                type="button"
+                onClick={() => onViewDetails(row.original)}
+                className="font-bold text-app-label-primary hover:text-app-accent hover:underline text-start"
+              >
+                {row.original.name}
+              </button>
+            ) : (
+              <div className="font-bold">{row.original.name}</div>
+            )}
+            <div className="text-app-label-secondary font-mono text-xs" dir="ltr">
               {row.original.email}
             </div>
           </div>
@@ -105,15 +117,23 @@ export function useUsersColumns({
               </button>
             );
           }
-          const items: RowActionItem[] = [
+          const items: RowActionItem[] = [];
+          if (onViewDetails) {
+            items.push({
+              label: "عرض التفاصيل",
+              icon: Eye,
+              onClick: () => onViewDetails(u),
+            });
+          }
+          items.push(
             { label: "الأدوار", icon: ShieldCheck, onClick: () => onOpenRoles(u) },
             { label: "تعديل", icon: Pencil, onClick: () => onEdit(u) },
             {
               label: u.is_active ? "تعطيل" : "تفعيل",
               icon: u.is_active ? UserX : UserCheck,
               onClick: () => onToggleActive(u),
-            },
-          ];
+            }
+          );
           if (u.id !== currentUserId) {
             items.push({
               label: "حذف",
@@ -126,6 +146,6 @@ export function useUsersColumns({
         },
       },
     ],
-    [currentUserId, unitName, onOpenRoles, onEdit, onToggleActive, onDelete, onRestore]
+    [currentUserId, unitName, onViewDetails, onOpenRoles, onEdit, onToggleActive, onDelete, onRestore]
   );
 }

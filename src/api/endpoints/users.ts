@@ -11,14 +11,22 @@ export interface AppUser {
   is_active: boolean;
   must_change_password: boolean;
   record_version: number;
+  role_slugs?: string[];
+  permissions?: string[];
   roles?: import("./roles").RoleEntry[];
   created_at?: string;
+  updated_at?: string;
   deleted_at?: string | null;
 }
 
 export const usersApi = {
   list: (options: { withTrashed?: boolean } = {}) =>
     apiClient.get<{ data: AppUser[] }>("/users", {
+      params: options.withTrashed ? { with_trashed: 1 } : {},
+    }),
+
+  get: (id: string, options: { withTrashed?: boolean } = {}) =>
+    apiClient.get<{ data: AppUser }>(`/users/${id}`, {
       params: options.withTrashed ? { with_trashed: 1 } : {},
     }),
 
