@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Factory, LogOut, Settings, UserRound, LayoutGrid, ChevronDown, ChevronRight } from "lucide-react";
+import { LogOut, Settings, UserRound, LayoutGrid, ChevronDown, ChevronRight } from "lucide-react";
+import { FineLogo } from "../../../assets/logo";
 import { User } from "../../../types/auth/types";
 import { cn } from "../../../lib/utils/utils";
 import { tokens } from "../../../lib/tokens";
@@ -46,8 +47,12 @@ const Sidebar = ({ isCollapsed, activePath, user, onLogout }: SidebarProps) => {
       )}
     >
       <div className="flex items-center gap-3 border-b border-app-separator px-4 py-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-app-xl bg-app-accent-subtle text-app-accent">
-          <Factory className="h-5 w-5" />
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-app-xl overflow-hidden">
+          <img
+            src={FineLogo}
+            alt="فاين"
+            className="h-full w-full object-contain"
+          />
         </div>
         {!isCollapsed ? (
           <div className="min-w-0">

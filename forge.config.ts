@@ -12,14 +12,23 @@ import { PublisherGithub } from "@electron-forge/publisher-github";
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
+    icon: "./assets/icons/icon",
   },
   rebuildConfig: {},
   makers: [
     new MakerSquirrel({}), // Windows
     new MakerZIP({}, ["darwin"]), // macOS
     new MakerDMG({}, ["darwin"]), // macOS installer
-    new MakerRpm({}), // Linux RPM
-    new MakerDeb({}), // Linux DEB
+    new MakerRpm({
+      options: {
+        icon: "./assets/icons/icon.png",
+      },
+    }), // Linux RPM
+    new MakerDeb({
+      options: {
+        icon: "./assets/icons/icon.png",
+      },
+    }), // Linux DEB
   ],
   publishers: [
     new PublisherGithub({

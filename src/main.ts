@@ -1,5 +1,6 @@
-import { app, BrowserWindow, shell, session } from "electron";
+import { app, BrowserWindow, shell, session, nativeImage } from "electron";
 import path from "node:path";
+import fs from "node:fs";
 import started from "electron-squirrel-startup";
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -7,12 +8,34 @@ if (started) {
   app.quit();
 }
 
+const getAppIcon = () => {
+  const possiblePaths = [
+    path.resolve(__dirname, "../../assets/icons/icon.png"),
+    path.resolve(__dirname, "../assets/icons/icon.png"),
+    path.resolve(app.getAppPath(), "../assets/icons/icon.png"),
+    path.resolve(app.getAppPath(), "assets/icons/icon.png"),
+  ];
+
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      const img = nativeImage.createFromPath(p);
+      if (!img.isEmpty()) {
+        return img;
+      }
+    }
+  }
+  return undefined;
+};
+
 const createWindow = () => {
+  const appIcon = getAppIcon();
+
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     title: "Fine ERP",
+    icon: appIcon,
     show: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -22,6 +45,10 @@ const createWindow = () => {
       webSecurity: true,
     },
   });
+
+  if (appIcon && process.platform === "linux") {
+    mainWindow.setIcon(appIcon);
+  }
 
   mainWindow.show();
   mainWindow.focus();
