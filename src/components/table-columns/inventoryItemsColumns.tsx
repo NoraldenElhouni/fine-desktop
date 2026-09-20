@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Pencil, Tags } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { InventoryItem } from "../../api/endpoints/inventory";
-import { formatDate } from "../../lib/utils/format";
+import { formatDate, formatNumber } from "../../lib/utils/format";
 
 export interface UseInventoryItemsColumnsArgs {
   onEdit?: (item: InventoryItem) => void;
@@ -60,7 +60,23 @@ export function useInventoryItemsColumns({ onEdit }: UseInventoryItemsColumnsArg
         header: "وحدة القياس المزدوجة (حاوية / قياس)",
         enableSorting: false,
         meta: { className: "font-mono font-medium text-app-label-secondary" },
-        cell: ({ row }) => `${row.original.primary_uom || "each"} / ${row.original.secondary_uom || row.original.unit_of_measure}`,
+        cell: ({ row }) => {
+          const item = row.original;
+          const cap = Number(item.container_capacity);
+          if (cap > 0) {
+            return (
+              <div className="flex flex-col">
+                <span className="font-semibold text-app-label-primary">
+                  1 {item.primary_uom || "حاوية"} = {formatNumber(cap)} {item.secondary_uom || item.unit_of_measure}
+                </span>
+                <span className="text-[10px] text-app-label-tertiary">
+                  {item.primary_uom || "each"} / {item.secondary_uom || item.unit_of_measure}
+                </span>
+              </div>
+            );
+          }
+          return `${item.primary_uom || "each"} / ${item.secondary_uom || item.unit_of_measure}`;
+        },
       },
       {
         id: "created_at",
