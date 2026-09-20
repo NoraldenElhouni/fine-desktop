@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Pencil, Tags } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { InventoryItem } from "../../api/endpoints/inventory";
+import { ITEM_TYPE_LABELS, InventoryItemType } from "../../api/endpoints/categories";
 import { formatDate, formatNumber } from "../../lib/utils/format";
 
 export interface UseInventoryItemsColumnsArgs {
@@ -27,16 +28,30 @@ export function useInventoryItemsColumns({ onEdit }: UseInventoryItemsColumnsArg
       },
       {
         id: "category",
-        header: "الفئة",
+        header: "الفئة والنوع",
         enableSorting: false,
-        cell: ({ row }) =>
-          row.original.category ? (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-indigo-50 text-indigo-700">
-              <Tags className="w-3 h-3" /> {row.original.category.name}
-            </span>
-          ) : (
-            <span className="text-app-label-tertiary">بدون فئة</span>
-          ),
+        cell: ({ row }) => {
+          const cat = row.original.category;
+          const typeLabel =
+            ITEM_TYPE_LABELS[row.original.item_type as InventoryItemType] ??
+            row.original.item_type;
+          return (
+            <div className="flex flex-col gap-1 items-start">
+              {cat ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-indigo-50 text-indigo-700">
+                  <Tags className="w-3 h-3" /> {cat.name}
+                </span>
+              ) : (
+                <span className="text-app-label-tertiary text-xs">بدون فئة</span>
+              )}
+              {typeLabel && (
+                <span className="text-[10px] text-app-label-secondary font-medium px-1.5 py-0.5 rounded bg-app-bg-secondary border border-app-separator">
+                  {typeLabel}
+                </span>
+              )}
+            </div>
+          );
+        },
       },
       {
         id: "attributes",

@@ -75,6 +75,13 @@ export const InventoryItemsPage: React.FC = () => {
 
   const handleCategoryChange = (nextCategoryId: string) => {
     setCategoryId(nextCategoryId);
+
+    // Dynamically populate itemType if the selected category defines an item_type
+    const matchedCategory = categories?.find((c) => c.id === nextCategoryId);
+    if (matchedCategory?.item_type) {
+      setItemType(matchedCategory.item_type as InventoryItem["item_type"]);
+    }
+
     // Drop any already-picked attribute that no longer applies under the new category.
     setSelectedAttributeIds((prev) =>
       prev.filter((id) => {
@@ -332,9 +339,16 @@ export const InventoryItemsPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                    نوع الصنف
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-app-label-secondary uppercase">
+                      نوع الصنف
+                    </label>
+                    {categories?.find((c) => c.id === categoryId)?.item_type && (
+                      <span className="text-[10px] text-app-accent font-medium">
+                        تلقائي من الفئة
+                      </span>
+                    )}
+                  </div>
                   <select
                     value={itemType}
                     onChange={(e) => setItemType(e.target.value as InventoryItem["item_type"])}
@@ -350,6 +364,7 @@ export const InventoryItemsPage: React.FC = () => {
                     </option>
                     <option value="barrel">برميل</option>
                     <option value="pallet">منصة نقالة</option>
+                    <option value="packaging">تغليف</option>
                   </select>
                 </div>
 

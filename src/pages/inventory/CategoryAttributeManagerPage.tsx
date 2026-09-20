@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useItemCategories, useCreateItemCategory, useCreateAttributeDefinition, useDeleteAttributeDefinition } from "../../hooks/useCategories";
-import { ItemCategory } from "../../api/endpoints/categories";
-import { Tags, Plus, Layers, CheckCircle2, Sliders } from "lucide-react";
+import { ItemCategory, InventoryItemType, ITEM_TYPE_LABELS } from "../../api/endpoints/categories";
+import { Tags, Plus, Layers, Sliders } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useCategoryAttributeColumns } from "../../components/table-columns/categoryAttributeColumns";
@@ -19,6 +19,7 @@ export const CategoryAttributeManagerPage: React.FC = () => {
   // New Category Form State
   const [catName, setCatName] = useState("");
   const [catCode, setCatCode] = useState("");
+  const [catItemType, setCatItemType] = useState<InventoryItemType>("raw_material");
   const [catDesc, setCatDesc] = useState("");
 
   // New Attribute Form State
@@ -31,12 +32,13 @@ export const CategoryAttributeManagerPage: React.FC = () => {
   const handleCreateCategory = (e: React.FormEvent) => {
     e.preventDefault();
     createCatMutation.mutate(
-      { name: catName, code: catCode, description: catDesc },
+      { name: catName, code: catCode, item_type: catItemType, description: catDesc },
       {
         onSuccess: () => {
           setIsCatModalOpen(false);
           setCatName("");
           setCatCode("");
+          setCatItemType("raw_material");
           setCatDesc("");
         },
       }
@@ -138,8 +140,15 @@ export const CategoryAttributeManagerPage: React.FC = () => {
                     {cat.description && (
                       <p className="text-[11px] text-app-label-secondary mt-1 line-clamp-1">{cat.description}</p>
                     )}
-                    <div className="text-[10px] text-app-label-tertiary mt-2">
-                      {cat.attribute_definitions?.length || 0} خاصية ديناميكية معرّفة
+                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                      {cat.item_type && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-app-accent-subtle text-app-accent font-medium">
+                          {ITEM_TYPE_LABELS[cat.item_type] ?? cat.item_type}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-app-label-tertiary">
+                        {cat.attribute_definitions?.length || 0} خاصية ديناميكية معرّفة
+                      </span>
                     </div>
                   </div>
                 );
@@ -226,6 +235,30 @@ export const CategoryAttributeManagerPage: React.FC = () => {
                   onChange={(e) => setCatCode(e.target.value)}
                   className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                  نوع الصنف المرتبط بالفئة
+                </label>
+                <select
+                  value={catItemType}
+                  onChange={(e) => setCatItemType(e.target.value as InventoryItemType)}
+                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
+                >
+                  <option value="raw_material">مادة خام</option>
+                  <option value="foam_block">قالب إسفنج</option>
+                  <option value="cut_template_piece">قطعة قالب تشذيب</option>
+                  <option value="slice">شريحة</option>
+                  <option value="byproduct_fill">حشو ثانوي</option>
+                  <option value="furniture_finished_good">منتج أثاث تام</option>
+                  <option value="barrel">برميل</option>
+                  <option value="pallet">منصة نقالة</option>
+                  <option value="packaging">تغليف</option>
+                </select>
+                <p className="text-[11px] text-app-label-tertiary mt-1">
+                  يُحدّد هذا الحقل نوع الصنف الافتراضي عند إنشاء أصناف تابعة لهذه الفئة.
+                </p>
               </div>
 
               <div>
