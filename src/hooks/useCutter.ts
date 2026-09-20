@@ -124,3 +124,32 @@ export function useRecordWeighIn(orderId?: string) {
     },
   });
 }
+
+export function useAttachBlock(orderId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (stockLotId: string) =>
+      cutterApi.attachBlock(orderId as string, stockLotId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["cutterOrder", orderId] });
+      qc.invalidateQueries({ queryKey: ["cutterOrders"] });
+      qc.invalidateQueries({ queryKey: ["availableFoamBlocks"] });
+      qc.invalidateQueries({ queryKey: ["stockLots"] });
+    },
+  });
+}
+
+export function useDetachBlock(orderId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      cutterApi.detachBlock(orderId as string),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["cutterOrder", orderId] });
+      qc.invalidateQueries({ queryKey: ["cutterOrders"] });
+      qc.invalidateQueries({ queryKey: ["availableFoamBlocks"] });
+      qc.invalidateQueries({ queryKey: ["stockLots"] });
+    },
+  });
+}
+

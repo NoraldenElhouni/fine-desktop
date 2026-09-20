@@ -175,6 +175,14 @@ export const cutterApi = {
       stock_lot_id: stockLotId,
     }),
 
+  attachBlock: (id: string, stockLotId: string) =>
+    apiClient.post<CutterWorkOrder>(`/cutter-work-orders/${id}/attach-block`, {
+      stock_lot_id: stockLotId,
+    }),
+
+  detachBlock: (id: string) =>
+    apiClient.delete<CutterWorkOrder>(`/cutter-work-orders/${id}/detach-block`),
+
   recordWeighIn: (
     id: string,
     data: { weight_kg: number; byproduct_inventory_item_id?: string; warehouse_id?: string },

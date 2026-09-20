@@ -2,16 +2,17 @@ import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowRight, Scissors, Plus, AlertTriangle, ChevronLeft, Ruler, Package, Scale, CheckCircle2,
+  RefreshCw, Trash2,
 } from "lucide-react";
 import {
   useCutterOrder, useTransitionCutterOrder, useAddCutterLine, useAssignTemplate,
-  useRecordWeighIn,
+  useRecordWeighIn, useAvailableFoamBlocks, useAttachBlock, useDetachBlock,
 } from "../../hooks/useCutter";
 import { useInventoryItems } from "../../hooks/useInventory";
 import { useWarehouses } from "../../hooks/useWarehouses";
 import {
   CUTTER_STATUS_ORDER, CUTTER_STATUS_LABEL, CUTTER_NEXT_STATUS,
-  CutterWorkOrderLine,
+  CutterWorkOrderLine, AvailableFoamBlock,
 } from "../../api/endpoints/cutter";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatNumber } from "../../lib/utils/format";
@@ -31,11 +32,15 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
   const { data: pieceItems } = useInventoryItems({ item_type: "cut_template_piece" });
   const { data: fillItems } = useInventoryItems({ item_type: "byproduct_fill" });
   const { data: warehouses } = useWarehouses();
+  const { data: foamBlocksPage } = useAvailableFoamBlocks();
+  const foamBlocks: AvailableFoamBlock[] = foamBlocksPage?.data ?? [];
 
   const transitionMutation = useTransitionCutterOrder();
   const addLineMutation = useAddCutterLine();
   const templateMutation = useAssignTemplate(orderId);
   const weighInMutation = useRecordWeighIn(orderId);
+  const attachBlockMutation = useAttachBlock(orderId);
+  const detachBlockMutation = useDetachBlock(orderId);
 
   const [error, setError] = useState<string | null>(null);
   const [spec, setSpec] = useState("");
@@ -45,16 +50,45 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
   const [weight, setWeight] = useState("");
   const [fillItemId, setFillItemId] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
+  const [selectedBlockId, setSelectedBlockId] = useState("");
+  const [isChangingBlock, setIsChangingBlock] = useState(false);
 
   const nextStatus = order ? CUTTER_NEXT_STATUS[order.status] : null;
   const atWeighIn = order?.status === "awaiting_byproduct_weigh_in";
   const hasWeighIn = (order?.byproduct_yields?.length ?? 0) > 0;
+
+  const canSelectBlock = order?.status === "requested" || order?.status === "confirmed";
+
+  const totalRequiredVolumeM3 = (order?.lines ?? []).reduce((acc, line) => {
+    const vol = line.template_volume_m3 ? Number(line.template_volume_m3) : 0;
+    return acc + vol * (line.quantity || 1);
+  }, 0);
+
+  const untemplatedLinesCount = (order?.lines ?? []).filter(
+    (l) => !l.template_length_m || !l.template_width_m || !l.template_height_m,
+  ).length;
+
+  const chosenBlock = foamBlocks.find((b) => b.id === selectedBlockId);
+
+  const blockMissingForProduction = nextStatus === "in_production" && !order?.stock_lot;
+  const untemplatedMissingForProduction = nextStatus === "in_production" && untemplatedLinesCount > 0;
+  const cannotAdvanceToProduction = blockMissingForProduction || untemplatedMissingForProduction;
 
   const fail = (err: unknown, fallback: string) =>
     setError(apiErrorPayload(err)?.message ?? fallback);
 
   const advance = () => {
     if (!orderId || !nextStatus) return;
+    if (nextStatus === "in_production") {
+      if (!order?.stock_lot) {
+        setError("يجب اختيار وتثبيت البلوك المراد تقطيعه أولاً قبل بدء الإنتاج.");
+        return;
+      }
+      if (untemplatedLinesCount > 0) {
+        setError(`يوجد ${untemplatedLinesCount} بند لم يتم تعيين أبعاد القالب له. يجب تعيين جميع القوالب قبل بدء الإنتاج.`);
+        return;
+      }
+    }
     setError(null);
     transitionMutation.mutate(
       { id: orderId, status: nextStatus },
@@ -174,7 +208,8 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
           {nextStatus && (
             <button
               onClick={advance}
-              disabled={transitionMutation.isPending}
+              disabled={transitionMutation.isPending || cannotAdvanceToProduction}
+              title={cannotAdvanceToProduction ? (blockMissingForProduction ? "يجب اختيار وتثبيت البلوك أولاً" : "يجب تعيين جميع أبعاد القوالب أولاً") : undefined}
               className="ms-auto flex items-center gap-1.5 rounded-xl bg-app-accent px-3 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -182,6 +217,24 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
             </button>
           )}
         </div>
+
+        {blockMissingForProduction && (
+          <div className="mt-3 flex items-start gap-1.5 text-xs text-app-status-danger bg-app-status-danger/10 border border-app-status-danger/30 rounded-xl p-3">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>
+              لا يمكن ترقية أمر العمل إلى مرحلة <strong>قيد التقطيع</strong> حتى يتم اختيار وتثبيت البلوك المراد تقطيعه من الأسفل.
+            </span>
+          </div>
+        )}
+
+        {untemplatedMissingForProduction && (
+          <div className="mt-2 flex items-start gap-1.5 text-xs text-app-status-yellow bg-app-status-yellow/10 border border-app-status-yellow/30 rounded-xl p-2.5">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>
+              يوجد {untemplatedLinesCount} بند لم يتم تعيين أبعاد القالب له. يجب تعيين جميع القوالب قبل بدء التقطيع.
+            </span>
+          </div>
+        )}
 
         {atWeighIn && !hasWeighIn && (
           <p className="mt-3 flex items-start gap-1.5 text-xs text-app-status-yellow">
@@ -192,26 +245,57 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
         )}
       </div>
 
-      {/* CUT-block-sale: the precut block attached at order creation.
-          Price + dimensions are locked here and never recalculate. */}
-      {order.stock_lot && (
+      {/* Block Selection / Management Section */}
+      {order.stock_lot && !isChangingBlock ? (
         <div className="rounded-2xl border border-app-accent/40 bg-app-accent-tint shadow-sm">
           <div className="border-b border-app-accent/30 px-4 py-3 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Package className="h-4 w-4 text-app-accent" />
-              <h2 className="text-sm font-bold text-app-label-primary">البلوك المثبت</h2>
+              <h2 className="text-sm font-bold text-app-label-primary">البلوك المثبت للتقطيع</h2>
             </div>
-            <span
-              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                order.stock_lot.status === "reserved"
-                  ? "bg-app-status-info/15 text-app-status-info"
-                  : order.stock_lot.status === "consumed"
-                    ? "bg-app-fill-f2 text-app-label-secondary"
-                    : "bg-app-bg-primary text-app-label-primary"
-              }`}
-            >
-              {order.stock_lot.status}
-            </span>
+            <div className="flex items-center gap-2">
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                  order.stock_lot.status === "reserved"
+                    ? "bg-app-status-info/15 text-app-status-info"
+                    : order.stock_lot.status === "consumed"
+                      ? "bg-app-fill-f2 text-app-label-secondary"
+                      : "bg-app-bg-primary text-app-label-primary"
+                }`}
+              >
+                {order.stock_lot.status === "reserved" ? "محجوز للتقطيع" : order.stock_lot.status === "consumed" ? "تم استهلاكه بالكامل" : order.stock_lot.status}
+              </span>
+              {canSelectBlock && (
+                <div className="flex items-center gap-1.5 ms-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsChangingBlock(true);
+                      setSelectedBlockId("");
+                    }}
+                    className="flex items-center gap-1 rounded-lg border border-app-separator bg-app-bg-primary px-2.5 py-1 text-xs font-semibold text-app-label-primary hover:border-app-accent hover:text-app-accent transition-colors"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    <span>تغيير البلوك</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm("هل أنت متأكد من إلغاء تخصيص هذا البلوك وإعادته للمخزون المتاح؟")) {
+                        detachBlockMutation.mutate(undefined, {
+                          onError: (e) => fail(e, "تعذر إلغاء تخصيص البلوك."),
+                        });
+                      }
+                    }}
+                    disabled={detachBlockMutation.isPending}
+                    className="flex items-center gap-1 rounded-lg border border-app-status-danger/30 bg-app-status-danger/10 px-2.5 py-1 text-xs font-semibold text-app-status-danger hover:bg-app-status-danger/20 transition-colors"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>إلغاء التخصيص</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
             <div>
@@ -249,9 +333,136 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
                 {order.stock_lot.warehouse?.name ?? ""}
               </span>
             </div>
+            {totalRequiredVolumeM3 > 0 && (
+              <div className="md:col-span-2 flex items-center justify-between text-xs bg-app-bg-primary/80 p-2.5 rounded-xl border border-app-separator">
+                <span className="text-app-label-secondary">إجمالي حجم القوالب المطلوبة:</span>
+                <span className="font-mono font-bold text-app-accent">
+                  {totalRequiredVolumeM3.toFixed(4)} م³ من أصل {Number(order.block_volume_m3_snapshot ?? order.stock_lot.volume_m3 ?? 0).toFixed(4)} م³
+                </span>
+              </div>
+            )}
           </div>
         </div>
-      )}
+      ) : canSelectBlock ? (
+        <div className="rounded-2xl border border-app-accent bg-app-bg-primary shadow-sm overflow-hidden">
+          <div className="border-b border-app-separator bg-app-accent/10 px-4 py-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-app-accent" />
+              <div>
+                <h2 className="text-sm font-bold text-app-label-primary">
+                  {order.stock_lot ? "تغيير البلوك المخصص للتقطيع" : "اختيار وتثبيت البلوك المراد تقطيعه"}
+                </h2>
+                <p className="text-[11px] text-app-label-secondary mt-0.5">
+                  اختر بلوك إسفنج متاح من المخزن لتثبيت قياساته وسعره وحجزه لأمر العمل قبل البدء بالتقطيع.
+                </p>
+              </div>
+            </div>
+            {isChangingBlock && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsChangingBlock(false);
+                  setSelectedBlockId("");
+                }}
+                className="text-xs font-semibold text-app-label-secondary hover:text-app-label-primary px-3 py-1.5 rounded-xl border border-app-separator bg-app-bg-secondary"
+              >
+                إلغاء التغيير
+              </button>
+            )}
+          </div>
+
+          <div className="p-4 space-y-3">
+            {totalRequiredVolumeM3 > 0 && (
+              <div className="flex items-center justify-between text-xs bg-app-bg-secondary p-2.5 rounded-xl border border-app-separator">
+                <span className="text-app-label-secondary">إجمالي حجم القوالب المطلوبة لبنود الأمر:</span>
+                <span className="font-mono font-bold text-app-accent">{totalRequiredVolumeM3.toFixed(4)} م³</span>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                اختر بلوك إسفنج من المخزن
+              </label>
+              <SearchableSelect<AvailableFoamBlock>
+                options={foamBlocks}
+                value={foamBlocks.find((b) => b.id === selectedBlockId) ?? null}
+                onChange={(b) => setSelectedBlockId(b ? b.id : "")}
+                getOptionId={(b) => b.id}
+                getOptionLabel={(b) => b.lot_number}
+                getOptionSubLabel={(b) =>
+                  `${b.inventory_item?.sku ?? ""} · ${Number(b.volume_m3 ?? 0).toFixed(4)} م³ · ${formatNumber(Number(b.unit_cost))} LYD · ${b.warehouse?.name ?? ""}`
+                }
+                getOptionSearchText={(b) =>
+                  `${b.lot_number} ${b.inventory_item?.sku ?? ""} ${b.inventory_item?.name ?? ""}`
+                }
+                placeholder="ابحث برقم اللوت أو رمز الصنف…"
+              />
+            </div>
+
+            {chosenBlock && (
+              <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-3 space-y-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                  <div>
+                    <span className="text-[10px] text-app-label-tertiary block">رقم اللوت:</span>
+                    <span className="font-mono font-bold text-app-accent">{chosenBlock.lot_number}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-app-label-tertiary block">الأبعاد (م):</span>
+                    <span className="font-mono font-semibold text-app-label-primary">
+                      {Number(chosenBlock.length_m ?? 0).toFixed(2)} × {Number(chosenBlock.width_m ?? 0).toFixed(2)} × {Number(chosenBlock.height_m ?? 0).toFixed(2)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-app-label-tertiary block">الحجم الإجمالي:</span>
+                    <span className="font-mono font-bold text-app-label-primary">
+                      {Number(chosenBlock.volume_m3 ?? 0).toFixed(4)} م³
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-app-label-tertiary block">تكلفة البلوك:</span>
+                    <span className="font-mono font-bold text-app-accent">
+                      {formatNumber(Number(chosenBlock.unit_cost))} LYD
+                    </span>
+                  </div>
+                </div>
+
+                {totalRequiredVolumeM3 > 0 && (
+                  <div className={`p-2.5 rounded-xl text-xs font-medium ${
+                    Number(chosenBlock.volume_m3 ?? 0) < totalRequiredVolumeM3
+                      ? "bg-app-status-danger/10 text-app-status-danger border border-app-status-danger/20"
+                      : "bg-app-status-positive/10 text-app-status-positive border border-app-status-positive/20"
+                  }`}>
+                    {Number(chosenBlock.volume_m3 ?? 0) < totalRequiredVolumeM3
+                      ? `تنبيه: حجم هذا البلوك (${Number(chosenBlock.volume_m3 ?? 0).toFixed(4)} م³) أقل من إجمالي حجم القوالب (${totalRequiredVolumeM3.toFixed(4)} م³). قد لا يكفي لإنتاج جميع البنود.`
+                      : `حجم البلوك كافٍ لإنتاج جميع بنود الأمر (${totalRequiredVolumeM3.toFixed(4)} م³ من أصل ${Number(chosenBlock.volume_m3 ?? 0).toFixed(4)} م³).`
+                    }
+                  </div>
+                )}
+
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      attachBlockMutation.mutate(selectedBlockId, {
+                        onSuccess: () => {
+                          setIsChangingBlock(false);
+                          setSelectedBlockId("");
+                        },
+                        onError: (err) => fail(err, "تعذر تخصيص البلوك لأمر العمل."),
+                      });
+                    }}
+                    disabled={attachBlockMutation.isPending || !selectedBlockId}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-app-accent text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>{attachBlockMutation.isPending ? "جاري التثبيت والحجز…" : "تثبيت وحجز هذا البلوك"}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       {/* Weigh-in — surfaced above the lines while it is the blocking step */}
       {atWeighIn && (
