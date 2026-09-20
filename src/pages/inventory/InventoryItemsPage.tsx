@@ -21,7 +21,7 @@ import {
 } from "../../components/ui/Dialog";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useInventoryItemsColumns } from "../../components/table-columns/inventoryItemsColumns";
-import { type InventoryItem } from "../../api/endpoints/inventory";
+import { type InventoryItem, UOM_LABELS } from "../../api/endpoints/inventory";
 import { toast } from "../../stores/toastStore";
 import { formatNumber } from "../../lib/utils/format";
 import { isAxiosError } from "axios";
@@ -40,8 +40,8 @@ export const InventoryItemsPage: React.FC = () => {
   const [categoryId, setCategoryId] = useState("");
   const [itemType, setItemType] = useState<InventoryItem["item_type"]>("raw_material");
   const [uom, setUom] = useState<InventoryItem["unit_of_measure"]>("kg");
+  const [hasContainerTracking, setHasContainerTracking] = useState(false);
   const [primaryUom, setPrimaryUom] = useState("");
-  const [secondaryUom, setSecondaryUom] = useState("");
   const [containerCapacity, setContainerCapacity] = useState("");
   const [selectedAttributeIds, setSelectedAttributeIds] = useState<string[]>(
     [],
@@ -101,8 +101,8 @@ export const InventoryItemsPage: React.FC = () => {
     setCategoryId("");
     setItemType("raw_material");
     setUom("kg");
-    setPrimaryUom("barrel");
-    setSecondaryUom("liter");
+    setHasContainerTracking(false);
+    setPrimaryUom("");
     setContainerCapacity("");
     setSelectedAttributeIds([]);
     setError(null);
@@ -116,9 +116,10 @@ export const InventoryItemsPage: React.FC = () => {
     setSku(item.sku);
     setCategoryId(item.category_id ?? "");
     setItemType(item.item_type);
-    setUom(item.unit_of_measure);
+    setUom(item.unit_of_measure || "kg");
+    const hasContainers = Boolean(item.container_capacity && Number(item.container_capacity) > 0) || Boolean(item.primary_uom);
+    setHasContainerTracking(hasContainers);
     setPrimaryUom(item.primary_uom ?? "");
-    setSecondaryUom(item.secondary_uom ?? "");
     setContainerCapacity(item.container_capacity ? String(item.container_capacity) : "");
     setSelectedAttributeIds(item.attribute_definitions?.map((a) => a.id) ?? []);
     setError(null);
@@ -136,9 +137,9 @@ export const InventoryItemsPage: React.FC = () => {
       category_id: categoryId || undefined,
       item_type: itemType,
       unit_of_measure: uom,
-      primary_uom: primaryUom.trim() || undefined,
-      secondary_uom: secondaryUom.trim() || undefined,
-      container_capacity: parsedCapacity && parsedCapacity > 0 ? parsedCapacity : null,
+      primary_uom: hasContainerTracking ? (primaryUom.trim() || undefined) : null,
+      secondary_uom: hasContainerTracking ? uom : null,
+      container_capacity: hasContainerTracking && parsedCapacity && parsedCapacity > 0 ? parsedCapacity : null,
       attribute_definition_ids: selectedAttributeIds,
     };
 
@@ -311,78 +312,180 @@ export const InventoryItemsPage: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                  اسم الصنف
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                  رمز الصنف (SKU)
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={sku}
-                  onChange={(e) => setSku(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-app-label-secondary uppercase">
-                      نوع الصنف
-                    </label>
-                    {categories?.find((c) => c.id === categoryId)?.item_type && (
-                      <span className="text-[10px] text-app-accent font-medium">
-                        تلقائي من الفئة
-                      </span>
-                    )}
-                  </div>
-                  <select
-                    value={itemType}
-                    onChange={(e) => setItemType(e.target.value as InventoryItem["item_type"])}
+                  <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                    اسم الصنف
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                     className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
-                  >
-                    <option value="raw_material">مادة خام</option>
-                    <option value="foam_block">قالب إسفنج</option>
-                    <option value="cut_template_piece">قطعة قالب تشذيب</option>
-                    <option value="slice">شريحة</option>
-                    <option value="byproduct_fill">حشو ثانوي</option>
-                    <option value="furniture_finished_good">
-                      منتج أثاث تام
-                    </option>
-                    <option value="barrel">برميل</option>
-                    <option value="pallet">منصة نقالة</option>
-                    <option value="packaging">تغليف</option>
-                  </select>
+                  />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                    وحدة القياس الأساسية
+                    رمز الصنف (SKU)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={sku}
+                    onChange={(e) => setSku(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-app-label-secondary uppercase">
+                    نوع الصنف
+                  </label>
+                  {categories?.find((c) => c.id === categoryId)?.item_type && (
+                    <span className="text-[10px] text-app-accent font-medium">
+                      تلقائي من الفئة
+                    </span>
+                  )}
+                </div>
+                <select
+                  value={itemType}
+                  onChange={(e) => setItemType(e.target.value as InventoryItem["item_type"])}
+                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
+                >
+                  <option value="raw_material">مادة خام</option>
+                  <option value="foam_block">قالب إسفنج</option>
+                  <option value="cut_template_piece">قطعة قالب تشذيب</option>
+                  <option value="slice">شريحة</option>
+                  <option value="byproduct_fill">حشو ثانوي</option>
+                  <option value="furniture_finished_good">
+                    منتج أثاث تام
+                  </option>
+                  <option value="barrel">برميل</option>
+                  <option value="pallet">منصة نقالة</option>
+                  <option value="packaging">تغليف</option>
+                </select>
+              </div>
+
+              {/* Units of Measure & Packaging Section */}
+              <div className="space-y-3 p-3.5 bg-app-bg-secondary rounded-xl border border-app-separator">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-app-label-primary">
+                  <Layers className="w-4 h-4 text-app-accent" />
+                  <span>وحدات القياس والتعبئة (Units of Measure & Packaging)</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                    وحدة القياس الأساسية (Base UOM)
                   </label>
                   <select
                     value={uom}
                     onChange={(e) => setUom(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
+                    className="w-full px-3 py-2 border rounded-xl bg-app-bg-primary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
                   >
-                    <option value="each">وحدة</option>
-                    <option value="m3">م³</option>
-                    <option value="kg">كجم</option>
-                    <option value="meter">متر</option>
+                    <option value="kg">كجم (كيلوغرام)</option>
                     <option value="liter">لتر</option>
+                    <option value="m3">م³ (متر مكعب)</option>
+                    <option value="meter">متر</option>
+                    <option value="each">قطعة / وحدة</option>
                   </select>
+                  <p className="text-[11px] text-app-label-tertiary mt-1">
+                    الوحدة المعيارية لاحتساب الكميات وتكلفة المخزون في النظام.
+                  </p>
+                </div>
+
+                <div className="pt-2 border-t border-app-separator">
+                  <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={hasContainerTracking}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setHasContainerTracking(checked);
+                        if (!checked) {
+                          setPrimaryUom("");
+                          setContainerCapacity("");
+                        }
+                      }}
+                      className="mt-0.5 rounded border-app-separator text-app-accent focus:ring-app-accent"
+                    />
+                    <div className="flex-1">
+                      <span className="text-xs font-semibold text-app-label-primary block">
+                        تتبع الحاويات والتعبئة (Container & Packaging Tracking)
+                      </span>
+                      <span className="text-[11px] text-app-label-secondary block mt-0.5">
+                        فعل هذا الخيار إذا كان الصنف يتم توريده أو تخزينه في حاويات أو طرود (مثل براميل، كراتين، منصات) تحتوي على سعة ثابتة من وحدة القياس الأساسية.
+                      </span>
+                    </div>
+                  </label>
+
+                  {hasContainerTracking && (
+                    <div className="mt-3 p-3 rounded-xl bg-app-bg-primary border border-app-separator space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                            وحدة التعبئة / الحاوية
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="مثال: برميل, صندوق, طرد, منصة"
+                            value={primaryUom}
+                            onChange={(e) => setPrimaryUom(e.target.value)}
+                            className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
+                          />
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {["برميل", "صندوق", "طرد", "منصة نقالة", "كيس", "رول"].map((preset) => (
+                              <button
+                                key={preset}
+                                type="button"
+                                onClick={() => setPrimaryUom(preset)}
+                                className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
+                                  primaryUom === preset
+                                    ? "bg-app-accent text-white border-app-accent"
+                                    : "bg-app-bg-secondary border-app-separator text-app-label-secondary hover:text-app-label-primary"
+                                }`}
+                              >
+                                {preset}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                            سعة الحاوية الواحدة (من {UOM_LABELS[uom] || uom})
+                          </label>
+                          <input
+                            type="number"
+                            step="0.0001"
+                            min="0"
+                            placeholder="مثال: 200"
+                            value={containerCapacity}
+                            onChange={(e) => setContainerCapacity(e.target.value)}
+                            className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                          />
+                          <p className="text-[10px] text-app-label-tertiary mt-1">
+                            كم {UOM_LABELS[uom] || uom} يحوي كل {primaryUom || "حاوية واحدة"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {Number(containerCapacity) > 0 && primaryUom && (
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-app-accent/10 border border-app-accent/20 text-xs text-app-accent">
+                          <Calculator className="w-4 h-4 shrink-0" />
+                          <span>
+                            كل 1 {primaryUom} ={" "}
+                            <strong className="font-bold font-mono">
+                              {formatNumber(Number(containerCapacity))} {UOM_LABELS[uom] || uom}
+                            </strong>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -427,67 +530,6 @@ export const InventoryItemsPage: React.FC = () => {
                     </div>
                   )}
                 </div>
-              </div>
-
-              <div className="space-y-3 p-3 bg-app-bg-secondary rounded-xl border border-app-separator">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-app-label-primary">
-                  <Layers className="w-4 h-4 text-app-accent" />
-                  <span>وحدات القياس وسعة التعبئة (Dual UOM & Container Capacity)</span>
-                </div>
-                <p className="text-[11px] text-app-label-secondary">
-                  حدد وحدة الحاوية أو التغليف (مثل برميل، صندوق، طرد) وسعتها من وحدة القياس الأساسية (مثل كم لتراً أو كيلوغراماً يحوي البرميل الواحد).
-                </p>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                      وحدة الحاوية / التعبئة
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="مثال: barrel, برميل, طرد"
-                      value={primaryUom}
-                      onChange={(e) => setPrimaryUom(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-xl bg-app-bg-primary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                      وحدة القياس الأساسية
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="مثال: liter, kg, m3, لتر"
-                      value={secondaryUom}
-                      onChange={(e) => setSecondaryUom(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-xl bg-app-bg-primary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                      سعة الحاوية الواحدة
-                    </label>
-                    <input
-                      type="number"
-                      step="0.0001"
-                      min="0"
-                      placeholder="مثال: 200"
-                      value={containerCapacity}
-                      onChange={(e) => setContainerCapacity(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-xl bg-app-bg-primary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
-                    />
-                  </div>
-                </div>
-
-                {Number(containerCapacity) > 0 && (
-                  <div className="flex items-center gap-2 p-2 rounded-lg bg-app-accent/10 border border-app-accent/20 text-xs text-app-accent">
-                    <Calculator className="w-4 h-4 shrink-0" />
-                    <span>
-                      كل 1 {primaryUom || "حاوية"} يحوي{" "}
-                      <strong className="font-bold">{formatNumber(Number(containerCapacity))} {secondaryUom || uom || "وحدة"}</strong>
-                    </span>
-                  </div>
-                )}
               </div>
             </form>
           </DialogBody>

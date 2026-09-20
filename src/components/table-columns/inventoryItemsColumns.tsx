@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Pencil, Tags } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
-import { InventoryItem } from "../../api/endpoints/inventory";
+import { InventoryItem, UOM_LABELS } from "../../api/endpoints/inventory";
 import { ITEM_TYPE_LABELS, InventoryItemType } from "../../api/endpoints/categories";
 import { formatDate, formatNumber } from "../../lib/utils/format";
 
@@ -72,25 +72,26 @@ export function useInventoryItemsColumns({ onEdit }: UseInventoryItemsColumnsArg
       },
       {
         id: "uom",
-        header: "وحدة القياس المزدوجة (حاوية / قياس)",
+        header: "وحدة القياس والتعبئة",
         enableSorting: false,
         meta: { className: "font-mono font-medium text-app-label-secondary" },
         cell: ({ row }) => {
           const item = row.original;
           const cap = Number(item.container_capacity);
-          if (cap > 0) {
+          const uomLabel = UOM_LABELS[item.unit_of_measure] ?? item.unit_of_measure;
+          if (cap > 0 && item.primary_uom) {
             return (
               <div className="flex flex-col">
-                <span className="font-semibold text-app-label-primary">
-                  1 {item.primary_uom || "حاوية"} = {formatNumber(cap)} {item.secondary_uom || item.unit_of_measure}
+                <span className="font-semibold text-app-label-primary text-xs">
+                  1 {item.primary_uom} = {formatNumber(cap)} {uomLabel}
                 </span>
                 <span className="text-[10px] text-app-label-tertiary">
-                  {item.primary_uom || "each"} / {item.secondary_uom || item.unit_of_measure}
+                  {item.primary_uom} / {uomLabel}
                 </span>
               </div>
             );
           }
-          return `${item.primary_uom || "each"} / ${item.secondary_uom || item.unit_of_measure}`;
+          return <span className="font-semibold text-app-label-primary text-xs">{uomLabel}</span>;
         },
       },
       {

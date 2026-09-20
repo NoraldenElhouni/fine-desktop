@@ -1,6 +1,14 @@
 import apiClient from "../client";
 import { ItemCategory, InventoryAttributeDefinition } from "./categories";
 
+export const UOM_LABELS: Record<string, string> = {
+  kg: "كجم",
+  liter: "لتر",
+  m3: "م³",
+  meter: "متر",
+  each: "وحدة",
+};
+
 export interface InventoryItem {
   id: string;
   category_id?: string;
