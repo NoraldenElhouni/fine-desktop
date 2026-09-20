@@ -46,34 +46,15 @@ const Sidebar = ({ isCollapsed, activePath, user, onLogout }: SidebarProps) => {
         isCollapsed ? "w-20" : "w-64",
       )}
     >
-      <div className="flex items-center gap-3 border-b border-app-separator px-4 py-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-app-xl overflow-hidden">
-          <img
-            src={FineLogo}
-            alt="فاين"
-            className="h-full w-full object-contain"
-          />
-        </div>
-        {!isCollapsed ? (
-          <div className="min-w-0">
-            <p
-              className={cn(
-                tokens.typography.webUI.b1Emphasized,
-                "truncate text-app-label-primary",
-              )}
-            >
-              فاين للإنتاج
-            </p>
-            <p
-              className={cn(
-                tokens.typography.webUI.c1Regular,
-                "truncate text-app-label-secondary",
-              )}
-            >
-              ERP التصنيع
-            </p>
-          </div>
-        ) : null}
+      <div className="flex h-20 items-center justify-center border-b border-app-separator px-4 transition-all duration-200">
+        <img
+          src={FineLogo}
+          alt="فاين"
+          className={cn(
+            "object-contain transition-all duration-200",
+            isCollapsed ? "h-12 w-12" : "h-16 w-auto max-w-[160px]",
+          )}
+        />
       </div>
 
       <nav className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 space-y-1">

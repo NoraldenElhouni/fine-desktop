@@ -16,9 +16,13 @@ const config: ForgeConfig = {
   },
   rebuildConfig: {},
   makers: [
-    new MakerSquirrel({}), // Windows
+    new MakerSquirrel({
+      setupIcon: "./assets/icons/icon.ico",
+    }), // Windows
     new MakerZIP({}, ["darwin"]), // macOS
-    new MakerDMG({}, ["darwin"]), // macOS installer
+    new MakerDMG({
+      icon: "./assets/icons/icon.icns",
+    }, ["darwin"]), // macOS installer
     new MakerRpm({
       options: {
         icon: "./assets/icons/icon.png",
