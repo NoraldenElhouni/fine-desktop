@@ -44,7 +44,7 @@ module.exports = {
         "app-xl": "16px",
       },
       fontFamily: {
-        sans: ["Noto Sans Arabic", "Inter", "system-ui", "sans-serif"],
+        sans: ["Tajawal", "system-ui", "sans-serif"],
         mono: ["Geist Mono", "monospace"],
       },
     },

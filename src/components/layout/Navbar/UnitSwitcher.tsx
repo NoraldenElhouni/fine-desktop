@@ -40,7 +40,9 @@ const UnitSwitcher = () => {
     const measure = () => {
       const r = triggerRef.current?.getBoundingClientRect();
       if (!r) return;
-      setPopoverPos({ top: r.bottom + 6, left: r.right, width: Math.max(r.width, 280) });
+      const width = Math.max(r.width, 280);
+      const left = Math.max(12, Math.min(r.left, window.innerWidth - width - 12));
+      setPopoverPos({ top: r.bottom + 6, left, width });
     };
     measure();
     window.addEventListener("resize", measure);
@@ -102,7 +104,7 @@ const UnitSwitcher = () => {
         <div
           ref={popoverRef}
           role="listbox"
-          style={{ top: popoverPos.top, left: popoverPos.left - popoverPos.width, width: popoverPos.width }}
+          style={{ top: popoverPos.top, left: popoverPos.left, width: popoverPos.width }}
           className="fixed z-50 max-h-80 overflow-auto rounded-app-xl border border-app-separator bg-app-bg-primary shadow-app-modal"
           dir="rtl"
         >

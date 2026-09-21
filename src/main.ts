@@ -3,6 +3,11 @@ import path from "node:path";
 import fs from "node:fs";
 import started from "electron-squirrel-startup";
 
+app.setName("Fine ERP");
+if (process.platform === "win32") {
+  app.setAppUserModelId("Fine ERP");
+}
+
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
   app.quit();
@@ -36,7 +41,7 @@ const createWindow = () => {
     height: 800,
     title: "Fine ERP",
     icon: appIcon,
-    show: true,
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -51,7 +56,28 @@ const createWindow = () => {
   }
 
   mainWindow.show();
+  mainWindow.maximize();
   mainWindow.focus();
+
+  mainWindow.once("ready-to-show", () => {
+    if (!mainWindow.isDestroyed() && !mainWindow.isMaximized()) {
+      mainWindow.maximize();
+    }
+  });
+
+  mainWindow.webContents.on("did-finish-load", () => {
+    if (!mainWindow.isDestroyed() && !mainWindow.isMaximized()) {
+      mainWindow.maximize();
+    }
+  });
+
+  mainWindow.webContents.on("devtools-opened", () => {
+    setImmediate(() => {
+      if (!mainWindow.isDestroyed() && !mainWindow.isMaximized()) {
+        mainWindow.maximize();
+      }
+    });
+  });
 
   // Lock down window creation
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {

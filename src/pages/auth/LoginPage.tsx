@@ -1,9 +1,30 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { LoginForm } from "../../components/forms/auth/LoginForm";
+import { ServerConfigDialog } from "../../components/settings/ServerConfigDialog";
 import { cn } from "../../lib/utils/utils";
 import { tokens } from "../../lib/tokens";
 
 const LoginPage: React.FC = () => {
+  const [isServerModalOpen, setIsServerModalOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.shiftKey &&
+        (e.code === "KeyS" || e.key.toLowerCase() === "s")
+      ) {
+        e.preventDefault();
+        setIsServerModalOpen((prev) => !prev);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-app-bg-primary text-app-label-primary p-4">
       <div className="w-full max-w-sm bg-app-bg-secondary border border-app-separator rounded-app-xl p-6 shadow-xl">
@@ -35,6 +56,11 @@ const LoginPage: React.FC = () => {
           </p>
         </div>
       </div>
+
+      <ServerConfigDialog
+        open={isServerModalOpen}
+        onOpenChange={setIsServerModalOpen}
+      />
     </div>
   );
 };

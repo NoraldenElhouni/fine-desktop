@@ -1,12 +1,9 @@
-import { ArrowRight, PanelLeftClose, PanelLeftOpen, Server } from "lucide-react";
+import { ArrowRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useRouteDisplayName } from "../../../hooks/useRouteDisplayName";
 import { getBreadcrumbEntries } from "../../../routes/routes.config";
 import Breadcrumb from "../Breadcrumb/Breadcrumb";
-import { useServerConfigStore } from "../../../stores/serverConfigStore";
 import { useIsCompanyWide } from "../../../hooks/useAccounting";
-import { cn } from "../../../lib/utils/utils";
-import { tokens } from "../../../lib/tokens";
 import UnitSwitcher from "./UnitSwitcher";
 
 interface NavbarProps {
@@ -18,7 +15,6 @@ const Navbar = ({ isCollapsed, onToggleCollapse }: NavbarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const displayName = useRouteDisplayName(location.pathname);
-  const { isServerConnected } = useServerConfigStore();
   const isCompanyWide = useIsCompanyWide();
 
   const breadcrumbItems = getBreadcrumbEntries(location.pathname, displayName);
@@ -55,24 +51,6 @@ const Navbar = ({ isCollapsed, onToggleCollapse }: NavbarProps) => {
 
       <div className="flex items-center gap-3">
         {isCompanyWide && <UnitSwitcher />}
-
-        <button
-          type="button"
-          onClick={() => navigate("/settings")}
-          className={cn(
-            "flex items-center gap-2 rounded-app-xl border px-3 py-2 transition-all",
-            tokens.typography.webUI.c1Emphasized,
-            isServerConnected
-              ? "border-app-status-positive/30 bg-app-status-positive/10 text-app-status-positive hover:bg-app-status-positive/15"
-              : "border-app-status-danger/30 bg-app-status-danger/10 text-app-status-danger hover:bg-app-status-danger/15",
-          )}
-          title="إعدادات السيرفر والشبكة"
-        >
-          <Server className="h-4 w-4" />
-          <span className={cn(tokens.typography.webUI.c1Regular)}>
-            {isServerConnected ? "السيرفر متصل" : "غير متصل بالسيرفر"}
-          </span>
-        </button>
       </div>
     </header>
   );

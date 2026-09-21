@@ -1,7 +1,7 @@
 {
   "name": "fine-desktop",
-  "productName": "fine-desktop",
-  "version": "1.0.21",
+  "productName": "Fine ERP",
+  "version": "1.0.22",
   "description": "My Electron application description",
   "main": ".vite/build/main.js",
   "private": true,

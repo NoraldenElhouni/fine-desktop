@@ -13,6 +13,7 @@ const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
     icon: "./assets/icons/icon",
+    name: "Fine ERP",
   },
   rebuildConfig: {},
   makers: [
