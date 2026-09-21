@@ -18,6 +18,7 @@ import {
   ListChecks,
   Edit,
 } from "lucide-react";
+import { FxPreviewCard } from "../../components/treasury/FxPreviewCard";
 import { isAxiosError } from "axios";
 import {
   ImportOrder,
@@ -107,11 +108,12 @@ export const ImportOrdersPage: React.FC = () => {
   const [receivedQty, setReceivedQty] = useState<number>(0);
 
   // Step 3 Payment Execution Form State
-  const [fxRateUsed, setFxRateUsed] = useState<number>(5.20);
+  const [fxRateUsed, setFxRateUsed] = useState<number>(0);
   const [exactAmountUsedLyd, setExactAmountUsedLyd] = useState<number>(0);
   const [bankReference, setBankReference] = useState<string>("");
   const [extraAllocationNote, setExtraAllocationNote] = useState<string>("");
   const [extraAllocationTouched, setExtraAllocationTouched] = useState(false);
+  const [hardCapAcknowledged, setHardCapAcknowledged] = useState(false);
 
   useEffect(() => {
     if (selectedOrder) {
@@ -119,27 +121,66 @@ export const ImportOrdersPage: React.FC = () => {
       if (pendingPayment?.bank_hold?.held_amount_lyd) {
         const held = Number(pendingPayment.bank_hold.held_amount_lyd);
         setHeldAmountLyd(held);
-        setExactAmountUsedLyd(held);
-      } else {
-        const orderTotal = getImportOrderTotal(selectedOrder);
-        setExactAmountUsedLyd(orderTotal * 5.20);
       }
-      setFxRateUsed(selectedOrder.booked_fx_rate ? Number(selectedOrder.booked_fx_rate) : 5.20);
+      setFxRateUsed(0);
+      setExactAmountUsedLyd(0);
       setBankReference("");
       setExtraAllocationNote("");
       setExtraAllocationTouched(false);
+      setHardCapAcknowledged(false);
     }
   }, [selectedOrder]);
 
-  const bookedRate = selectedOrder?.booked_fx_rate ?? 0;
-  const liveExtraAllocationLyd = useMemo(() => {
-    if (!selectedOrder) return 0;
-    const amount = Number(getImportOrderTotal(selectedOrder));
-    return (Number(fxRateUsed) - Number(bookedRate)) * amount;
-  }, [selectedOrder, fxRateUsed, bookedRate]);
+  const bookedRate = selectedOrder?.booked_fx_rate ?? null;
+  const toleranceLyd = 0.01;
+  const hardCapPercent = 5.0;
 
-  const requiresNote = Math.abs(liveExtraAllocationLyd) > 0;
+  // FX-24 / FX-15: derive the effective values from whichever input the
+  // operator fills. LYD wins when supplied (the bank statement is truth).
+  const effectiveValues = useMemo(() => {
+    if (!selectedOrder) {
+      return { effectiveRate: null, effectiveSettledLyd: null };
+    }
+    const amount = Number(getImportOrderTotal(selectedOrder));
+    if (exactAmountUsedLyd > 0) {
+      const settled = exactAmountUsedLyd;
+      const rate = amount > 0 ? settled / amount : fxRateUsed;
+      return { effectiveRate: rate, effectiveSettledLyd: settled };
+    }
+    if (fxRateUsed > 0) {
+      return {
+        effectiveRate: fxRateUsed,
+        effectiveSettledLyd: amount * fxRateUsed,
+      };
+    }
+    return { effectiveRate: null, effectiveSettledLyd: null };
+  }, [selectedOrder, fxRateUsed, exactAmountUsedLyd]);
+
+  const varianceLyd = useMemo(() => {
+    if (
+      !selectedOrder ||
+      effectiveValues.effectiveSettledLyd === null ||
+      bookedRate === null ||
+      bookedRate === undefined
+    ) {
+      return null;
+    }
+    const amount = Number(getImportOrderTotal(selectedOrder));
+    return effectiveValues.effectiveSettledLyd - amount * bookedRate;
+  }, [selectedOrder, effectiveValues, bookedRate]);
+
+  const varianceExceedsTolerance =
+    varianceLyd !== null && Math.abs(varianceLyd) > toleranceLyd;
+  const varianceExceedsHardCap =
+    varianceLyd !== null &&
+    effectiveValues.effectiveSettledLyd !== null &&
+    effectiveValues.effectiveSettledLyd > 0 &&
+    Math.abs(varianceLyd) > (hardCapPercent / 100) * effectiveValues.effectiveSettledLyd;
+
+  const requiresNote = varianceExceedsTolerance;
   const noteMissing = requiresNote && extraAllocationNote.trim().length === 0;
+  const hasAtLeastOneInput =
+    fxRateUsed > 0 || exactAmountUsedLyd > 0;
 
   const handleExecutePayment = async () => {
     if (!selectedOrder) return;
@@ -148,9 +189,17 @@ export const ImportOrdersPage: React.FC = () => {
       toast.error("لا يوجد طلب دفع معلق لهذا الأمر");
       return;
     }
+    if (!hasAtLeastOneInput) {
+      toast.error("أدخل سعر الصرف أو المبلغ المنفذ بالدينار على الأقل.");
+      return;
+    }
     if (noteMissing) {
       setExtraAllocationTouched(true);
-      toast.error("سبب التكلفة الإضافية مطلوب عند وجود فرق في سعر الصرف.");
+      toast.error("سبب التكلفة الإضافية مطلوب عند وجود فرق عن السعر المرجعي.");
+      return;
+    }
+    if (varianceExceedsHardCap && !hardCapAcknowledged) {
+      toast.error("يجب الموافقة على فرق السعر الذي يتجاوز الحد الأقصى قبل المتابعة.");
       return;
     }
 
@@ -158,13 +207,10 @@ export const ImportOrdersPage: React.FC = () => {
       {
         id: pendingPayment.id,
         payload: {
-          fx_rate_used: fxRateUsed,
-          exact_amount_used_lyd:
-            pendingPayment.route === "bank" || selectedOrder.status === "awaiting_bank_approval"
-              ? exactAmountUsedLyd || undefined
-              : undefined,
+          fx_rate_used: fxRateUsed > 0 ? fxRateUsed : null,
+          exact_amount_used_lyd: exactAmountUsedLyd > 0 ? exactAmountUsedLyd : null,
           bank_reference: bankReference.trim() || undefined,
-          extra_allocation_note: extraAllocationNote.trim() || undefined,
+          extra_allocation_note: requiresNote ? extraAllocationNote.trim() : undefined,
         },
       },
       {
@@ -1081,65 +1127,71 @@ export const ImportOrdersPage: React.FC = () => {
                       </span>
                     </div>
 
+                    <FxPreviewCard
+                      bookedRate={bookedRate}
+                      effectiveRate={effectiveValues.effectiveRate}
+                      effectiveSettledLyd={effectiveValues.effectiveSettledLyd}
+                      varianceLyd={varianceLyd}
+                      toleranceLyd={toleranceLyd}
+                      hardCapPercent={hardCapPercent}
+                      amountRequested={Number(getImportOrderTotal(selectedOrder))}
+                      hardCapAcknowledged={hardCapAcknowledged}
+                      onAcknowledgeHardCap={setHardCapAcknowledged}
+                    />
+
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
                           سعر الصرف المنفذ (LYD/{selectedOrder.currency})
+                          {exactAmountUsedLyd > 0 ? (
+                            <span className="text-app-label-tertiary text-[10px] ms-1">(اختياري)</span>
+                          ) : (
+                            <span className="text-app-status-danger ms-1">*</span>
+                          )}
                         </label>
                         <input
                           type="number"
                           step="0.0001"
                           min="0.0001"
-                          value={fxRateUsed || ""}
+                          value={fxRateUsed > 0 ? fxRateUsed : ""}
                           onChange={(e) => setFxRateUsed(Number(e.target.value))}
                           className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs focus:outline-none font-mono"
                         />
                       </div>
 
-                      {selectedOrder.status === "awaiting_bank_approval" ? (
-                        <div>
-                          <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
-                            المبلغ الفعلي المخصوم (LYD)
-                          </label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={exactAmountUsedLyd || ""}
-                            onChange={(e) => setExactAmountUsedLyd(Number(e.target.value))}
-                            placeholder="المبلغ الفعلي المخصوم"
-                            className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs focus:outline-none font-mono"
-                          />
-                        </div>
-                      ) : (
-                        <div>
-                          <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
-                            رقم الحوالة / الإشعار (اختياري)
-                          </label>
-                          <input
-                            type="text"
-                            value={bankReference}
-                            onChange={(e) => setBankReference(e.target.value)}
-                            placeholder="مثال: TXN-88120"
-                            className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs focus:outline-none font-mono"
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    {selectedOrder.status === "awaiting_bank_approval" && (
                       <div>
                         <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
-                          رقم إشعار المصرف (اختياري)
+                          المبلغ الفعلي المخصوم (LYD)
+                          {fxRateUsed > 0 ? (
+                            <span className="text-app-label-tertiary text-[10px] ms-1">(اختياري)</span>
+                          ) : (
+                            <span className="text-app-status-danger ms-1">*</span>
+                          )}
                         </label>
                         <input
-                          type="text"
-                          value={bankReference}
-                          onChange={(e) => setBankReference(e.target.value)}
-                          placeholder="مثال: BNK-REF-1092"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={exactAmountUsedLyd > 0 ? exactAmountUsedLyd : ""}
+                          onChange={(e) => setExactAmountUsedLyd(Number(e.target.value))}
+                          placeholder="المبلغ الفعلي المخصوم"
                           className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs focus:outline-none font-mono"
                         />
                       </div>
-                    )}
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
+                        رقم إشعار المصرف / الحوالة (اختياري)
+                      </label>
+                      <input
+                        type="text"
+                        value={bankReference}
+                        onChange={(e) => setBankReference(e.target.value)}
+                        placeholder={selectedOrder.status === "awaiting_bank_approval" ? "مثال: BNK-REF-1092" : "مثال: TXN-88120"}
+                        className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs focus:outline-none font-mono"
+                      />
+                    </div>
 
                     {requiresNote && (
                       <div className="space-y-1">
@@ -1167,7 +1219,12 @@ export const ImportOrdersPage: React.FC = () => {
                     <div className="flex items-center justify-end pt-1">
                       <button
                         onClick={handleExecutePayment}
-                        disabled={executePaymentMutation.isPending || fxRateUsed <= 0}
+                        disabled={
+                          executePaymentMutation.isPending
+                          || !hasAtLeastOneInput
+                          || noteMissing
+                          || (varianceExceedsHardCap && !hardCapAcknowledged)
+                        }
                         className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
                       >
                         {executePaymentMutation.isPending ? "جاري التنفيذ..." : "تنفيذ وتأكيد السداد للمورد"}

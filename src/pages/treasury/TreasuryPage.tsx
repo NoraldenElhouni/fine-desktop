@@ -34,6 +34,10 @@ import { formatNumber } from "../../lib/utils/format";
 import { useTreasuryFxRatesColumns } from "../../components/table-columns/treasuryFxRatesColumns";
 import { useTreasuryBankHoldsColumns } from "../../components/table-columns/treasuryBankHoldsColumns";
 import { useBlackMarketColumns } from "../../components/table-columns/blackMarketColumns";
+import { FxPreviewCard } from "../../components/treasury/FxPreviewCard";
+
+const FX_TOLERANCE_LYD_DEFAULT = 0.01;
+const FX_HARD_CAP_PERCENT_DEFAULT = 5.0;
 
 type RouteTab = "all" | "bank" | "market";
 
@@ -69,28 +73,75 @@ export const TreasuryPage: React.FC = () => {
 
   // Execute Payment Modal State
   const [selectedPayment, setSelectedPayment] = useState<PaymentRequest | null>(null);
-  const [fxRateUsed, setFxRateUsed] = useState<number>(5.20);
+  const [fxRateUsed, setFxRateUsed] = useState<number>(0);
   const [exactAmountUsedLyd, setExactAmountUsedLyd] = useState<number>(0);
   const [bankReference, setBankReference] = useState<string>("");
   const [extraAllocationNote, setExtraAllocationNote] = useState<string>("");
   const [extraAllocationTouched, setExtraAllocationTouched] = useState(false);
+  const [hardCapAcknowledged, setHardCapAcknowledged] = useState(false);
 
-  const bookedRate = selectedPayment?.booked_fx_rate ?? 0;
-  const liveExtraAllocationLyd = useMemo(() => {
-    if (!selectedPayment) return 0;
-    return (Number(fxRateUsed) - Number(bookedRate)) * Number(selectedPayment.amount_requested);
-  }, [selectedPayment, fxRateUsed, bookedRate]);
+  const bookedRate = selectedPayment?.booked_fx_rate ?? null;
+  const toleranceLyd =
+    selectedPayment?.fx_tolerance_lyd ?? FX_TOLERANCE_LYD_DEFAULT;
+  const hardCapPercent =
+    selectedPayment?.fx_hard_cap_percent ?? FX_HARD_CAP_PERCENT_DEFAULT;
 
-  const requiresNote = Math.abs(liveExtraAllocationLyd) > 0;
+  // FX-24 / FX-15: derive the effective values from whichever input the
+  // operator fills. LYD wins when supplied (the bank statement is truth);
+  // otherwise the rate × amount is used.
+  const effectiveValues = useMemo(() => {
+    if (!selectedPayment) {
+      return { effectiveRate: null, effectiveSettledLyd: null };
+    }
+    const amount = Number(selectedPayment.amount_requested);
+    if (exactAmountUsedLyd > 0) {
+      const settled = exactAmountUsedLyd;
+      const rate = amount > 0 ? settled / amount : fxRateUsed;
+      return { effectiveRate: rate, effectiveSettledLyd: settled };
+    }
+    if (fxRateUsed > 0) {
+      return {
+        effectiveRate: fxRateUsed,
+        effectiveSettledLyd: amount * fxRateUsed,
+      };
+    }
+    return { effectiveRate: null, effectiveSettledLyd: null };
+  }, [selectedPayment, fxRateUsed, exactAmountUsedLyd]);
+
+  const varianceLyd = useMemo(() => {
+    if (
+      !selectedPayment ||
+      effectiveValues.effectiveSettledLyd === null ||
+      bookedRate === null ||
+      bookedRate === undefined
+    ) {
+      return null;
+    }
+    const expected = Number(selectedPayment.amount_requested) * bookedRate;
+    return effectiveValues.effectiveSettledLyd - expected;
+  }, [selectedPayment, effectiveValues, bookedRate]);
+
+  const varianceExceedsTolerance =
+    varianceLyd !== null && Math.abs(varianceLyd) > toleranceLyd;
+  const varianceExceedsHardCap =
+    varianceLyd !== null &&
+    effectiveValues.effectiveSettledLyd !== null &&
+    effectiveValues.effectiveSettledLyd > 0 &&
+    Math.abs(varianceLyd) > (hardCapPercent / 100) * effectiveValues.effectiveSettledLyd;
+
+  const requiresNote = varianceExceedsTolerance;
   const noteMissing = requiresNote && extraAllocationNote.trim().length === 0;
+  const hasAtLeastOneInput =
+    fxRateUsed > 0 || exactAmountUsedLyd > 0;
 
   const openExecuteModal = (pay: PaymentRequest) => {
     setSelectedPayment(pay);
     setExtraAllocationNote("");
     setExtraAllocationTouched(false);
-    setFxRateUsed(5.20);
+    setHardCapAcknowledged(false);
+    setFxRateUsed(0);
     setExactAmountUsedLyd(
-      pay.bank_hold ? Number(pay.bank_hold.held_amount_lyd) : Number(pay.amount_requested) * 5.2
+      pay.bank_hold ? Number(pay.bank_hold.held_amount_lyd) : 0
     );
   };
 
@@ -99,6 +150,7 @@ export const TreasuryPage: React.FC = () => {
     setBankReference("");
     setExtraAllocationNote("");
     setExtraAllocationTouched(false);
+    setHardCapAcknowledged(false);
   };
 
   const handleCreateFxRate = async (e: React.FormEvent) => {
@@ -127,17 +179,27 @@ export const TreasuryPage: React.FC = () => {
 
   const handleExecutePayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPayment || fxRateUsed <= 0) return;
+    if (!selectedPayment) return;
+
+    if (!hasAtLeastOneInput) {
+      toast.error("أدخل سعر الصرف أو المبلغ المنفذ بالدينار على الأقل.");
+      return;
+    }
 
     if (noteMissing) {
       setExtraAllocationTouched(true);
-      toast.error("سبب التكلفة الإضافية مطلوب عند وجود فرق في سعر الصرف.");
+      toast.error("سبب التكلفة الإضافية مطلوب عند وجود فرق عن السعر المرجعي.");
+      return;
+    }
+
+    if (varianceExceedsHardCap && !hardCapAcknowledged) {
+      toast.error("يجب الموافقة على فرق السعر الذي يتجاوز الحد الأقصى قبل المتابعة.");
       return;
     }
 
     const payload: ExecutePaymentPayload = {
-      fx_rate_used: fxRateUsed,
-      exact_amount_used_lyd: exactAmountUsedLyd > 0 ? exactAmountUsedLyd : undefined,
+      fx_rate_used: fxRateUsed > 0 ? fxRateUsed : null,
+      exact_amount_used_lyd: exactAmountUsedLyd > 0 ? exactAmountUsedLyd : null,
       bank_reference: bankReference.trim() || undefined,
       extra_allocation_note: requiresNote ? extraAllocationNote.trim() : undefined,
     };
@@ -463,38 +525,58 @@ export const TreasuryPage: React.FC = () => {
           <DialogBody>
         {selectedPayment && (
           <form id="execute-payment-form" onSubmit={handleExecutePayment} className="space-y-4" dir="rtl">
-            <div>
-              <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                سعر الصرف المنفذ فعلياً <span className="text-app-status-danger">*</span>
-              </label>
-              <input
-                type="number"
-                step="0.0001"
-                min="0.0001"
-                required
-                value={fxRateUsed || ""}
-                onChange={(e) => setFxRateUsed(Number(e.target.value))}
-                placeholder="5.2000"
-                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:outline-none"
-              />
-              {bookedRate > 0 ? (
-                <p className="mt-1 text-[10px] text-app-label-secondary font-mono">
-                  السعر المرجعي المحجوز: {Number(bookedRate).toFixed(4)}
-                </p>
-              ) : null}
-            </div>
+            <FxPreviewCard
+              bookedRate={bookedRate}
+              effectiveRate={effectiveValues.effectiveRate}
+              effectiveSettledLyd={effectiveValues.effectiveSettledLyd}
+              varianceLyd={varianceLyd}
+              toleranceLyd={toleranceLyd}
+              hardCapPercent={hardCapPercent}
+              amountRequested={Number(selectedPayment.amount_requested)}
+              hardCapAcknowledged={hardCapAcknowledged}
+              onAcknowledgeHardCap={setHardCapAcknowledged}
+            />
 
-            <div>
-              <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                المبلغ المنصرف الفعلي بالدينار (Exact LYD Used)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={exactAmountUsedLyd || ""}
-                onChange={(e) => setExactAmountUsedLyd(Number(e.target.value))}
-                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:outline-none"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                  سعر الصرف المنفذ فعلياً
+                  {exactAmountUsedLyd <= 0 ? (
+                    <span className="text-app-status-danger"> *</span>
+                  ) : (
+                    <span className="text-app-label-tertiary text-[10px] ms-1">(اختياري)</span>
+                  )}
+                </label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  min="0.0001"
+                  value={fxRateUsed > 0 ? fxRateUsed : ""}
+                  onChange={(e) => setFxRateUsed(Number(e.target.value))}
+                  placeholder="5.2000"
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                  المبلغ المنفذ بالدينار (LYD)
+                  {fxRateUsed <= 0 ? (
+                    <span className="text-app-status-danger"> *</span>
+                  ) : (
+                    <span className="text-app-label-tertiary text-[10px] ms-1">(اختياري)</span>
+                  )}
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={exactAmountUsedLyd > 0 ? exactAmountUsedLyd : ""}
+                  onChange={(e) => setExactAmountUsedLyd(Number(e.target.value))}
+                  placeholder="5100.00"
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:outline-none"
+                />
+              </div>
             </div>
 
             <div>
@@ -512,21 +594,18 @@ export const TreasuryPage: React.FC = () => {
 
             {requiresNote ? (
               <div className="rounded-xl border border-app-status-warning/40 bg-app-status-warning/10 p-3 space-y-2">
-                <div className="flex items-center justify-between text-xs font-bold text-app-status-warning">
-                  <span className="flex items-center gap-1.5">
-                    <AlertTriangle className="h-4 w-4" />
-                    التكلفة الإضافية (فرق سعر الصرف)
-                  </span>
-                  <span className="font-mono">
-                    {liveExtraAllocationLyd > 0 ? "+" : ""}
-                    {formatNumber(liveExtraAllocationLyd)} LYD
+                <div className="flex items-center gap-1.5 text-xs font-bold text-app-status-warning">
+                  <AlertTriangle className="h-4 w-4" />
+                  فرق عن السعر المرجعي
+                  <span className="font-mono ms-auto">
+                    {varianceLyd !== null && varianceLyd > 0 ? "+" : ""}
+                    {formatNumber(varianceLyd ?? 0)} LYD
                   </span>
                 </div>
                 <label className="block text-[11px] font-bold text-app-label-primary">
                   سبب التكلفة الإضافية <span className="text-app-status-danger">*</span>
                 </label>
                 <textarea
-                  required
                   value={extraAllocationNote}
                   onChange={(e) => {
                     setExtraAllocationNote(e.target.value);
@@ -539,7 +618,7 @@ export const TreasuryPage: React.FC = () => {
                 />
                 {extraAllocationTouched && noteMissing ? (
                   <p className="text-[10px] text-app-status-danger font-bold">
-                    السبب مطلوب عند وجود فرق في سعر الصرف عن السعر المرجعي.
+                    السبب مطلوب عند وجود فرق عن السعر المرجعي.
                   </p>
                 ) : null}
               </div>
@@ -558,7 +637,12 @@ export const TreasuryPage: React.FC = () => {
             <button
               type="submit"
               form="execute-payment-form"
-              disabled={executePaymentMutation.isPending || fxRateUsed <= 0 || noteMissing}
+              disabled={
+                executePaymentMutation.isPending
+                || !hasAtLeastOneInput
+                || noteMissing
+                || (varianceExceedsHardCap && !hardCapAcknowledged)
+              }
               className="rounded-xl bg-app-status-positive px-5 py-2 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
             >
               {executePaymentMutation.isPending ? "جاري التأكيد..." : "قبول الطلب وتسوية الدفع"}
