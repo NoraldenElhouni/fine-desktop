@@ -19,18 +19,22 @@ const config: ForgeConfig = {
   makers: [
     new MakerSquirrel({
       setupIcon: "./assets/icons/icon.ico",
+      title: "Fine ERP",
     }), // Windows
     new MakerZIP({}, ["darwin"]), // macOS
     new MakerDMG({
       icon: "./assets/icons/icon.icns",
+      name: "Fine ERP",
     }, ["darwin"]), // macOS installer
     new MakerRpm({
       options: {
+        productName: "Fine ERP",
         icon: "./assets/icons/icon.png",
       },
     }), // Linux RPM
     new MakerDeb({
       options: {
+        productName: "Fine ERP",
         icon: "./assets/icons/icon.png",
       },
     }), // Linux DEB

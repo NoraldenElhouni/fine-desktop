@@ -4,8 +4,13 @@ import fs from "node:fs";
 import started from "electron-squirrel-startup";
 
 app.setName("Fine ERP");
+process.title = "Fine ERP";
+
 if (process.platform === "win32") {
   app.setAppUserModelId("Fine ERP");
+}
+if (process.platform === "linux") {
+  app.setDesktopName("Fine ERP.desktop");
 }
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.

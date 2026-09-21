@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react";
 import { HashRouter as Router, Routes, Route } from "react-router-dom";
 import Layout from "../components/layout/Layout";
 import LoginPage from "./auth/LoginPage";
 import ChangePasswordPage from "./auth/ChangePasswordPage";
 import ProtectedRoute from "../components/ProtectedRoute";
+import { ServerConfigDialog } from "../components/settings/ServerConfigDialog";
 import Dashboard from "./Dashboard";
 import { OwnerDashboardPage } from "./OwnerDashboardPage";
 import { FinancialReportsPage } from "./accounting/FinancialReportsPage";
@@ -44,6 +46,26 @@ const HomeDashboard = () => {
 };
 
 const App = () => {
+  const [isServerModalOpen, setIsServerModalOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.shiftKey &&
+        (e.code === "KeyS" || e.key.toLowerCase() === "s")
+      ) {
+        e.preventDefault();
+        setIsServerModalOpen((prev) => !prev);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
   return (
     <Router>
       <Routes>
@@ -204,6 +226,10 @@ const App = () => {
           </Route>
         </Route>
       </Routes>
+      <ServerConfigDialog
+        open={isServerModalOpen}
+        onOpenChange={setIsServerModalOpen}
+      />
     </Router>
   );
 };

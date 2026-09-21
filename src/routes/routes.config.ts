@@ -153,9 +153,7 @@ export const getBreadcrumbEntries = (
 
   if (normalizedPath.startsWith("/settings/")) {
     entries.push({ path: "/settings", label: "الإعدادات" });
-    if (normalizedPath.startsWith("/settings/server")) {
-      entries.push({ path: "/settings/server", label: "إعدادات السيرفر" });
-    } else if (normalizedPath.startsWith("/settings/items")) {
+    if (normalizedPath.startsWith("/settings/items")) {
       entries.push({ path: "/settings/items", label: "الأصناف" });
     } else if (normalizedPath.startsWith("/settings/products")) {
       entries.push({ path: "/settings/products", label: "المنتجات وقوائم المواد" });

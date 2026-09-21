@@ -1,7 +1,6 @@
 import React, { useMemo } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { SectionTabsLayout } from "../components/ui/SectionTabs";
-import { ServerConfigPage } from "../pages/settings/ServerConfigPage";
 import { ProductsPage } from "../pages/settings/ProductsPage";
 import { RolesPage } from "../pages/settings/RolesPage";
 import { OperatingUnitsPage } from "../pages/admin/OperatingUnitsPage";
@@ -14,7 +13,6 @@ export const SettingsRoutes: React.FC = () => {
 
   const tabs = useMemo(() => {
     const list = [
-      { path: "/settings/server", label: "إعدادات السيرفر" },
       { path: "/settings/items", label: "الأصناف" },
       { path: "/settings/products", label: "المنتجات وقوائم المواد" },
       { path: "/settings/roles", label: "الأدوار والصلاحيات" },
@@ -27,13 +25,13 @@ export const SettingsRoutes: React.FC = () => {
 
   return (
     <Routes>
-      <Route index element={<Navigate to="server" replace />} />
+      <Route index element={<Navigate to="items" replace />} />
       <Route element={<SectionTabsLayout tabs={tabs} />}>
-        <Route path="server" element={<ServerConfigPage />} />
         <Route path="items" element={<InventoryItemsPage />} />
         <Route path="products" element={<ProductsPage />} />
         <Route path="roles" element={<RolesPage />} />
         {canManageUnits && <Route path="units" element={<OperatingUnitsPage />} />}
+        <Route path="server" element={<Navigate to="/settings/items" replace />} />
       </Route>
     </Routes>
   );
