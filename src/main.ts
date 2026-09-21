@@ -10,7 +10,7 @@ if (process.platform === "win32") {
   app.setAppUserModelId("Fine ERP");
 }
 if (process.platform === "linux") {
-  app.setDesktopName("Fine ERP.desktop");
+  app.setDesktopName("fine-erp");
 }
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.

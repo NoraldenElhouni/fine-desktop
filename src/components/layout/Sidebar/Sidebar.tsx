@@ -1,6 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { LogOut, Settings, UserRound, LayoutGrid, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  KeyRound,
+  LayoutGrid,
+  LogOut,
+  Settings,
+  UserRound,
+} from "lucide-react";
 import { FineLogo } from "../../../assets/logo";
 import { User } from "../../../types/auth/types";
 import { cn } from "../../../lib/utils/utils";
@@ -19,8 +28,44 @@ const Sidebar = ({ isCollapsed, activePath, user, onLogout }: SidebarProps) => {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const { canAccess } = usePermissions();
+
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [isCollapsed]);
+
+  useEffect(() => {
+    if (!isMenuOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(target) &&
+        triggerRef.current &&
+        !triggerRef.current.contains(target)
+      ) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isMenuOpen]);
 
   const toggleCategory = (categoryId: string) => {
     setExpandedCategories((prev) => ({
@@ -37,12 +82,12 @@ const Sidebar = ({ isCollapsed, activePath, user, onLogout }: SidebarProps) => {
     return user.name.split(" ")[0] ?? user.name;
   }, [user?.name]);
 
-  const roles = user?.roles ?? [];
+  const roles = Array.isArray(user?.roles) ? user.roles : [];
 
   return (
     <aside
       className={cn(
-        "flex h-full flex-col border-e border-app-separator bg-app-bg-primary/95 backdrop-blur-sm transition-all duration-200",
+        "relative z-20 flex h-full flex-col border-e border-app-separator bg-app-bg-primary/95 backdrop-blur-sm transition-all duration-200",
         isCollapsed ? "w-20" : "w-64",
       )}
     >
@@ -137,7 +182,7 @@ const Sidebar = ({ isCollapsed, activePath, user, onLogout }: SidebarProps) => {
                     onClick={() => toggleCategory(cat.id)}
                     aria-expanded={isExpanded}
                     aria-controls={`sidebar-cat-${cat.id}`}
-                    className="p-1 text-app-label-tertiary hover:text-app-label-primary transition-colors"
+                    className="p-1 text-app-label-tertiary hover:text-app-label-primary transition-colors cursor-pointer"
                   >
                     {isExpanded ? (
                       <ChevronDown className="h-3.5 w-3.5" />
@@ -184,106 +229,170 @@ const Sidebar = ({ isCollapsed, activePath, user, onLogout }: SidebarProps) => {
       <div className="shrink-0 border-t border-app-separator px-3 py-2.5">
         <div className="relative">
           <button
+            ref={triggerRef}
             type="button"
-            onClick={() => setIsMenuOpen((value) => !value)}
+            aria-haspopup="menu"
+            aria-expanded={isMenuOpen}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsMenuOpen((value) => !value);
+            }}
             className={cn(
-              "flex w-full items-center rounded-app-xl border border-app-separator bg-app-bg-secondary text-start transition-colors hover:bg-app-fill-f1",
-              isCollapsed ? "justify-center p-1.5" : "gap-3 px-3 py-2",
+              "flex w-full items-center rounded-app-xl border border-app-separator bg-app-bg-secondary text-start cursor-pointer select-none transition-all hover:bg-app-accent-subtle/50 hover:border-app-accent/40 active:scale-[0.99]",
+              isCollapsed ? "justify-center p-2" : "gap-3 px-3 py-2",
             )}
+            title={isCollapsed ? (user?.name || "المستخدم") : undefined}
           >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-app-accent-subtle text-app-accent ring-2 ring-app-bg-primary">
-              <UserRound className="h-3.5 w-3.5" />
+            <div className="pointer-events-none flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-app-accent-subtle text-app-accent ring-2 ring-app-bg-primary">
+              <UserRound className="h-4 w-4" />
             </div>
             {!isCollapsed ? (
-              <div className="min-w-0 flex-1">
+              <>
+                <div className="pointer-events-none min-w-0 flex-1">
+                  <p
+                    className={cn(
+                      tokens.typography.webUI.b2Emphasized,
+                      "truncate text-app-label-primary",
+                    )}
+                  >
+                    {displayName}
+                  </p>
+                  {roles.length > 0 ? (
+                    <div className="mt-0.5 flex flex-wrap gap-1">
+                      {roles.map((role, idx) => {
+                        const roleName =
+                          typeof role === "string" ? role : role?.name || role?.slug;
+                        const roleKey =
+                          typeof role === "object" && role?.id ? role.id : idx;
+                        if (!roleName) return null;
+                        return (
+                          <span
+                            key={roleKey}
+                            className={cn(
+                              tokens.typography.webUI.c1Emphasized,
+                              "rounded-full bg-app-accent-subtle px-1.5 py-0 text-app-accent text-[11px]",
+                            )}
+                          >
+                            {roleName}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p
+                      className={cn(
+                        tokens.typography.webUI.c1Regular,
+                        "truncate text-app-label-secondary",
+                      )}
+                    >
+                      الملف الشخصي
+                    </p>
+                  )}
+                </div>
+                <div className="pointer-events-none shrink-0 text-app-label-tertiary">
+                  {isMenuOpen ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </div>
+              </>
+            ) : null}
+          </button>
+          {isMenuOpen ? (
+            <div
+              ref={menuRef}
+              role="menu"
+              className={cn(
+                "absolute bottom-full mb-2 z-50 rounded-app-xl border border-app-separator bg-app-bg-primary p-2 shadow-app-modal",
+                isCollapsed ? "start-0 w-60" : "inset-x-0 w-full",
+              )}
+            >
+              <div className="border-b border-app-separator px-2.5 pb-2 pt-1">
                 <p
                   className={cn(
                     tokens.typography.webUI.b2Emphasized,
                     "truncate text-app-label-primary",
                   )}
                 >
-                  {displayName}
+                  {user?.name || "المستخدم"}
                 </p>
-                {roles.length > 0 ? (
-                  <div className="mt-0.5 flex flex-wrap gap-1">
-                    {roles.map((role) => (
-                      <span
-                        key={role.id}
-                        className={cn(
-                          tokens.typography.webUI.c1Emphasized,
-                          "rounded-full bg-app-accent-subtle px-1.5 py-0 text-app-accent",
-                        )}
-                      >
-                        {role.name}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
+                {user?.email ? (
                   <p
                     className={cn(
                       tokens.typography.webUI.c1Regular,
-                      "truncate text-app-label-secondary",
+                      "truncate text-app-label-secondary text-[11px] mt-0.5",
                     )}
                   >
-                    الملف الشخصي
+                    {user.email}
                   </p>
-                )}
+                ) : null}
+                {roles.length > 0 ? (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {roles.map((role, idx) => {
+                      const roleName =
+                        typeof role === "string" ? role : role?.name || role?.slug;
+                      const roleKey =
+                        typeof role === "object" && role?.id ? role.id : idx;
+                      if (!roleName) return null;
+                      return (
+                        <span
+                          key={roleKey}
+                          className={cn(
+                            tokens.typography.webUI.c1Emphasized,
+                            "rounded-full bg-app-accent-subtle px-1.5 py-0.5 text-app-accent text-[11px]",
+                          )}
+                        >
+                          {roleName}
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </div>
-            ) : null}
-          </button>
-          {isMenuOpen ? (
-            <div
-              className={cn(
-                "absolute bottom-full rounded-app-xl border border-app-separator bg-app-bg-primary py-2 px-3 shadow-sm transition-opacity duration-200",
-                isCollapsed
-                  ? "start-0 mb-1 flex -translate-x-0 flex-col items-center gap-2"
-                  : "mb-2 w-full",
-              )}
-            >
-              <button
-                type="button"
-                title="الإعدادات"
-                aria-label="الإعدادات"
-                className={cn(
-                  "flex items-center text-app-label-secondary transition-colors hover:bg-app-fill-f1 hover:text-app-label-primary",
-                  isCollapsed
-                    ? "h-8 w-8 justify-center rounded-app-lg"
-                    : "w-full gap-2 rounded-app-lg px-3 py-2 text-start",
-                )}
-                onClick={() => {
-                  setIsMenuOpen(false);
-                  navigate("/settings");
-                }}
-              >
-                <Settings className="h-3.5 w-3.5" />
-                {!isCollapsed ? (
-                  <span className={cn(tokens.typography.webUI.b2Regular)}>
-                    الإعدادات
-                  </span>
-                ) : null}
-              </button>
-              <button
-                type="button"
-                title="تسجيل الخروج"
-                aria-label="تسجيل الخروج"
-                className={cn(
-                  "flex items-center text-app-status-danger transition-colors hover:bg-app-fill-f1",
-                  isCollapsed
-                    ? "h-8 w-8 justify-center rounded-app-lg"
-                    : "mt-1 w-full gap-2 rounded-app-lg px-3 py-2 text-start",
-                )}
-                onClick={() => {
-                  setIsMenuOpen(false);
-                  onLogout();
-                }}
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                {!isCollapsed ? (
-                  <span className={cn(tokens.typography.webUI.b2Regular)}>
-                    تسجيل الخروج
-                  </span>
-                ) : null}
-              </button>
+
+              <div className="mt-1 space-y-0.5">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    navigate("/settings");
+                  }}
+                  className="flex w-full cursor-pointer items-center gap-2.5 rounded-app-lg px-2.5 py-2 text-start text-xs font-medium text-app-label-secondary transition-colors hover:bg-app-fill-f1 hover:text-app-label-primary"
+                >
+                  <Settings className="h-4 w-4 shrink-0 text-app-label-tertiary" />
+                  <span>الإعدادات</span>
+                </button>
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    navigate("/change-password");
+                  }}
+                  className="flex w-full cursor-pointer items-center gap-2.5 rounded-app-lg px-2.5 py-2 text-start text-xs font-medium text-app-label-secondary transition-colors hover:bg-app-fill-f1 hover:text-app-label-primary"
+                >
+                  <KeyRound className="h-4 w-4 shrink-0 text-app-label-tertiary" />
+                  <span>تغيير كلمة المرور</span>
+                </button>
+
+                <div className="my-1 border-t border-app-separator" />
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    onLogout();
+                  }}
+                  className="flex w-full cursor-pointer items-center gap-2.5 rounded-app-lg px-2.5 py-2 text-start text-xs font-medium text-app-status-danger transition-colors hover:bg-app-status-danger/10"
+                >
+                  <LogOut className="h-4 w-4 shrink-0" />
+                  <span>تسجيل الخروج</span>
+                </button>
+              </div>
             </div>
           ) : null}
         </div>
