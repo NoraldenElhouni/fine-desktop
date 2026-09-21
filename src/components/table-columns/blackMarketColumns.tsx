@@ -65,25 +65,30 @@ export function useBlackMarketColumns(): ColumnDef<PaymentRequest, unknown>[] {
         meta: { className: "font-mono" },
       },
       {
-        id: "extra_allocation_lyd",
-        header: "التكلفة الإضافية (LYD)",
+        id: "variance_vs_booked_lyd",
+        header: "فرق عن السعر المرجعي (LYD)",
         enableSorting: false,
         cell: ({ row }) => {
-          const extra = row.original.extra_allocation_lyd;
-          return extra === null || extra === undefined ? (
-            <span className="text-app-label-tertiary">—</span>
-          ) : Math.abs(Number(extra)) < 0.0001 ? (
-            <span className="text-app-label-tertiary">0.0000</span>
-          ) : (
+          const variance = row.original.variance_vs_booked_lyd;
+          if (variance === null || variance === undefined) {
+            return <span className="text-app-label-tertiary">—</span>;
+          }
+          if (Math.abs(Number(variance)) < 0.0001) {
+            return <span className="text-app-label-tertiary">0.0000</span>;
+          }
+          const exceedsHardCap = row.original.variance_exceeds_hard_cap === true;
+          return (
             <span
               className={
-                Number(extra) > 0
-                  ? "text-app-status-warning font-bold"
+                Number(variance) > 0
+                  ? exceedsHardCap
+                    ? "text-app-status-danger font-bold"
+                    : "text-app-status-warning font-bold"
                   : "text-app-status-positive font-bold"
               }
             >
-              {Number(extra) > 0 ? "+" : ""}
-              {formatNumber(extra)}
+              {Number(variance) > 0 ? "+" : ""}
+              {formatNumber(variance)}
             </span>
           );
         },

@@ -62,8 +62,14 @@ export interface PaymentRequest {
   status: PaymentRequestStatus;
   fx_rate_used?: number | null;
   extra_allocation_note?: string | null;
-  extra_allocation_lyd?: number | null;
   booked_fx_rate?: number | null;
+  effective_settled_lyd?: number | null;
+  effective_rate?: number | null;
+  variance_vs_booked_lyd?: number | null;
+  variance_within_tolerance?: boolean;
+  variance_exceeds_hard_cap?: boolean;
+  fx_tolerance_lyd?: number;
+  fx_hard_cap_percent?: number;
   bank_hold?: BankHold | null;
   import_order?: {
     id: string;
@@ -243,8 +249,8 @@ export interface TransitionImportOrderPayload {
 }
 
 export interface ExecutePaymentPayload {
-  fx_rate_used: number;
-  exact_amount_used_lyd?: number;
+  fx_rate_used?: number | null;
+  exact_amount_used_lyd?: number | null;
   bank_reference?: string;
   extra_allocation_note?: string;
 }
