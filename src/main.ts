@@ -2,6 +2,7 @@ import { app, BrowserWindow, shell, session, nativeImage, ipcMain } from "electr
 import path from "node:path";
 import fs from "node:fs";
 import started from "electron-squirrel-startup";
+import { setupUpdater } from "./updater";
 
 app.setName("Fine ERP");
 process.title = "Fine ERP";
@@ -37,11 +38,13 @@ const getAppIcon = () => {
   return undefined;
 };
 
+let mainWindow: BrowserWindow | null = null;
+
 const createWindow = () => {
   const appIcon = getAppIcon();
 
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     title: "Fine ERP",
@@ -130,6 +133,7 @@ app.on("ready", () => {
     callback({ responseHeaders });
   });
   createWindow();
+  setupUpdater(() => mainWindow);
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common

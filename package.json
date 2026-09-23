@@ -18,6 +18,10 @@
     "name": "NoraldenElhouni",
     "email": "noralden.honi@gmail.com"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NoraldenElhouni/fine-desktop.git"
+  },
   "license": "MIT",
   "devDependencies": {
     "@electron-forge/cli": "^7.11.2",

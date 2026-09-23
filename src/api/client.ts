@@ -2,6 +2,7 @@ import axios from "axios";
 import { useAuthStore } from "../stores/authStore";
 import { useServerConfigStore, normalizeServerUrl } from "../stores/serverConfigStore";
 import { useConflictStore } from "../stores/conflictStore";
+import { useUpdateStore } from "../stores/updateStore";
 
 const apiClient = axios.create({
   headers: {
@@ -45,6 +46,11 @@ apiClient.interceptors.request.use(
 
     if (operatingUnitId && config.headers) {
       config.headers["X-Operating-Unit-ID"] = operatingUnitId;
+    }
+
+    if (config.headers) {
+      config.headers["X-Desktop-Version"] =
+        typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "1.0.24";
     }
 
     return config;
@@ -95,13 +101,19 @@ apiClient.interceptors.response.use(
           must_change_password: true,
         });
       }
-    } else if (error.response?.status === 409) {
-      const message =
-        error.response?.data?.message ||
-        "تم تعديل هذا السجل بواسطة مستخدم آخر بالتزامن.";
-      useConflictStore.getState().triggerConflict({
-        message,
-        endpoint: error.config?.url,
+    } else if (
+      error.response?.status === 426 ||
+      error.response?.data?.code === "FORCE_UPDATE_REQUIRED"
+    ) {
+      const data = error.response?.data || {};
+      useUpdateStore.getState().setForceUpdate(true, {
+        currentVersion:
+          data.current_version ||
+          (typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "1.0.24"),
+        requiredVersion: data.required_version || "",
+        latestVersion: data.latest_version || data.required_version || "",
+        updateUrl: data.update_url,
+        directDownloadUrl: data.direct_download_url,
       });
     }
     return Promise.reject(error);

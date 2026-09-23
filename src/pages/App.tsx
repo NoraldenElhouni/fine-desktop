@@ -6,7 +6,9 @@ import LoginPage from "./auth/LoginPage";
 import ChangePasswordPage from "./auth/ChangePasswordPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { ServerConfigDialog } from "../components/settings/ServerConfigDialog";
-import { recordSystemVersion } from "../api/endpoints/system";
+import { ForcedUpdateModal } from "../components/update/ForcedUpdateModal";
+import { recordSystemVersion, checkUpdateStatus } from "../api/endpoints/system";
+import { useUpdateStore } from "../stores/updateStore";
 import Dashboard from "./Dashboard";
 import { OwnerDashboardPage } from "./OwnerDashboardPage";
 import { FinancialReportsPage } from "./accounting/FinancialReportsPage";
@@ -103,6 +105,31 @@ const App = () => {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
+  }, []);
+
+  useEffect(() => {
+    const pollVersion = () => {
+      checkUpdateStatus()
+        .then((res) => {
+          if (res.is_update_required) {
+            useUpdateStore.getState().setForceUpdate(true, {
+              currentVersion:
+                typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "1.0.24",
+              requiredVersion: res.min_desktop_version || "",
+              latestVersion: res.latest_desktop_version || "",
+              updateUrl: res.update_url,
+              directDownloadUrl: res.direct_download_url,
+            });
+          }
+        })
+        .catch(() => {
+          // Ignore network errors during background heartbeat
+        });
+    };
+
+    pollVersion();
+    const interval = setInterval(pollVersion, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -301,6 +328,7 @@ const App = () => {
           </button>
         </div>
       )}
+      <ForcedUpdateModal />
     </Router>
   );
 };
