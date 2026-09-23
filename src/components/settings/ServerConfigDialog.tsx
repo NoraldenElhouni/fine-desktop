@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Server, Check, Shield, RefreshCw } from "lucide-react";
+import { Server, Check, Shield, RefreshCw, Info } from "lucide-react";
 import { useServerConfigStore } from "../../stores/serverConfigStore";
 import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
+import { recordSystemVersion } from "../../api/endpoints/system";
 import { OperatingUnit } from "../../types/entities";
 import { cn } from "../../lib/utils/utils";
 import { tokens } from "../../lib/tokens";
@@ -42,6 +43,9 @@ export const ServerConfigDialog: React.FC<ServerConfigDialogProps> = ({
   const [units, setUnits] = useState<OperatingUnit[]>([]);
   const [loadingUnits, setLoadingUnits] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [desktopVersion, setDesktopVersion] = useState<string>("");
+  const [backendVersion, setBackendVersion] = useState<string | null>(null);
+  const [loadingVersion, setLoadingVersion] = useState<boolean>(false);
 
   useEffect(() => {
     if (open) {
@@ -67,6 +71,55 @@ export const ServerConfigDialog: React.FC<ServerConfigDialogProps> = ({
       })
       .finally(() => setLoadingUnits(false));
   }, [open, serverUrl, selectedUnit]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    let isMounted = true;
+    setLoadingVersion(true);
+
+    const resolveVersions = async () => {
+      let dVer = "";
+      if (typeof window !== "undefined" && window.electronAPI?.getAppVersion) {
+        try {
+          dVer = await window.electronAPI.getAppVersion();
+        } catch {
+          // fallback below
+        }
+      }
+      if (!dVer && typeof __APP_VERSION__ !== "undefined") {
+        dVer = __APP_VERSION__;
+      }
+      if (!dVer) {
+        dVer = "1.0.24";
+      }
+
+      if (isMounted) {
+        setDesktopVersion(dVer);
+      }
+
+      try {
+        const res = await recordSystemVersion(dVer);
+        if (isMounted) {
+          setBackendVersion(res.backend_version);
+        }
+      } catch {
+        if (isMounted) {
+          setBackendVersion(null);
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingVersion(false);
+        }
+      }
+    };
+
+    resolveVersions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [open]);
 
   const handleSave = () => {
     if (!inputUrl.trim()) {
@@ -180,6 +233,35 @@ export const ServerConfigDialog: React.FC<ServerConfigDialogProps> = ({
               يتم تخزين عنوان السيرفر ومعرف وحدة التشغيل محلياً في المتصفح فقط. كل طلب إلى الـ
               Backend يضيف الترويسة المناسبة آلياً.
             </p>
+          </div>
+
+          <div className="rounded-app-lg border border-app-separator bg-app-bg-secondary p-3 text-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className={cn(tokens.typography.webUI.c1Emphasized, "text-app-label-primary flex items-center gap-1.5")}>
+                <Info className="w-3.5 h-3.5 text-app-label-tertiary" />
+                معلومات إصدار النظام (Build Versions)
+              </span>
+              {loadingVersion && (
+                <span className="flex items-center gap-1 text-[11px] text-app-label-tertiary">
+                  <RefreshCw className="w-3 h-3 animate-spin" /> جاري التحقق...
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-start" dir="ltr">
+              <div className="p-2 rounded-app-md bg-app-fill-f1 border border-app-separator/50">
+                <div className="text-[10px] text-app-label-tertiary uppercase tracking-wider">Desktop App</div>
+                <div className="font-mono text-xs font-semibold text-app-label-primary mt-0.5">
+                  v{desktopVersion || "..."}
+                </div>
+              </div>
+              <div className="p-2 rounded-app-md bg-app-fill-f1 border border-app-separator/50">
+                <div className="text-[10px] text-app-label-tertiary uppercase tracking-wider">Backend API</div>
+                <div className="font-mono text-xs font-semibold text-app-label-primary mt-0.5">
+                  {backendVersion ? `v${backendVersion}` : loadingVersion ? "..." : "غير متصل"}
+                </div>
+              </div>
+            </div>
           </div>
 
           {statusMsg && (

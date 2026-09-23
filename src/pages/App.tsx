@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { HashRouter as Router, Routes, Route } from "react-router-dom";
+import { X } from "lucide-react";
 import Layout from "../components/layout/Layout";
 import LoginPage from "./auth/LoginPage";
 import ChangePasswordPage from "./auth/ChangePasswordPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { ServerConfigDialog } from "../components/settings/ServerConfigDialog";
+import { recordSystemVersion } from "../api/endpoints/system";
 import Dashboard from "./Dashboard";
 import { OwnerDashboardPage } from "./OwnerDashboardPage";
 import { FinancialReportsPage } from "./accounting/FinancialReportsPage";
@@ -45,8 +47,34 @@ const HomeDashboard = () => {
   return isCompanyWide ? <OwnerDashboardPage /> : <Dashboard />;
 };
 
+const getDesktopAppVersion = async (): Promise<string> => {
+  if (typeof window !== "undefined" && window.electronAPI?.getAppVersion) {
+    try {
+      const v = await window.electronAPI.getAppVersion();
+      if (v) return v;
+    } catch {
+      // fallback
+    }
+  }
+  return typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "1.0.24";
+};
+
 const App = () => {
   const [isServerModalOpen, setIsServerModalOpen] = useState(false);
+  const [versionHud, setVersionHud] = useState<{
+    show: boolean;
+    desktop: string;
+    backend: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (versionHud?.show) {
+      const timer = setTimeout(() => {
+        setVersionHud((prev) => (prev ? { ...prev, show: false } : null));
+      }, 7000);
+      return () => clearTimeout(timer);
+    }
+  }, [versionHud?.show]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -57,6 +85,17 @@ const App = () => {
       ) {
         e.preventDefault();
         setIsServerModalOpen((prev) => !prev);
+
+        getDesktopAppVersion().then((dVer) => {
+          setVersionHud({ show: true, desktop: dVer, backend: null });
+          recordSystemVersion(dVer)
+            .then((res) => {
+              setVersionHud({ show: true, desktop: dVer, backend: res.backend_version });
+            })
+            .catch(() => {
+              setVersionHud({ show: true, desktop: dVer, backend: "offline" });
+            });
+        });
       }
     };
 
@@ -230,6 +269,38 @@ const App = () => {
         open={isServerModalOpen}
         onOpenChange={setIsServerModalOpen}
       />
+      {versionHud?.show && (
+        <div
+          dir="ltr"
+          className="fixed bottom-6 right-6 z-[999999] flex items-center gap-3 bg-neutral-900/95 text-white border border-neutral-700/80 shadow-2xl px-4 py-2.5 rounded-xl text-xs backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200 pointer-events-auto"
+        >
+          <div className="flex items-center gap-2">
+            <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="font-semibold text-neutral-300">Fine ERP Build</span>
+          </div>
+          <span className="text-neutral-600">|</span>
+          <div className="font-mono flex items-center gap-2">
+            <span>
+              Desktop: <strong className="text-white">v{versionHud.desktop}</strong>
+            </span>
+            <span className="text-neutral-600">•</span>
+            <span>
+              Backend:{" "}
+              <strong className={versionHud.backend === "offline" ? "text-rose-400" : "text-emerald-400"}>
+                {versionHud.backend ? `v${versionHud.backend}` : "..."}
+              </strong>
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setVersionHud(null)}
+            className="ml-2 text-neutral-400 hover:text-white transition-colors p-0.5"
+            aria-label="Close"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
     </Router>
   );
 };

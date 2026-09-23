@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, session, nativeImage } from "electron";
+import { app, BrowserWindow, shell, session, nativeImage, ipcMain } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 import started from "electron-squirrel-startup";
@@ -148,3 +148,8 @@ app.on("activate", () => {
     createWindow();
   }
 });
+
+ipcMain.handle("app:get-version", () => {
+  return app.getVersion();
+});
+
