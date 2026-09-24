@@ -17,6 +17,7 @@ export interface Account {
   type: AccountType;
   currency: string;
   parent_account_id: string | null;
+  is_main: boolean;
   total_debit: number;
   total_credit: number;
   balance: number;
@@ -153,6 +154,12 @@ export interface CreateAccountPayload {
   currency?: string;
 }
 
+export interface UpdateAccountPayload {
+  name?: string;
+  account_code?: string;
+  currency?: string;
+}
+
 /**
  * The desktop shell always pins a unit context, so accounting reads from a
  * company-wide role pass company_wide=1 to see the whole ledger. The backend
@@ -168,6 +175,12 @@ export const accountingApi = {
 
   createAccount: (payload: CreateAccountPayload) =>
     apiClient.post<{ message: string; data: Account }>("/accounts", payload),
+
+  updateAccount: (id: string, payload: UpdateAccountPayload) =>
+    apiClient.put<{ message: string; data: Account }>(`/accounts/${id}`, payload),
+
+  deleteAccount: (id: string) =>
+    apiClient.delete<{ message: string }>(`/accounts/${id}`),
 
   getAccountLedger: (
     accountId: string,

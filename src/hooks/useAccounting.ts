@@ -35,6 +35,29 @@ export function useCreateAccount() {
   });
 }
 
+export function useUpdateAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: import("../api/endpoints/accounting").UpdateAccountPayload }) =>
+      accountingApi.updateAccount(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+      qc.invalidateQueries({ queryKey: ["trialBalance"] });
+    },
+  });
+}
+
+export function useDeleteAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => accountingApi.deleteAccount(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+      qc.invalidateQueries({ queryKey: ["trialBalance"] });
+    },
+  });
+}
+
 export function useAccount(accountId?: string) {
   const companyWide = useIsCompanyWide();
   return useQuery({

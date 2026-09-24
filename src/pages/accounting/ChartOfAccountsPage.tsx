@@ -1,13 +1,14 @@
 import React, { useMemo, useState } from "react";
-import { ListTree, Plus, X, Eye, Maximize2, Search, RotateCcw } from "lucide-react";
+import { ListTree, Plus, X, Eye, Maximize2, Search, RotateCcw, Pencil, Trash2 } from "lucide-react";
 import { isAxiosError } from "axios";
-import { useAccounts, useAccountLedger, useCreateAccount } from "../../hooks/useAccounting";
+import { useAccounts, useAccountLedger, useCreateAccount, useUpdateAccount, useDeleteAccount } from "../../hooks/useAccounting";
 import { usePermissions } from "../../hooks/usePermissions";
 import { ACCOUNT_TYPE_LABEL, type Account, type AccountType } from "../../api/endpoints/accounting";
 import { formatNumber } from "../../lib/utils/format";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useChartOfAccountsLedgerColumns } from "../../components/table-columns/chartOfAccountsColumns";
 import { AccountDetailsDialog } from "../../components/accounting/AccountDetailsDialog";
+import { AccountEditDialog } from "../../components/accounting/AccountEditDialog";
 import {
   Dialog,
   DialogContent,
@@ -252,9 +253,14 @@ export const ChartOfAccountsPage: React.FC = () => {
   const [sideSearch, setSideSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [detailsAccountId, setDetailsAccountId] = useState<string | null>(null);
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [deletingAccount, setDeletingAccount] = useState<Account | null>(null);
 
   const { hasRole } = usePermissions();
   const canCreate = hasRole(["owner", "admin", "accounting-manager"]);
+
+  const updateAccountMutation = useUpdateAccount();
+  const deleteAccountMutation = useDeleteAccount();
 
   const { data: ledger, isLoading: ledgerLoading } = useAccountLedger(
     selected?.id,
@@ -326,6 +332,38 @@ export const ChartOfAccountsPage: React.FC = () => {
         >
           <Eye className="w-4 h-4" />
         </button>
+
+        {canCreate && (
+          <>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingAccount(node.account);
+              }}
+              title="تعديل الحساب"
+              className="rounded-lg p-1 text-app-label-tertiary hover:bg-app-bg-secondary hover:text-app-accent"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeletingAccount(node.account);
+              }}
+              disabled={node.account.is_main}
+              title={
+                node.account.is_main
+                  ? "الحسابات الرئيسية غير قابلة للحذف"
+                  : "حذف الحساب"
+              }
+              className="rounded-lg p-1 text-app-label-tertiary hover:bg-app-bg-secondary hover:text-app-status-danger disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-app-label-tertiary disabled:cursor-not-allowed"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </>
+        )}
       </div>
       {node.children.map((child) => renderNode(child, depth + 1))}
     </React.Fragment>
@@ -365,6 +403,89 @@ export const ChartOfAccountsPage: React.FC = () => {
         onClose={() => setDetailsAccountId(null)}
         accountId={detailsAccountId}
       />
+
+      <AccountEditDialog
+        open={Boolean(editingAccount)}
+        account={editingAccount}
+        onClose={() => setEditingAccount(null)}
+        onSubmit={async (payload) => {
+          if (!editingAccount) return;
+          try {
+            await updateAccountMutation.mutateAsync({ id: editingAccount.id, payload });
+            toast.success("تم تحديث الحساب بنجاح");
+            setEditingAccount(null);
+          } catch (err: unknown) {
+            if (isAxiosError(err)) {
+              toast.error(err.response?.data?.message ?? "فشل تحديث الحساب");
+            } else {
+              toast.error("فشل تحديث الحساب");
+            }
+          }
+        }}
+        isPending={updateAccountMutation.isPending}
+      />
+
+      <Dialog
+        open={Boolean(deletingAccount)}
+        onOpenChange={(o) => {
+          if (!o) setDeletingAccount(null);
+        }}
+      >
+        <DialogContent size="sm">
+          <DialogHeader>
+            <DialogTitle>تأكيد حذف الحساب</DialogTitle>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody className="space-y-3">
+            <p className="text-xs text-app-label-secondary">
+              هل أنت متأكد من حذف هذا الحساب؟ لا يمكن التراجع عن هذه العملية.
+            </p>
+            {deletingAccount && (
+              <div className="rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-bold text-app-status-danger text-sm">
+                    {deletingAccount.account_code}
+                  </span>
+                  <span className="text-xs font-bold text-app-status-danger">
+                    {ACCOUNT_TYPE_LABEL[deletingAccount.type]}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-app-label-primary">{deletingAccount.name}</p>
+              </div>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setDeletingAccount(null)}
+              className="rounded-xl px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
+            >
+              إلغاء
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!deletingAccount) return;
+                try {
+                  await deleteAccountMutation.mutateAsync(deletingAccount.id);
+                  toast.success("تم حذف الحساب بنجاح");
+                  setDeletingAccount(null);
+                } catch (err: unknown) {
+                  if (isAxiosError(err)) {
+                    toast.error(err.response?.data?.message ?? "فشل حذف الحساب");
+                  } else {
+                    toast.error("فشل حذف الحساب");
+                  }
+                }
+              }}
+              disabled={deleteAccountMutation.isPending}
+              className="rounded-xl bg-app-status-danger px-5 py-2 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {deleteAccountMutation.isPending ? "جارٍ الحذف…" : "حذف الحساب"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
