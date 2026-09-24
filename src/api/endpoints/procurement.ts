@@ -159,7 +159,7 @@ export const createFxRate = async (payload: CreateFxRatePayload): Promise<FxRate
 
 // Payable settlements (2100 AP / 2210 payroll deductions / 2300 landed cost clearing)
 export interface PayableOutstanding {
-  account_code: "2100" | "2210" | "2300";
+  account_code: "21" | "221" | "23";
   outstanding: number;
 }
 

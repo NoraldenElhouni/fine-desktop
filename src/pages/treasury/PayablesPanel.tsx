@@ -14,9 +14,9 @@ import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { usePayablesSettlementsColumns } from "../../components/table-columns/payablesSettlementsColumns";
 
 const ACCOUNT_LABEL: Record<string, string> = {
-  "2100": "الذمم الدائنة (مشتريات آجلة)",
-  "2210": "استقطاعات الرواتب المستحقة",
-  "2300": "تكاليف الاستيراد المعلقة (جمارك وشحن)",
+  "21": "الذمم الدائنة (مشتريات آجلة)",
+  "221": "استقطاعات الرواتب المستحقة",
+  "23": "تكاليف الاستيراد المعلقة (جمارك وشحن)",
 };
 
 /**
