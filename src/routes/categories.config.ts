@@ -4,6 +4,7 @@ import {
   Building2,
   Factory,
   Package,
+  Settings,
   ShieldCheck,
   Store,
   UserCheck,
@@ -89,6 +90,17 @@ export const categoryGroups: CategoryGroup[] = [
     icon: BarChart3,
     path: "/hub/finance",
     itemIds: ["journal", "accounts", "trial-balance", "overhead", "fixed-assets", "reports"],
+    get items() {
+      return findItems(this.itemIds);
+    },
+  },
+  {
+    id: "settings",
+    label: "الإعدادات",
+    description: "إعدادات الشركة التعريفية، وإعدادات المنتجات والأصناف، والبيانات المرجعية مثل وحدات القياس",
+    icon: Settings,
+    path: "/hub/settings",
+    itemIds: ["settings-company", "settings-products", "settings-data"],
     get items() {
       return findItems(this.itemIds);
     },
