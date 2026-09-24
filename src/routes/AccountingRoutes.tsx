@@ -2,6 +2,7 @@ import React from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { JournalEntriesPage } from "../pages/accounting/JournalEntriesPage";
 import { ChartOfAccountsPage } from "../pages/accounting/ChartOfAccountsPage";
+import AccountDetailPage from "../pages/accounting/AccountDetailPage";
 import { TrialBalancePage } from "../pages/accounting/TrialBalancePage";
 import { FinancialReportsPage } from "../pages/accounting/FinancialReportsPage";
 import { OverheadExpensesPage } from "../pages/accounting/OverheadExpensesPage";
@@ -26,6 +27,14 @@ export const AccountingRoutes: React.FC = () => {
         element={
           <AuthorizedRoute allowedRoles={["owner", "admin", "accounting-manager"]}>
             <ChartOfAccountsPage />
+          </AuthorizedRoute>
+        }
+      />
+      <Route
+        path="accounts/:id"
+        element={
+          <AuthorizedRoute allowedRoles={["owner", "admin", "accounting-manager"]}>
+            <AccountDetailPage />
           </AuthorizedRoute>
         }
       />

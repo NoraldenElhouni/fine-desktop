@@ -42,6 +42,7 @@ export function useUpdateAccount() {
       accountingApi.updateAccount(id, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["accounts"] });
+      qc.invalidateQueries({ queryKey: ["account"] });
       qc.invalidateQueries({ queryKey: ["trialBalance"] });
     },
   });
@@ -53,6 +54,7 @@ export function useDeleteAccount() {
     mutationFn: (id: string) => accountingApi.deleteAccount(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["accounts"] });
+      qc.invalidateQueries({ queryKey: ["account"] });
       qc.invalidateQueries({ queryKey: ["trialBalance"] });
     },
   });

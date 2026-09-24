@@ -146,7 +146,8 @@ export const getBreadcrumbEntries = (
     normalizedPath.startsWith("/manufacturing/batches/") ||
     normalizedPath.startsWith("/cutter/orders/") ||
     normalizedPath.startsWith("/furniture/orders/") ||
-    normalizedPath.startsWith("/sales/orders/")
+    normalizedPath.startsWith("/sales/orders/") ||
+    normalizedPath.startsWith("/accounting/accounts/")
   ) {
     entries.push({ path: normalizedPath, label: dynamicLabel });
   }

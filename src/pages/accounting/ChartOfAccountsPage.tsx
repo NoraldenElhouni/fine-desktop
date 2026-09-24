@@ -1,14 +1,14 @@
 import React, { useMemo, useState } from "react";
-import { ListTree, Plus, X, Eye, Maximize2, Search, RotateCcw, Pencil, Trash2 } from "lucide-react";
+import { ListTree, Plus, X, Eye, Maximize2, Search, RotateCcw, ExternalLink } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { isAxiosError } from "axios";
-import { useAccounts, useAccountLedger, useCreateAccount, useUpdateAccount, useDeleteAccount } from "../../hooks/useAccounting";
+import { useAccounts, useAccountLedger, useCreateAccount } from "../../hooks/useAccounting";
 import { usePermissions } from "../../hooks/usePermissions";
 import { ACCOUNT_TYPE_LABEL, type Account, type AccountType } from "../../api/endpoints/accounting";
 import { formatNumber } from "../../lib/utils/format";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useChartOfAccountsLedgerColumns } from "../../components/table-columns/chartOfAccountsColumns";
 import { AccountDetailsDialog } from "../../components/accounting/AccountDetailsDialog";
-import { AccountEditDialog } from "../../components/accounting/AccountEditDialog";
 import {
   Dialog,
   DialogContent,
@@ -46,6 +46,21 @@ const buildTree = (accounts: Account[]): TreeNode[] => {
     }));
   return attach(null);
 };
+
+/**
+ * Prunes a tree (already built by `buildTree`) down to the 5 main root
+ * accounts plus any account with real movement, plus whatever zero-movement
+ * ancestors are needed to connect a root to an effected descendant.
+ */
+const pruneToEffected = (nodes: TreeNode[]): TreeNode[] =>
+  nodes
+    .map((node) => {
+      const children = pruneToEffected(node.children);
+      const hasMovement = node.account.total_debit !== 0 || node.account.total_credit !== 0;
+      const keep = node.account.is_main || hasMovement || children.length > 0;
+      return keep ? { account: node.account, children } : null;
+    })
+    .filter((n): n is TreeNode => n !== null);
 
 interface CreateAccountDialogProps {
   open: boolean;
@@ -247,20 +262,24 @@ const CreateAccountDialog: React.FC<CreateAccountDialogProps> = ({
 };
 
 export const ChartOfAccountsPage: React.FC = () => {
+  const navigate = useNavigate();
   const { data: accounts, isLoading } = useAccounts();
+  const [view, setView] = useState<"effected" | "full">("effected");
   const [selected, setSelected] = useState<Account | null>(null);
   const [ledgerPage, setLedgerPage] = useState(1);
   const [sideSearch, setSideSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [detailsAccountId, setDetailsAccountId] = useState<string | null>(null);
-  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
-  const [deletingAccount, setDeletingAccount] = useState<Account | null>(null);
+
+  const handleViewChange = (next: "effected" | "full") => {
+    setView(next);
+    setSelected(null);
+    setLedgerPage(1);
+    setSideSearch("");
+  };
 
   const { hasRole } = usePermissions();
   const canCreate = hasRole(["owner", "admin", "accounting-manager"]);
-
-  const updateAccountMutation = useUpdateAccount();
-  const deleteAccountMutation = useDeleteAccount();
 
   const { data: ledger, isLoading: ledgerLoading } = useAccountLedger(
     selected?.id,
@@ -270,7 +289,11 @@ export const ChartOfAccountsPage: React.FC = () => {
     }
   );
 
-  const tree = useMemo(() => buildTree(accounts ?? []), [accounts]);
+  const fullTree = useMemo(() => buildTree(accounts ?? []), [accounts]);
+  const tree = useMemo(
+    () => (view === "effected" ? pruneToEffected(fullTree) : fullTree),
+    [view, fullTree],
+  );
 
   const ledgerColumns = useChartOfAccountsLedgerColumns();
   const ledgerData = useMemo(() => ledger?.data ?? [], [ledger]);
@@ -332,38 +355,6 @@ export const ChartOfAccountsPage: React.FC = () => {
         >
           <Eye className="w-4 h-4" />
         </button>
-
-        {canCreate && (
-          <>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditingAccount(node.account);
-              }}
-              title="تعديل الحساب"
-              className="rounded-lg p-1 text-app-label-tertiary hover:bg-app-bg-secondary hover:text-app-accent"
-            >
-              <Pencil className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setDeletingAccount(node.account);
-              }}
-              disabled={node.account.is_main}
-              title={
-                node.account.is_main
-                  ? "الحسابات الرئيسية غير قابلة للحذف"
-                  : "حذف الحساب"
-              }
-              className="rounded-lg p-1 text-app-label-tertiary hover:bg-app-bg-secondary hover:text-app-status-danger disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-app-label-tertiary disabled:cursor-not-allowed"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </>
-        )}
       </div>
       {node.children.map((child) => renderNode(child, depth + 1))}
     </React.Fragment>
@@ -381,15 +372,42 @@ export const ChartOfAccountsPage: React.FC = () => {
             الأرصدة بإشارتها الطبيعية لكل نوع. اختر حسابًا لعرض كشف حركته أو انقر على زر التفاصيل للكشف الكامل.
           </p>
         </div>
-        {canCreate && (
-          <button
-            onClick={() => setCreateOpen(true)}
-            className="flex items-center gap-1.5 rounded-xl bg-app-accent px-4 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-90 active:opacity-100"
-          >
-            <Plus className="w-4 h-4" />
-            حساب جديد
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          <div className="inline-flex items-center gap-1 rounded-full border border-app-separator bg-app-bg-secondary p-1">
+            <button
+              type="button"
+              onClick={() => handleViewChange("effected")}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                view === "effected"
+                  ? "bg-app-accent text-white"
+                  : "text-app-label-secondary hover:bg-app-fill-f1"
+              }`}
+            >
+              الحسابات الفعّالة فقط
+            </button>
+            <button
+              type="button"
+              onClick={() => handleViewChange("full")}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                view === "full"
+                  ? "bg-app-accent text-white"
+                  : "text-app-label-secondary hover:bg-app-fill-f1"
+              }`}
+            >
+              كل الحسابات
+            </button>
+          </div>
+
+          {canCreate && (
+            <button
+              onClick={() => setCreateOpen(true)}
+              className="flex items-center gap-1.5 rounded-xl bg-app-accent px-4 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-90 active:opacity-100"
+            >
+              <Plus className="w-4 h-4" />
+              حساب جديد
+            </button>
+          )}
+        </div>
       </div>
 
       <CreateAccountDialog
@@ -403,89 +421,6 @@ export const ChartOfAccountsPage: React.FC = () => {
         onClose={() => setDetailsAccountId(null)}
         accountId={detailsAccountId}
       />
-
-      <AccountEditDialog
-        open={Boolean(editingAccount)}
-        account={editingAccount}
-        onClose={() => setEditingAccount(null)}
-        onSubmit={async (payload) => {
-          if (!editingAccount) return;
-          try {
-            await updateAccountMutation.mutateAsync({ id: editingAccount.id, payload });
-            toast.success("تم تحديث الحساب بنجاح");
-            setEditingAccount(null);
-          } catch (err: unknown) {
-            if (isAxiosError(err)) {
-              toast.error(err.response?.data?.message ?? "فشل تحديث الحساب");
-            } else {
-              toast.error("فشل تحديث الحساب");
-            }
-          }
-        }}
-        isPending={updateAccountMutation.isPending}
-      />
-
-      <Dialog
-        open={Boolean(deletingAccount)}
-        onOpenChange={(o) => {
-          if (!o) setDeletingAccount(null);
-        }}
-      >
-        <DialogContent size="sm">
-          <DialogHeader>
-            <DialogTitle>تأكيد حذف الحساب</DialogTitle>
-            <DialogClose />
-          </DialogHeader>
-          <DialogBody className="space-y-3">
-            <p className="text-xs text-app-label-secondary">
-              هل أنت متأكد من حذف هذا الحساب؟ لا يمكن التراجع عن هذه العملية.
-            </p>
-            {deletingAccount && (
-              <div className="rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono font-bold text-app-status-danger text-sm">
-                    {deletingAccount.account_code}
-                  </span>
-                  <span className="text-xs font-bold text-app-status-danger">
-                    {ACCOUNT_TYPE_LABEL[deletingAccount.type]}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-app-label-primary">{deletingAccount.name}</p>
-              </div>
-            )}
-          </DialogBody>
-          <DialogFooter>
-            <button
-              type="button"
-              onClick={() => setDeletingAccount(null)}
-              className="rounded-xl px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
-            >
-              إلغاء
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                if (!deletingAccount) return;
-                try {
-                  await deleteAccountMutation.mutateAsync(deletingAccount.id);
-                  toast.success("تم حذف الحساب بنجاح");
-                  setDeletingAccount(null);
-                } catch (err: unknown) {
-                  if (isAxiosError(err)) {
-                    toast.error(err.response?.data?.message ?? "فشل حذف الحساب");
-                  } else {
-                    toast.error("فشل حذف الحساب");
-                  }
-                }
-              }}
-              disabled={deleteAccountMutation.isPending}
-              className="rounded-xl bg-app-status-danger px-5 py-2 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
-            >
-              {deleteAccountMutation.isPending ? "جارٍ الحذف…" : "حذف الحساب"}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
@@ -528,6 +463,15 @@ export const ChartOfAccountsPage: React.FC = () => {
                 >
                   <Maximize2 className="w-3.5 h-3.5" />
                   عرض مفصل
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/accounting/accounts/${selected.id}`)}
+                  className="flex items-center gap-1 rounded-lg border border-app-separator bg-app-bg-secondary px-2.5 py-1 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 hover:text-app-accent"
+                  title="فتح صفحة تفاصيل الحساب الكاملة"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  فتح كصفحة
                 </button>
                 <button
                   type="button"
