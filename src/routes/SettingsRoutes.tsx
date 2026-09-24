@@ -3,7 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { SectionTabsLayout } from "../components/ui/SectionTabs";
 import { CompanySettingsPage } from "../pages/settings/CompanySettingsPage";
 import { ReferenceLookupPage } from "../pages/settings/ReferenceLookupPage";
-import { REFERENCE_LOOKUPS } from "../config/referenceLookups";
+import { REFERENCE_LOOKUPS, WAREHOUSE_LOOKUPS } from "../config/referenceLookups";
 import { ProductsPage } from "../pages/settings/ProductsPage";
 import { RolesPage } from "../pages/settings/RolesPage";
 import { OperatingUnitsPage } from "../pages/admin/OperatingUnitsPage";
@@ -20,6 +20,11 @@ const PRODUCT_TABS = [
 /** One tab per reference list — add a config entry to add a tab + route. */
 const DATA_TABS = REFERENCE_LOOKUPS.map((lookup) => ({
   path: `/settings/data/${lookup.path}`,
+  label: lookup.title,
+}));
+
+const WAREHOUSE_TABS = WAREHOUSE_LOOKUPS.map((lookup) => ({
+  path: `/settings/warehouses/${lookup.path}`,
   label: lookup.title,
 }));
 
@@ -62,6 +67,18 @@ export const SettingsRoutes: React.FC = () => {
       <Route path="data" element={<SectionTabsLayout tabs={DATA_TABS} />}>
         <Route index element={<Navigate to={REFERENCE_LOOKUPS[0].path} replace />} />
         {REFERENCE_LOOKUPS.map((lookup) => (
+          <Route
+            key={lookup.key}
+            path={lookup.path}
+            element={<ReferenceLookupPage config={lookup} />}
+          />
+        ))}
+      </Route>
+
+      {/* 4 — Warehouse settings (dummy data until the API lands) */}
+      <Route path="warehouses" element={<SectionTabsLayout tabs={WAREHOUSE_TABS} />}>
+        <Route index element={<Navigate to={WAREHOUSE_LOOKUPS[0].path} replace />} />
+        {WAREHOUSE_LOOKUPS.map((lookup) => (
           <Route
             key={lookup.key}
             path={lookup.path}

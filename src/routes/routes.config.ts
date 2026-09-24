@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { REFERENCE_LOOKUPS } from "../config/referenceLookups";
+import { REFERENCE_LOOKUPS, WAREHOUSE_LOOKUPS } from "../config/referenceLookups";
 import {
   Armchair,
   BadgeDollarSign,
@@ -12,6 +12,7 @@ import {
   CalendarCheck2,
   CalendarOff,
   Database,
+  Warehouse,
   Droplets,
   Factory,
   Layers,
@@ -108,6 +109,7 @@ export const navItems: AppNavItem[] = [
   { id: "settings-company", path: "/settings/company", label: "إعدادات الشركة", icon: Building2, allowedRoles: ["owner", "admin"] },
   { id: "settings-products", path: "/settings/products", label: "إعدادات المنتجات", icon: Tags, allowedRoles: SETTINGS_ROLES },
   { id: "settings-data", path: "/settings/data", label: "إعدادات البيانات", icon: Database, allowedRoles: ["owner", "admin"] },
+  { id: "settings-warehouses", path: "/settings/warehouses", label: "إعدادات المخازن", icon: Warehouse, allowedRoles: SETTINGS_ROLES },
 ];
 
 export const getBreadcrumbEntries = (
@@ -191,6 +193,12 @@ export const getBreadcrumbEntries = (
         label: "إعدادات البيانات",
         pages: Object.fromEntries(
           REFERENCE_LOOKUPS.map((lookup) => [lookup.path, lookup.title]),
+        ),
+      },
+      warehouses: {
+        label: "إعدادات المخازن",
+        pages: Object.fromEntries(
+          WAREHOUSE_LOOKUPS.map((lookup) => [lookup.path, lookup.title]),
         ),
       },
     };

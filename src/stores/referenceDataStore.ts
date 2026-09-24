@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { LookupEntry, REFERENCE_LOOKUPS } from "../config/referenceLookups";
+import { ALL_LOOKUPS, LookupEntry } from "../config/referenceLookups";
 
 /**
  * TEMPORARY in-memory store behind every reference list under Settings
@@ -20,7 +20,7 @@ interface ReferenceDataState {
 }
 
 const seedEntries = (): Record<string, LookupEntry[]> =>
-  Object.fromEntries(REFERENCE_LOOKUPS.map((lookup) => [lookup.key, lookup.seed]));
+  Object.fromEntries(ALL_LOOKUPS.map((lookup) => [lookup.key, lookup.seed]));
 
 const nextId = (lookupKey: string): string =>
   `${lookupKey}-${Math.random().toString(36).slice(2, 9)}`;

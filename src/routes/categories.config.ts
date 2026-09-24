@@ -97,10 +97,10 @@ export const categoryGroups: CategoryGroup[] = [
   {
     id: "settings",
     label: "الإعدادات",
-    description: "إعدادات الشركة التعريفية، وإعدادات المنتجات والأصناف، والبيانات المرجعية مثل وحدات القياس",
+    description: "إعدادات الشركة التعريفية، والمنتجات والأصناف، والمخازن، والبيانات المرجعية مثل وحدات القياس",
     icon: Settings,
     path: "/hub/settings",
-    itemIds: ["settings-company", "settings-products", "settings-data"],
+    itemIds: ["settings-company", "settings-products", "settings-data", "settings-warehouses"],
     get items() {
       return findItems(this.itemIds);
     },
