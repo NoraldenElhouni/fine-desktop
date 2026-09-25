@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import { REFERENCE_LOOKUPS, WAREHOUSE_LOOKUPS } from "../config/referenceLookups";
 import {
   Armchair,
   BadgeDollarSign,
@@ -10,6 +11,8 @@ import {
   Building2,
   CalendarCheck2,
   CalendarOff,
+  Database,
+  Warehouse,
   Droplets,
   Factory,
   Layers,
@@ -22,6 +25,7 @@ import {
   ShieldCheck,
   ShoppingCart,
   Store,
+  Tags,
   UserCheck,
   Users,
   Truck,
@@ -53,6 +57,15 @@ export const ALL_MANAGER_ROLES = [
   "cutter-manager",
   "furniture-manager",
   "store-manager",
+  "unit_manager",
+  "manager",
+];
+
+export const SETTINGS_ROLES = [
+  "owner",
+  "admin",
+  "furniture-manager",
+  "assembler",
   "unit_manager",
   "manager",
 ];
@@ -93,6 +106,10 @@ export const navItems: AppNavItem[] = [
   { id: "fixed-assets", path: "/accounting/assets", label: "الأصول الثابتة", icon: Building, allowedRoles: ["owner", "admin", "accounting-manager"] },
   { id: "reports", path: "/reports", label: "التقارير المالية", icon: BarChart3, allowedRoles: ["owner", "admin", "accounting-manager", "treasury-officer", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"] },
   { id: "users", path: "/users", label: "المستخدمون والصلاحيات", icon: ShieldCheck, allowedRoles: ["owner", "admin"] },
+  { id: "settings-company", path: "/settings/company", label: "إعدادات الشركة", icon: Building2, allowedRoles: ["owner", "admin"] },
+  { id: "settings-products", path: "/settings/products", label: "إعدادات المنتجات", icon: Tags, allowedRoles: SETTINGS_ROLES },
+  { id: "settings-data", path: "/settings/data", label: "إعدادات البيانات", icon: Database, allowedRoles: ["owner", "admin"] },
+  { id: "settings-warehouses", path: "/settings/warehouses", label: "إعدادات المخازن", icon: Warehouse, allowedRoles: SETTINGS_ROLES },
 ];
 
 export const getBreadcrumbEntries = (
@@ -117,6 +134,7 @@ export const getBreadcrumbEntries = (
       hr: "الموارد البشرية",
       finance: "المالية والتقارير",
       admin: "إدارة النظام",
+      settings: "الإعدادات",
     };
     if (categoryId && categoryLabels[categoryId]) {
       entries.push({ path: normalizedPath, label: categoryLabels[categoryId] });
@@ -154,14 +172,47 @@ export const getBreadcrumbEntries = (
 
   if (normalizedPath.startsWith("/settings/")) {
     entries.push({ path: "/settings", label: "الإعدادات" });
-    if (normalizedPath.startsWith("/settings/items")) {
-      entries.push({ path: "/settings/items", label: "الأصناف" });
-    } else if (normalizedPath.startsWith("/settings/products")) {
-      entries.push({ path: "/settings/products", label: "المنتجات وقوائم المواد" });
-    } else if (normalizedPath.startsWith("/settings/roles")) {
-      entries.push({ path: "/settings/roles", label: "الأدوار والصلاحيات" });
-    } else if (normalizedPath.startsWith("/settings/units")) {
-      entries.push({ path: "/settings/units", label: "الوحدات التشغيلية" });
+
+    const settingsSections: Record<string, { label: string; pages: Record<string, string> }> = {
+      company: {
+        label: "إعدادات الشركة",
+        pages: {
+          profile: "بيانات الشركة",
+          roles: "الأدوار والصلاحيات",
+          units: "الوحدات التشغيلية",
+        },
+      },
+      products: {
+        label: "إعدادات المنتجات",
+        pages: {
+          items: "الأصناف",
+          categories: "الفئات والخصائص",
+          catalog: "المنتجات وقوائم المواد",
+        },
+      },
+      data: {
+        label: "إعدادات البيانات",
+        pages: Object.fromEntries(
+          REFERENCE_LOOKUPS.map((lookup) => [lookup.path, lookup.title]),
+        ),
+      },
+      warehouses: {
+        label: "إعدادات المخازن",
+        pages: Object.fromEntries(
+          WAREHOUSE_LOOKUPS.map((lookup) => [lookup.path, lookup.title]),
+        ),
+      },
+    };
+
+    const [, , sectionId, pageId] = normalizedPath.split("/");
+    const section = sectionId ? settingsSections[sectionId] : undefined;
+
+    if (section) {
+      entries.push({ path: `/settings/${sectionId}`, label: section.label });
+      const pageLabel = pageId ? section.pages[pageId] : undefined;
+      if (pageLabel) {
+        entries.push({ path: `/settings/${sectionId}/${pageId}`, label: pageLabel });
+      }
     }
   }
 

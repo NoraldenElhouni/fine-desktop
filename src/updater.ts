@@ -198,7 +198,9 @@ function downloadDirectFile(
         });
 
         fileStream.on("error", (err) => {
-          fs.unlink(destPath, () => {});
+          fs.unlink(destPath, (unlinkErr) => {
+            if (unlinkErr) log.warn("Failed to cleanup partial download:", unlinkErr);
+          });
           getMainWindow()?.webContents.send("update:error", err.message);
           resolve({ success: false, message: err.message });
         });
