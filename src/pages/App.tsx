@@ -23,7 +23,6 @@ import BlueprintsRoutes from "../routes/BlueprintsRoutes";
 import { InventoryRoutes } from "../routes/InventoryRoutes";
 import { ManufacturingRoutes } from "../routes/ManufacturingRoutes";
 import { CutterRoutes } from "../routes/CutterRoutes";
-import { FurnitureRoutes } from "../routes/FurnitureRoutes";
 import { SalesRoutes } from "../routes/SalesRoutes";
 import { AccountingRoutes } from "../routes/AccountingRoutes";
 import { HrRoutes } from "../routes/HrRoutes";
@@ -244,14 +243,6 @@ const App = () => {
               element={
                 <AuthorizedRoute allowedRoles={["owner", "admin", "cutter-manager", "cutter-operator", "unit_manager", "manager"]}>
                   <CutterRoutes />
-                </AuthorizedRoute>
-              }
-            />
-            <Route
-              path="furniture/*"
-              element={
-                <AuthorizedRoute allowedRoles={["owner", "admin", "furniture-manager", "assembler", "unit_manager", "manager"]}>
-                  <FurnitureRoutes />
                 </AuthorizedRoute>
               }
             />

@@ -4,11 +4,8 @@ import {
   useCreateInventoryItem,
   useUpdateInventoryItem,
 } from "../../hooks/useInventory";
-import {
-  useItemCategories,
-  useAttributeLibrary,
-} from "../../hooks/useCategories";
-import { Package, Plus, Search, Filter, Sliders, Layers, Calculator } from "lucide-react";
+import { useItemCategories } from "../../hooks/useCategories";
+import { Package, Plus, Search, Filter, Layers, Calculator } from "lucide-react";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import {
   Dialog,
@@ -43,9 +40,6 @@ export const InventoryItemsPage: React.FC = () => {
   const [hasContainerTracking, setHasContainerTracking] = useState(false);
   const [primaryUom, setPrimaryUom] = useState("");
   const [containerCapacity, setContainerCapacity] = useState("");
-  const [selectedAttributeIds, setSelectedAttributeIds] = useState<string[]>(
-    [],
-  );
 
   const { data: itemData, isLoading } = useInventoryItems({
     search: searchTerm || undefined,
@@ -54,24 +48,8 @@ export const InventoryItemsPage: React.FC = () => {
   });
 
   const { data: categories } = useItemCategories();
-  const { data: attributeLibrary } = useAttributeLibrary();
   const createItemMutation = useCreateInventoryItem();
   const updateItemMutation = useUpdateInventoryItem();
-
-  const toggleAttribute = (id: string) => {
-    setSelectedAttributeIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
-    );
-  };
-
-  // Nothing to assign until a category is picked; then show attributes scoped
-  // to it plus any with no category (the global library, which applies everywhere).
-  const filteredAttributes = useMemo(() => {
-    if (!attributeLibrary || !categoryId) return [];
-    return attributeLibrary.filter(
-      (attr) => !attr.category_id || attr.category_id === categoryId,
-    );
-  }, [attributeLibrary, categoryId]);
 
   const handleCategoryChange = (nextCategoryId: string) => {
     setCategoryId(nextCategoryId);
@@ -81,16 +59,6 @@ export const InventoryItemsPage: React.FC = () => {
     if (matchedCategory?.item_type) {
       setItemType(matchedCategory.item_type as InventoryItem["item_type"]);
     }
-
-    // Drop any already-picked attribute that no longer applies under the new category.
-    setSelectedAttributeIds((prev) =>
-      prev.filter((id) => {
-        const attr = attributeLibrary?.find((a) => a.id === id);
-        return (
-          !attr || !attr.category_id || attr.category_id === nextCategoryId
-        );
-      }),
-    );
   };
 
   const openCreateModal = () => {
@@ -104,7 +72,6 @@ export const InventoryItemsPage: React.FC = () => {
     setHasContainerTracking(false);
     setPrimaryUom("");
     setContainerCapacity("");
-    setSelectedAttributeIds([]);
     setError(null);
     setIsModalOpen(true);
   };
@@ -121,7 +88,6 @@ export const InventoryItemsPage: React.FC = () => {
     setHasContainerTracking(hasContainers);
     setPrimaryUom(item.primary_uom ?? "");
     setContainerCapacity(item.container_capacity ? String(item.container_capacity) : "");
-    setSelectedAttributeIds(item.attribute_definitions?.map((a) => a.id) ?? []);
     setError(null);
     setIsModalOpen(true);
   };
@@ -140,7 +106,6 @@ export const InventoryItemsPage: React.FC = () => {
       primary_uom: hasContainerTracking ? (primaryUom.trim() || undefined) : null,
       secondary_uom: hasContainerTracking ? uom : null,
       container_capacity: hasContainerTracking && parsedCapacity && parsedCapacity > 0 ? parsedCapacity : null,
-      attribute_definition_ids: selectedAttributeIds,
     };
 
     try {
@@ -484,49 +449,6 @@ export const InventoryItemsPage: React.FC = () => {
                           </span>
                         </div>
                       )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Product Attributes Many-to-Many Assignment */}
-              <div className="space-y-2 p-3 bg-app-bg-secondary rounded-xl border border-app-separator">
-                <label className="text-xs font-semibold text-app-label-primary uppercase flex items-center gap-1.5">
-                  <Sliders className="w-3.5 h-3.5 text-app-accent" /> إسناد
-                  خصائص المنتج
-                </label>
-                <div className="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto">
-                  {filteredAttributes.map((attr) => {
-                    const isChecked = selectedAttributeIds.includes(attr.id);
-                    return (
-                      <label
-                        key={attr.id}
-                        className={`flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-all ${
-                          isChecked
-                            ? "border-app-accent bg-app-accent-subtle text-app-accent font-bold"
-                            : "border-app-separator bg-app-bg-primary text-app-label-primary"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleAttribute(attr.id)}
-                          className="rounded border-app-separator text-app-accent focus:ring-app-accent"
-                        />
-                        <span className="truncate">
-                          {attr.name}{" "}
-                          {attr.unit_of_measure
-                            ? `(${attr.unit_of_measure})`
-                            : ""}
-                        </span>
-                      </label>
-                    );
-                  })}
-                  {filteredAttributes.length === 0 && (
-                    <div className="col-span-2 text-xs text-app-label-tertiary text-center py-2">
-                      {categoryId
-                        ? "لا توجد خصائص معرّفة لهذه الفئة بعد. أضفها من إدارة قوالب الفئات والخصائص."
-                        : "اختر فئة الصنف أولاً لعرض خصائصها."}
                     </div>
                   )}
                 </div>

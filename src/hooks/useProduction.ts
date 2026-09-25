@@ -2,7 +2,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   productionApi,
   BlockGroupInput,
-  ConsumptionLineInput,
   CreateBatchInput,
   ProductionBatch,
   ProductionBatchStatus,
@@ -103,40 +102,6 @@ export function useTransitionBatch() {
       queryClient.invalidateQueries({ queryKey: ["productionBatches"] });
       // Closing a batch apportions cost onto its blocks.
       queryClient.invalidateQueries({ queryKey: ["batchBlocks", variables.id] });
-      queryClient.invalidateQueries({ queryKey: ["inventoryValuation"] });
-    },
-  });
-}
-
-export function useConsumptionReport(batchId?: string) {
-  return useQuery({
-    queryKey: ["consumptionReport", batchId],
-    queryFn: async () => {
-      try {
-        const res = await productionApi.getConsumptionReport(batchId as string);
-        return res.data;
-      } catch (err) {
-        // A run that has not reported yet is a normal state, not an error.
-        if ((err as { response?: { status?: number } })?.response?.status === 404) {
-          return null;
-        }
-        throw err;
-      }
-    },
-    enabled: Boolean(batchId),
-    retry: false,
-  });
-}
-
-export function useRecordConsumption() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, lines }: { id: string; lines: ConsumptionLineInput[] }) =>
-      productionApi.recordConsumption(id, lines),
-    onSuccess: (_res, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["consumptionReport", variables.id] });
-      queryClient.invalidateQueries({ queryKey: ["productionBatch", variables.id] });
-      queryClient.invalidateQueries({ queryKey: ["tankStocks"] });
       queryClient.invalidateQueries({ queryKey: ["inventoryValuation"] });
     },
   });

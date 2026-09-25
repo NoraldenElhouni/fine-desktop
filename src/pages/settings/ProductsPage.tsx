@@ -1,16 +1,8 @@
 import React, { useEffect, useState } from "react";
-import {
-  Armchair, Plus, AlertTriangle, Copy, CheckCircle2, Trash2, Ruler, HardHat, Tag, PackagePlus,
-} from "lucide-react";
-import {
-  useProducts, useCreateProduct, useProductBoms, useCreateBom, useActivateBom, useCloneBom,
-  usePricePreview, useAddComponentLine, useRemoveComponentLine,
-  useAddLaborRequirement, useRemoveLaborRequirement,
-} from "../../hooks/useFurniture";
+import { Armchair, Plus, AlertTriangle, PackagePlus } from "lucide-react";
+import { useProducts, useCreateProduct } from "../../hooks/useFurniture";
 import { useInventoryItems, useCreateInventoryItem } from "../../hooks/useInventory";
-import { Bom } from "../../api/endpoints/furniture";
 import { apiErrorPayload } from "../../api/endpoints/production";
-import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { InventoryItem } from "../../api/endpoints/inventory";
@@ -20,18 +12,7 @@ const num = (v: string): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
-const LABOR_ROLE_LABEL: Record<string, string> = {
-  tailor: "خياط",
-  carpenter: "نجار",
-  upholsterer: "منجّد",
-  assembler: "مُجمِّع",
-  operator: "مشغّل",
-  other: "أخرى",
-};
-
 export const ProductsPage: React.FC = () => {
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const [selectedBomId, setSelectedBomId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [showCreateItem, setShowCreateItem] = useState(false);
@@ -40,28 +21,12 @@ export const ProductsPage: React.FC = () => {
   const [form, setForm] = useState({ name: "", sku: "", inventory_item_id: "", markup_factor: "1.25" });
   const [triedSubmit, setTriedSubmit] = useState(false);
 
-  const [compForm, setCompForm] = useState({ item: "", qty: "1", cost: "0" });
-  const [laborForm, setLaborForm] = useState({ role: "tailor", hours: "1", rate: "0" });
-
   const { data: products, isLoading } = useProducts();
   const { data: finishedItems, refetch: refetchFinishedItems } =
     useInventoryItems({ item_type: "furniture_finished_good" });
-  const { data: allItems } = useInventoryItems({});
-  const { data: boms } = useProductBoms(selectedProductId ?? undefined);
-  const { data: preview } = usePricePreview(selectedBomId ?? undefined);
 
   const createProduct = useCreateProduct();
   const createInventoryItem = useCreateInventoryItem();
-  const createBom = useCreateBom();
-  const activateBom = useActivateBom();
-  const cloneBom = useCloneBom();
-  const addComponent = useAddComponentLine();
-  const removeComponent = useRemoveComponentLine();
-  const addLabor = useAddLaborRequirement();
-  const removeLabor = useRemoveLaborRequirement();
-
-  const selectedProduct = products?.data.find((p) => p.id === selectedProductId);
-  const selectedBom: Bom | undefined = boms?.find((b) => b.id === selectedBomId);
 
   const finishedOptions: InventoryItem[] = finishedItems?.data ?? [];
   const hasFinishedOptions = finishedOptions.length > 0;
@@ -141,10 +106,10 @@ export const ProductsPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-app-label-primary flex items-center gap-2">
             <Armchair className="w-7 h-7 text-app-accent" />
-            المنتجات وقوائم المواد (BOM)
+            المنتجات
           </h1>
           <p className="text-xs text-app-label-secondary mt-1">
-            قائمة مواد واحدة نشطة لكل منتج. التقديرات هنا تُغذّي عرض السعر؛ أما التكلفة الفعلية فتُحتسب من الدفعات المستهلكة عند تنفيذ الطلب.
+            كتالوج المنتجات القابلة للبيع، كل منتج مرتبط بصنف مخزون تام.
           </p>
         </div>
         <button
@@ -162,342 +127,32 @@ export const ProductsPage: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Catalog */}
-        <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm overflow-hidden">
-          <div className="border-b border-app-separator px-4 py-3">
-            <h2 className="text-sm font-bold text-app-label-primary">الكتالوج</h2>
-          </div>
-          {isLoading ? (
-            <div className="p-8 text-center text-xs text-app-label-secondary">جاري التحميل…</div>
-          ) : (
-            <div className="divide-y divide-app-separator">
-              {products?.data.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => {
-                    setSelectedProductId(p.id);
-                    setSelectedBomId(p.active_bom?.id ?? null);
-                  }}
-                  className={`w-full text-start px-4 py-3 hover:bg-app-fill-f1 transition-colors ${
-                    selectedProductId === p.id ? "bg-app-accent-tint" : ""
-                  }`}
-                >
-                  <div className="text-sm font-semibold text-app-label-primary">{p.name}</div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs font-mono text-app-label-tertiary">{p.sku}</span>
-                    {p.active_bom ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-app-accent-subtle text-app-accent font-semibold">
-                        <CheckCircle2 className="w-3 h-3" /> BOM v{p.active_bom.version}
-                      </span>
-                    ) : (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-app-status-yellow/15 text-app-status-yellow font-semibold">
-                        لا توجد قائمة مواد نشطة
-                      </span>
-                    )}
-                  </div>
-                </button>
-              ))}
-              {products?.data.length === 0 && (
-                <div className="p-8 text-center text-xs text-app-label-tertiary">لا توجد منتجات بعد.</div>
-              )}
-            </div>
-          )}
+      <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm overflow-hidden">
+        <div className="border-b border-app-separator px-4 py-3">
+          <h2 className="text-sm font-bold text-app-label-primary">الكتالوج</h2>
         </div>
-
-        {/* BOM editor */}
-        <div className="lg:col-span-2 space-y-4">
-          {!selectedProduct ? (
-            <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm p-12 text-center text-xs text-app-label-tertiary">
-              اختر منتجاً لتعديل قوائم مواده.
-            </div>
-          ) : (
-            <>
-              {/* Version strip */}
-              <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  {boms?.map((b) => (
-                    <button
-                      key={b.id}
-                      onClick={() => setSelectedBomId(b.id)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                        selectedBomId === b.id
-                          ? "bg-app-accent text-white"
-                          : b.is_active
-                            ? "bg-app-accent-subtle text-app-accent"
-                            : "bg-app-fill-f1 text-app-label-secondary hover:bg-app-fill-f2"
-                      }`}
-                    >
-                      v{b.version}
-                      {b.is_active && " ●"}
-                    </button>
-                  ))}
-
-                  <div className="ms-auto flex gap-2">
-                    <button
-                      onClick={() =>
-                        createBom.mutate(
-                          { product_id: selectedProduct.id, activate: (boms?.length ?? 0) === 0 },
-                          { onError: (e) => fail(e, "تعذر إنشاء قائمة المواد.") },
-                        )
-                      }
-                      className="flex items-center gap-1 rounded-xl border border-app-separator bg-app-bg-secondary px-2.5 py-1.5 text-xs font-semibold hover:bg-app-fill-f1"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> إصدار جديد
-                    </button>
-                    {selectedBom && (
-                      <>
-                        <button
-                          onClick={() =>
-                            cloneBom.mutate(selectedBom.id, { onError: (e) => fail(e, "تعذر النسخ.") })
-                          }
-                          className="flex items-center gap-1 rounded-xl border border-app-separator bg-app-bg-secondary px-2.5 py-1.5 text-xs font-semibold hover:bg-app-fill-f1"
-                        >
-                          <Copy className="w-3.5 h-3.5" /> نسخ
-                        </button>
-                        {!selectedBom.is_active && (
-                          <button
-                            onClick={() =>
-                              activateBom.mutate(selectedBom.id, {
-                                onError: (e) => fail(e, "تعذر التفعيل."),
-                              })
-                            }
-                            className="flex items-center gap-1 rounded-xl bg-app-accent px-2.5 py-1.5 text-xs font-bold text-white hover:opacity-90"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" /> تفعيل
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
+        {isLoading ? (
+          <div className="p-8 text-center text-xs text-app-label-secondary">جاري التحميل…</div>
+        ) : (
+          <div className="divide-y divide-app-separator">
+            {products?.data.map((p) => (
+              <div key={p.id} className="w-full text-start px-4 py-3">
+                <div className="text-sm font-semibold text-app-label-primary">{p.name}</div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xs font-mono text-app-label-tertiary">{p.sku}</span>
+                  {p.inventory_item?.sku && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-app-fill-f1 text-app-label-secondary font-semibold">
+                      {p.inventory_item.sku}
+                    </span>
+                  )}
                 </div>
               </div>
-
-              {selectedBom && (
-                <>
-                  {/* Components */}
-                  <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
-                    <div className="border-b border-app-separator px-4 py-3 flex items-center gap-2">
-                      <Ruler className="w-4 h-4 text-app-accent" />
-                      <h3 className="text-sm font-bold text-app-label-primary">المكوّنات</h3>
-                    </div>
-                    <div className="divide-y divide-app-separator">
-                      {selectedBom.component_lines?.map((l) => (
-                        <div key={l.id} className="flex items-center gap-3 px-4 py-2 text-xs">
-                          <span className="font-semibold text-app-label-primary flex-1">
-                            {l.inventory_item?.name}
-                            <span className="text-app-label-tertiary font-mono ms-2">
-                              {l.inventory_item?.sku}
-                            </span>
-                          </span>
-                          <span className="font-mono">× {Number(l.quantity)}</span>
-                          <span className="font-mono text-app-label-secondary">
-                            تقديري {formatNumber(l.estimated_unit_cost)}
-                          </span>
-                          <button
-                            onClick={() =>
-                              removeComponent.mutate(
-                                { bomId: selectedBom.id, lineId: l.id },
-                                { onError: (e) => fail(e, "تعذر إزالة المكوّن.") },
-                              )
-                            }
-                            className="p-1 rounded-lg text-app-label-tertiary hover:text-app-status-danger hover:bg-app-fill-f1"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="border-t border-app-separator p-3 flex flex-wrap gap-2 items-end">
-                      <div className="flex-1 min-w-40">
-                        <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">المكوّن</label>
-                        <SearchableSelect<InventoryItem>
-                          options={allItems?.data ?? []}
-                          value={
-                            allItems?.data.find((i) => i.id === compForm.item) ??
-                            null
-                          }
-                          onChange={(i) =>
-                            setCompForm({ ...compForm, item: i ? i.id : "" })
-                          }
-                          getOptionId={(i) => i.id}
-                          getOptionLabel={(i) => i.name}
-                          getOptionSubLabel={(i) => i.sku}
-                          getOptionSearchText={(i) => `${i.name} ${i.sku}`}
-                          placeholder="إضافة مكوّن…"
-                          size="sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">الكمية</label>
-                        <input
-                          type="number" step="0.01" min="0.01" placeholder="0.01"
-                          value={compForm.qty}
-                          onChange={(e) => setCompForm({ ...compForm, qty: e.target.value })}
-                          className="w-20 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">التكلفة التقديرية (LYD)</label>
-                        <input
-                          type="number" step="0.01" min="0" placeholder="0.00"
-                          value={compForm.cost}
-                          onChange={(e) => setCompForm({ ...compForm, cost: e.target.value })}
-                          className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
-                        />
-                      </div>
-                      <button
-                        disabled={!compForm.item || num(compForm.qty) <= 0}
-                        onClick={() =>
-                          addComponent.mutate(
-                            {
-                              bomId: selectedBom.id,
-                              data: {
-                                inventory_item_id: compForm.item,
-                                quantity: num(compForm.qty),
-                                estimated_unit_cost: num(compForm.cost),
-                              },
-                            },
-                            {
-                              onSuccess: () => setCompForm({ item: "", qty: "1", cost: "0" }),
-                              onError: (e) => fail(e, "تعذر إضافة المكوّن."),
-                            },
-                          )
-                        }
-                        className="rounded-xl bg-app-accent px-3 py-1.5 text-xs font-bold text-white disabled:opacity-40"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Labor */}
-                  <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
-                    <div className="border-b border-app-separator px-4 py-3 flex items-center gap-2">
-                      <HardHat className="w-4 h-4 text-app-accent" />
-                      <h3 className="text-sm font-bold text-app-label-primary">العمالة</h3>
-                    </div>
-                    <div className="divide-y divide-app-separator">
-                      {selectedBom.labor_requirements?.map((r) => (
-                        <div key={r.id} className="flex items-center gap-3 px-4 py-2 text-xs">
-                          <span className="font-semibold text-app-label-primary flex-1">{LABOR_ROLE_LABEL[r.role] ?? r.role}</span>
-                          <span className="font-mono">{Number(r.estimated_hours)} ساعة</span>
-                          <span className="font-mono text-app-label-secondary">
-                            {formatNumber(r.hourly_rate)}/ساعة
-                          </span>
-                          <button
-                            onClick={() =>
-                              removeLabor.mutate(
-                                { bomId: selectedBom.id, reqId: r.id },
-                                { onError: (e) => fail(e, "تعذر إزالة سطر العمالة.") },
-                              )
-                            }
-                            className="p-1 rounded-lg text-app-label-tertiary hover:text-app-status-danger hover:bg-app-fill-f1"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="border-t border-app-separator p-3 flex flex-wrap gap-2 items-end">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">الدور / المهنة</label>
-                        <select
-                          value={laborForm.role}
-                          onChange={(e) => setLaborForm({ ...laborForm, role: e.target.value })}
-                          className="px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
-                        >
-                          {["tailor", "carpenter", "upholsterer", "assembler", "operator", "other"].map((r) => (
-                            <option key={r} value={r}>{LABOR_ROLE_LABEL[r]}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">الساعات التقديرية</label>
-                        <input
-                          type="number" step="0.5" min="0.5" placeholder="1"
-                          value={laborForm.hours}
-                          onChange={(e) => setLaborForm({ ...laborForm, hours: e.target.value })}
-                          className="w-20 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">الأجر بالساعة (LYD)</label>
-                        <input
-                          type="number" step="0.5" min="0" placeholder="0.00"
-                          value={laborForm.rate}
-                          onChange={(e) => setLaborForm({ ...laborForm, rate: e.target.value })}
-                          className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
-                        />
-                      </div>
-                      <button
-                        disabled={num(laborForm.hours) <= 0}
-                        onClick={() =>
-                          addLabor.mutate(
-                            {
-                              bomId: selectedBom.id,
-                              data: {
-                                role: laborForm.role,
-                                estimated_hours: num(laborForm.hours),
-                                hourly_rate: num(laborForm.rate),
-                              },
-                            },
-                            {
-                              onSuccess: () => setLaborForm({ role: "tailor", hours: "1", rate: "0" }),
-                              onError: (e) => fail(e, "تعذر إضافة سطر العمالة."),
-                            },
-                          )
-                        }
-                        className="rounded-xl bg-app-accent px-3 py-1.5 text-xs font-bold text-white disabled:opacity-40"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Price preview */}
-                  {preview && (
-                    <div className="rounded-2xl border border-app-accent/40 bg-app-accent-tint p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Tag className="w-4 h-4 text-app-accent" />
-                        <h3 className="text-sm font-bold text-app-label-primary">معاينة السعر</h3>
-                        <span className="text-[10px] text-app-label-tertiary">
-                          تقديرات فقط — التكلفة الفعلية تُحتسب من الدفعات المستهلكة
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                        <div>
-                          <div className="text-app-label-secondary">المواد</div>
-                          <div className="font-mono font-bold text-app-label-primary">
-                            {formatNumber(preview.estimated_material_cost)}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-app-label-secondary">العمالة</div>
-                          <div className="font-mono font-bold text-app-label-primary">
-                            {formatNumber(preview.estimated_labor_cost)}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-app-label-secondary">الإجمالي × {preview.markup_factor}</div>
-                          <div className="font-mono font-bold text-app-label-primary">
-                            {formatNumber(preview.estimated_total_cost)}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-app-label-secondary">السعر المقترح</div>
-                          <div className="font-mono font-bold text-app-accent">
-                            {formatNumber(preview.suggested_price)} LYD
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </>
-          )}
-        </div>
+            ))}
+            {products?.data.length === 0 && (
+              <div className="p-8 text-center text-xs text-app-label-tertiary">لا توجد منتجات بعد.</div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Create product modal */}

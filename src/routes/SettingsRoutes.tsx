@@ -14,7 +14,7 @@ import { usePermissions } from "../hooks/usePermissions";
 const PRODUCT_TABS = [
   { path: "/settings/products/items", label: "الأصناف" },
   { path: "/settings/products/categories", label: "الفئات والخصائص" },
-  { path: "/settings/products/catalog", label: "المنتجات وقوائم المواد" },
+  { path: "/settings/products/catalog", label: "المنتجات" },
 ];
 
 /** One tab per reference list — add a config entry to add a tab + route. */

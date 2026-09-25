@@ -1,7 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { REFERENCE_LOOKUPS, WAREHOUSE_LOOKUPS } from "../config/referenceLookups";
 import {
-  Armchair,
   BadgeDollarSign,
   Banknote,
   BarChart3,
@@ -90,7 +89,6 @@ export const navItems: AppNavItem[] = [
     allowedRoles: ["owner", "admin", "foam-manager", "foam-operator", "unit_manager", "manager"],
   },
   { id: "cutter", path: "/cutter/orders", label: "التقطيع", icon: Scissors, allowedRoles: ["owner", "admin", "cutter-manager", "cutter-operator", "unit_manager", "manager"] },
-  { id: "furniture", path: "/furniture/orders", label: "الأثاث", icon: Armchair, allowedRoles: ["owner", "admin", "furniture-manager", "assembler", "unit_manager", "manager"] },
   { id: "material-requests", path: "/material-requests", label: "طلبات المواد (MRs)", icon: PackageCheck, allowedRoles: ["owner", "admin", "furniture-manager", "cutter-manager", "foam-manager", "unit_manager", "manager"] },
   { id: "sales", path: "/sales/orders", label: "المبيعات", icon: ShoppingCart, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "unit_manager", "manager"] },
   { id: "pos", path: "/sales/pos", label: "نقطة البيع", icon: Store, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "unit_manager", "manager"] },
@@ -163,7 +161,6 @@ export const getBreadcrumbEntries = (
     normalizedPath.startsWith("/inventory/") ||
     normalizedPath.startsWith("/manufacturing/batches/") ||
     normalizedPath.startsWith("/cutter/orders/") ||
-    normalizedPath.startsWith("/furniture/orders/") ||
     normalizedPath.startsWith("/sales/orders/") ||
     normalizedPath.startsWith("/accounting/accounts/")
   ) {
@@ -187,7 +184,7 @@ export const getBreadcrumbEntries = (
         pages: {
           items: "الأصناف",
           categories: "الفئات والخصائص",
-          catalog: "المنتجات وقوائم المواد",
+          catalog: "المنتجات",
         },
       },
       data: {

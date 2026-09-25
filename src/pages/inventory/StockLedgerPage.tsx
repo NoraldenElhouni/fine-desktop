@@ -138,9 +138,9 @@ export const StockLedgerPage: React.FC = () => {
             <CheckCircle className="w-6 h-6" />
           </div>
           <div>
-            <div className="text-xs uppercase font-semibold text-app-label-secondary">خزانات المواد الكيميائية السائبة</div>
+            <div className="text-xs uppercase font-semibold text-app-label-secondary">إجمالي أصناف المخزون</div>
             <div className="text-xl font-bold text-app-label-primary">
-              {valuation?.total_tanks || 0} خزان
+              {itemData?.total || 0} صنف
             </div>
           </div>
         </div>

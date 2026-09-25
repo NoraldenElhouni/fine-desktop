@@ -54,23 +54,6 @@ export function useInventoryItemsColumns({ onEdit }: UseInventoryItemsColumnsArg
         },
       },
       {
-        id: "attributes",
-        header: "الخصائص المسندة",
-        enableSorting: false,
-        cell: ({ row }) =>
-          row.original.attribute_definitions && row.original.attribute_definitions.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {row.original.attribute_definitions.map((attr) => (
-                <span key={attr.id} className="px-2 py-0.5 text-[10px] font-medium rounded bg-app-bg-secondary border border-app-separator text-app-label-primary">
-                  {attr.name} ({attr.unit_of_measure || attr.data_type})
-                </span>
-              ))}
-            </div>
-          ) : (
-            <span className="text-app-label-tertiary text-[10px]">لا توجد خصائص</span>
-          ),
-      },
-      {
         id: "uom",
         header: "وحدة القياس والتعبئة",
         enableSorting: false,

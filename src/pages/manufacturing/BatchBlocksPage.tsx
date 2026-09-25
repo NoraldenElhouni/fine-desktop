@@ -1,19 +1,16 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, Boxes, Plus, AlertTriangle, Save, Beaker, ChevronLeft, Info } from "lucide-react";
+import { ArrowRight, Boxes, Plus, AlertTriangle, Save, ChevronLeft, Info } from "lucide-react";
 import {
   useProductionBatch,
   useBatchBlocks,
   useRegisterBlocks,
   useTransitionBatch,
-  useConsumptionReport,
-  useRecordConsumption,
 } from "../../hooks/useProduction";
 import { useInventoryItems, useUpdateStockLot } from "../../hooks/useInventory";
 import { useWarehouses } from "../../hooks/useWarehouses";
 import {
   BlockGroupInput,
-  ConsumptionLineInput,
   apiErrorPayload,
   BLOCK_ENTRY_STATES,
   NEXT_STATUS,
@@ -21,10 +18,8 @@ import {
 import { InventoryItem, StockLot } from "../../api/endpoints/inventory";
 import { toast } from "../../stores/toastStore";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
-import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
-import { useChemicalConsumptionColumns } from "../../components/table-columns/chemicalConsumptionColumns";
 import { useBatchDraftRowsColumns } from "../../components/table-columns/batchDraftRowsColumns";
 import { useRegisteredBlocksColumns } from "../../components/table-columns/registeredBlocksColumns";
 
@@ -101,16 +96,11 @@ export const BatchBlocksPage: React.FC = () => {
   const { data: batch, isLoading: batchLoading } = useProductionBatch(batchId);
   const { data: blocks, isLoading: blocksLoading } = useBatchBlocks(batchId);
   const { data: itemData } = useInventoryItems({ item_type: "foam_block" });
-  const { data: chemicalData } = useInventoryItems({ item_type: "raw_material" });
   const { data: scrapItems } = useInventoryItems({ item_type: "byproduct_fill" });
   const { data: warehouses } = useWarehouses();
-  const { data: consumption } = useConsumptionReport(batchId);
   const registerMutation = useRegisterBlocks();
   const transitionMutation = useTransitionBatch();
-  const consumptionMutation = useRecordConsumption();
   const updateStockLotMutation = useUpdateStockLot();
-
-  const [chemLines, setChemLines] = useState<Record<string, string>>({});
 
   const [rows, setRows] = useState<DraftRow[]>([newRow()]);
   const [itemId, setItemId] = useState("");
@@ -135,8 +125,6 @@ export const BatchBlocksPage: React.FC = () => {
   const acceptsBlocks = batch ? BLOCK_ENTRY_STATES.includes(batch.status) : false;
   const nextStatus = batch ? NEXT_STATUS[batch.status] : null;
 
-  // Nothing to consume yet while the machine is only planned/configured.
-  const showConsumption = batch ? batch.status !== "planned" && batch.status !== "configured" : false;
   // Once blocks exist they stay visible through grading and after close.
   const showRegisteredBlocks = batch
     ? acceptsBlocks || batch.status === "closed"
@@ -307,38 +295,6 @@ export const BatchBlocksPage: React.FC = () => {
     );
   };
 
-  const submitConsumption = () => {
-    if (!batchId) return;
-    setError(null);
-
-    const lines: ConsumptionLineInput[] = Object.entries(chemLines)
-      .filter(([, v]) => v !== "")
-      .map(([id, v]) => ({ chemical_inventory_item_id: id, quantity_consumed: num(v) }));
-
-    if (lines.length === 0) return;
-
-    consumptionMutation.mutate(
-      { id: batchId, lines },
-      {
-        onSuccess: () => setChemLines({}),
-        onError: (err: unknown) =>
-          setError(apiErrorPayload(err)?.message ?? "تعذر تسجيل الاستهلاك."),
-      },
-    );
-  };
-
-  // Chemical consumption report — a handful of lines per batch, no search/pagination needed.
-  const consumptionColumns = useChemicalConsumptionColumns();
-  const consumptionTableData = useMemo(() => consumption?.report.lines ?? [], [consumption]);
-  const consumptionTable = useDataTable({
-    columns: consumptionColumns,
-    data: consumptionTableData,
-    enableSorting: false,
-    enableGlobalFilter: false,
-    enablePagination: false,
-    getRowId: (l) => l.id,
-  });
-
   // Draft registration rows — a small, user-built list (typically 1-5 rows) edited inline
   // before submit, so no search/pagination/sorting here either.
   const draftColumns = useBatchDraftRowsColumns({
@@ -453,67 +409,6 @@ export const BatchBlocksPage: React.FC = () => {
           <p className="mt-0.5 text-app-label-secondary">{STATUS_INFO[batch.status]}</p>
         </div>
       </div>
-
-      {/* Chemical consumption — nothing to consume before the machine has run */}
-      {showConsumption && (
-        <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
-          <div className="border-b border-app-separator px-4 py-3 flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-bold text-app-label-primary">استهلاك المواد الكيميائية</h2>
-              <p className="text-xs text-app-label-secondary mt-0.5">
-                يُسحب من مخزون الخزان بمتوسط تكلفة الخزان الحالي، بلقطة لحظية عند هذه العملية.
-              </p>
-            </div>
-            {consumption && (
-              <span className="text-xs font-mono text-app-label-secondary">
-                تكلفة المواد: {formatNumber(consumption.material_cost)} LYD
-              </span>
-            )}
-          </div>
-
-          {consumption ? (
-            <DataTable table={consumptionTable} className="rounded-none border-0 shadow-none bg-transparent">
-              <DataTable.Content emptyMessage="لا توجد بنود استهلاك." emptyIcon={Beaker} />
-            </DataTable>
-          ) : batch.status === "running" ? (
-            <div className="p-4 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {chemicalData?.data.map((c) => (
-                  <div key={c.id} className="flex items-center gap-2">
-                    <label className="flex-1 text-xs text-app-label-primary">
-                      {c.name} <span className="text-app-label-tertiary font-mono">({c.sku})</span>
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0"
-                      value={chemLines[c.id] ?? ""}
-                      onChange={(e) => setChemLines({ ...chemLines, [c.id]: e.target.value })}
-                      className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
-                    />
-                  </div>
-                ))}
-                {chemicalData?.data.length === 0 && (
-                  <p className="text-xs text-app-label-tertiary">لا توجد أصناف مواد خام معرّفة بعد.</p>
-                )}
-              </div>
-              <button
-                onClick={submitConsumption}
-                disabled={consumptionMutation.isPending || Object.values(chemLines).every((v) => v === "")}
-                className="flex items-center gap-1.5 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
-              >
-                <Beaker className="w-4 h-4" />
-                {consumptionMutation.isPending ? "جاري التسجيل…" : "تسجيل الاستهلاك"}
-              </button>
-            </div>
-          ) : (
-            <p className="p-4 text-xs text-app-label-tertiary">
-              لم يُسجَّل استهلاك لهذه الدفعة — التسجيل يتم فقط أثناء «قيد التشغيل».
-            </p>
-          )}
-        </div>
-      )}
 
       {/* Registration form — mirrors the paper production report, only while grading is open */}
       {acceptsBlocks && (

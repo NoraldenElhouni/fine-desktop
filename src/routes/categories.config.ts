@@ -53,10 +53,10 @@ export const categoryGroups: CategoryGroup[] = [
   {
     id: "production",
     label: "الإنتاج والمخازن",
-    description: "سجل قطع المخزون، أوامر التقطيع والتصنيع، وخلطات الفوم، وإدارة قطع الأثاث",
+    description: "سجل قطع المخزون، أوامر التقطيع والتصنيع، وخلطات الفوم",
     icon: Factory,
     path: "/hub/production",
-    itemIds: ["inventory", "orders", "manufacturing", "cutter", "furniture"],
+    itemIds: ["inventory", "orders", "manufacturing", "cutter"],
     get items() {
       return findItems(this.itemIds);
     },
