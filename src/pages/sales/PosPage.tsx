@@ -3,24 +3,29 @@ import {
   Store,
   Plus,
   Trash2,
-  Banknote,
-  CreditCard,
+  Wallet,
   AlertTriangle,
   Receipt,
   FileSpreadsheet,
   Search,
   ShoppingCart,
   Package,
+  UserRound,
+  X,
 } from "lucide-react";
 import { usePosCheckout, usePosDailyReport } from "../../hooks/useSales";
 import { useInventoryItems } from "../../hooks/useInventory";
+import { useClients } from "../../hooks/useClients";
 import { SalesOrder } from "../../api/endpoints/sales";
 import { InventoryItem } from "../../api/endpoints/inventory";
 import { apiErrorPayload } from "../../api/endpoints/production";
+import { Client } from "../../types/entities";
 import { toast } from "../../stores/toastStore";
 import { PosReceiptModal } from "../../components/pos/PosReceiptModal";
 import { PosDailyCloseModal } from "../../components/pos/PosDailyCloseModal";
 import { BlockPicker, PickedBlock } from "../../components/pos/BlockPicker";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody } from "../../components/ui/Dialog";
 import { formatNumber } from "../../lib/utils/format";
 
 const num = (v: string): number => {
@@ -39,24 +44,93 @@ interface CartLine {
   stockLotLabel?: string | null;
 }
 
-export const PosPage: React.FC = () => {
+interface ProductPickerDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onPick: (item: InventoryItem) => void;
+}
+
+const ProductPickerDialog: React.FC<ProductPickerDialogProps> = ({ open, onClose, onPick }) => {
   const [search, setSearch] = useState("");
+  const { data: items, isLoading } = useInventoryItems({ search: search || undefined });
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent size="lg">
+        <DialogHeader>
+          <DialogTitle>إضافة منتج إلى السلة</DialogTitle>
+          <DialogClose />
+        </DialogHeader>
+        <DialogBody className="space-y-3">
+          <div className="relative">
+            <Search className="absolute start-3 top-2.5 h-4 w-4 text-app-label-secondary" />
+            <input
+              type="text"
+              autoFocus
+              placeholder="البحث في المنتجات والأصناف (بالاسم أو رمز SKU)..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full ps-9 pe-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs text-app-label-primary focus:border-app-accent focus:outline-none transition-colors"
+            />
+          </div>
+
+          <div className="divide-y divide-app-separator max-h-[420px] overflow-y-auto rounded-xl border border-app-separator">
+            {isLoading ? (
+              <div className="p-8 text-center text-xs text-app-label-secondary">
+                جاري تحميل قائمة الأصناف...
+              </div>
+            ) : items?.data && items.data.length > 0 ? (
+              items.data.map((i) => (
+                <button
+                  key={i.id}
+                  type="button"
+                  onClick={() => onPick(i)}
+                  className="w-full flex items-center justify-between px-4 py-3 text-start hover:bg-app-fill-f1 transition-colors"
+                >
+                  <div className="flex flex-col pe-2">
+                    <span className="text-xs font-semibold text-app-label-primary">{i.name}</span>
+                    <span className="text-[10px] font-mono text-app-label-secondary mt-0.5">
+                      {i.sku}
+                      {i.item_type === "foam_block" && (
+                        <span className="ms-2 text-app-accent">· قطعة إسفنج</span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 rounded-lg border border-app-separator bg-app-bg-secondary px-2.5 py-1 text-[11px] font-bold text-app-accent">
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>إضافة</span>
+                  </div>
+                </button>
+              ))
+            ) : (
+              <div className="p-10 text-center text-xs text-app-label-secondary">
+                لا توجد أصناف مطابقة للبحث.
+              </div>
+            )}
+          </div>
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export const PosPage: React.FC = () => {
   const [cart, setCart] = useState<CartLine[]>([]);
-  const [method, setMethod] = useState<"cash" | "card">("cash");
-  const [cashReceived, setCashReceived] = useState("");
+  const [client, setClient] = useState<Client | null>(null);
+  // Placeholder only for now — the backend checkout endpoint still accepts
+  // just "cash" | "card", so this selection doesn't affect submission yet.
+  const [method, setMethod] = useState<"bank" | "cash" | "receivables">("cash");
   const [error, setError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<SalesOrder | null>(null);
-  const [lastCashReceived, setLastCashReceived] = useState<number | undefined>(undefined);
   const [isDailyCloseOpen, setIsDailyCloseOpen] = useState(false);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [pickerState, setPickerState] = useState<{
     isOpen: boolean;
-    item: InventoryItem | null;
+    item: { id: string; name: string; sku?: string } | null;
     editingKey: string | null;
   }>({ isOpen: false, item: null, editingKey: null });
 
-  const { data: items, isLoading: isItemsLoading } = useInventoryItems({
-    search: search || undefined,
-  });
+  const { data: clients } = useClients();
   const { data: report, isLoading: isReportLoading } = usePosDailyReport();
   const checkout = usePosCheckout();
 
@@ -64,7 +138,6 @@ export const PosPage: React.FC = () => {
     () => cart.reduce((s, l) => s + num(l.qty) * num(l.price), 0),
     [cart]
   );
-  const change = num(cashReceived) - total;
 
   const addToCart = (item: InventoryItem) => {
     if (item.item_type === "foam_block") {
@@ -143,18 +216,23 @@ export const PosPage: React.FC = () => {
 
   const reopenPickerFor = (line: CartLine) => {
     if (!line.stockLotId) return;
-    const item = items?.data?.find((i) => i.id === line.item);
-    if (!item) return;
-    setPickerState({ isOpen: true, item, editingKey: line.key });
+    setPickerState({
+      isOpen: true,
+      item: { id: line.item, name: line.name, sku: line.sku },
+      editingKey: line.key,
+    });
   };
 
   const submit = () => {
     setError(null);
-    const paidAmount = num(cashReceived);
     checkout.mutate(
       {
         order_number: "POS-" + Date.now(),
-        payment_method: method,
+        // The three-way method selector above is a placeholder for now —
+        // the backend only accepts "cash" | "card", so every sale submits
+        // as "cash" until bank/receivables settlement is supported.
+        payment_method: "cash",
+        client_id: client?.id,
         items: cart.map((l) => ({
           inventory_item_id: l.item,
           stock_lot_id: l.stockLotId ?? null,
@@ -165,9 +243,8 @@ export const PosPage: React.FC = () => {
       {
         onSuccess: (res) => {
           setReceipt(res.data);
-          setLastCashReceived(method === "cash" && paidAmount > 0 ? paidAmount : undefined);
           setCart([]);
-          setCashReceived("");
+          setClient(null);
           toast.success(`تمت عملية البيع ${res.data.order_number} بنجاح`);
         },
         onError: (err: unknown) =>
@@ -177,9 +254,7 @@ export const PosPage: React.FC = () => {
   };
 
   const canCheckout =
-    cart.length > 0 &&
-    cart.every((l) => num(l.qty) > 0 && num(l.price) > 0) &&
-    (method === "card" || num(cashReceived) >= total);
+    cart.length > 0 && cart.every((l) => num(l.qty) > 0 && num(l.price) > 0);
 
   return (
     <div className="space-y-6 p-6" dir="rtl">
@@ -191,7 +266,7 @@ export const PosPage: React.FC = () => {
             نقطة البيع — المبيعات المباشرة (POS)
           </h1>
           <p className="text-xs text-app-label-secondary mt-1">
-            خطوة واحدة: خروج فوري للبضاعة، استلام النقد، وتسليم الإيصال للعميل.
+            اختر عميلًا (اختياري)، أضف المنتجات إلى السلة، ثم أتمم عملية البيع.
           </p>
         </div>
 
@@ -223,68 +298,69 @@ export const PosPage: React.FC = () => {
         </div>
       )}
 
-      {/* Main 2-Column POS Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Product Catalog Picker (5 cols) */}
-        <div className="lg:col-span-5 rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm flex flex-col overflow-hidden">
-          <div className="border-b border-app-separator p-3 bg-app-bg-secondary">
-            <div className="relative">
-              <Search className="absolute start-3 top-2.5 h-4 w-4 text-app-label-secondary" />
-              <input
-                type="text"
-                placeholder="البحث في المنتجات والأصناف (بالاسم أو رمز SKU)..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full ps-9 pe-3 py-2 border border-app-separator rounded-xl bg-app-bg-primary text-xs text-app-label-primary focus:border-app-accent focus:outline-none transition-colors"
-              />
-            </div>
+      {/* Client Selector */}
+      <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-2 text-xs font-bold text-app-label-primary shrink-0">
+            <UserRound className="h-4 w-4 text-app-accent" />
+            العميل
           </div>
 
-          <div className="flex-1 divide-y divide-app-separator max-h-[500px] overflow-y-auto">
-            {isItemsLoading ? (
-              <div className="p-8 text-center text-xs text-app-label-secondary">
-                جاري تحميل قائمة الأصناف...
-              </div>
-            ) : items?.data && items.data.length > 0 ? (
-              items.data.map((i) => (
-                <button
-                  key={i.id}
-                  type="button"
-                  onClick={() => addToCart(i)}
-                  className="w-full flex items-center justify-between px-4 py-3 text-start hover:bg-app-fill-f1 transition-colors"
-                >
-                  <div className="flex flex-col pe-2">
-                    <span className="text-xs font-semibold text-app-label-primary">
-                      {i.name}
-                    </span>
-                    <span className="text-[10px] font-mono text-app-label-secondary mt-0.5">
-                      {i.sku}
-                      {i.item_type === "foam_block" && (
-                        <span className="ms-2 text-app-accent">· قطعة إسفنج</span>
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 rounded-lg border border-app-separator bg-app-bg-secondary px-2.5 py-1 text-[11px] font-bold text-app-accent">
-                    <Plus className="w-3.5 w-3.5" />
-                    <span>إضافة</span>
-                  </div>
-                </button>
-              ))
-            ) : (
-              <div className="p-10 text-center text-xs text-app-label-secondary">
-                لا توجد أصناف مطابقة للبحث.
-              </div>
-            )}
+          <div className="flex-1">
+            <SearchableSelect<Client>
+              options={clients ?? []}
+              value={client}
+              onChange={setClient}
+              getOptionId={(c) => c.id}
+              getOptionLabel={(c) => c.entity?.name ?? c.id}
+              getOptionSubLabel={(c) => c.entity?.primary_contact?.phone ?? undefined}
+              placeholder="بيع نقدي بدون عميل مسجل — اختر عميلًا (اختياري)…"
+              clearable
+              size="sm"
+            />
+          </div>
+
+          {client && (
+            <div className="flex items-center gap-2 rounded-xl bg-app-accent-subtle px-3 py-1.5 text-xs font-bold text-app-accent">
+              <span>{client.entity?.name}</span>
+              <button
+                type="button"
+                onClick={() => setClient(null)}
+                className="text-app-accent/70 hover:text-app-accent"
+                title="إزالة العميل"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 shrink-0">
+            <label className="flex items-center gap-2 text-xs font-bold text-app-label-primary">
+              <Wallet className="h-4 w-4 text-app-accent" />
+              طريقة الدفع
+            </label>
+            <select
+              value={method}
+              onChange={(e) => setMethod(e.target.value as "bank" | "cash" | "receivables")}
+              title="عرض مبدئي فقط ولا يؤثر على عملية البيع حاليًا"
+              className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs font-semibold text-app-label-primary focus:border-app-accent focus:outline-none"
+            >
+              <option value="bank">مصرف</option>
+              <option value="cash">نقدي</option>
+              <option value="receivables">ذمم</option>
+            </select>
           </div>
         </div>
+      </div>
 
-        {/* Cart & Checkout Terminal (7 cols) */}
-        <div className="lg:col-span-7 rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between border-b border-app-separator px-5 py-3.5 bg-app-bg-secondary">
-            <div className="flex items-center gap-2 text-sm font-bold text-app-label-primary">
-              <ShoppingCart className="h-4 w-4 text-app-accent" />
-              <span>سلة المبيعات ({cart.length} أصناف)</span>
-            </div>
+      {/* Cart Table */}
+      <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between border-b border-app-separator px-5 py-3.5 bg-app-bg-secondary">
+          <div className="flex items-center gap-2 text-sm font-bold text-app-label-primary">
+            <ShoppingCart className="h-4 w-4 text-app-accent" />
+            <span>سلة المبيعات ({cart.length} أصناف)</span>
+          </div>
+          <div className="flex items-center gap-3">
             {cart.length > 0 && (
               <button
                 type="button"
@@ -294,198 +370,141 @@ export const PosPage: React.FC = () => {
                 تفريغ السلة
               </button>
             )}
-          </div>
-
-          {/* Cart Items List */}
-          <div className="flex-1 divide-y divide-app-separator max-h-[340px] overflow-y-auto p-2">
-            {cart.map((l) => (
-              <div key={l.key} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-app-fill-f1/50 rounded-xl transition-colors">
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-semibold text-app-label-primary truncate">
-                    {l.name}
-                  </div>
-                  {l.sku && (
-                    <div className="text-[10px] font-mono text-app-label-secondary">
-                      {l.sku}
-                    </div>
-                  )}
-                  {l.stockLotId && (
-                    <button
-                      type="button"
-                      onClick={() => reopenPickerFor(l)}
-                      className="mt-1 inline-flex items-center gap-1 rounded-md bg-app-accent/10 px-1.5 py-0.5 text-[10px] font-mono font-bold text-app-accent hover:bg-app-accent/20"
-                      title="تغيير القطعة"
-                    >
-                      <Package className="h-3 w-3" />
-                      لوت {l.stockLotLabel}
-                    </button>
-                  )}
-                </div>
-
-                {/* Qty Input — locked to 1 when a block is picked */}
-                <div className="w-20">
-                  <label className="block text-[9px] text-app-label-secondary mb-0.5">الكمية</label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={l.qty}
-                    readOnly={Boolean(l.stockLotId)}
-                    onChange={(e) =>
-                      setCart(
-                        cart.map((x) =>
-                          x.key === l.key ? { ...x, qty: e.target.value } : x
-                        )
-                      )
-                    }
-                    className={`w-full px-2 py-1 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono text-center focus:border-app-accent focus:outline-none ${
-                      l.stockLotId ? "opacity-70 cursor-not-allowed" : ""
-                    }`}
-                  />
-                </div>
-
-                {/* Price Input */}
-                <div className="w-24">
-                  <label className="block text-[9px] text-app-label-secondary mb-0.5">السعر الفردي</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    placeholder="السعر"
-                    value={l.price}
-                    onChange={(e) =>
-                      setCart(
-                        cart.map((x) =>
-                          x.key === l.key ? { ...x, price: e.target.value } : x
-                        )
-                      )
-                    }
-                    className="w-full px-2 py-1 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono text-center focus:border-app-accent focus:outline-none"
-                  />
-                </div>
-
-                {/* Line Total */}
-                <div className="w-24 text-end">
-                  <label className="block text-[9px] text-app-label-secondary mb-0.5">الإجمالي</label>
-                  <span className="text-xs font-mono font-bold text-app-label-primary">
-                    {formatNumber(num(l.qty) * num(l.price))} <span className="text-[10px] font-sans">د.ل</span>
-                  </span>
-                </div>
-
-                {/* Delete Button */}
-                <button
-                  type="button"
-                  onClick={() => setCart(cart.filter((x) => x.key !== l.key))}
-                  className="mt-3 p-1.5 rounded-lg text-app-label-secondary hover:text-app-status-danger hover:bg-app-status-danger/10 transition-colors"
-                  title="حذف الصنف"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
-
-            {cart.length === 0 && (
-              <div className="py-14 text-center text-xs text-app-label-secondary space-y-1">
-                <Receipt className="w-8 h-8 text-app-label-secondary/40 mx-auto mb-2" />
-                <p className="font-semibold text-app-label-primary">السلة فارغة</p>
-                <p className="text-[11px]">اختر الأصناف من القائمة الجانبية لإضافتها إلى السلة.</p>
-              </div>
-            )}
-          </div>
-
-          {/* Cart Bottom Checkout Terminal */}
-          <div className="border-t border-app-separator p-5 bg-app-bg-secondary space-y-4">
-            <div className="flex items-center justify-between border-b border-app-separator pb-3">
-              <span className="text-sm font-bold text-app-label-primary">المجموع الكلي المطلوب:</span>
-              <span className="text-2xl font-bold font-mono text-app-accent">
-                {formatNumber(total)} <span className="text-sm font-sans">د.ل</span>
-              </span>
-            </div>
-
-            {/* Payment Method Selector */}
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setMethod("cash")}
-                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold border transition-all ${
-                  method === "cash"
-                    ? "border-app-accent bg-app-accent text-white shadow-sm"
-                    : "border-app-separator bg-app-bg-primary text-app-label-secondary hover:bg-app-fill-f1"
-                }`}
-              >
-                <Banknote className="w-4 h-4" />
-                <span>دفع نقدي (Cash)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setMethod("card")}
-                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold border transition-all ${
-                  method === "card"
-                    ? "border-app-accent bg-app-accent text-white shadow-sm"
-                    : "border-app-separator bg-app-bg-primary text-app-label-secondary hover:bg-app-fill-f1"
-                }`}
-              >
-                <CreditCard className="w-4 h-4" />
-                <span>بطاقة مصرفية (Card)</span>
-              </button>
-            </div>
-
-            {/* Cash Tendered Calculation */}
-            {method === "cash" && total > 0 && (
-              <div className="grid grid-cols-2 gap-3 rounded-xl border border-app-separator bg-app-bg-primary p-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
-                    المبلغ المستلم من العميل (LYD)
-                  </label>
-                  <input
-                    type="number"
-                    step="1"
-                    min="0"
-                    placeholder="مثال: 500"
-                    value={cashReceived}
-                    onChange={(e) => setCashReceived(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono font-bold focus:border-app-accent focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
-                    المتبقي للعميل (الفكة)
-                  </label>
-                  <div
-                    className={`w-full px-3 py-1.5 rounded-lg text-xs font-mono font-bold flex items-center ${
-                      change >= 0
-                        ? "text-app-status-positive bg-app-status-positive/10 border border-app-status-positive/20"
-                        : "text-app-status-danger bg-app-status-danger/10 border border-app-status-danger/20"
-                    }`}
-                  >
-                    {change >= 0
-                      ? `${formatNumber(change)} د.ل`
-                      : `متبقي ${formatNumber(Math.abs(change))} د.ل`}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Submit Checkout Button */}
             <button
               type="button"
-              onClick={submit}
-              disabled={!canCheckout || checkout.isPending}
-              className="w-full rounded-xl bg-app-accent px-5 py-3 text-sm font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-40 transition-opacity"
+              onClick={() => setIsPickerOpen(true)}
+              className="flex items-center gap-1.5 rounded-xl bg-app-accent px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:opacity-90"
             >
-              {checkout.isPending
-                ? "جاري معالجة البيع وخصم المخزون..."
-                : `إتمام البيع وطباعة الإيصال — ${formatNumber(total)} د.ل`}
+              <Plus className="w-4 h-4" />
+              إضافة منتج
             </button>
           </div>
         </div>
+
+        {cart.length === 0 ? (
+          <div className="py-16 text-center text-xs text-app-label-secondary space-y-1">
+            <Receipt className="w-8 h-8 text-app-label-secondary/40 mx-auto mb-2" />
+            <p className="font-semibold text-app-label-primary">السلة فارغة</p>
+            <p className="text-[11px]">اضغط "إضافة منتج" لاختيار الأصناف وإضافتها إلى السلة.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-app-separator bg-app-bg-secondary/60 text-app-label-secondary">
+                  <th className="px-4 py-2.5 text-start font-semibold">الصنف</th>
+                  <th className="px-3 py-2.5 text-center font-semibold w-24">الكمية</th>
+                  <th className="px-3 py-2.5 text-center font-semibold w-28">السعر الفردي</th>
+                  <th className="px-4 py-2.5 text-end font-semibold w-28">الإجمالي</th>
+                  <th className="px-3 py-2.5 w-10"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-app-separator">
+                {cart.map((l) => (
+                  <tr key={l.key} className="hover:bg-app-fill-f1/50 transition-colors">
+                    <td className="px-4 py-2.5">
+                      <div className="font-semibold text-app-label-primary">{l.name}</div>
+                      {l.sku && (
+                        <div className="text-[10px] font-mono text-app-label-secondary">{l.sku}</div>
+                      )}
+                      {l.stockLotId && (
+                        <button
+                          type="button"
+                          onClick={() => reopenPickerFor(l)}
+                          className="mt-1 inline-flex items-center gap-1 rounded-md bg-app-accent/10 px-1.5 py-0.5 text-[10px] font-mono font-bold text-app-accent hover:bg-app-accent/20"
+                          title="تغيير القطعة"
+                        >
+                          <Package className="h-3 w-3" />
+                          لوت {l.stockLotLabel}
+                        </button>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={l.qty}
+                        readOnly={Boolean(l.stockLotId)}
+                        onChange={(e) =>
+                          setCart(
+                            cart.map((x) => (x.key === l.key ? { ...x, qty: e.target.value } : x))
+                          )
+                        }
+                        className={`w-full px-2 py-1 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono text-center focus:border-app-accent focus:outline-none ${
+                          l.stockLotId ? "opacity-70 cursor-not-allowed" : ""
+                        }`}
+                      />
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        placeholder="السعر"
+                        value={l.price}
+                        onChange={(e) =>
+                          setCart(
+                            cart.map((x) => (x.key === l.key ? { ...x, price: e.target.value } : x))
+                          )
+                        }
+                        className="w-full px-2 py-1 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono text-center focus:border-app-accent focus:outline-none"
+                      />
+                    </td>
+                    <td className="px-4 py-2.5 text-end font-mono font-bold text-app-label-primary">
+                      {formatNumber(num(l.qty) * num(l.price))}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setCart(cart.filter((x) => x.key !== l.key))}
+                        className="p-1.5 rounded-lg text-app-label-secondary hover:text-app-status-danger hover:bg-app-status-danger/10 transition-colors"
+                        title="حذف الصنف"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
+
+      {/* Checkout Terminal */}
+      <div className="rounded-2xl border border-app-separator bg-app-bg-secondary shadow-sm p-5 space-y-4">
+        <div className="flex items-center justify-between border-b border-app-separator pb-3">
+          <span className="text-sm font-bold text-app-label-primary">المجموع الكلي المطلوب:</span>
+          <span className="text-2xl font-bold font-mono text-app-accent">
+            {formatNumber(total)} <span className="text-sm font-sans">د.ل</span>
+          </span>
+        </div>
+
+        {/* Submit Checkout Button */}
+        <button
+          type="button"
+          onClick={submit}
+          disabled={!canCheckout || checkout.isPending}
+          className="w-full max-w-md rounded-xl bg-app-accent px-5 py-3 text-sm font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-40 transition-opacity"
+        >
+          {checkout.isPending
+            ? "جاري معالجة البيع وخصم المخزون..."
+            : `إتمام البيع وطباعة الإيصال — ${formatNumber(total)} د.ل`}
+        </button>
+      </div>
+
+      {/* Product Picker Dialog */}
+      <ProductPickerDialog
+        open={isPickerOpen}
+        onClose={() => setIsPickerOpen(false)}
+        onPick={addToCart}
+      />
 
       {/* POS Thermal Receipt Modal */}
       <PosReceiptModal
         isOpen={Boolean(receipt)}
         order={receipt}
-        cashReceived={lastCashReceived}
         onClose={() => setReceipt(null)}
       />
 
