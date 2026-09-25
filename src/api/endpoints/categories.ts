@@ -35,8 +35,6 @@ export interface ItemCategory {
   item_type?: InventoryItemType;
   /** Digit width reserved for each direct child's code_segment. */
   child_code_length?: number;
-  /** Digit width reserved for a product's sequence number under this category. */
-  product_code_length?: number;
   description?: string;
   created_at: string;
   /** Present when the API includes it (e.g. on the root-level listing). */

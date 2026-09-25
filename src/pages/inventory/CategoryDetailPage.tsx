@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { isAxiosError } from "axios";
 import { ArrowRight, Pencil, Plus, Tags, Trash2 } from "lucide-react";
 import {
   useItemCategory,
@@ -12,6 +11,7 @@ import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useItemCategoriesColumns } from "../../components/table-columns/itemCategoriesColumns";
 import { CategoryFormDialog } from "../../components/inventory/CategoryFormDialog";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { apiErrorPayload } from "../../api/endpoints/production";
 import { toast } from "../../stores/toastStore";
 
 const CategoryDetailPage: React.FC = () => {
@@ -60,7 +60,7 @@ const CategoryDetailPage: React.FC = () => {
           className="flex items-center gap-1 text-xs font-semibold text-app-accent hover:underline"
         >
           <ArrowRight className="h-4 w-4" />
-          العودة لفئات الأصناف
+          العودة إلى الفئات
         </button>
         <div className="rounded-2xl border border-app-status-danger/30 bg-app-status-danger/10 p-6 text-center text-app-status-danger text-sm">
           تعذر العثور على بيانات الفئة.
@@ -76,10 +76,13 @@ const CategoryDetailPage: React.FC = () => {
       setIsDeleteOpen(false);
       navigate(category.parent_id ? `/settings/products/categories/${category.parent_id}` : "/settings/products/categories");
     } catch (err: unknown) {
-      if (isAxiosError(err)) {
-        toast.error(err.response?.data?.message ?? "فشل حذف الفئة");
+      const payload = apiErrorPayload(err);
+      if (payload?.code === "CATEGORY_HAS_CHILDREN") {
+        toast.error("لا يمكن حذف الفئة لوجود فئات فرعية تابعة لها. احذف الفئات الفرعية أولاً.");
+      } else if (payload?.code === "CATEGORY_HAS_ITEMS") {
+        toast.error("لا يمكن حذف الفئة لوجود أصناف مخزون مرتبطة بها.");
       } else {
-        toast.error("فشل حذف الفئة");
+        toast.error(payload?.message ?? "فشل حذف الفئة");
       }
     }
   };
@@ -92,7 +95,7 @@ const CategoryDetailPage: React.FC = () => {
           className="flex items-center gap-1 font-semibold text-app-accent hover:underline"
         >
           <ArrowRight className="h-4 w-4" />
-          فئات الأصناف
+          الفئات
         </Link>
         {category.parent_id && (
           <>
@@ -147,7 +150,7 @@ const CategoryDetailPage: React.FC = () => {
 
       <div className="rounded-2xl border border-app-separator bg-app-bg-primary p-4">
         <h2 className="mb-3 text-xs font-bold uppercase text-app-label-secondary">معلومات الفئة</h2>
-        <dl className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
+        <dl className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-3">
           <div>
             <dt className="text-app-label-secondary">جزء الرمز (code_segment)</dt>
             <dd className="mt-0.5 font-mono font-semibold text-app-label-primary">
@@ -164,13 +167,7 @@ const CategoryDetailPage: React.FC = () => {
               {category.child_code_length ?? "—"}
             </dd>
           </div>
-          <div>
-            <dt className="text-app-label-secondary">طول رمز المنتج</dt>
-            <dd className="mt-0.5 font-mono font-semibold text-app-label-primary">
-              {category.product_code_length ?? "—"}
-            </dd>
-          </div>
-          <div className="col-span-2 sm:col-span-4">
+          <div className="col-span-2 sm:col-span-3">
             <dt className="text-app-label-secondary">الوصف</dt>
             <dd className="mt-0.5 text-app-label-primary">{category.description || "—"}</dd>
           </div>
@@ -211,13 +208,19 @@ const CategoryDetailPage: React.FC = () => {
         </DataTable>
       </div>
 
-      <CategoryFormDialog open={isEditOpen} onClose={() => setIsEditOpen(false)} category={category} />
+      <CategoryFormDialog
+        open={isEditOpen}
+        onClose={() => setIsEditOpen(false)}
+        category={category}
+        parentCode={category.parent_id ? (parent?.code ?? "") : ""}
+      />
 
       <CategoryFormDialog
         open={isAddChildOpen}
         onClose={() => setIsAddChildOpen(false)}
         parentId={category.id}
         parentLabel={category.name}
+        parentCode={category.code}
       />
 
       <ConfirmDialog

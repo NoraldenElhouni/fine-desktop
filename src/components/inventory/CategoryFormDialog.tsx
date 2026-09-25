@@ -22,6 +22,8 @@ export interface CategoryFormDialogProps {
   parentId?: string;
   /** Shown in the dialog title when creating a child, e.g. the parent's name. */
   parentLabel?: string;
+  /** The parent's own code, used only to preview the resulting full code. '' for top-level. */
+  parentCode?: string;
 }
 
 const ITEM_TYPE_OPTIONS: { value: InventoryItemType; label: string }[] = [
@@ -42,6 +44,7 @@ export const CategoryFormDialog: React.FC<CategoryFormDialogProps> = ({
   category,
   parentId,
   parentLabel,
+  parentCode,
 }) => {
   const isEdit = Boolean(category);
   const createMutation = useCreateItemCategory();
@@ -49,10 +52,8 @@ export const CategoryFormDialog: React.FC<CategoryFormDialogProps> = ({
 
   const [name, setName] = useState("");
   const [codeSegment, setCodeSegment] = useState("");
-  const [code, setCode] = useState("");
   const [itemType, setItemType] = useState<InventoryItemType | "">("");
   const [childCodeLength, setChildCodeLength] = useState("2");
-  const [productCodeLength, setProductCodeLength] = useState("3");
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -60,13 +61,14 @@ export const CategoryFormDialog: React.FC<CategoryFormDialogProps> = ({
     if (!open) return;
     setName(category?.name ?? "");
     setCodeSegment(category?.code_segment ?? "");
-    setCode(category?.code ?? "");
     setItemType((category?.item_type as InventoryItemType) ?? "");
     setChildCodeLength(String(category?.child_code_length ?? 2));
-    setProductCodeLength(String(category?.product_code_length ?? 3));
     setDescription(category?.description ?? "");
     setError(null);
   }, [open, category]);
+
+  const previewParentCode = parentCode ?? "";
+  const previewCode = `${previewParentCode}${codeSegment.trim()}`;
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
@@ -77,10 +79,8 @@ export const CategoryFormDialog: React.FC<CategoryFormDialogProps> = ({
     const payload = {
       name: name.trim(),
       code_segment: codeSegment.trim(),
-      code: code.trim(),
       item_type: itemType || undefined,
       child_code_length: Number(childCodeLength) || 2,
-      product_code_length: Number(productCodeLength) || 3,
       description: description.trim() || undefined,
       ...(isEdit ? {} : { parent_id: parentId ?? null }),
     };
@@ -147,69 +147,47 @@ export const CategoryFormDialog: React.FC<CategoryFormDialogProps> = ({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                  جزء الرمز الخاص (code_segment)
-                </label>
-                <input
-                  type="text"
-                  placeholder="مثال: 01"
-                  value={codeSegment}
-                  onChange={(e) => setCodeSegment(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
-                  dir="ltr"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                  الرمز الكامل (code)
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="مثال: 0101"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
-                  dir="ltr"
-                />
-              </div>
+            <div>
+              <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                رمز الفئة
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="مثال: 01"
+                value={codeSegment}
+                onChange={(e) => setCodeSegment(e.target.value)}
+                className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                dir="ltr"
+              />
+              <p className="text-[11px] text-app-label-tertiary mt-1">
+                يُدخل مرة واحدة فقط. الرمز الكامل يُبنى تلقائياً من رمز الفئة الأب + هذا الرمز.
+                {codeSegment.trim() && (
+                  <>
+                    {" "}الرمز الكامل سيكون:{" "}
+                    <span className="font-mono font-bold text-app-accent" dir="ltr">
+                      {previewCode}
+                    </span>
+                  </>
+                )}
+              </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                  طول رمز الفروع
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  value={childCodeLength}
-                  onChange={(e) => setChildCodeLength(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
-                  dir="ltr"
-                />
-                <p className="text-[11px] text-app-label-tertiary mt-1">
-                  عدد الخانات المحجوزة لرمز كل فئة فرعية مباشرة.
-                </p>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                  طول رمز المنتج
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  value={productCodeLength}
-                  onChange={(e) => setProductCodeLength(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
-                  dir="ltr"
-                />
-                <p className="text-[11px] text-app-label-tertiary mt-1">
-                  عدد الخانات المحجوزة لرقم تسلسل المنتج تحت هذه الفئة.
-                </p>
-              </div>
+            <div>
+              <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                طول رمز الفروع
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={childCodeLength}
+                onChange={(e) => setChildCodeLength(e.target.value)}
+                className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                dir="ltr"
+              />
+              <p className="text-[11px] text-app-label-tertiary mt-1">
+                عدد الخانات المحجوزة لرمز كل فئة فرعية مباشرة.
+              </p>
             </div>
 
             <div>

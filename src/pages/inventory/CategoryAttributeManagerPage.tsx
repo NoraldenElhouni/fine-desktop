@@ -34,7 +34,7 @@ export const CategoryAttributeManagerPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-app-label-primary flex items-center gap-2">
             <Tags className="w-7 h-7 text-app-accent" />
-            فئات الأصناف
+            الفئات
           </h1>
           <p className="text-xs text-app-label-secondary mt-1">
             الفئات الرئيسية للأصناف. افتح فئة لإدارة فروعها الفرعية وتعديل بياناتها.

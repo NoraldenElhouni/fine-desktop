@@ -61,13 +61,6 @@ export function useItemCategoriesColumns({
         cell: ({ row }) => row.original.child_code_length ?? "—",
       },
       {
-        id: "product_code_length",
-        header: "طول رمز المنتج",
-        enableSorting: false,
-        meta: { align: "center", className: "font-mono text-app-label-secondary" },
-        cell: ({ row }) => row.original.product_code_length ?? "—",
-      },
-      {
         id: "description",
         accessorKey: "description",
         header: "الوصف",
