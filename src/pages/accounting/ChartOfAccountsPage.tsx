@@ -2,7 +2,8 @@ import React, { useMemo, useState } from "react";
 import { ListTree, Plus, X, Eye, Maximize2, Search, RotateCcw, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { isAxiosError } from "axios";
-import { useAccounts, useAccountLedger, useCreateAccount } from "../../hooks/useAccounting";
+import { useAccounts, useAccountLedger, useCreateAccount, useIsCompanyWide } from "../../hooks/useAccounting";
+import { useOperatingUnits } from "../../hooks/usePartners";
 import { usePermissions } from "../../hooks/usePermissions";
 import { ACCOUNT_TYPE_LABEL, type Account, type AccountType } from "../../api/endpoints/accounting";
 import { formatNumber } from "../../lib/utils/format";
@@ -263,7 +264,16 @@ const CreateAccountDialog: React.FC<CreateAccountDialogProps> = ({
 
 export const ChartOfAccountsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { data: accounts, isLoading } = useAccounts();
+  const companyWide = useIsCompanyWide();
+  const { data: units = [] } = useOperatingUnits();
+  const [scope, setScope] = useState<"global" | "unit" | "company">(
+    companyWide ? "company" : "global"
+  );
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
+  const { data: accounts, isLoading } = useAccounts({
+    scope,
+    unit_id: scope === "unit" ? selectedUnitId ?? undefined : undefined,
+  });
   const [view, setView] = useState<"effected" | "full">("effected");
   const [selected, setSelected] = useState<Account | null>(null);
   const [ledgerPage, setLedgerPage] = useState(1);
@@ -339,6 +349,14 @@ export const ChartOfAccountsPage: React.FC = () => {
           >
             {ACCOUNT_TYPE_LABEL[node.account.type]}
           </span>
+          {node.account.unit_id && (
+            <span
+              className="px-2 py-0.5 text-[10px] font-mono rounded-full bg-app-fill-f2 text-app-label-secondary border border-app-separator"
+              title={`Unit ${node.account.unit_id}`}
+            >
+              {units.find((u) => u.id === node.account.unit_id)?.name ?? node.account.unit_id.slice(0, 8)}
+            </span>
+          )}
           <span className="ms-auto font-mono text-xs text-app-label-primary">
             {formatNumber(node.account.balance)}
           </span>
@@ -373,6 +391,55 @@ export const ChartOfAccountsPage: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <div className="inline-flex items-center gap-1 rounded-full border border-app-separator bg-app-bg-secondary p-1">
+            <button
+              type="button"
+              onClick={() => setScope("global")}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                scope === "global"
+                  ? "bg-app-accent text-white"
+                  : "text-app-label-secondary hover:bg-app-fill-f1"
+              }`}
+            >
+              الحسابات العامة
+            </button>
+            <button
+              type="button"
+              onClick={() => setScope("unit")}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                scope === "unit"
+                  ? "bg-app-accent text-white"
+                  : "text-app-label-secondary hover:bg-app-fill-f1"
+              }`}
+            >
+              وحدة محددة
+            </button>
+            {companyWide && (
+              <button
+                type="button"
+                onClick={() => setScope("company")}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                  scope === "company"
+                    ? "bg-app-accent text-white"
+                    : "text-app-label-secondary hover:bg-app-fill-f1"
+                }`}
+              >
+                الشركة بالكامل
+              </button>
+            )}
+          </div>
+          {scope === "unit" && (
+            <select
+              value={selectedUnitId ?? ""}
+              onChange={(e) => setSelectedUnitId(e.target.value || null)}
+              className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs font-semibold text-app-label-primary focus:outline-none"
+            >
+              <option value="">— اختر وحدة —</option>
+              {units.map((u) => (
+                <option key={u.id} value={u.id}>{u.name}</option>
+              ))}
+            </select>
+          )}
           <div className="inline-flex items-center gap-1 rounded-full border border-app-separator bg-app-bg-secondary p-1">
             <button
               type="button"

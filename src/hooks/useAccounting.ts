@@ -1,5 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { accountingApi } from "../api/endpoints/accounting";
+import {
+  accountingApi,
+  type GetAccountsParams,
+} from "../api/endpoints/accounting";
 import { useAuthStore } from "../stores/authStore";
 
 interface RoleWithPivot {
@@ -17,10 +20,10 @@ export function useIsCompanyWide(): boolean {
   return Boolean(user?.roles?.some((r) => r.pivot && r.pivot.operating_unit_id === null));
 }
 
-export function useAccounts() {
+export function useAccounts(params?: GetAccountsParams) {
   return useQuery({
-    queryKey: ["accounts"],
-    queryFn: async () => (await accountingApi.getAccounts()).data.data,
+    queryKey: ["accounts", params ?? {}],
+    queryFn: async () => (await accountingApi.getAccounts(params)).data.data,
   });
 }
 
