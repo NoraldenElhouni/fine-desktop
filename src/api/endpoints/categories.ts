@@ -26,15 +26,33 @@ export const ITEM_TYPE_LABELS: Record<InventoryItemType, string> = {
 export interface ItemCategory {
   id: string;
   operating_unit_id?: string;
+  parent_id?: string | null;
   name: string;
+  /** This category's own segment of the hierarchical code, e.g. '01'. */
+  code_segment?: string;
+  /** Full hierarchical code, e.g. '0101'. */
   code: string;
   item_type?: InventoryItemType;
+  /** Digit width reserved for each direct child's code_segment. */
+  child_code_length?: number;
+  /** Digit width reserved for a product's sequence number under this category. */
+  product_code_length?: number;
   description?: string;
   created_at: string;
+  /** Present when the API includes it (e.g. on the root-level listing). */
+  children_count?: number;
+}
+
+export interface GetCategoriesParams {
+  search?: string;
+  /** Only categories with no parent (top-level). */
+  root_only?: boolean;
+  /** Only the direct children of this category id. */
+  parent_id?: string;
 }
 
 export const categoriesApi = {
-  getCategories: (params?: { search?: string }) =>
+  getCategories: (params?: GetCategoriesParams) =>
     apiClient.get<ItemCategory[]>("/item-categories", { params }),
 
   getCategory: (id: string) =>

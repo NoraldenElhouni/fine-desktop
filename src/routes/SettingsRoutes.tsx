@@ -9,6 +9,7 @@ import { RolesPage } from "../pages/settings/RolesPage";
 import { OperatingUnitsPage } from "../pages/admin/OperatingUnitsPage";
 import { InventoryItemsPage } from "../pages/inventory/InventoryItemsPage";
 import { CategoryAttributeManagerPage } from "../pages/inventory/CategoryAttributeManagerPage";
+import CategoryDetailPage from "../pages/inventory/CategoryDetailPage";
 import { usePermissions } from "../hooks/usePermissions";
 
 const PRODUCT_TABS = [
@@ -60,6 +61,7 @@ export const SettingsRoutes: React.FC = () => {
         <Route index element={<Navigate to="items" replace />} />
         <Route path="items" element={<InventoryItemsPage />} />
         <Route path="categories" element={<CategoryAttributeManagerPage />} />
+        <Route path="categories/:id" element={<CategoryDetailPage />} />
         <Route path="catalog" element={<ProductsPage />} />
       </Route>
 
