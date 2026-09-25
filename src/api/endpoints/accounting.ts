@@ -10,13 +10,6 @@ export const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
   expense: "مصروفات",
 };
 
-export type AccountScope = 'global' | 'unit' | 'company';
-
-export interface GetAccountsParams {
-  scope?: AccountScope;
-  unit_id?: string;
-}
-
 export interface Account {
   id: string;
   account_code: string;
@@ -24,7 +17,6 @@ export interface Account {
   type: AccountType;
   currency: string;
   parent_account_id: string | null;
-  unit_id: string | null;
   is_main: boolean;
   total_debit: number;
   total_credit: number;
@@ -159,7 +151,6 @@ export interface CreateAccountPayload {
   name: string;
   type: AccountType;
   parent_account_id?: string | null;
-  unit_id?: string | null;
   currency?: string;
 }
 
@@ -175,11 +166,8 @@ export interface UpdateAccountPayload {
  * ignores the flag for unit-scoped users.
  */
 export const accountingApi = {
-  getAccounts: (params?: GetAccountsParams) =>
-    apiClient.get<{ data: Account[]; meta?: { scope: AccountScope; count: number } }>(
-      "/accounts",
-      { params: params ?? {} },
-    ),
+  getAccounts: () =>
+    apiClient.get<{ data: Account[]; meta?: { count: number } }>("/accounts"),
 
   getAccount: (id: string, companyWide = false) =>
     apiClient.get<{ data: AccountDetails }>(`/accounts/${id}`, {
