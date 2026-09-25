@@ -184,7 +184,6 @@ export const getBreadcrumbEntries = (
         pages: {
           items: "الأصناف",
           categories: "الفئات والخصائص",
-          catalog: "المنتجات",
         },
       },
       data: {

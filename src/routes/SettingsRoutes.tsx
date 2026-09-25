@@ -4,7 +4,6 @@ import { SectionTabsLayout } from "../components/ui/SectionTabs";
 import { CompanySettingsPage } from "../pages/settings/CompanySettingsPage";
 import { ReferenceLookupPage } from "../pages/settings/ReferenceLookupPage";
 import { REFERENCE_LOOKUPS, WAREHOUSE_LOOKUPS } from "../config/referenceLookups";
-import { ProductsPage } from "../pages/settings/ProductsPage";
 import { RolesPage } from "../pages/settings/RolesPage";
 import { OperatingUnitsPage } from "../pages/admin/OperatingUnitsPage";
 import { InventoryItemsPage } from "../pages/inventory/InventoryItemsPage";
@@ -15,7 +14,6 @@ import { usePermissions } from "../hooks/usePermissions";
 const PRODUCT_TABS = [
   { path: "/settings/products/items", label: "الأصناف" },
   { path: "/settings/products/categories", label: "الفئات والخصائص" },
-  { path: "/settings/products/catalog", label: "المنتجات" },
 ];
 
 /** One tab per reference list — add a config entry to add a tab + route. */
@@ -62,7 +60,6 @@ export const SettingsRoutes: React.FC = () => {
         <Route path="items" element={<InventoryItemsPage />} />
         <Route path="categories" element={<CategoryAttributeManagerPage />} />
         <Route path="categories/:id" element={<CategoryDetailPage />} />
-        <Route path="catalog" element={<ProductsPage />} />
       </Route>
 
       {/* 3 — Reference data settings (dummy data until the API lands) */}
