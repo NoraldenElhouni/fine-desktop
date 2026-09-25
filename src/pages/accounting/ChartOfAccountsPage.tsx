@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { ListTree, Plus, X, Eye, Maximize2, Search, RotateCcw, ExternalLink } from "lucide-react";
+import { ListTree, Plus, X, Eye, Maximize2, Search, RotateCcw, ExternalLink, ChevronDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { isAxiosError } from "axios";
 import { useAccounts, useAccountLedger, useCreateAccount } from "../../hooks/useAccounting";
@@ -270,6 +270,7 @@ export const ChartOfAccountsPage: React.FC = () => {
   const [sideSearch, setSideSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [detailsAccountId, setDetailsAccountId] = useState<string | null>(null);
+  const [expandedMainIds, setExpandedMainIds] = useState<Set<string>>(() => new Set());
 
   const handleViewChange = (next: "effected" | "full") => {
     setView(next);
@@ -295,6 +296,26 @@ export const ChartOfAccountsPage: React.FC = () => {
     [view, fullTree],
   );
 
+  const toggleMainAccount = (id: string) => {
+    setExpandedMainIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const expandAll = () => {
+    setExpandedMainIds(new Set(tree.map((n) => n.account.id)));
+  };
+
+  const collapseAll = () => {
+    setExpandedMainIds(new Set());
+  };
+
   const ledgerColumns = useChartOfAccountsLedgerColumns();
   const ledgerData = useMemo(() => ledger?.data ?? [], [ledger]);
   const ledgerTable = useDataTable({
@@ -306,59 +327,88 @@ export const ChartOfAccountsPage: React.FC = () => {
     getRowId: (l) => l.id,
   });
 
-  const renderNode = (node: TreeNode, depth: number): React.ReactNode => (
-    <React.Fragment key={node.account.id}>
-      <div
-        className={`w-full flex items-center gap-3 px-4 py-2 text-start hover:bg-app-fill-f1 transition-colors ${
-          selected?.id === node.account.id ? "bg-app-accent-subtle" : ""
-        }`}
-        style={{ paddingInlineStart: `${16 + depth * 20}px` }}
-      >
-        <button
-          type="button"
-          onClick={() => {
-            setSelected(node.account);
-            setLedgerPage(1);
-          }}
-          className="flex-1 flex items-center gap-3 text-start min-w-0"
-        >
-          <span className="font-mono font-bold text-app-accent text-xs">
-            {node.account.account_code}
-          </span>
-          <span
-            className={`text-xs truncate ${
-              node.children.length > 0 ? "font-bold" : ""
-            } text-app-label-primary`}
-          >
-            {node.account.name}
-          </span>
-          <span
-            className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
-              TYPE_STYLE[node.account.type]
-            }`}
-          >
-            {ACCOUNT_TYPE_LABEL[node.account.type]}
-          </span>
-          <span className="ms-auto font-mono text-xs text-app-label-primary">
-            {formatNumber(node.account.balance)}
-          </span>
-        </button>
+  const renderNode = (node: TreeNode, depth: number): React.ReactNode => {
+    const isMain = node.account.parent_account_id === null;
+    const hasChildren = node.children.length > 0;
+    const isExpanded = expandedMainIds.has(node.account.id);
 
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setDetailsAccountId(node.account.id);
-          }}
-          title="عرض كشف الحركة والتفاصيل"
-          className="rounded-lg p-1 text-app-label-tertiary hover:bg-app-bg-secondary hover:text-app-accent"
+    return (
+      <React.Fragment key={node.account.id}>
+        <div
+          className={`w-full flex items-center gap-2 px-4 py-2 text-start hover:bg-app-fill-f1 transition-colors ${
+            selected?.id === node.account.id ? "bg-app-accent-subtle" : ""
+          }`}
+          style={{ paddingInlineStart: `${16 + depth * 20}px` }}
         >
-          <Eye className="w-4 h-4" />
-        </button>
-      </div>
-      {node.children.map((child) => renderNode(child, depth + 1))}
-    </React.Fragment>
-  );
+          {isMain && hasChildren ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleMainAccount(node.account.id);
+              }}
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-app-label-tertiary hover:bg-app-bg-secondary hover:text-app-label-primary transition-colors"
+              title={isExpanded ? "طي الحساب" : "توسيع الحساب"}
+            >
+              <ChevronDown
+                className={`h-4 w-4 transition-transform duration-200 ${
+                  isExpanded ? "transform rotate-0" : "transform rtl:rotate-90 -rotate-90"
+                }`}
+              />
+            </button>
+          ) : isMain ? (
+            <span className="w-5 shrink-0" />
+          ) : null}
+
+          <button
+            type="button"
+            onClick={() => {
+              setSelected(node.account);
+              setLedgerPage(1);
+              if (isMain && !isExpanded) {
+                toggleMainAccount(node.account.id);
+              }
+            }}
+            className="flex-1 flex items-center gap-3 text-start min-w-0"
+          >
+            <span className="font-mono font-bold text-app-accent text-xs">
+              {node.account.account_code}
+            </span>
+            <span
+              className={`text-xs truncate ${
+                node.children.length > 0 ? "font-bold" : ""
+              } text-app-label-primary`}
+            >
+              {node.account.name}
+            </span>
+            <span
+              className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
+                TYPE_STYLE[node.account.type]
+              }`}
+            >
+              {ACCOUNT_TYPE_LABEL[node.account.type]}
+            </span>
+            <span className="ms-auto font-mono text-xs text-app-label-primary">
+              {formatNumber(node.account.balance)}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setDetailsAccountId(node.account.id);
+            }}
+            title="عرض كشف الحركة والتفاصيل"
+            className="rounded-lg p-1 text-app-label-tertiary hover:bg-app-bg-secondary hover:text-app-accent"
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+        </div>
+        {(!isMain || isExpanded) && node.children.map((child) => renderNode(child, depth + 1))}
+      </React.Fragment>
+    );
+  };
 
   return (
     <div className="space-y-6 p-6">
@@ -373,6 +423,23 @@ export const ChartOfAccountsPage: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <div className="inline-flex items-center gap-1 rounded-full border border-app-separator bg-app-bg-secondary p-1">
+            <button
+              type="button"
+              onClick={expandAll}
+              className="px-3 py-1.5 rounded-full text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 transition-colors"
+            >
+              توسيع الكل
+            </button>
+            <button
+              type="button"
+              onClick={collapseAll}
+              className="px-3 py-1.5 rounded-full text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 transition-colors"
+            >
+              طي الكل
+            </button>
+          </div>
+
           <div className="inline-flex items-center gap-1 rounded-full border border-app-separator bg-app-bg-secondary p-1">
             <button
               type="button"
