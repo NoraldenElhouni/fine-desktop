@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Building2, Check, ChevronDown, Search, X } from "lucide-react";
 import { createPortal } from "react-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "../../../lib/utils/utils";
 import { tokens } from "../../../lib/tokens";
 import { useServerConfigStore } from "../../../stores/serverConfigStore";
@@ -15,6 +16,7 @@ import type { OperatingUnit } from "../../../types/entities";
 const UnitSwitcher = () => {
   const { operatingUnitId, setOperatingUnitId } = useServerConfigStore();
   const { data: operatingUnits = [] } = useOperatingUnits();
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -74,8 +76,15 @@ const UnitSwitcher = () => {
   }, [open]);
 
   const pick = (id: string | null) => {
+    if (id === operatingUnitId) {
+      setOpen(false);
+      return;
+    }
     setOperatingUnitId(id);
     setOpen(false);
+    // Every unit-scoped query is stale the moment X-Operating-Unit-ID changes —
+    // refetch everything currently on screen instead of showing the old unit's data.
+    queryClient.invalidateQueries();
   };
 
   return (
