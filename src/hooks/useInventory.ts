@@ -62,6 +62,8 @@ export function useStockIntake() {
       queryClient.invalidateQueries({ queryKey: ["stockLots"] });
       queryClient.invalidateQueries({ queryKey: ["inventoryItems"] });
       queryClient.invalidateQueries({ queryKey: ["inventoryValuation"] });
+      queryClient.invalidateQueries({ queryKey: ["warehouseStockSummary"] });
+      queryClient.invalidateQueries({ queryKey: ["warehouseLedger"] });
       queryClient.invalidateQueries({ queryKey: ["journalEntries"] });
       queryClient.invalidateQueries({ queryKey: ["trialBalance"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
@@ -124,6 +126,28 @@ export function useInventoryValuation() {
   });
 }
 
+export function useWarehouseStockSummary(warehouseId?: string) {
+  return useQuery({
+    queryKey: ["warehouseStockSummary", warehouseId],
+    queryFn: async () => {
+      const res = await inventoryApi.getWarehouseStockSummary(warehouseId as string);
+      return res.data;
+    },
+    enabled: Boolean(warehouseId),
+  });
+}
+
+export function useWarehouseLedger(warehouseId?: string, params?: { sku?: string; per_page?: number; page?: number }) {
+  return useQuery({
+    queryKey: ["warehouseLedger", warehouseId, params],
+    queryFn: async () => {
+      const res = await inventoryApi.getWarehouseLedger(warehouseId as string, params);
+      return res.data;
+    },
+    enabled: Boolean(warehouseId),
+  });
+}
+
 export function useProcessCutRemnant() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -142,6 +166,8 @@ export function useProcessCutRemnant() {
       queryClient.invalidateQueries({ queryKey: ["stockLots"] });
       queryClient.invalidateQueries({ queryKey: ["availableForCutting"] });
       queryClient.invalidateQueries({ queryKey: ["inventoryValuation"] });
+      queryClient.invalidateQueries({ queryKey: ["warehouseStockSummary"] });
+      queryClient.invalidateQueries({ queryKey: ["warehouseLedger"] });
     },
   });
 }

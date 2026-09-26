@@ -80,6 +80,49 @@ export interface InventoryValuation {
   currency: string;
 }
 
+export interface WarehouseStockSummaryRow {
+  inventory_item_id: string;
+  item_name: string;
+  item_code: string;
+  uom: string;
+  total_quantity: number;
+  avg_unit_cost: number;
+  total_value: number;
+  lots_count: number;
+}
+
+export interface WarehouseStockSummary {
+  warehouse: { id: string; name: string };
+  rows: WarehouseStockSummaryRow[];
+  total_value: number;
+}
+
+export type InventoryMovementType =
+  | "receipt"
+  | "issue"
+  | "transfer"
+  | "adjustment"
+  | "consumption"
+  | "production_output"
+  | "byproduct_yield"
+  | "sale";
+
+export interface InventoryMovement {
+  id: string;
+  operating_unit_id: string;
+  stock_lot_id?: string | null;
+  from_warehouse_id?: string | null;
+  to_warehouse_id?: string | null;
+  sku: string;
+  movement_type: InventoryMovementType;
+  quantity_delta: number;
+  unit_cost: number;
+  reason?: string | null;
+  reference_document_type?: string | null;
+  reference_id?: string | null;
+  created_at: string;
+}
+
 export const inventoryApi = {
   // Inventory Items
   getItems: (params?: { category_id?: string; item_type?: string; search?: string; page?: number }) =>
@@ -145,4 +188,14 @@ export const inventoryApi = {
   // Valuation
   getValuation: () =>
     apiClient.get<InventoryValuation>("/inventory/valuation"),
+
+  // Warehouse drill-down
+  getWarehouseStockSummary: (warehouseId: string) =>
+    apiClient.get<WarehouseStockSummary>(`/warehouses/${warehouseId}/stock-summary`),
+
+  getWarehouseLedger: (warehouseId: string, params?: { sku?: string; per_page?: number; page?: number }) =>
+    apiClient.get<{ data: InventoryMovement[]; current_page: number; last_page: number }>(
+      `/inventory/ledger/${warehouseId}`,
+      { params },
+    ),
 };
