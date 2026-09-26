@@ -12,14 +12,27 @@ import {
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useReferenceLookupColumns } from "../../components/table-columns/referenceLookupColumns";
-import { DummyDataNotice } from "../../components/settings/DummyDataNotice";
 import {
   LookupConfig,
   LookupEntry,
   resolveLookupField,
 } from "../../config/referenceLookups";
-import { useReferenceDataStore } from "../../stores/referenceDataStore";
+import {
+  useReferenceLookups,
+  useCreateReferenceLookup,
+  useUpdateReferenceLookup,
+  useDeleteReferenceLookup,
+  useToggleReferenceLookupActive,
+} from "../../hooks/useReferenceLookups";
 import { toast } from "../../stores/toastStore";
+import { isAxiosError } from "axios";
+
+const getErrorMessage = (err: unknown, fallback: string): string => {
+  if (isAxiosError(err)) {
+    return (err.response?.data as { message?: string })?.message || fallback;
+  }
+  return fallback;
+};
 
 interface LookupForm {
   name: string;
@@ -56,25 +69,64 @@ const inputClasses = (mono?: boolean) =>
   }`;
 
 /**
- * One screen for every reference list under Settings, driven by its
- * `LookupConfig`. Runs on the dummy `referenceDataStore` until the API lands.
+ * Screen for every reference list under Settings, driven by its `LookupConfig`
+ * and backed by the server's reference_lookups API.
  */
 export const ReferenceLookupPage: React.FC<{ config: LookupConfig }> = ({
   config,
 }) => {
-  const entries = useReferenceDataStore((state) => state.entries[config.key]);
-  const addEntry = useReferenceDataStore((state) => state.addEntry);
-  const updateEntry = useReferenceDataStore((state) => state.updateEntry);
-  const removeEntry = useReferenceDataStore((state) => state.removeEntry);
-  const toggleActive = useReferenceDataStore((state) => state.toggleActive);
+  const { data: serverEntries = [], isLoading } = useReferenceLookups(config.key);
+  const isStorageLocations = config.key === "storage-locations";
+  const { data: dynamicWarehouses } = useReferenceLookups("warehouses");
+  const { data: dynamicLocationTypes } = useReferenceLookups("location-types");
+
+  const resolvedConfig = useMemo(() => {
+    if (!isStorageLocations) {
+      return config;
+    }
+
+    const warehouseOptions =
+      dynamicWarehouses && dynamicWarehouses.length > 0
+        ? dynamicWarehouses.map((w) => ({
+            value: w.code,
+            label: `${w.name} (${w.code})`,
+          }))
+        : config.fields.find((f) => f.key === "warehouse")?.options;
+
+    const locationTypeOptions =
+      dynamicLocationTypes && dynamicLocationTypes.length > 0
+        ? dynamicLocationTypes.map((t) => ({
+            value: t.code,
+            label: t.name,
+          }))
+        : config.fields.find((f) => f.key === "zoneType")?.options;
+
+    return {
+      ...config,
+      fields: config.fields.map((field) => {
+        if (field.key === "warehouse" && warehouseOptions) {
+          return { ...field, options: warehouseOptions };
+        }
+        if (field.key === "zoneType" && locationTypeOptions) {
+          return { ...field, options: locationTypeOptions };
+        }
+        return field;
+      }),
+    };
+  }, [config, isStorageLocations, dynamicWarehouses, dynamicLocationTypes]);
+
+  const createLookup = useCreateReferenceLookup(config.key);
+  const updateLookup = useUpdateReferenceLookup(config.key);
+  const deleteLookup = useDeleteReferenceLookup(config.key);
+  const toggleActiveMutation = useToggleReferenceLookupActive(config.key);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<LookupEntry | null>(null);
   const [entryPendingDelete, setEntryPendingDelete] =
     useState<LookupEntry | null>(null);
-  const [form, setForm] = useState<LookupForm>(() => emptyForm(config));
+  const [form, setForm] = useState<LookupForm>(() => emptyForm(resolvedConfig));
 
-  const data = useMemo(() => entries ?? [], [entries]);
+  const data = serverEntries;
   const activeCount = useMemo(
     () => data.filter((entry) => entry.isActive).length,
     [data],
@@ -86,7 +138,7 @@ export const ReferenceLookupPage: React.FC<{ config: LookupConfig }> = ({
 
   const openCreate = () => {
     setEditingEntry(null);
-    setForm(emptyForm(config));
+    setForm(emptyForm(resolvedConfig));
     setIsFormOpen(true);
   };
 
@@ -118,30 +170,61 @@ export const ReferenceLookupPage: React.FC<{ config: LookupConfig }> = ({
     };
 
     if (editingEntry) {
-      updateEntry(config.key, editingEntry.id, draft);
-      toast.success(`تم تحديث ${config.singular} (بيانات تجريبية)`);
+      updateLookup.mutate(
+        { id: editingEntry.id, ...draft },
+        {
+          onSuccess: () => {
+            toast.success(`تم تحديث ${config.singular}`);
+            setIsFormOpen(false);
+            setEditingEntry(null);
+            setForm(emptyForm(config));
+          },
+          onError: (err: unknown) => {
+            toast.error(getErrorMessage(err, `فشل تحديث ${config.singular}`));
+          },
+        },
+      );
     } else {
-      addEntry(config.key, draft);
-      toast.success(`تمت إضافة ${config.singular} (بيانات تجريبية)`);
+      createLookup.mutate(draft, {
+        onSuccess: () => {
+          toast.success(`تمت إضافة ${config.singular}`);
+          setIsFormOpen(false);
+          setEditingEntry(null);
+          setForm(emptyForm(config));
+        },
+        onError: (err: unknown) => {
+          toast.error(getErrorMessage(err, `فشل إضافة ${config.singular}`));
+        },
+      });
     }
-
-    setIsFormOpen(false);
-    setEditingEntry(null);
-    setForm(emptyForm(config));
   };
 
   const handleConfirmDelete = () => {
     if (!entryPendingDelete) return;
-    removeEntry(config.key, entryPendingDelete.id);
-    toast.success(`تم حذف "${entryPendingDelete.name}"`);
-    setEntryPendingDelete(null);
+    deleteLookup.mutate(entryPendingDelete.id, {
+      onSuccess: () => {
+        toast.success(`تم حذف "${entryPendingDelete.name}"`);
+        setEntryPendingDelete(null);
+      },
+      onError: (err: unknown) => {
+        toast.error(
+          getErrorMessage(err, `فشل حذف "${entryPendingDelete.name}"`),
+        );
+      },
+    });
   };
 
   const columns = useReferenceLookupColumns({
-    config,
+    config: resolvedConfig,
     onEdit: openEdit,
     onDelete: setEntryPendingDelete,
-    onToggleActive: (entry) => toggleActive(config.key, entry.id),
+    onToggleActive: (entry) => {
+      toggleActiveMutation.mutate(entry.id, {
+        onError: (err: unknown) => {
+          toast.error(getErrorMessage(err, "فشل تغيير الحالة"));
+        },
+      });
+    },
   });
 
   const table = useDataTable({
@@ -154,6 +237,7 @@ export const ReferenceLookupPage: React.FC<{ config: LookupConfig }> = ({
   });
 
   const Icon = config.icon;
+  const isSaving = createLookup.isPending || updateLookup.isPending;
 
   return (
     <div className="space-y-6 p-6" dir="rtl">
@@ -177,8 +261,6 @@ export const ReferenceLookupPage: React.FC<{ config: LookupConfig }> = ({
         </button>
       </div>
 
-      <DummyDataNotice />
-
       <DataTable table={table}>
         <DataTable.Header>
           <DataTable.Toolbar>
@@ -186,7 +268,11 @@ export const ReferenceLookupPage: React.FC<{ config: LookupConfig }> = ({
           </DataTable.Toolbar>
         </DataTable.Header>
         <DataTable.Content
-          emptyMessage={`لا توجد سجلات في "${config.title}" بعد.`}
+          emptyMessage={
+            isLoading
+              ? "جاري تحميل البيانات..."
+              : `لا توجد سجلات في "${config.title}" بعد.`
+          }
           emptyIcon={config.icon}
         />
         <DataTable.Pagination />
@@ -242,58 +328,57 @@ export const ReferenceLookupPage: React.FC<{ config: LookupConfig }> = ({
                 </div>
               </div>
 
-              {config.fields.length > 0 ? (
-                <div className="grid grid-cols-2 gap-3">
-                  {config.fields.map((field) => {
-                    const resolved = resolveLookupField(field, form.fields);
+              {resolvedConfig.fields.map((field) => {
+                const resolved = resolveLookupField(field, form.fields);
+                const currentValue = form.fields[field.key] ?? "";
 
-                    return (
-                      <div key={field.key}>
-                        <label className="mb-1 block text-xs font-semibold uppercase text-app-label-secondary">
-                          {resolved.label}
-                        </label>
+                return (
+                  <div key={field.key}>
+                    <label className="mb-1 block text-xs font-semibold uppercase text-app-label-secondary">
+                      {resolved.label}
+                    </label>
 
-                        {resolved.type === "select" ? (
-                          <select
-                            value={form.fields[field.key] ?? ""}
-                            onChange={(e) =>
-                              setFieldValue(field.key, e.target.value)
-                            }
-                            className={inputClasses()}
-                          >
-                            {resolved.options?.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            type={
-                              resolved.type === "number" ? "number" : "text"
-                            }
-                            step={
-                              resolved.type === "number" ? "any" : undefined
-                            }
-                            placeholder={resolved.placeholder}
-                            value={form.fields[field.key] ?? ""}
-                            onChange={(e) =>
-                              setFieldValue(field.key, e.target.value)
-                            }
-                            className={inputClasses(resolved.mono)}
-                          />
-                        )}
-
-                        {resolved.hint ? (
-                          <p className="mt-1 text-[11px] text-app-label-tertiary">
-                            {resolved.hint}
-                          </p>
+                    {resolved.type === "select" ? (
+                      <select
+                        value={currentValue}
+                        onChange={(e) =>
+                          setFieldValue(field.key, e.target.value)
+                        }
+                        className={inputClasses()}
+                      >
+                        {resolved.options?.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="relative">
+                        <input
+                          type={resolved.type === "number" ? "number" : "text"}
+                          placeholder={resolved.placeholder}
+                          value={currentValue}
+                          onChange={(e) =>
+                            setFieldValue(field.key, e.target.value)
+                          }
+                          className={inputClasses(resolved.mono)}
+                        />
+                        {resolved.suffix ? (
+                          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs text-app-label-tertiary">
+                            {resolved.suffix}
+                          </span>
                         ) : null}
                       </div>
-                    );
-                  })}
-                </div>
-              ) : null}
+                    )}
+
+                    {resolved.hint ? (
+                      <p className="mt-1 text-[11px] text-app-label-tertiary">
+                        {resolved.hint}
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })}
 
               <div className="flex items-center gap-2">
                 <input
@@ -331,6 +416,7 @@ export const ReferenceLookupPage: React.FC<{ config: LookupConfig }> = ({
             <button
               type="button"
               onClick={() => setIsFormOpen(false)}
+              disabled={isSaving}
               className="rounded-xl px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
             >
               إلغاء
@@ -338,9 +424,14 @@ export const ReferenceLookupPage: React.FC<{ config: LookupConfig }> = ({
             <button
               type="submit"
               form="reference-lookup-form"
-              className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90"
+              disabled={isSaving}
+              className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
             >
-              {editingEntry ? "حفظ التعديلات" : "حفظ"}
+              {isSaving
+                ? "جاري الحفظ..."
+                : editingEntry
+                  ? "حفظ التعديلات"
+                  : "حفظ"}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -351,7 +442,7 @@ export const ReferenceLookupPage: React.FC<{ config: LookupConfig }> = ({
         onClose={() => setEntryPendingDelete(null)}
         onConfirm={handleConfirmDelete}
         title={`حذف ${config.singular}`}
-        message={`سيتم حذف "${entryPendingDelete?.name ?? ""}" من القائمة المؤقتة.`}
+        message={`سيتم حذف "${entryPendingDelete?.name ?? ""}" نهائياً من قاعدة البيانات.`}
         confirmText="حذف"
         variant="danger"
       />

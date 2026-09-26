@@ -177,7 +177,6 @@ export const getBreadcrumbEntries = (
       company: {
         label: "إعدادات الشركة",
         pages: {
-          profile: "بيانات الشركة",
           roles: "الأدوار والصلاحيات",
           units: "الوحدات التشغيلية",
         },

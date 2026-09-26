@@ -1,7 +1,6 @@
 import React, { useMemo } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { SectionTabsLayout } from "../components/ui/SectionTabs";
-import { CompanySettingsPage } from "../pages/settings/CompanySettingsPage";
 import { ReferenceLookupPage } from "../pages/settings/ReferenceLookupPage";
 import { REFERENCE_LOOKUPS, WAREHOUSE_LOOKUPS } from "../config/referenceLookups";
 import { ProductsPage } from "../pages/settings/ProductsPage";
@@ -34,7 +33,6 @@ export const SettingsRoutes: React.FC = () => {
 
   const companyTabs = useMemo(() => {
     const list = [
-      { path: "/settings/company/profile", label: "بيانات الشركة" },
       { path: "/settings/company/roles", label: "الأدوار والصلاحيات" },
     ];
     if (canManageUnits) {
@@ -49,8 +47,7 @@ export const SettingsRoutes: React.FC = () => {
 
       {/* 1 — Company settings */}
       <Route path="company" element={<SectionTabsLayout tabs={companyTabs} />}>
-        <Route index element={<Navigate to="profile" replace />} />
-        <Route path="profile" element={<CompanySettingsPage />} />
+        <Route index element={<Navigate to="roles" replace />} />
         <Route path="roles" element={<RolesPage />} />
         {canManageUnits && <Route path="units" element={<OperatingUnitsPage />} />}
       </Route>
@@ -92,8 +89,8 @@ export const SettingsRoutes: React.FC = () => {
       <Route path="categories" element={<Navigate to="/settings/products/categories" replace />} />
       <Route path="roles" element={<Navigate to="/settings/company/roles" replace />} />
       <Route path="units" element={<Navigate to="/settings/company/units" replace />} />
-      <Route path="server" element={<Navigate to="/settings/company/profile" replace />} />
-      <Route path="*" element={<Navigate to="/settings/company/profile" replace />} />
+      <Route path="server" element={<Navigate to="/settings/company/roles" replace />} />
+      <Route path="*" element={<Navigate to="/settings/company/roles" replace />} />
     </Routes>
   );
 };
