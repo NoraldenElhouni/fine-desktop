@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import apiClient from "../api/client";
 import {
   createOperatingUnitWarehouse,
+  createWarehouse,
   deleteWarehouse,
   getOperatingUnitWarehouses,
   updateWarehouse,
@@ -30,6 +31,19 @@ export function useOperatingUnitWarehouses(unitId?: string) {
   });
 }
 
+/** Create a warehouse in the current operating unit context (Settings > المخازن). */
+export function useCreateWarehouse() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: Parameters<typeof createWarehouse>[0]) => createWarehouse(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["warehouses"] });
+      queryClient.invalidateQueries({ queryKey: ["operatingUnits"] });
+    },
+  });
+}
+
 /** Create a warehouse assigned to a specific operating unit. */
 export function useCreateOperatingUnitWarehouse(unitId?: string) {
   const queryClient = useQueryClient();
@@ -55,14 +69,8 @@ export function useUpdateWarehouse(unitId?: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      id,
-      ...payload
-    }: {
-      id: string;
-      name?: string;
-      is_internal_unit?: boolean;
-    }) => updateWarehouse(id, payload),
+    mutationFn: ({ id, ...payload }: { id: string } & Parameters<typeof updateWarehouse>[1]) =>
+      updateWarehouse(id, payload),
     onSuccess: () => {
       if (unitId) {
         queryClient.invalidateQueries({ queryKey: ["operating-unit-warehouses", unitId] });

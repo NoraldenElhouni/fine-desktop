@@ -11,6 +11,7 @@ import { CategoryAttributeManagerPage } from "../pages/inventory/CategoryAttribu
 import CategoryDetailPage from "../pages/inventory/CategoryDetailPage";
 import { BundlesPage } from "../pages/inventory/BundlesPage";
 import BundleFormPage from "../pages/inventory/BundleFormPage";
+import { WarehousesSettingsPage } from "../pages/settings/WarehousesSettingsPage";
 import { usePermissions } from "../hooks/usePermissions";
 
 const PRODUCT_TABS = [
@@ -25,10 +26,13 @@ const DATA_TABS = REFERENCE_LOOKUPS.map((lookup) => ({
   label: lookup.title,
 }));
 
-const WAREHOUSE_TABS = WAREHOUSE_LOOKUPS.map((lookup) => ({
-  path: `/settings/warehouses/${lookup.path}`,
-  label: lookup.title,
-}));
+const WAREHOUSE_TABS = [
+  { path: "/settings/warehouses/list", label: "المخازن" },
+  ...WAREHOUSE_LOOKUPS.map((lookup) => ({
+    path: `/settings/warehouses/${lookup.path}`,
+    label: lookup.title,
+  })),
+];
 
 export const SettingsRoutes: React.FC = () => {
   const { hasRole } = usePermissions();
@@ -80,9 +84,10 @@ export const SettingsRoutes: React.FC = () => {
         ))}
       </Route>
 
-      {/* 4 — Warehouse settings (dummy data until the API lands) */}
+      {/* 4 — Warehouse settings: real warehouse (+ sub-warehouse) CRUD, plus the location-type lookup */}
       <Route path="warehouses" element={<SectionTabsLayout tabs={WAREHOUSE_TABS} />}>
-        <Route index element={<Navigate to={WAREHOUSE_LOOKUPS[0].path} replace />} />
+        <Route index element={<Navigate to="list" replace />} />
+        <Route path="list" element={<WarehousesSettingsPage />} />
         {WAREHOUSE_LOOKUPS.map((lookup) => (
           <Route
             key={lookup.key}

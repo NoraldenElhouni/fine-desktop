@@ -196,9 +196,12 @@ export const getBreadcrumbEntries = (
       },
       warehouses: {
         label: "إعدادات المخازن",
-        pages: Object.fromEntries(
-          WAREHOUSE_LOOKUPS.map((lookup) => [lookup.path, lookup.title]),
-        ),
+        pages: {
+          list: "المخازن",
+          ...Object.fromEntries(
+            WAREHOUSE_LOOKUPS.map((lookup) => [lookup.path, lookup.title]),
+          ),
+        },
       },
     };
 
