@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBo
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useSuppliersColumns } from "../../components/table-columns/suppliersColumns";
+import { CoaAccountSelector } from "../../components/accounting/CoaAccountSelector";
+import type { CoaAction, NewCoaAccountPayload } from "../../types/entities";
 
 export const SuppliersPage: React.FC = () => {
   const { data: suppliers = [], isLoading, error: queryError, refetch } = useSuppliers();
@@ -27,6 +29,14 @@ export const SuppliersPage: React.FC = () => {
   const [defaultCurrency, setDefaultCurrency] = useState("USD");
   const [city, setCity] = useState("");
   const [address, setAddress] = useState("");
+  const [coaAction, setCoaAction] = useState<CoaAction>("create_new");
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [newAccount, setNewAccount] = useState<NewCoaAccountPayload>({
+    parent_account_id: "",
+    account_code: "",
+    name: "",
+    currency: "USD",
+  });
 
   const resetForm = () => {
     setName("");
@@ -34,6 +44,14 @@ export const SuppliersPage: React.FC = () => {
     setCity("");
     setAddress("");
     setDefaultCurrency("USD");
+    setCoaAction("create_new");
+    setSelectedAccountId(null);
+    setNewAccount({
+      parent_account_id: "",
+      account_code: "",
+      name: "",
+      currency: "USD",
+    });
   };
 
   const handleCreateSupplier = async (e: React.FormEvent) => {
@@ -41,6 +59,26 @@ export const SuppliersPage: React.FC = () => {
     const unitId = selectedUnitId || operatingUnits[0]?.id;
     if (!name.trim() || !unitId) {
       toast.error("يرجى تعبئة اسم المورد والوحدة التشغيلية");
+      return;
+    }
+
+    if (coaAction === "create_new") {
+      if (!newAccount.parent_account_id) {
+        toast.error("يرجى اختيار الحساب الأب لإنشاء حساب في دليل الحسابات");
+        return;
+      }
+      if (!newAccount.account_code.trim()) {
+        toast.error("يرجى إدخال رمز الحساب الفرعي");
+        return;
+      }
+      if (!newAccount.name.trim()) {
+        toast.error("يرجى إدخال اسم الحساب المالي");
+        return;
+      }
+    }
+
+    if (coaAction === "link_existing" && !selectedAccountId) {
+      toast.error("يرجى اختيار الحساب المراد ربطه من دليل الحسابات");
       return;
     }
 
@@ -52,6 +90,17 @@ export const SuppliersPage: React.FC = () => {
       contact: contact.trim() || undefined,
       default_currency: defaultCurrency,
       address: fullAddress || undefined,
+      coa_action: coaAction,
+      account_id: coaAction === "link_existing" ? selectedAccountId : undefined,
+      new_account:
+        coaAction === "create_new"
+          ? {
+              parent_account_id: newAccount.parent_account_id,
+              account_code: newAccount.account_code.trim(),
+              name: newAccount.name.trim(),
+              currency: newAccount.currency || defaultCurrency,
+            }
+          : undefined,
     };
 
     createSupplierMutation.mutate(payload, {
@@ -236,6 +285,20 @@ export const SuppliersPage: React.FC = () => {
               />
             </div>
           </div>
+
+          {/* Chart of Accounts Linkage */}
+          <CoaAccountSelector
+            entityTypeLabel="المورد"
+            defaultEntityName={name.trim()}
+            currency={defaultCurrency}
+            action={coaAction}
+            onActionChange={setCoaAction}
+            selectedAccountId={selectedAccountId}
+            onSelectedAccountIdChange={setSelectedAccountId}
+            newAccount={newAccount}
+            onNewAccountChange={setNewAccount}
+            preferredParentCode="21"
+          />
 
         </form>
           </DialogBody>

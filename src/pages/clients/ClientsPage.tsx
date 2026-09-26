@@ -22,6 +22,8 @@ import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useClientsColumns } from "../../components/table-columns/clientsColumns";
+import { CoaAccountSelector } from "../../components/accounting/CoaAccountSelector";
+import type { CoaAction, NewCoaAccountPayload } from "../../types/entities";
 
 export const ClientsPage: React.FC = () => {
   const { allowManualEntitySelection } = useServerConfigStore();
@@ -48,6 +50,14 @@ export const ClientsPage: React.FC = () => {
   const [selectedEntityId, setSelectedEntityId] = useState("");
   const [creditLimit, setCreditLimit] = useState<number>(10000);
   const [paymentTermsDays, setPaymentTermsDays] = useState<number>(30);
+  const [coaAction, setCoaAction] = useState<CoaAction>("create_new");
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [newAccount, setNewAccount] = useState<NewCoaAccountPayload>({
+    parent_account_id: "",
+    account_code: "",
+    name: "",
+    currency: "LYD",
+  });
 
   const resetForm = () => {
     setClientName("");
@@ -58,6 +68,14 @@ export const ClientsPage: React.FC = () => {
     setCreditLimit(10000);
     setPaymentTermsDays(30);
     setEntityMode("auto");
+    setCoaAction("create_new");
+    setSelectedAccountId(null);
+    setNewAccount({
+      parent_account_id: "",
+      account_code: "",
+      name: "",
+      currency: "LYD",
+    });
   };
 
   const handleAddClient = async (e: React.FormEvent) => {
@@ -79,6 +97,26 @@ export const ClientsPage: React.FC = () => {
       return;
     }
 
+    if (coaAction === "create_new") {
+      if (!newAccount.parent_account_id) {
+        toast.error("يرجى اختيار الحساب الأب لإنشاء حساب في دليل الحسابات");
+        return;
+      }
+      if (!newAccount.account_code.trim()) {
+        toast.error("يرجى إدخال رمز الحساب الفرعي");
+        return;
+      }
+      if (!newAccount.name.trim()) {
+        toast.error("يرجى إدخال اسم الحساب المالي");
+        return;
+      }
+    }
+
+    if (coaAction === "link_existing" && !selectedAccountId) {
+      toast.error("يرجى اختيار الحساب المراد ربطه من دليل الحسابات");
+      return;
+    }
+
     const payload = {
       operating_unit_id: unitId,
       entity_id: entityMode === "existing" ? selectedEntityId : undefined,
@@ -92,6 +130,17 @@ export const ClientsPage: React.FC = () => {
       payment_terms_days: paymentTermsDays,
       city: clientCity.trim() || undefined,
       address: clientAddress.trim() || undefined,
+      coa_action: coaAction,
+      account_id: coaAction === "link_existing" ? selectedAccountId : undefined,
+      new_account:
+        coaAction === "create_new"
+          ? {
+              parent_account_id: newAccount.parent_account_id,
+              account_code: newAccount.account_code.trim(),
+              name: newAccount.name.trim(),
+              currency: newAccount.currency || "LYD",
+            }
+          : undefined,
     };
 
     createClientMutation.mutate(payload, {
@@ -484,6 +533,19 @@ export const ClientsPage: React.FC = () => {
                   />
                 </div>
               </div>
+
+              {/* Chart of Accounts Linkage */}
+              <CoaAccountSelector
+                entityTypeLabel="العميل"
+                defaultEntityName={clientName.trim()}
+                action={coaAction}
+                onActionChange={setCoaAction}
+                selectedAccountId={selectedAccountId}
+                onSelectedAccountIdChange={setSelectedAccountId}
+                newAccount={newAccount}
+                onNewAccountChange={setNewAccount}
+                preferredParentCode="13"
+              />
             </form>
           </DialogBody>
           <DialogFooter>

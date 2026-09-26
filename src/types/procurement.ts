@@ -1,3 +1,5 @@
+import type { CoaAction, NewCoaAccountPayload } from './entities';
+
 export type ImportOrderStatus =
   | 'draft'
   | 'pending_payment'
@@ -33,6 +35,8 @@ export interface Supplier {
   id: string;
   operating_unit_id: string;
   operating_unit?: { id: string; name: string };
+  account_id?: string | null;
+  account?: { id: string; account_code: string; name: string } | null;
   name: string;
   contact?: string | null;
   default_currency: string;
@@ -213,6 +217,9 @@ export interface CreateSupplierPayload {
   contact?: string;
   default_currency?: string;
   address?: string;
+  account_id?: string | null;
+  coa_action?: CoaAction;
+  new_account?: NewCoaAccountPayload | null;
 }
 
 export interface CreateImportOrderPayload {

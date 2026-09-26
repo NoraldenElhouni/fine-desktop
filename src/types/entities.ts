@@ -99,6 +99,7 @@ export interface Client {
   current_balance?: string | number;
   payment_terms_days: number;
   account_id?: string | null;
+  account?: { id: string; account_code: string; name: string } | null;
   status: ClientStatus;
   record_version?: number;
   entity?: Entity;
@@ -177,6 +178,15 @@ export interface CreateEmployeePayload {
   status?: EmployeeStatus;
 }
 
+export type CoaAction = "none" | "link_existing" | "create_new";
+
+export interface NewCoaAccountPayload {
+  parent_account_id: string;
+  account_code: string;
+  name: string;
+  currency?: string;
+}
+
 export interface CreateClientPayload {
   entity_id?: string;
   name?: string;
@@ -186,6 +196,8 @@ export interface CreateClientPayload {
   credit_limit?: number;
   payment_terms_days?: number;
   account_id?: string | null;
+  coa_action?: CoaAction;
+  new_account?: NewCoaAccountPayload | null;
   status?: ClientStatus;
   city?: string;
   address?: string;

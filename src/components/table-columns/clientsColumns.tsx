@@ -101,6 +101,21 @@ export function useClientsColumns(): ColumnDef<Client, unknown>[] {
         cell: ({ row }) => `${row.original.payment_terms_days} يوم`,
       },
       {
+        id: "account",
+        header: "حساب الأستاذ (COA)",
+        cell: ({ row }) => {
+          const acc = row.original.account;
+          if (acc) {
+            return (
+              <span className="inline-flex items-center gap-1 rounded-md bg-app-accent/10 px-2 py-0.5 text-[11px] font-mono font-medium text-app-accent">
+                {acc.account_code} - {acc.name}
+              </span>
+            );
+          }
+          return <span className="text-[11px] text-app-label-secondary">—</span>;
+        },
+      },
+      {
         accessorKey: "status",
         header: "الحالة",
         cell: ({ row }) => (
