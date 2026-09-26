@@ -270,7 +270,7 @@ export const ChartOfAccountsPage: React.FC = () => {
   const [sideSearch, setSideSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [detailsAccountId, setDetailsAccountId] = useState<string | null>(null);
-  const [expandedMainIds, setExpandedMainIds] = useState<Set<string>>(() => new Set());
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
 
   const handleViewChange = (next: "effected" | "full") => {
     setView(next);
@@ -296,8 +296,8 @@ export const ChartOfAccountsPage: React.FC = () => {
     [view, fullTree],
   );
 
-  const toggleMainAccount = (id: string) => {
-    setExpandedMainIds((prev) => {
+  const toggleAccount = (id: string) => {
+    setExpandedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
@@ -308,12 +308,18 @@ export const ChartOfAccountsPage: React.FC = () => {
     });
   };
 
+  /** Every account id that has children, at any depth. */
+  const collectParentIds = (nodes: TreeNode[]): string[] =>
+    nodes.flatMap((n) =>
+      n.children.length > 0 ? [n.account.id, ...collectParentIds(n.children)] : [],
+    );
+
   const expandAll = () => {
-    setExpandedMainIds(new Set(tree.map((n) => n.account.id)));
+    setExpandedIds(new Set(collectParentIds(tree)));
   };
 
   const collapseAll = () => {
-    setExpandedMainIds(new Set());
+    setExpandedIds(new Set());
   };
 
   const ledgerColumns = useChartOfAccountsLedgerColumns();
@@ -328,9 +334,8 @@ export const ChartOfAccountsPage: React.FC = () => {
   });
 
   const renderNode = (node: TreeNode, depth: number): React.ReactNode => {
-    const isMain = node.account.parent_account_id === null;
     const hasChildren = node.children.length > 0;
-    const isExpanded = expandedMainIds.has(node.account.id);
+    const isExpanded = expandedIds.has(node.account.id);
 
     return (
       <React.Fragment key={node.account.id}>
@@ -340,12 +345,12 @@ export const ChartOfAccountsPage: React.FC = () => {
           }`}
           style={{ paddingInlineStart: `${16 + depth * 20}px` }}
         >
-          {isMain && hasChildren ? (
+          {hasChildren ? (
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                toggleMainAccount(node.account.id);
+                toggleAccount(node.account.id);
               }}
               className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-app-label-tertiary hover:bg-app-bg-secondary hover:text-app-label-primary transition-colors"
               title={isExpanded ? "طي الحساب" : "توسيع الحساب"}
@@ -356,17 +361,17 @@ export const ChartOfAccountsPage: React.FC = () => {
                 }`}
               />
             </button>
-          ) : isMain ? (
+          ) : (
             <span className="w-5 shrink-0" />
-          ) : null}
+          )}
 
           <button
             type="button"
             onClick={() => {
               setSelected(node.account);
               setLedgerPage(1);
-              if (isMain && !isExpanded) {
-                toggleMainAccount(node.account.id);
+              if (hasChildren && !isExpanded) {
+                toggleAccount(node.account.id);
               }
             }}
             className="flex-1 flex items-center gap-3 text-start min-w-0"
@@ -405,7 +410,7 @@ export const ChartOfAccountsPage: React.FC = () => {
             <Eye className="w-4 h-4" />
           </button>
         </div>
-        {(!isMain || isExpanded) && node.children.map((child) => renderNode(child, depth + 1))}
+        {isExpanded && node.children.map((child) => renderNode(child, depth + 1))}
       </React.Fragment>
     );
   };
