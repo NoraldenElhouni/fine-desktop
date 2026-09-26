@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { isAxiosError } from "axios";
-import { ArrowRight, Calculator, Layers, Package, Plus, Ruler } from "lucide-react";
+import { ArrowRight, Calculator, Info, Layers, Package, Plus, Ruler } from "lucide-react";
 import {
   useCreateInventoryItem,
   useInventoryItem,
@@ -12,6 +12,34 @@ import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { type InventoryItem, UOM_LABELS } from "../../api/endpoints/inventory";
 import { toast } from "../../stores/toastStore";
 import { formatNumber } from "../../lib/utils/format";
+
+/** One consistent card chrome for every field group on this form. */
+const SectionCard: React.FC<{ icon: React.ElementType; title: string; children: React.ReactNode }> = ({
+  icon: Icon,
+  title,
+  children,
+}) => (
+  <div className="space-y-3 p-4 bg-app-bg-secondary rounded-xl border border-app-separator">
+    <div className="flex items-center gap-2 text-xs font-bold text-app-label-primary">
+      <Icon className="w-4 h-4 text-app-accent" />
+      <span>{title}</span>
+    </div>
+    {children}
+  </div>
+);
+
+/** The small "here's what that means" confirmation banner, reused for both computed previews. */
+const Callout: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="flex items-center gap-2 p-2 rounded-lg bg-app-accent/10 border border-app-accent/20 text-xs text-app-accent">
+    <Calculator className="w-4 h-4 shrink-0" />
+    <span>{children}</span>
+  </div>
+);
+
+const inputClass =
+  "w-full px-3 py-2 border rounded-xl bg-app-bg-primary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none";
+const labelClass = "block text-xs font-semibold text-app-label-secondary mb-1";
+const helperClass = "text-[11px] text-app-label-tertiary mt-1";
 
 const InventoryItemFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -33,14 +61,14 @@ const InventoryItemFormPage: React.FC = () => {
   const [secondaryUom, setSecondaryUom] = useState("");
   const [containerCapacity, setContainerCapacity] = useState("");
   const [dimensionsVisible, setDimensionsVisible] = useState(false);
-  const [nominalLength, setNominalLength] = useState("");
-  const [nominalWidth, setNominalWidth] = useState("");
-  const [nominalHeight, setNominalHeight] = useState("");
+  const [lengthM, setLengthM] = useState("");
+  const [widthM, setWidthM] = useState("");
+  const [heightM, setHeightM] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  // م³ items almost always carry a spec size; other UOMs rarely do, so only
-  // auto-reveal the dimensions card for volumetric items — everything else
-  // can still open it manually via the "إضافة مقاس اسمي" button.
+  // م³ items almost always have known dimensions; other UOMs rarely do, so
+  // only auto-reveal the dimensions card for volumetric items — everything
+  // else can still open it manually via the "إضافة مقاس" button.
   useEffect(() => {
     if (uom === "m3") {
       setDimensionsVisible(true);
@@ -68,12 +96,10 @@ const InventoryItemFormPage: React.FC = () => {
     setPrimaryUom(editingItem.primary_uom ?? "");
     setSecondaryUom(editingItem.secondary_uom ?? "");
     setContainerCapacity(editingItem.container_capacity ? String(editingItem.container_capacity) : "");
-    setNominalLength(editingItem.nominal_length_m ? String(editingItem.nominal_length_m) : "");
-    setNominalWidth(editingItem.nominal_width_m ? String(editingItem.nominal_width_m) : "");
-    setNominalHeight(editingItem.nominal_height_m ? String(editingItem.nominal_height_m) : "");
-    const hasDimensions = Boolean(
-      editingItem.nominal_length_m || editingItem.nominal_width_m || editingItem.nominal_height_m,
-    );
+    setLengthM(editingItem.length_m ? String(editingItem.length_m) : "");
+    setWidthM(editingItem.width_m ? String(editingItem.width_m) : "");
+    setHeightM(editingItem.height_m ? String(editingItem.height_m) : "");
+    const hasDimensions = Boolean(editingItem.length_m || editingItem.width_m || editingItem.height_m);
     if (hasDimensions || editingItem.unit_of_measure === "m3") {
       setDimensionsVisible(true);
     }
@@ -82,6 +108,7 @@ const InventoryItemFormPage: React.FC = () => {
   const selectedCategory = categories?.find((c) => c.id === categoryId);
   const categoryPrefix = selectedCategory?.code ?? "";
   const fullCode = `${categoryPrefix}${codeSegment.trim()}`;
+  const containerUnitLabel = UOM_LABELS[secondaryUom] || secondaryUom || UOM_LABELS[uom] || uom;
 
   const handleCategoryChange = (nextCategoryId: string) => {
     setCategoryId(nextCategoryId);
@@ -107,9 +134,9 @@ const InventoryItemFormPage: React.FC = () => {
       primary_uom: hasContainerTracking ? (primaryUom.trim() || undefined) : null,
       secondary_uom: hasContainerTracking ? (secondaryUom.trim() || uom) : null,
       container_capacity: hasContainerTracking && parsedCapacity && parsedCapacity > 0 ? parsedCapacity : null,
-      nominal_length_m: nominalLength.trim() ? Number(nominalLength) : null,
-      nominal_width_m: nominalWidth.trim() ? Number(nominalWidth) : null,
-      nominal_height_m: nominalHeight.trim() ? Number(nominalHeight) : null,
+      length_m: lengthM.trim() ? Number(lengthM) : null,
+      width_m: widthM.trim() ? Number(widthM) : null,
+      height_m: heightM.trim() ? Number(heightM) : null,
     };
 
     try {
@@ -171,126 +198,104 @@ const InventoryItemFormPage: React.FC = () => {
           </div>
         )}
 
-        <div>
-          <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-            فئة الصنف
-          </label>
-          <SearchableSelect<{ id: string; name: string; code?: string }>
-            options={categories ?? []}
-            value={categories?.find((c) => c.id === categoryId) ?? null}
-            onChange={(c) => handleCategoryChange(c ? c.id : "")}
-            getOptionId={(c) => c.id}
-            getOptionLabel={(c) => c.name}
-            getOptionSubLabel={(c) => c.code}
-            getOptionSearchText={(c) => `${c.name} ${c.code ?? ""}`}
-            placeholder="اختر قالب فئة المنتج"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <SectionCard icon={Info} title="بيانات الصنف">
           <div>
-            <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-              اسم الصنف
-            </label>
-            <input
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
+            <label className={labelClass}>الفئة</label>
+            <SearchableSelect<{ id: string; name: string; code?: string }>
+              options={categories ?? []}
+              value={categories?.find((c) => c.id === categoryId) ?? null}
+              onChange={(c) => handleCategoryChange(c ? c.id : "")}
+              getOptionId={(c) => c.id}
+              getOptionLabel={(c) => c.name}
+              getOptionSubLabel={(c) => c.code}
+              getOptionSearchText={(c) => `${c.name} ${c.code ?? ""}`}
+              placeholder="اختر فئة الصنف"
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-              رمز الصنف
-            </label>
-            <div className="flex items-center gap-1.5">
-              {categoryPrefix && (
-                <span
-                  className="shrink-0 rounded-lg bg-app-fill-f1 px-2.5 py-2 text-xs font-mono font-bold text-app-label-secondary"
-                  dir="ltr"
-                >
-                  {categoryPrefix}
-                </span>
-              )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>اسم الصنف</label>
               <input
                 type="text"
                 required
-                placeholder={categoryPrefix ? "مثال: 01" : "الرمز الكامل"}
-                value={codeSegment}
-                onChange={(e) => setCodeSegment(e.target.value)}
-                className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
-                dir="ltr"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className={inputClass}
               />
             </div>
-            {categoryPrefix && codeSegment.trim() && (
-              <p className="text-[11px] text-app-label-tertiary mt-1">
-                الرمز الكامل سيكون:{" "}
-                <span className="font-mono font-bold text-app-accent" dir="ltr">
-                  {fullCode}
-                </span>
-              </p>
-            )}
-          </div>
-        </div>
 
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <label className="block text-xs font-semibold text-app-label-secondary uppercase">
-              نوع الصنف
-            </label>
-            {categories?.find((c) => c.id === categoryId)?.item_type && (
-              <span className="text-[10px] text-app-accent font-medium">
-                تلقائي من الفئة
-              </span>
-            )}
-          </div>
-          <select
-            value={itemType}
-            onChange={(e) => setItemType(e.target.value as InventoryItem["item_type"])}
-            className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
-          >
-            <option value="raw_material">مادة خام</option>
-            <option value="foam_block">قالب إسفنج</option>
-            <option value="cut_template_piece">قطعة قالب تشذيب</option>
-            <option value="slice">شريحة</option>
-            <option value="byproduct_fill">حشو ثانوي</option>
-            <option value="furniture_finished_good">منتج أثاث تام</option>
-            <option value="barrel">برميل</option>
-            <option value="pallet">منصة نقالة</option>
-            <option value="packaging">تغليف</option>
-          </select>
-        </div>
-
-        {/* Units of Measure & Packaging Section */}
-        <div className="space-y-3 p-3.5 bg-app-bg-secondary rounded-xl border border-app-separator">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-app-label-primary">
-            <Layers className="w-4 h-4 text-app-accent" />
-            <span>وحدات القياس والتعبئة (Units of Measure & Packaging)</span>
+            <div>
+              <label className={labelClass}>رمز الصنف</label>
+              <div className="flex items-center gap-1.5">
+                {categoryPrefix && (
+                  <span
+                    className="shrink-0 rounded-lg bg-app-fill-f1 px-2.5 py-2 text-xs font-mono font-bold text-app-label-secondary"
+                    dir="ltr"
+                  >
+                    {categoryPrefix}
+                  </span>
+                )}
+                <input
+                  type="text"
+                  required
+                  placeholder={categoryPrefix ? "مثال: 01" : "الرمز الكامل"}
+                  value={codeSegment}
+                  onChange={(e) => setCodeSegment(e.target.value)}
+                  className={`${inputClass} font-mono`}
+                  dir="ltr"
+                />
+              </div>
+              {categoryPrefix && codeSegment.trim() && (
+                <p className={helperClass}>
+                  الرمز الكامل:{" "}
+                  <span className="font-mono font-bold text-app-accent" dir="ltr">
+                    {fullCode}
+                  </span>
+                </p>
+              )}
+            </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-              وحدة القياس الأساسية (Base UOM)
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-app-label-secondary">نوع الصنف</label>
+              {categories?.find((c) => c.id === categoryId)?.item_type && (
+                <span className="text-[10px] text-app-accent font-medium">تلقائي من الفئة</span>
+              )}
+            </div>
             <select
-              value={uom}
-              onChange={(e) => setUom(e.target.value)}
-              className="w-full px-3 py-2 border rounded-xl bg-app-bg-primary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
+              value={itemType}
+              onChange={(e) => setItemType(e.target.value as InventoryItem["item_type"])}
+              className={inputClass}
             >
+              <option value="raw_material">مادة خام</option>
+              <option value="foam_block">قالب إسفنج</option>
+              <option value="cut_template_piece">قطعة قالب تشذيب</option>
+              <option value="slice">شريحة</option>
+              <option value="byproduct_fill">حشو ثانوي</option>
+              <option value="furniture_finished_good">منتج أثاث تام</option>
+              <option value="barrel">برميل</option>
+              <option value="pallet">منصة نقالة</option>
+              <option value="packaging">تغليف</option>
+            </select>
+          </div>
+        </SectionCard>
+
+        <SectionCard icon={Layers} title="وحدات القياس والتعبئة">
+          <div>
+            <label className={labelClass}>الوحدة الأساسية</label>
+            <select value={uom} onChange={(e) => setUom(e.target.value)} className={inputClass}>
               <option value="kg">كجم (كيلوغرام)</option>
               <option value="liter">لتر</option>
               <option value="m3">م³ (متر مكعب)</option>
               <option value="meter">متر</option>
               <option value="each">قطعة / وحدة</option>
             </select>
-            <p className="text-[11px] text-app-label-tertiary mt-1">
-              الوحدة المعيارية لاحتساب الكميات وتكلفة المخزون في النظام.
-            </p>
+            <p className={helperClass}>تُستخدم لحساب الكميات وتكلفة المخزون في النظام.</p>
           </div>
 
-          <div className="pt-2 border-t border-app-separator">
+          <div className="pt-3 border-t border-app-separator space-y-3">
             <label className="flex items-start gap-2.5 cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -311,27 +316,25 @@ const InventoryItemFormPage: React.FC = () => {
               />
               <div className="flex-1">
                 <span className="text-xs font-semibold text-app-label-primary block">
-                  تتبع الحاويات والتعبئة (Container & Packaging Tracking)
+                  الصنف يُخزَّن في حاويات
                 </span>
-                <span className="text-[11px] text-app-label-secondary block mt-0.5">
-                  فعل هذا الخيار إذا كان الصنف يتم توريده أو تخزينه في حاويات أو طرود (مثل براميل، كراتين، منصات) تحتوي على سعة ثابتة من وحدة القياس الأساسية.
+                <span className={helperClass + " block"}>
+                  فعّل هذا إذا كان الصنف يُورَّد أو يُخزَّن في حاويات بسعة ثابتة، مثل براميل أو صناديق أو أكياس.
                 </span>
               </div>
             </label>
 
             {hasContainerTracking && (
-              <div className="mt-3 p-3 rounded-xl bg-app-bg-primary border border-app-separator space-y-3">
+              <div className="space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                      الوحدة الأولى (وحدة التعبئة / الحاوية)
-                    </label>
+                    <label className={labelClass}>وحدة الحاوية</label>
                     <input
                       type="text"
-                      placeholder="مثال: برميل, صندوق, طرد, منصة"
+                      placeholder="مثال: برميل, صندوق, طرد"
                       value={primaryUom}
                       onChange={(e) => setPrimaryUom(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
+                      className={inputClass}
                     />
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {["برميل", "صندوق", "طرد", "منصة نقالة", "كيس", "رول"].map((preset) => (
@@ -342,7 +345,7 @@ const InventoryItemFormPage: React.FC = () => {
                           className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
                             primaryUom === preset
                               ? "bg-app-accent text-white border-app-accent"
-                              : "bg-app-bg-secondary border-app-separator text-app-label-secondary hover:text-app-label-primary"
+                              : "bg-app-bg-primary border-app-separator text-app-label-secondary hover:text-app-label-primary"
                           }`}
                         >
                           {preset}
@@ -352,124 +355,94 @@ const InventoryItemFormPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                      الوحدة الثانية (الوحدة الأساسية داخل الحاوية)
-                    </label>
+                    <label className={labelClass}>سعة الحاوية الواحدة ({containerUnitLabel})</label>
                     <input
-                      type="text"
-                      placeholder={UOM_LABELS[uom] || uom}
-                      value={secondaryUom}
-                      onChange={(e) => setSecondaryUom(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
+                      type="number"
+                      step="0.0001"
+                      min="0"
+                      placeholder="مثال: 200"
+                      value={containerCapacity}
+                      onChange={(e) => setContainerCapacity(e.target.value)}
+                      className={`${inputClass} font-mono`}
                     />
-                    <p className="text-[10px] text-app-label-tertiary mt-1">
-                      افتراضياً نفس الوحدة الأساسية ({UOM_LABELS[uom] || uom})، وتقدر تغيرها.
-                    </p>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                    سعة الحاوية الواحدة (من {UOM_LABELS[secondaryUom] || secondaryUom || UOM_LABELS[uom] || uom})
-                  </label>
+                  <label className={labelClass}>الوحدة الداخلية</label>
                   <input
-                    type="number"
-                    step="0.0001"
-                    min="0"
-                    placeholder="مثال: 200"
-                    value={containerCapacity}
-                    onChange={(e) => setContainerCapacity(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                    type="text"
+                    placeholder={UOM_LABELS[uom] || uom}
+                    value={secondaryUom}
+                    onChange={(e) => setSecondaryUom(e.target.value)}
+                    className={inputClass}
                   />
-                  <p className="text-[10px] text-app-label-tertiary mt-1">
-                    كم {UOM_LABELS[secondaryUom] || secondaryUom || UOM_LABELS[uom] || uom} يحوي كل {primaryUom || "حاوية واحدة"}
-                  </p>
+                  <p className={helperClass}>الوحدة التي تُقاس بها محتويات الحاوية. الافتراضي: نفس الوحدة الأساسية.</p>
                 </div>
 
                 {Number(containerCapacity) > 0 && primaryUom && (
-                  <div className="flex items-center gap-2 p-2 rounded-lg bg-app-accent/10 border border-app-accent/20 text-xs text-app-accent">
-                    <Calculator className="w-4 h-4 shrink-0" />
-                    <span>
-                      كل 1 {primaryUom} ={" "}
-                      <strong className="font-bold font-mono">
-                        {formatNumber(Number(containerCapacity))} {UOM_LABELS[secondaryUom] || secondaryUom || UOM_LABELS[uom] || uom}
-                      </strong>
-                    </span>
-                  </div>
+                  <Callout>
+                    كل 1 {primaryUom} ={" "}
+                    <strong className="font-bold font-mono">
+                      {formatNumber(Number(containerCapacity))} {containerUnitLabel}
+                    </strong>
+                  </Callout>
                 )}
               </div>
             )}
           </div>
-        </div>
+        </SectionCard>
 
-        {/* Nominal Dimensions Section */}
         {dimensionsVisible ? (
-          <div className="space-y-3 p-3.5 bg-app-bg-secondary rounded-xl border border-app-separator">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-app-label-primary">
-              <Ruler className="w-4 h-4 text-app-accent" />
-              <span>المقاس الاسمي (Nominal Dimensions)</span>
-            </div>
-            <p className="text-[11px] text-app-label-tertiary -mt-2">
-              المقاس المرجعي لهذا الصنف حسب الكتالوج، وليس القياس الفعلي لدفعة معينة (يُسجَّل لكل دفعة على حدة).
-            </p>
-
+          <SectionCard icon={Ruler} title="المقاس">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                  الطول (م)
-                </label>
+                <label className={labelClass}>الطول (م)</label>
                 <input
                   type="number"
                   step="0.001"
                   min="0"
                   placeholder="مثال: 1.00"
-                  value={nominalLength}
-                  onChange={(e) => setNominalLength(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-primary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                  value={lengthM}
+                  onChange={(e) => setLengthM(e.target.value)}
+                  className={`${inputClass} font-mono`}
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                  العرض (م)
-                </label>
+                <label className={labelClass}>العرض (م)</label>
                 <input
                   type="number"
                   step="0.001"
                   min="0"
                   placeholder="مثال: 2.00"
-                  value={nominalWidth}
-                  onChange={(e) => setNominalWidth(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-primary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                  value={widthM}
+                  onChange={(e) => setWidthM(e.target.value)}
+                  className={`${inputClass} font-mono`}
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                  الارتفاع (م)
-                </label>
+                <label className={labelClass}>الارتفاع (م)</label>
                 <input
                   type="number"
                   step="0.001"
                   min="0"
                   placeholder="مثال: 2.40"
-                  value={nominalHeight}
-                  onChange={(e) => setNominalHeight(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-primary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                  value={heightM}
+                  onChange={(e) => setHeightM(e.target.value)}
+                  className={`${inputClass} font-mono`}
                 />
               </div>
             </div>
 
-            {Number(nominalLength) > 0 && Number(nominalWidth) > 0 && Number(nominalHeight) > 0 && (
-              <div className="flex items-center gap-2 p-2 rounded-lg bg-app-accent/10 border border-app-accent/20 text-xs text-app-accent">
-                <Calculator className="w-4 h-4 shrink-0" />
-                <span>
-                  الحجم الاسمي ={" "}
-                  <strong className="font-bold font-mono">
-                    {formatNumber(Number(nominalLength) * Number(nominalWidth) * Number(nominalHeight))} م³
-                  </strong>
-                </span>
-              </div>
+            {Number(lengthM) > 0 && Number(widthM) > 0 && Number(heightM) > 0 && (
+              <Callout>
+                الحجم ={" "}
+                <strong className="font-bold font-mono">
+                  {formatNumber(Number(lengthM) * Number(widthM) * Number(heightM))} م³
+                </strong>
+              </Callout>
             )}
-          </div>
+          </SectionCard>
         ) : (
           <button
             type="button"
@@ -477,7 +450,7 @@ const InventoryItemFormPage: React.FC = () => {
             className="flex items-center gap-1.5 text-xs font-semibold text-app-accent hover:underline w-fit"
           >
             <Plus className="w-3.5 h-3.5" />
-            إضافة مقاس اسمي (الطول × العرض × الارتفاع)
+            إضافة مقاس
           </button>
         )}
 

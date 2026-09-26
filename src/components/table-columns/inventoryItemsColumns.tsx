@@ -78,18 +78,18 @@ export function useInventoryItemsColumns({ onEdit }: UseInventoryItemsColumnsArg
         },
       },
       {
-        id: "nominal_dimensions",
-        header: "المقاس الاسمي",
+        id: "dimensions",
+        header: "المقاس",
         enableSorting: false,
         meta: { className: "font-mono text-app-label-secondary" },
         cell: ({ row }) => {
-          const { nominal_length_m, nominal_width_m, nominal_height_m } = row.original;
-          if (!nominal_length_m && !nominal_width_m && !nominal_height_m) {
+          const { length_m, width_m, height_m } = row.original;
+          if (!length_m && !width_m && !height_m) {
             return "—";
           }
           return (
             <>
-              {nominal_length_m ?? "—"}م × {nominal_width_m ?? "—"}م × {nominal_height_m ?? "—"}م
+              {length_m ?? "—"}م × {width_m ?? "—"}م × {height_m ?? "—"}م
             </>
           );
         },
