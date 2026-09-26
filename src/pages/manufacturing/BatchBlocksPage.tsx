@@ -432,8 +432,8 @@ export const BatchBlocksPage: React.FC = () => {
               onChange={(item) => setItemId(item ? item.id : "")}
               getOptionId={(i) => i.id}
               getOptionLabel={(i) => i.name}
-              getOptionSubLabel={(i) => i.sku}
-              getOptionSearchText={(i) => `${i.name} ${i.sku}`}
+              getOptionSubLabel={(i) => i.code}
+              getOptionSearchText={(i) => `${i.name} ${i.code}`}
               placeholder="اختر صنف بلوك الإسفنج…"
             />
           </div>
@@ -449,8 +449,8 @@ export const BatchBlocksPage: React.FC = () => {
               onChange={(item) => setScrapItemId(item ? item.id : "")}
               getOptionId={(i) => i.id}
               getOptionLabel={(i) => i.name}
-              getOptionSubLabel={(i) => i.sku}
-              getOptionSearchText={(i) => `${i.name} ${i.sku}`}
+              getOptionSubLabel={(i) => i.code}
+              getOptionSearchText={(i) => `${i.name} ${i.code}`}
               placeholder={
                 hasScrapRow ? "اختر صنف الهدر…" : "مطلوب فقط لصفوف الهدر"
               }

@@ -298,6 +298,7 @@ const CategoryDetailPage: React.FC = () => {
         onClose={() => setIsEditOpen(false)}
         category={category}
         parentCode={category.parent_id ? (parent?.code ?? "") : ""}
+        parentChildCodeLength={category.parent_id ? (parent?.child_code_length ?? undefined) : undefined}
       />
 
       <CategoryFormDialog
@@ -306,6 +307,7 @@ const CategoryDetailPage: React.FC = () => {
         parentId={category.id}
         parentLabel={category.name}
         parentCode={category.code}
+        parentChildCodeLength={category.child_code_length ?? undefined}
       />
 
       <ConfirmDialog

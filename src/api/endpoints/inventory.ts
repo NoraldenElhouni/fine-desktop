@@ -14,7 +14,7 @@ export interface InventoryItem {
   category_id?: string;
   category?: ItemCategory;
   name: string;
-  sku: string;
+  code: string;
   item_type:
     | "raw_material"
     | "foam_block"
@@ -33,6 +33,11 @@ export interface InventoryItem {
   /** The item representing this product's empty container, credited when one drains. */
   empty_container_item_id?: string;
   default_attributes?: Record<string, any>;
+  /** Spec/catalog size for this SKU, compared against stock_lots' own measured dims. */
+  nominal_length_m?: number;
+  nominal_width_m?: number;
+  nominal_height_m?: number;
+  nominal_volume_m3?: number;
   created_at: string;
   updated_at: string;
 }
@@ -79,6 +84,9 @@ export const inventoryApi = {
   // Inventory Items
   getItems: (params?: { category_id?: string; item_type?: string; search?: string; page?: number }) =>
     apiClient.get<{ data: InventoryItem[]; current_page: number; last_page: number; total: number }>("/inventory-items", { params }),
+
+  getItem: (id: string) =>
+    apiClient.get<InventoryItem>(`/inventory-items/${id}`),
 
   createItem: (data: Partial<InventoryItem>) =>
     apiClient.post<InventoryItem>("/inventory-items", data),

@@ -13,11 +13,11 @@ export function useInventoryItemsColumns({ onEdit }: UseInventoryItemsColumnsArg
   return useMemo<ColumnDef<InventoryItem, unknown>[]>(
     () => [
       {
-        id: "sku",
-        accessorKey: "sku",
-        header: "رمز الصنف (SKU)",
+        id: "code",
+        accessorKey: "code",
+        header: "رمز الصنف",
         meta: { className: "font-mono font-bold text-app-accent" },
-        cell: ({ row }) => row.original.sku,
+        cell: ({ row }) => row.original.code,
       },
       {
         id: "name",
@@ -75,6 +75,23 @@ export function useInventoryItemsColumns({ onEdit }: UseInventoryItemsColumnsArg
             );
           }
           return <span className="font-semibold text-app-label-primary text-xs">{uomLabel}</span>;
+        },
+      },
+      {
+        id: "nominal_dimensions",
+        header: "المقاس الاسمي",
+        enableSorting: false,
+        meta: { className: "font-mono text-app-label-secondary" },
+        cell: ({ row }) => {
+          const { nominal_length_m, nominal_width_m, nominal_height_m } = row.original;
+          if (!nominal_length_m && !nominal_width_m && !nominal_height_m) {
+            return "—";
+          }
+          return (
+            <>
+              {nominal_length_m ?? "—"}م × {nominal_width_m ?? "—"}م × {nominal_height_m ?? "—"}م
+            </>
+          );
         },
       },
       {

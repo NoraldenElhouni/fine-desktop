@@ -24,6 +24,8 @@ export interface CategoryFormDialogProps {
   parentLabel?: string;
   /** The parent's own code, used only to preview the resulting full code. '' for top-level. */
   parentCode?: string;
+  /** The parent's reserved child-code width, e.g. 3 for "001". Undefined for top-level categories (no constraint). */
+  parentChildCodeLength?: number;
 }
 
 const ITEM_TYPE_OPTIONS: { value: InventoryItemType; label: string }[] = [
@@ -45,6 +47,7 @@ export const CategoryFormDialog: React.FC<CategoryFormDialogProps> = ({
   parentId,
   parentLabel,
   parentCode,
+  parentChildCodeLength,
 }) => {
   const isEdit = Boolean(category);
   const createMutation = useCreateItemCategory();
@@ -76,9 +79,15 @@ export const CategoryFormDialog: React.FC<CategoryFormDialogProps> = ({
     e.preventDefault();
     setError(null);
 
+    const trimmedSegment = codeSegment.trim();
+    if (parentChildCodeLength && trimmedSegment.length !== parentChildCodeLength) {
+      setError(`رمز الفئة يجب أن يتكون من ${parentChildCodeLength} خانة بالضبط (مثال: ${"0".repeat(parentChildCodeLength - 1)}1).`);
+      return;
+    }
+
     const payload = {
       name: name.trim(),
-      code_segment: codeSegment.trim(),
+      code_segment: trimmedSegment,
       item_type: itemType || undefined,
       child_code_length: Number(childCodeLength) || 2,
       description: description.trim() || undefined,
@@ -154,14 +163,22 @@ export const CategoryFormDialog: React.FC<CategoryFormDialogProps> = ({
               <input
                 type="text"
                 required
-                placeholder="مثال: 01"
+                placeholder={parentChildCodeLength ? "0".repeat(parentChildCodeLength - 1) + "1" : "مثال: 01"}
                 value={codeSegment}
                 onChange={(e) => setCodeSegment(e.target.value)}
+                maxLength={parentChildCodeLength}
                 className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
                 dir="ltr"
               />
               <p className="text-[11px] text-app-label-tertiary mt-1">
                 يُدخل مرة واحدة فقط. الرمز الكامل يُبنى تلقائياً من رمز الفئة الأب + هذا الرمز.
+                {parentChildCodeLength && (
+                  <>
+                    {" "}يجب أن يتكون من{" "}
+                    <span className="font-bold text-app-label-secondary">{parentChildCodeLength}</span>
+                    {" "}خانة بالضبط.
+                  </>
+                )}
                 {codeSegment.trim() && (
                   <>
                     {" "}الرمز الكامل سيكون:{" "}
@@ -171,6 +188,11 @@ export const CategoryFormDialog: React.FC<CategoryFormDialogProps> = ({
                   </>
                 )}
               </p>
+              {parentChildCodeLength && codeSegment.trim() && codeSegment.trim().length !== parentChildCodeLength && (
+                <p className="text-[11px] text-app-status-danger mt-1">
+                  الرمز المُدخل {codeSegment.trim().length} خانة، والمطلوب {parentChildCodeLength} خانة بالضبط.
+                </p>
+              )}
             </div>
 
             <div>

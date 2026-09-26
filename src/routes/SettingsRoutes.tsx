@@ -7,6 +7,7 @@ import { REFERENCE_LOOKUPS, WAREHOUSE_LOOKUPS } from "../config/referenceLookups
 import { RolesPage } from "../pages/settings/RolesPage";
 import { OperatingUnitsPage } from "../pages/admin/OperatingUnitsPage";
 import { InventoryItemsPage } from "../pages/inventory/InventoryItemsPage";
+import InventoryItemFormPage from "../pages/inventory/InventoryItemFormPage";
 import { CategoryAttributeManagerPage } from "../pages/inventory/CategoryAttributeManagerPage";
 import CategoryDetailPage from "../pages/inventory/CategoryDetailPage";
 import { usePermissions } from "../hooks/usePermissions";
@@ -58,6 +59,8 @@ export const SettingsRoutes: React.FC = () => {
       <Route path="products" element={<SectionTabsLayout tabs={PRODUCT_TABS} />}>
         <Route index element={<Navigate to="items" replace />} />
         <Route path="items" element={<InventoryItemsPage />} />
+        <Route path="items/new" element={<InventoryItemFormPage />} />
+        <Route path="items/:id/edit" element={<InventoryItemFormPage />} />
         <Route path="categories" element={<CategoryAttributeManagerPage />} />
         <Route path="categories/:id" element={<CategoryDetailPage />} />
       </Route>

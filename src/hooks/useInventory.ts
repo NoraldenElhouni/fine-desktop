@@ -11,6 +11,17 @@ export function useInventoryItems(params?: { category_id?: string; item_type?: s
   });
 }
 
+export function useInventoryItem(id?: string) {
+  return useQuery({
+    queryKey: ["inventoryItem", id],
+    queryFn: async () => {
+      const res = await inventoryApi.getItem(id as string);
+      return res.data;
+    },
+    enabled: Boolean(id),
+  });
+}
+
 export function useCreateInventoryItem() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -26,8 +37,9 @@ export function useUpdateInventoryItem() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<InventoryItem> }) =>
       inventoryApi.updateItem(id, data),
-    onSuccess: () => {
+    onSuccess: (_res, { id }) => {
       queryClient.invalidateQueries({ queryKey: ["inventoryItems"] });
+      queryClient.invalidateQueries({ queryKey: ["inventoryItem", id] });
     },
   });
 }

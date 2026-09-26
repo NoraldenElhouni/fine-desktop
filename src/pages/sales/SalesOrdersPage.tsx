@@ -322,9 +322,9 @@ export const SalesOrdersPage: React.FC = () => {
                             }
                             getOptionId={(i) => i.id}
                             getOptionLabel={(i) =>
-                              `${i.name} (${i.sku})${i.item_type === "foam_block" ? " · قطعة" : ""}`
+                              `${i.name} (${i.code})${i.item_type === "foam_block" ? " · قطعة" : ""}`
                             }
-                            getOptionSearchText={(i) => `${i.name} ${i.sku}`}
+                            getOptionSearchText={(i) => `${i.name} ${i.code}`}
                             placeholder="الصنف…"
                             size="sm"
                           />
