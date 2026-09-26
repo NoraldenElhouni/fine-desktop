@@ -3,17 +3,20 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { SectionTabsLayout } from "../components/ui/SectionTabs";
 import { ReferenceLookupPage } from "../pages/settings/ReferenceLookupPage";
 import { REFERENCE_LOOKUPS, WAREHOUSE_LOOKUPS } from "../config/referenceLookups";
-import { ProductsPage } from "../pages/settings/ProductsPage";
 import { RolesPage } from "../pages/settings/RolesPage";
 import { OperatingUnitsPage } from "../pages/admin/OperatingUnitsPage";
 import { InventoryItemsPage } from "../pages/inventory/InventoryItemsPage";
+import InventoryItemFormPage from "../pages/inventory/InventoryItemFormPage";
 import { CategoryAttributeManagerPage } from "../pages/inventory/CategoryAttributeManagerPage";
+import CategoryDetailPage from "../pages/inventory/CategoryDetailPage";
+import { BundlesPage } from "../pages/inventory/BundlesPage";
+import BundleFormPage from "../pages/inventory/BundleFormPage";
 import { usePermissions } from "../hooks/usePermissions";
 
 const PRODUCT_TABS = [
   { path: "/settings/products/items", label: "الأصناف" },
   { path: "/settings/products/categories", label: "الفئات والخصائص" },
-  { path: "/settings/products/catalog", label: "المنتجات وقوائم المواد" },
+  { path: "/settings/products/bundles", label: "الحزم" },
 ];
 
 /** One tab per reference list — add a config entry to add a tab + route. */
@@ -56,8 +59,13 @@ export const SettingsRoutes: React.FC = () => {
       <Route path="products" element={<SectionTabsLayout tabs={PRODUCT_TABS} />}>
         <Route index element={<Navigate to="items" replace />} />
         <Route path="items" element={<InventoryItemsPage />} />
+        <Route path="items/new" element={<InventoryItemFormPage />} />
+        <Route path="items/:id/edit" element={<InventoryItemFormPage />} />
         <Route path="categories" element={<CategoryAttributeManagerPage />} />
-        <Route path="catalog" element={<ProductsPage />} />
+        <Route path="categories/:id" element={<CategoryDetailPage />} />
+        <Route path="bundles" element={<BundlesPage />} />
+        <Route path="bundles/new" element={<BundleFormPage />} />
+        <Route path="bundles/:id/edit" element={<BundleFormPage />} />
       </Route>
 
       {/* 3 — Reference data settings (dummy data until the API lands) */}

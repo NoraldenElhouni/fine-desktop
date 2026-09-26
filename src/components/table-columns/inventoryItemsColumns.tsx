@@ -13,11 +13,11 @@ export function useInventoryItemsColumns({ onEdit }: UseInventoryItemsColumnsArg
   return useMemo<ColumnDef<InventoryItem, unknown>[]>(
     () => [
       {
-        id: "sku",
-        accessorKey: "sku",
-        header: "رمز الصنف (SKU)",
+        id: "code",
+        accessorKey: "code",
+        header: "رمز الصنف",
         meta: { className: "font-mono font-bold text-app-accent" },
-        cell: ({ row }) => row.original.sku,
+        cell: ({ row }) => row.original.code,
       },
       {
         id: "name",
@@ -54,23 +54,6 @@ export function useInventoryItemsColumns({ onEdit }: UseInventoryItemsColumnsArg
         },
       },
       {
-        id: "attributes",
-        header: "الخصائص المسندة",
-        enableSorting: false,
-        cell: ({ row }) =>
-          row.original.attribute_definitions && row.original.attribute_definitions.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {row.original.attribute_definitions.map((attr) => (
-                <span key={attr.id} className="px-2 py-0.5 text-[10px] font-medium rounded bg-app-bg-secondary border border-app-separator text-app-label-primary">
-                  {attr.name} ({attr.unit_of_measure || attr.data_type})
-                </span>
-              ))}
-            </div>
-          ) : (
-            <span className="text-app-label-tertiary text-[10px]">لا توجد خصائص</span>
-          ),
-      },
-      {
         id: "uom",
         header: "وحدة القياس والتعبئة",
         enableSorting: false,
@@ -92,6 +75,23 @@ export function useInventoryItemsColumns({ onEdit }: UseInventoryItemsColumnsArg
             );
           }
           return <span className="font-semibold text-app-label-primary text-xs">{uomLabel}</span>;
+        },
+      },
+      {
+        id: "dimensions",
+        header: "المقاس",
+        enableSorting: false,
+        meta: { className: "font-mono text-app-label-secondary" },
+        cell: ({ row }) => {
+          const { length_m, width_m, height_m } = row.original;
+          if (!length_m && !width_m && !height_m) {
+            return "—";
+          }
+          return (
+            <>
+              {length_m ?? "—"}م × {width_m ?? "—"}م × {height_m ?? "—"}م
+            </>
+          );
         },
       },
       {

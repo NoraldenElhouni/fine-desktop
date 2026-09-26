@@ -29,7 +29,7 @@ export interface MaterialRequest {
   target_dimensions?: MaterialRequestDimensions | null;
   status: MaterialRequestStatus;
   parent_request_id?: string | null;
-  requested_for_type?: "production_order" | "cutter_work_order" | null;
+  requested_for_type?: "cutter_work_order" | null;
   requested_for_id?: string | null;
   fulfilled_by_type?: string | null;
   fulfilled_by_id?: string | null;
@@ -42,7 +42,6 @@ export interface MaterialRequest {
 export type MaterialRequestFulfilledByType =
   | "cutter_work_order"
   | "production_batch"
-  | "production_order"
   | "procurement_request";
 
 export const materialsApi = {
@@ -78,9 +77,4 @@ export const materialsApi = {
 
   cancel: (id: string) =>
     apiClient.post<{ message: string }>(`/material-requests/${id}/cancel`),
-
-  forProductionOrder: (orderId: string) =>
-    apiClient.get<{ data: MaterialRequest[] }>(
-      `/production-orders/${orderId}/material-requests`,
-    ),
 };

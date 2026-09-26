@@ -24,6 +24,7 @@ import { toast } from "../../stores/toastStore";
 import { PosReceiptModal } from "../../components/pos/PosReceiptModal";
 import { PosDailyCloseModal } from "../../components/pos/PosDailyCloseModal";
 import { BlockPicker, PickedBlock } from "../../components/pos/BlockPicker";
+import { BundlePickerDialog, BundlePickLine } from "../../components/sales/BundlePickerDialog";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody } from "../../components/ui/Dialog";
 import { formatNumber } from "../../lib/utils/format";
@@ -42,6 +43,7 @@ interface CartLine {
   price: string;
   stockLotId?: string | null;
   stockLotLabel?: string | null;
+  bundleId?: string | null;
 }
 
 interface ProductPickerDialogProps {
@@ -90,7 +92,7 @@ const ProductPickerDialog: React.FC<ProductPickerDialogProps> = ({ open, onClose
                   <div className="flex flex-col pe-2">
                     <span className="text-xs font-semibold text-app-label-primary">{i.name}</span>
                     <span className="text-[10px] font-mono text-app-label-secondary mt-0.5">
-                      {i.sku}
+                      {i.code}
                       {i.item_type === "foam_block" && (
                         <span className="ms-2 text-app-accent">· قطعة إسفنج</span>
                       )}
@@ -124,9 +126,10 @@ export const PosPage: React.FC = () => {
   const [receipt, setReceipt] = useState<SalesOrder | null>(null);
   const [isDailyCloseOpen, setIsDailyCloseOpen] = useState(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [isBundlePickerOpen, setIsBundlePickerOpen] = useState(false);
   const [pickerState, setPickerState] = useState<{
     isOpen: boolean;
-    item: { id: string; name: string; sku?: string } | null;
+    item: { id: string; name: string; code?: string } | null;
     editingKey: string | null;
   }>({ isOpen: false, item: null, editingKey: null });
 
@@ -159,12 +162,27 @@ export const PosPage: React.FC = () => {
           key: Math.random().toString(36).slice(2),
           item: item.id,
           name: item.name,
-          sku: item.sku,
+          sku: item.code,
           qty: "1",
           price: "",
         },
       ]);
     }
+  };
+
+  const addBundleToCart = (bundleLines: BundlePickLine[]) => {
+    setCart([
+      ...cart,
+      ...bundleLines.map((l) => ({
+        key: Math.random().toString(36).slice(2),
+        item: l.inventoryItemId,
+        name: l.name,
+        sku: l.code,
+        qty: String(l.quantity),
+        price: String(l.unitPrice),
+        bundleId: l.bundleId,
+      })),
+    ]);
   };
 
   const handlePickedBlock = (block: PickedBlock) => {
@@ -205,7 +223,7 @@ export const PosPage: React.FC = () => {
         key: Math.random().toString(36).slice(2),
         item: item.id,
         name: item.name,
-        sku: item.sku,
+        sku: item.code,
         qty: "1",
         price: String(block.unit_cost),
         stockLotId: block.id,
@@ -218,7 +236,7 @@ export const PosPage: React.FC = () => {
     if (!line.stockLotId) return;
     setPickerState({
       isOpen: true,
-      item: { id: line.item, name: line.name, sku: line.sku },
+      item: { id: line.item, name: line.name, code: line.sku },
       editingKey: line.key,
     });
   };
@@ -236,6 +254,7 @@ export const PosPage: React.FC = () => {
         items: cart.map((l) => ({
           inventory_item_id: l.item,
           stock_lot_id: l.stockLotId ?? null,
+          bundle_id: l.bundleId ?? null,
           quantity: num(l.qty),
           unit_price: num(l.price),
         })),
@@ -372,6 +391,14 @@ export const PosPage: React.FC = () => {
             )}
             <button
               type="button"
+              onClick={() => setIsBundlePickerOpen(true)}
+              className="flex items-center gap-1.5 rounded-xl border border-app-accent/40 bg-app-accent/10 px-3.5 py-1.5 text-xs font-bold text-app-accent hover:bg-app-accent/15"
+            >
+              <Plus className="w-4 h-4" />
+              إضافة حزمة
+            </button>
+            <button
+              type="button"
               onClick={() => setIsPickerOpen(true)}
               className="flex items-center gap-1.5 rounded-xl bg-app-accent px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:opacity-90"
             >
@@ -499,6 +526,13 @@ export const PosPage: React.FC = () => {
         open={isPickerOpen}
         onClose={() => setIsPickerOpen(false)}
         onPick={addToCart}
+      />
+
+      {/* Bundle Picker Dialog */}
+      <BundlePickerDialog
+        open={isBundlePickerOpen}
+        onClose={() => setIsBundlePickerOpen(false)}
+        onAdd={addBundleToCart}
       />
 
       {/* POS Thermal Receipt Modal */}

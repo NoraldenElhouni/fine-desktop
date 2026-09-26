@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { inventoryApi, InventoryItem, StockLot } from "../api/endpoints/inventory";
+import { inventoryApi, InventoryItem } from "../api/endpoints/inventory";
 
 export function useInventoryItems(params?: { category_id?: string; item_type?: string; search?: string; page?: number }) {
   return useQuery({
@@ -8,6 +8,17 @@ export function useInventoryItems(params?: { category_id?: string; item_type?: s
       const res = await inventoryApi.getItems(params);
       return res.data;
     },
+  });
+}
+
+export function useInventoryItem(id?: string) {
+  return useQuery({
+    queryKey: ["inventoryItem", id],
+    queryFn: async () => {
+      const res = await inventoryApi.getItem(id as string);
+      return res.data;
+    },
+    enabled: Boolean(id),
   });
 }
 
@@ -26,8 +37,9 @@ export function useUpdateInventoryItem() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<InventoryItem> }) =>
       inventoryApi.updateItem(id, data),
-    onSuccess: () => {
+    onSuccess: (_res, { id }) => {
       queryClient.invalidateQueries({ queryKey: ["inventoryItems"] });
+      queryClient.invalidateQueries({ queryKey: ["inventoryItem", id] });
     },
   });
 }
@@ -99,75 +111,6 @@ export function useAvailableFoamBlocks(params: {
       return res.data;
     },
     enabled: Boolean(params.inventory_item_id),
-  });
-}
-
-export function useTankStocks(operatingUnitId?: string) {
-  return useQuery({
-    queryKey: ["tankStocks", operatingUnitId],
-    queryFn: async () => {
-      const res = await inventoryApi.getTanks(operatingUnitId);
-      return res.data;
-    },
-  });
-}
-
-export function useRefillTank() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (data: {
-      chemical_inventory_item_id: string;
-      /** @deprecated Ignored by the server — the unit comes from the X-Operating-Unit-ID header. */
-      operating_unit_id?: string;
-      refill_quantity: number;
-      refill_unit_cost: number;
-    }) => inventoryApi.refillTank(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tankStocks"] });
-      queryClient.invalidateQueries({ queryKey: ["inventoryValuation"] });
-    },
-  });
-}
-
-/**
- * Pour a source lot into the tank. Unlike the adjustment path this moves real
- * stock, so the source lot and any recovered empties change too.
- */
-export function useRefillFromLot() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (data: {
-      source_stock_lot_id: string;
-      draw_quantity?: number;
-      draw_containers?: number;
-    }) => inventoryApi.refillFromLot(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tankStocks"] });
-      queryClient.invalidateQueries({ queryKey: ["stockLots"] });
-      queryClient.invalidateQueries({ queryKey: ["inventoryValuation"] });
-    },
-  });
-}
-
-export function useStockAdjustments(params?: { status?: string; operating_unit_id?: string }) {
-  return useQuery({
-    queryKey: ["stockAdjustments", params],
-    queryFn: async () => {
-      const res = await inventoryApi.getAdjustments(params);
-      return res.data.data;
-    },
-  });
-}
-
-export function useApproveAdjustment() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => inventoryApi.approveAdjustment(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["stockAdjustments"] });
-      queryClient.invalidateQueries({ queryKey: ["stockLots"] });
-      queryClient.invalidateQueries({ queryKey: ["inventoryValuation"] });
-    },
   });
 }
 

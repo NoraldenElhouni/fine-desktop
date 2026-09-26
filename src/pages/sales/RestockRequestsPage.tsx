@@ -214,8 +214,8 @@ export const RestockRequestsPage: React.FC = () => {
                       }
                       getOptionId={(i) => i.id}
                       getOptionLabel={(i) => i.name}
-                      getOptionSubLabel={(i) => i.sku}
-                      getOptionSearchText={(i) => `${i.name} ${i.sku}`}
+                      getOptionSubLabel={(i) => i.code}
+                      getOptionSearchText={(i) => `${i.name} ${i.code}`}
                       placeholder="الصنف…"
                       size="sm"
                     />

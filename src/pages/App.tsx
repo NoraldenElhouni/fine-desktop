@@ -12,6 +12,7 @@ import { useUpdateStore } from "../stores/updateStore";
 import Dashboard from "./Dashboard";
 import { OwnerDashboardPage } from "./OwnerDashboardPage";
 import { FinancialReportsPage } from "./accounting/FinancialReportsPage";
+import { BundleSalesReportPage } from "./reports/BundleSalesReportPage";
 import { useIsCompanyWide } from "../hooks/useAccounting";
 import OrdersRoutes from "../routes/OrdersRoutes";
 import UsersRoutes from "../routes/UsersRoutes";
@@ -23,7 +24,6 @@ import BlueprintsRoutes from "../routes/BlueprintsRoutes";
 import { InventoryRoutes } from "../routes/InventoryRoutes";
 import { ManufacturingRoutes } from "../routes/ManufacturingRoutes";
 import { CutterRoutes } from "../routes/CutterRoutes";
-import { FurnitureRoutes } from "../routes/FurnitureRoutes";
 import { SalesRoutes } from "../routes/SalesRoutes";
 import { AccountingRoutes } from "../routes/AccountingRoutes";
 import { HrRoutes } from "../routes/HrRoutes";
@@ -248,14 +248,6 @@ const App = () => {
               }
             />
             <Route
-              path="furniture/*"
-              element={
-                <AuthorizedRoute allowedRoles={["owner", "admin", "furniture-manager", "assembler", "unit_manager", "manager"]}>
-                  <FurnitureRoutes />
-                </AuthorizedRoute>
-              }
-            />
-            <Route
               path="settings/*"
               element={
                 <AuthorizedRoute allowedRoles={["owner", "admin", "furniture-manager", "assembler", "unit_manager", "manager"]}>
@@ -286,6 +278,14 @@ const App = () => {
               element={
                 <AuthorizedRoute allowedRoles={["owner", "admin", "accounting-manager", "treasury-officer", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"]}>
                   <FinancialReportsPage />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="reports/bundles"
+              element={
+                <AuthorizedRoute allowedRoles={["owner", "admin", "store-manager", "pos-cashier", "unit_manager", "manager"]}>
+                  <BundleSalesReportPage />
                 </AuthorizedRoute>
               }
             />

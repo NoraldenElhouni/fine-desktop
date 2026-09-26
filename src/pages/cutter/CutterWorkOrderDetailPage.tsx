@@ -515,8 +515,8 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
                     onChange={(i) => setFillItemId(i ? i.id : "")}
                     getOptionId={(i) => i.id}
                     getOptionLabel={(i) => i.name}
-                    getOptionSubLabel={(i) => i.sku}
-                    getOptionSearchText={(i) => `${i.name} ${i.sku}`}
+                    getOptionSubLabel={(i) => i.code}
+                    getOptionSearchText={(i) => `${i.name} ${i.code}`}
                     placeholder={
                       num(weight) === 0 ? "غير مطلوب عند 0 كجم" : "اختر صنف الحشو…"
                     }
@@ -709,9 +709,9 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
                   }
                   onChange={(i) => setPieceItemId(i ? i.id : "")}
                   getOptionId={(i) => i.id}
-                  getOptionLabel={(i) => i.sku}
+                  getOptionLabel={(i) => i.code}
                   getOptionSubLabel={(i) => i.name}
-                  getOptionSearchText={(i) => `${i.sku} ${i.name}`}
+                  getOptionSearchText={(i) => `${i.code} ${i.name}`}
                   placeholder="صنف المخرجات…"
                 />
               </div>

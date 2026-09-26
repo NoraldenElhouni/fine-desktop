@@ -20,11 +20,13 @@ import {
 import { apiErrorPayload } from "../api/endpoints/production";
 import { formatNumber } from "../lib/utils/format";
 
+// Keys must match DashboardService::operationalPipeline() on the backend —
+// furniture_orders was removed there when production_orders/boms were
+// dropped in the Bundle redesign (2026-09-25) and has no replacement yet.
 const PIPELINE_LABEL: Record<string, string> = {
   import_orders: "أوامر الاستيراد",
   foam_batches: "تشغيلات الإسفنج",
   cutter_work_orders: "أوامر التقطيع",
-  furniture_orders: "أوامر الأثاث",
   sales_orders: "أوامر البيع",
 };
 
@@ -212,7 +214,9 @@ export const OwnerDashboardPage: React.FC = () => {
               {pipeline.data &&
                 (
                   Object.keys(PIPELINE_LABEL) as (keyof typeof pipeline.data)[]
-                ).map((key) => (
+                )
+                  .filter((key) => pipeline.data?.[key])
+                  .map((key) => (
                   <div
                     key={key}
                     className="flex flex-wrap items-center gap-2 px-4 py-2.5"

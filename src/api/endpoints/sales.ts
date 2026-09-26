@@ -41,11 +41,13 @@ export interface SalesOrderLine {
   id: string;
   inventory_item_id: string;
   stock_lot_id?: string | null;
+  bundle_id?: string | null;
   quantity: number;
   unit_price: number;
   unit_cost_actual: number;
   inventory_item?: { id: string; name: string; sku: string };
   stock_lot?: StockLotRef | null;
+  bundle?: { id: string; name: string } | null;
 }
 
 export interface CreditApproval {
@@ -83,7 +85,7 @@ export interface Invoice {
   date: string;
   seller?: string;
   buyer: string;
-  lines: { item?: string; sku?: string; quantity: number; unit_price: number; line_total: number; lot_number?: string | null }[];
+  lines: { item?: string; sku?: string; quantity: number; unit_price: number; line_total: number; lot_number?: string | null; bundle?: string | null }[];
   total_amount: number;
   amount_paid: number;
   outstanding: number;
@@ -123,7 +125,7 @@ export const salesApi = {
     client_id?: string;
     buyer_unit_id?: string;
     notes?: string;
-    lines: { inventory_item_id: string; stock_lot_id?: string | null; quantity: number; unit_price: number }[];
+    lines: { inventory_item_id: string; stock_lot_id?: string | null; bundle_id?: string | null; quantity: number; unit_price: number }[];
   }) => apiClient.post<SalesOrder>("/sales-orders", data),
 
   /** Draft in, confirmed or pending_approval out — the credit check decides. */
@@ -148,7 +150,7 @@ export const salesApi = {
     order_number: string;
     payment_method: "cash" | "card";
     client_id?: string;
-    items: { inventory_item_id: string; stock_lot_id?: string | null; quantity: number; unit_price: number }[];
+    items: { inventory_item_id: string; stock_lot_id?: string | null; bundle_id?: string | null; quantity: number; unit_price: number }[];
   }) => apiClient.post<SalesOrder>("/pos/sales", data),
 
   posDailyReport: (date?: string) =>

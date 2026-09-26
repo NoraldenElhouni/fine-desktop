@@ -27,7 +27,7 @@ export function useStockLedgerColumns({
         cell: ({ row }) => (
           <div>
             <div className="font-medium text-app-label-primary">{row.original.inventory_item?.name || "قالب إسفنج"}</div>
-            <div className="text-xs text-app-label-tertiary font-mono">{row.original.inventory_item?.sku}</div>
+            <div className="text-xs text-app-label-tertiary font-mono">{row.original.inventory_item?.code}</div>
           </div>
         ),
       },

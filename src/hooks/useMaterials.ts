@@ -25,15 +25,6 @@ export function useMaterialRequest(id?: string) {
   });
 }
 
-export function useMaterialRequestsForProductionOrder(orderId?: string) {
-  return useQuery({
-    queryKey: ["materialRequestsForOrder", orderId],
-    queryFn: async () =>
-      (await materialsApi.forProductionOrder(orderId as string)).data,
-    enabled: Boolean(orderId),
-  });
-}
-
 export function useStartMaterialRequest() {
   const qc = useQueryClient();
   return useMutation({

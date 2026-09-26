@@ -218,9 +218,9 @@ export const EditImportOrderItemsModal: React.FC<EditImportOrderItemsModalProps>
                           getOptionId={(it) => it.id}
                           getOptionLabel={(it) => it.name}
                           getOptionSubLabel={(it) =>
-                            `${it.sku} · ${it.unit_of_measure}`
+                            `${it.code} · ${it.unit_of_measure}`
                           }
-                          getOptionSearchText={(it) => `${it.name} ${it.sku}`}
+                          getOptionSearchText={(it) => `${it.name} ${it.code}`}
                           placeholder="اختر صنفًا..."
                           size="sm"
                         />
@@ -239,7 +239,7 @@ export const EditImportOrderItemsModal: React.FC<EditImportOrderItemsModalProps>
                     {selectedItem && (
                       <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
                         <span className="rounded-full bg-app-bg-primary px-2 py-0.5 font-mono text-app-label-secondary border border-app-separator">
-                          {selectedItem.sku}
+                          {selectedItem.code}
                         </span>
                         <span className="rounded-full bg-app-bg-primary px-2 py-0.5 text-app-label-secondary border border-app-separator">
                           {selectedItem.unit_of_measure}

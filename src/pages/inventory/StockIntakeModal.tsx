@@ -35,7 +35,7 @@ const num = (v: string): number => {
 };
 
 const generateSuggestedLot = (item?: InventoryItem | null, order?: ImportOrder | null): string => {
-  const sku = item?.sku?.replace(/[^A-Za-z0-9_-]/g, "") || "ITEM";
+  const sku = item?.code?.replace(/[^A-Za-z0-9_-]/g, "") || "ITEM";
   const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, "");
   const randomSeq = String(Math.floor(10 + Math.random() * 90));
 
@@ -258,8 +258,8 @@ export const StockIntakeModal: React.FC<{
                 onChange={handleItemChange}
                 getOptionId={(i) => i.id}
                 getOptionLabel={(i) => i.name}
-                getOptionSubLabel={(i) => i.sku}
-                getOptionSearchText={(i) => `${i.name} ${i.sku}`}
+                getOptionSubLabel={(i) => i.code}
+                getOptionSearchText={(i) => `${i.name} ${i.code}`}
                 placeholder="الصنف…"
                 required
               />
