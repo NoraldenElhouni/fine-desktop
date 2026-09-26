@@ -18,6 +18,7 @@ import {
   LayoutGrid,
   ListTree,
   Package,
+  Package2,
   PackageCheck,
   Scale,
   Scissors,
@@ -103,6 +104,7 @@ export const navItems: AppNavItem[] = [
   { id: "overhead", path: "/accounting/overhead", label: "المصاريف العمومية", icon: Droplets, allowedRoles: ["owner", "admin", "accounting-manager"] },
   { id: "fixed-assets", path: "/accounting/assets", label: "الأصول الثابتة", icon: Building, allowedRoles: ["owner", "admin", "accounting-manager"] },
   { id: "reports", path: "/reports", label: "التقارير المالية", icon: BarChart3, allowedRoles: ["owner", "admin", "accounting-manager", "treasury-officer", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"] },
+  { id: "reports-bundles", path: "/reports/bundles", label: "تقرير مبيعات الحزم", icon: Package2, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "unit_manager", "manager"] },
   { id: "users", path: "/users", label: "المستخدمون والصلاحيات", icon: ShieldCheck, allowedRoles: ["owner", "admin"] },
   { id: "settings-company", path: "/settings/company", label: "إعدادات الشركة", icon: Building2, allowedRoles: ["owner", "admin"] },
   { id: "settings-products", path: "/settings/products", label: "إعدادات المنتجات", icon: Tags, allowedRoles: SETTINGS_ROLES },
@@ -184,6 +186,7 @@ export const getBreadcrumbEntries = (
         pages: {
           items: "الأصناف",
           categories: "الفئات والخصائص",
+          bundles: "الحزم",
         },
       },
       data: {

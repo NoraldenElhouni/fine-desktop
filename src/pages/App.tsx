@@ -12,6 +12,7 @@ import { useUpdateStore } from "../stores/updateStore";
 import Dashboard from "./Dashboard";
 import { OwnerDashboardPage } from "./OwnerDashboardPage";
 import { FinancialReportsPage } from "./accounting/FinancialReportsPage";
+import { BundleSalesReportPage } from "./reports/BundleSalesReportPage";
 import { useIsCompanyWide } from "../hooks/useAccounting";
 import OrdersRoutes from "../routes/OrdersRoutes";
 import UsersRoutes from "../routes/UsersRoutes";
@@ -277,6 +278,14 @@ const App = () => {
               element={
                 <AuthorizedRoute allowedRoles={["owner", "admin", "accounting-manager", "treasury-officer", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"]}>
                   <FinancialReportsPage />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="reports/bundles"
+              element={
+                <AuthorizedRoute allowedRoles={["owner", "admin", "store-manager", "pos-cashier", "unit_manager", "manager"]}>
+                  <BundleSalesReportPage />
                 </AuthorizedRoute>
               }
             />

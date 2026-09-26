@@ -10,11 +10,14 @@ import { InventoryItemsPage } from "../pages/inventory/InventoryItemsPage";
 import InventoryItemFormPage from "../pages/inventory/InventoryItemFormPage";
 import { CategoryAttributeManagerPage } from "../pages/inventory/CategoryAttributeManagerPage";
 import CategoryDetailPage from "../pages/inventory/CategoryDetailPage";
+import { BundlesPage } from "../pages/inventory/BundlesPage";
+import BundleFormPage from "../pages/inventory/BundleFormPage";
 import { usePermissions } from "../hooks/usePermissions";
 
 const PRODUCT_TABS = [
   { path: "/settings/products/items", label: "الأصناف" },
   { path: "/settings/products/categories", label: "الفئات والخصائص" },
+  { path: "/settings/products/bundles", label: "الحزم" },
 ];
 
 /** One tab per reference list — add a config entry to add a tab + route. */
@@ -63,6 +66,9 @@ export const SettingsRoutes: React.FC = () => {
         <Route path="items/:id/edit" element={<InventoryItemFormPage />} />
         <Route path="categories" element={<CategoryAttributeManagerPage />} />
         <Route path="categories/:id" element={<CategoryDetailPage />} />
+        <Route path="bundles" element={<BundlesPage />} />
+        <Route path="bundles/new" element={<BundleFormPage />} />
+        <Route path="bundles/:id/edit" element={<BundleFormPage />} />
       </Route>
 
       {/* 3 — Reference data settings (dummy data until the API lands) */}

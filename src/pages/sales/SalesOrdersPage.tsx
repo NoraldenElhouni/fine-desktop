@@ -9,6 +9,7 @@ import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
 import { SALES_STATUS_ORDER, SALES_STATUS_LABEL, SalesOrderStatus } from "../../api/endpoints/sales";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { BlockPicker, PickedBlock } from "../../components/pos/BlockPicker";
+import { BundlePickerDialog, BundlePickLine } from "../../components/sales/BundlePickerDialog";
 import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
@@ -28,6 +29,7 @@ interface DraftLine {
   price: string;
   stockLotId?: string | null;
   stockLotLabel?: string | null;
+  bundleId?: string | null;
 }
 
 const newLine = (): DraftLine => ({
@@ -48,6 +50,7 @@ export const SalesOrdersPage: React.FC = () => {
   const [clientId, setClientId] = useState("");
   const [buyerUnitId, setBuyerUnitId] = useState("");
   const [lines, setLines] = useState<DraftLine[]>([newLine()]);
+  const [isBundlePickerOpen, setIsBundlePickerOpen] = useState(false);
   const [pickerState, setPickerState] = useState<{
     isOpen: boolean;
     itemId: string;
@@ -81,6 +84,19 @@ export const SalesOrdersPage: React.FC = () => {
     const line = lines.find((l) => l.key === lineKey);
     if (!line || !line.item) return;
     setPickerState({ isOpen: true, itemId: line.item, editingKey: lineKey });
+  };
+
+  const addBundleLines = (bundleLines: BundlePickLine[]) => {
+    setLines((prev) => [
+      ...prev.filter((l) => l.item),
+      ...bundleLines.map((l) => ({
+        key: Math.random().toString(36).slice(2),
+        item: l.inventoryItemId,
+        qty: String(l.quantity),
+        price: String(l.unitPrice),
+        bundleId: l.bundleId,
+      })),
+    ]);
   };
 
   const handlePickedBlock = (block: PickedBlock) => {
@@ -118,6 +134,7 @@ export const SalesOrdersPage: React.FC = () => {
         lines: lines.map((l) => ({
           inventory_item_id: l.item,
           stock_lot_id: l.stockLotId ?? null,
+          bundle_id: l.bundleId ?? null,
           quantity: num(l.qty),
           unit_price: num(l.price),
         })),
@@ -379,13 +396,22 @@ export const SalesOrdersPage: React.FC = () => {
                   );
                 })}
                 <div className="flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={() => setLines([...lines, newLine()])}
-                    className="flex items-center gap-1 text-xs font-semibold text-app-accent hover:opacity-80"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> إضافة بند
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setLines([...lines, newLine()])}
+                      className="flex items-center gap-1 text-xs font-semibold text-app-accent hover:opacity-80"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> إضافة بند
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsBundlePickerOpen(true)}
+                      className="flex items-center gap-1 rounded-lg border border-app-accent/40 bg-app-accent/10 px-2 py-1 text-xs font-semibold text-app-accent hover:bg-app-accent/15"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> إضافة حزمة
+                    </button>
+                  </div>
                   <span className="text-sm font-bold font-mono text-app-label-primary">
                     الإجمالي {formatNumber(orderTotal)} LYD
                   </span>
@@ -413,6 +439,11 @@ export const SalesOrdersPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <BundlePickerDialog
+        open={isBundlePickerOpen}
+        onClose={() => setIsBundlePickerOpen(false)}
+        onAdd={addBundleLines}
+      />
       {pickerState.isOpen && pickerState.itemId && (
         <BlockPicker
           isOpen={pickerState.isOpen}
