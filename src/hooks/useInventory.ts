@@ -148,6 +148,17 @@ export function useWarehouseLedger(warehouseId?: string, params?: { sku?: string
   });
 }
 
+export function useMovementsForDocument(type: string, id?: string) {
+  return useQuery({
+    queryKey: ["movementsForDocument", type, id],
+    queryFn: async () => {
+      const res = await inventoryApi.getMovementsForDocument(type, id as string);
+      return res.data;
+    },
+    enabled: Boolean(id),
+  });
+}
+
 export function useProcessCutRemnant() {
   const queryClient = useQueryClient();
   return useMutation({

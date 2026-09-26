@@ -1,19 +1,17 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Warehouse as WarehouseIcon, PackagePlus } from "lucide-react";
+import { ArrowLeftRight, Warehouse as WarehouseIcon } from "lucide-react";
 import { useWarehouses } from "../../hooks/useWarehouses";
-import { useInventoryItems } from "../../hooks/useInventory";
+import { useServerConfigStore } from "../../stores/serverConfigStore";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useWarehousesColumns } from "../../components/table-columns/warehousesColumns";
-import { StockIntakeModal } from "./StockIntakeModal";
 import type { Warehouse } from "../../types/entities";
 
 export const WarehousesLedgerPage: React.FC = () => {
-  const [isIntakeOpen, setIsIntakeOpen] = useState(false);
   const navigate = useNavigate();
+  const { operatingUnitId } = useServerConfigStore();
 
   const { data: warehouses, isLoading } = useWarehouses();
-  const { data: itemData } = useInventoryItems({});
 
   const columns = useWarehousesColumns();
   const tableData = useMemo(() => warehouses ?? [], [warehouses]);
@@ -38,12 +36,14 @@ export const WarehousesLedgerPage: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => setIsIntakeOpen(true)}
-          className="flex items-center gap-2 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all active:scale-95"
-        >
-          <PackagePlus className="w-4 h-4" /> استلام مخزون
-        </button>
+        {operatingUnitId && (
+          <button
+            onClick={() => navigate("/inventory/transfers")}
+            className="flex items-center gap-2 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all active:scale-95"
+          >
+            <ArrowLeftRight className="w-4 h-4" /> نقل بين المخازن
+          </button>
+        )}
       </div>
 
       <DataTable table={table}>
@@ -55,10 +55,6 @@ export const WarehousesLedgerPage: React.FC = () => {
         />
         <DataTable.Pagination />
       </DataTable>
-
-      {isIntakeOpen && (
-        <StockIntakeModal items={itemData?.data ?? []} onClose={() => setIsIntakeOpen(false)} />
-      )}
     </div>
   );
 };
