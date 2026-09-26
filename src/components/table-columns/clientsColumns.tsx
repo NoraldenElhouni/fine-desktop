@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Building2 } from "lucide-react";
+import { Building2, MapPin } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { Client } from "../../types/entities";
 import { formatNumber } from "../../lib/utils/format";
@@ -17,9 +17,17 @@ export function useClientsColumns(): ColumnDef<Client, unknown>[] {
             <span className="text-app-label-primary font-bold">
               {row.original.entity?.name || "بدون اسم"}
             </span>
-            <span className="text-[10px] text-app-label-secondary">
-              {row.original.entity?.tax_number ? `ضريبي: ${row.original.entity.tax_number}` : "بدون رقم ضريبي"}
-            </span>
+            <div className="flex items-center gap-2 text-[10px] text-app-label-secondary">
+              {row.original.entity?.city && (
+                <span className="inline-flex items-center gap-0.5 text-app-accent font-medium">
+                  <MapPin className="w-2.5 h-2.5 shrink-0" />
+                  {row.original.entity.city}
+                </span>
+              )}
+              <span>
+                {row.original.entity?.tax_number ? `ضريبي: ${row.original.entity.tax_number}` : "بدون رقم ضريبي"}
+              </span>
+            </div>
           </div>
         ),
       },

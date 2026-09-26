@@ -24,6 +24,8 @@ import {
 import { AllocationPaymentActions } from "../../components/allocations/AllocationPaymentActions";
 import { formatDate, formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { useReferenceLookups } from "../../hooks/useReferenceLookups";
+import type { LookupEntry } from "../../config/referenceLookups";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 
 const num = (v: string): number => {
@@ -36,8 +38,16 @@ export const OverheadExpensesPage: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [allocating, setAllocating] = useState<OverheadExpense | null>(null);
 
+  const { data: expenseTypes = [] } = useReferenceLookups("expense-types", { isActive: true });
+
+  const getCategoryLabel = (cat: string) => {
+    const found = expenseTypes.find((t) => t.code === cat || t.name === cat);
+    if (found) return found.name;
+    return OVERHEAD_CATEGORY_LABEL[cat as OverheadCategory] ?? cat;
+  };
+
   // create form
-  const [category, setCategory] = useState<OverheadCategory>("electricity");
+  const [category, setCategory] = useState<string>("EXP-UTIL");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().slice(0, 10));
@@ -169,7 +179,7 @@ export const OverheadExpensesPage: React.FC = () => {
               <div key={expense.id} className="p-4 space-y-2">
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="text-xs font-bold text-app-label-primary">
-                    {OVERHEAD_CATEGORY_LABEL[expense.category]}
+                    {getCategoryLabel(expense.category)}
                   </span>
                   <span className="font-mono text-xs text-app-label-secondary">{expense.expense_date ? formatDate(expense.expense_date) : ""}</span>
                   <span className="text-xs text-app-label-secondary">
@@ -288,15 +298,16 @@ export const OverheadExpensesPage: React.FC = () => {
               <div className="flex gap-2 items-end">
                 <div className="flex-1">
                   <label className="block text-xs font-semibold text-app-label-secondary mb-1">فئة المصروف</label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value as OverheadCategory)}
-                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
-                  >
-                    {(Object.keys(OVERHEAD_CATEGORY_LABEL) as OverheadCategory[]).map((c) => (
-                      <option key={c} value={c}>{OVERHEAD_CATEGORY_LABEL[c]}</option>
-                    ))}
-                  </select>
+                  <SearchableSelect<LookupEntry>
+                    options={expenseTypes}
+                    value={expenseTypes.find((t) => t.code === category || t.name === category) ?? null}
+                    onChange={(t) => setCategory(t ? t.code : "other")}
+                    getOptionId={(t) => t.id}
+                    getOptionLabel={(t) => t.name}
+                    getOptionSubLabel={(t) => t.code}
+                    placeholder="-- اختر فئة المصروف --"
+                    required
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-app-label-secondary mb-1">المبلغ (LYD)</label>
@@ -386,7 +397,7 @@ export const OverheadExpensesPage: React.FC = () => {
           <DialogHeader>
             {allocating && (
               <DialogTitle>
-                توزيع {OVERHEAD_CATEGORY_LABEL[allocating.category]} — {formatNumber(allocating.amount)}
+                توزيع {getCategoryLabel(allocating.category)} — {formatNumber(allocating.amount)}
               </DialogTitle>
             )}
             <DialogClose />

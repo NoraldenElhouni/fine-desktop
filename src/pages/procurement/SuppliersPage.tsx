@@ -4,6 +4,8 @@ import { isAxiosError } from "axios";
 import { CreateSupplierPayload } from "../../types/procurement";
 import { useSuppliers, useCreateSupplier } from "../../hooks/useProcurement";
 import { useOperatingUnits } from "../../hooks/usePartners";
+import { useReferenceLookups } from "../../hooks/useReferenceLookups";
+import type { LookupEntry } from "../../config/referenceLookups";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
@@ -14,6 +16,8 @@ import { useSuppliersColumns } from "../../components/table-columns/suppliersCol
 export const SuppliersPage: React.FC = () => {
   const { data: suppliers = [], isLoading, error: queryError, refetch } = useSuppliers();
   const { data: operatingUnits = [] } = useOperatingUnits();
+  const { data: currencies = [] } = useReferenceLookups("currencies", { isActive: true });
+  const { data: cities = [] } = useReferenceLookups("cities", { isActive: true });
   const createSupplierMutation = useCreateSupplier();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -21,11 +25,13 @@ export const SuppliersPage: React.FC = () => {
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [defaultCurrency, setDefaultCurrency] = useState("USD");
+  const [city, setCity] = useState("");
   const [address, setAddress] = useState("");
 
   const resetForm = () => {
     setName("");
     setContact("");
+    setCity("");
     setAddress("");
     setDefaultCurrency("USD");
   };
@@ -38,12 +44,14 @@ export const SuppliersPage: React.FC = () => {
       return;
     }
 
+    const fullAddress = [city, address].filter(Boolean).join(" - ");
+
     const payload: CreateSupplierPayload = {
       operating_unit_id: unitId,
       name: name.trim(),
       contact: contact.trim() || undefined,
       default_currency: defaultCurrency,
-      address: address.trim() || undefined,
+      address: fullAddress || undefined,
     };
 
     createSupplierMutation.mutate(payload, {
@@ -175,15 +183,15 @@ export const SuppliersPage: React.FC = () => {
               <label className="block text-xs font-semibold text-app-label-secondary mb-1">
                 العملة المعتمدة
               </label>
-              <select
-                value={defaultCurrency}
-                onChange={(e) => setDefaultCurrency(e.target.value)}
-                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-              >
-                <option value="USD">الدولار الأمريكي (USD)</option>
-                <option value="EUR">اليورو الأوروبي (EUR)</option>
-                <option value="LYD">الدينار الليبي (LYD)</option>
-              </select>
+              <SearchableSelect<LookupEntry>
+                options={currencies}
+                value={currencies.find((c) => c.code === defaultCurrency) ?? null}
+                onChange={(c) => setDefaultCurrency(c ? c.code : "USD")}
+                getOptionId={(c) => c.id}
+                getOptionLabel={(c) => `${c.name} (${c.code})`}
+                getOptionSubLabel={(c) => c.fields?.symbol}
+                placeholder="-- اختر العملة --"
+              />
             </div>
 
             <div>
@@ -200,17 +208,33 @@ export const SuppliersPage: React.FC = () => {
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-              العنوان الجغرافي / الدولة والميناء
-            </label>
-            <textarea
-              rows={2}
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="مثال: إسطنبول، تركيا - ميناء أمبارلي"
-              className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                المدينة / المركز المحلي (اختياري)
+              </label>
+              <SearchableSelect<LookupEntry>
+                options={cities}
+                value={cities.find((c) => c.name === city) ?? null}
+                onChange={(c) => setCity(c ? c.name : "")}
+                getOptionId={(c) => c.id}
+                getOptionLabel={(c) => c.name}
+                getOptionSubLabel={(c) => c.code}
+                placeholder="-- اختر المدينة --"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                العنوان التفصيلي / الدولة والميناء
+              </label>
+              <input
+                type="text"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="مثال: إسطنبول، تركيا - ميناء أمبارلي"
+                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+              />
+            </div>
           </div>
 
         </form>

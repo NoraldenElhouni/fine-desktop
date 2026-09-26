@@ -4,6 +4,8 @@ import { isAxiosError } from "axios";
 import { EntityType } from "../../types/entities";
 import { useClients, useCreateClient } from "../../hooks/useClients";
 import { useEntities, useOperatingUnits } from "../../hooks/usePartners";
+import { useReferenceLookups } from "../../hooks/useReferenceLookups";
+import type { LookupEntry } from "../../config/referenceLookups";
 import { useServerConfigStore } from "../../stores/serverConfigStore";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
@@ -33,6 +35,7 @@ export const ClientsPage: React.FC = () => {
   } = useClients();
   const { data: entities = [] } = useEntities();
   const { data: operatingUnits = [] } = useOperatingUnits();
+  const { data: cities = [] } = useReferenceLookups("cities", { isActive: true });
   const createClientMutation = useCreateClient();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -40,6 +43,8 @@ export const ClientsPage: React.FC = () => {
   const [clientName, setClientName] = useState("");
   const [entityType, setEntityType] = useState<EntityType>("organization");
   const [taxNumber, setTaxNumber] = useState("");
+  const [clientCity, setClientCity] = useState("");
+  const [clientAddress, setClientAddress] = useState("");
   const [selectedEntityId, setSelectedEntityId] = useState("");
   const [creditLimit, setCreditLimit] = useState<number>(10000);
   const [paymentTermsDays, setPaymentTermsDays] = useState<number>(30);
@@ -47,6 +52,8 @@ export const ClientsPage: React.FC = () => {
   const resetForm = () => {
     setClientName("");
     setTaxNumber("");
+    setClientCity("");
+    setClientAddress("");
     setSelectedEntityId("");
     setCreditLimit(10000);
     setPaymentTermsDays(30);
@@ -83,6 +90,8 @@ export const ClientsPage: React.FC = () => {
           : undefined,
       credit_limit: creditLimit,
       payment_terms_days: paymentTermsDays,
+      city: clientCity.trim() || undefined,
+      address: clientAddress.trim() || undefined,
     };
 
     createClientMutation.mutate(payload, {
@@ -416,6 +425,35 @@ export const ClientsPage: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                    المدينة
+                  </label>
+                  <SearchableSelect<LookupEntry>
+                    options={cities}
+                    value={cities.find((c) => c.name === clientCity) ?? null}
+                    onChange={(c) => setClientCity(c ? c.name : "")}
+                    getOptionId={(c) => c.id}
+                    getOptionLabel={(c) => c.name}
+                    getOptionSubLabel={(c) => c.code}
+                    placeholder="-- اختر المدينة --"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                    العنوان التفصيلي (اختياري)
+                  </label>
+                  <input
+                    type="text"
+                    value={clientAddress}
+                    onChange={(e) => setClientAddress(e.target.value)}
+                    placeholder="مثال: طريق المطار، المنطقة الصناعية"
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                  />
+                </div>
+              </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

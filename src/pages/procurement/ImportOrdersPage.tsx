@@ -51,6 +51,8 @@ import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { useReferenceLookups } from "../../hooks/useReferenceLookups";
+import type { LookupEntry } from "../../config/referenceLookups";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { cn } from "../../lib/utils/utils";
@@ -79,6 +81,7 @@ export const ImportOrdersPage: React.FC = () => {
   const { data: orders = [], isLoading, error: queryError, refetch } = useImportOrders();
   const { data: suppliers = [] } = useSuppliers();
   const { data: operatingUnits = [] } = useOperatingUnits();
+  const { data: currencies = [] } = useReferenceLookups("currencies", { isActive: true });
 
   const { hasRole } = usePermissions();
   const isFinance = hasRole(["owner", "admin", "accounting-manager", "treasury-officer"]);
@@ -669,15 +672,15 @@ export const ImportOrdersPage: React.FC = () => {
                   <label className="block text-xs font-semibold text-app-label-secondary mb-1">
                     العملة
                   </label>
-                  <select
-                    value={currency}
-                    onChange={(e) => setCurrency(e.target.value)}
-                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-                  >
-                    <option value="USD">USD ($)</option>
-                    <option value="EUR">EUR (€)</option>
-                    <option value="LYD">LYD</option>
-                  </select>
+                  <SearchableSelect<LookupEntry>
+                    options={currencies}
+                    value={currencies.find((c) => c.code === currency) ?? null}
+                    onChange={(c) => setCurrency(c ? c.code : "USD")}
+                    getOptionId={(c) => c.id}
+                    getOptionLabel={(c) => `${c.name} (${c.code})`}
+                    getOptionSubLabel={(c) => c.fields?.symbol}
+                    placeholder="-- العملة --"
+                  />
                 </div>
                 <div className="col-span-2 flex items-end">
                   <p className="text-[10px] text-app-label-tertiary leading-relaxed">

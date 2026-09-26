@@ -58,6 +58,8 @@ export interface Entity {
   name: string;
   entity_type: EntityType;
   tax_number?: string | null;
+  city?: string | null;
+  address?: string | null;
   user_id?: string | null;
   is_active: boolean;
   record_version?: number;
@@ -185,4 +187,6 @@ export interface CreateClientPayload {
   payment_terms_days?: number;
   account_id?: string | null;
   status?: ClientStatus;
+  city?: string;
+  address?: string;
 }

@@ -4,6 +4,8 @@ import { isAxiosError } from "axios";
 import { PayType, EmployeeStatus } from "../../types/entities";
 import { useEmployees, useCreateEmployee } from "../../hooks/useEmployees";
 import { useEntities, useOperatingUnits } from "../../hooks/usePartners";
+import { useReferenceLookups } from "../../hooks/useReferenceLookups";
+import type { LookupEntry } from "../../config/referenceLookups";
 import { useServerConfigStore } from "../../stores/serverConfigStore";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
@@ -24,6 +26,7 @@ export const EmployeesPage: React.FC = () => {
   } = useEmployees();
   const { data: entities = [] } = useEntities();
   const { data: operatingUnits = [] } = useOperatingUnits();
+  const { data: employeeCategories = [] } = useReferenceLookups("employee-categories", { isActive: true });
   const createEmployeeMutation = useCreateEmployee();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -32,6 +35,7 @@ export const EmployeesPage: React.FC = () => {
   const [taxNumber, setTaxNumber] = useState("");
   const [selectedEntityId, setSelectedEntityId] = useState("");
   const [jobTitle, setJobTitle] = useState("");
+  const [isCustomJobTitle, setIsCustomJobTitle] = useState(false);
   const [laborRole, setLaborRole] = useState("");
   const [payType, setPayType] = useState<PayType>("monthly");
   const [monthlySalary, setMonthlySalary] = useState<string>("");
@@ -43,6 +47,7 @@ export const EmployeesPage: React.FC = () => {
     setTaxNumber("");
     setSelectedEntityId("");
     setJobTitle("");
+    setIsCustomJobTitle(false);
     setLaborRole("");
     setMonthlySalary("");
     setHourlyRate("");
@@ -302,17 +307,39 @@ export const EmployeesPage: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                المسمى الوظيفي <span className="text-app-status-danger">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                value={jobTitle}
-                onChange={(e) => setJobTitle(e.target.value)}
-                placeholder="مثال: مشغل آلة صب الفوم"
-                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-              />
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-app-label-secondary">
+                  المسمى الوظيفي <span className="text-app-status-danger">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsCustomJobTitle(!isCustomJobTitle)}
+                  className="text-[10px] text-app-accent hover:underline"
+                >
+                  {isCustomJobTitle ? "اختيار من القائمة" : "إدخال مسمى مخصص"}
+                </button>
+              </div>
+              {isCustomJobTitle ? (
+                <input
+                  type="text"
+                  required
+                  value={jobTitle}
+                  onChange={(e) => setJobTitle(e.target.value)}
+                  placeholder="مثال: مشغل آلة صب الفوم"
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                />
+              ) : (
+                <SearchableSelect<LookupEntry>
+                  options={employeeCategories}
+                  value={employeeCategories.find((c) => c.name === jobTitle) ?? null}
+                  onChange={(c) => setJobTitle(c ? c.name : "")}
+                  getOptionId={(c) => c.id}
+                  getOptionLabel={(c) => c.name}
+                  getOptionSubLabel={(c) => c.notes || c.code}
+                  placeholder="-- اختر المسمى الوظيفي --"
+                  required
+                />
+              )}
             </div>
             <div>
               <label className="block text-xs font-semibold text-app-label-secondary mb-1">

@@ -30,6 +30,9 @@ import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { useReferenceLookups } from "../../hooks/useReferenceLookups";
+import type { LookupEntry } from "../../config/referenceLookups";
 import { formatNumber } from "../../lib/utils/format";
 import { useTreasuryFxRatesColumns } from "../../components/table-columns/treasuryFxRatesColumns";
 import { useTreasuryBankHoldsColumns } from "../../components/table-columns/treasuryBankHoldsColumns";
@@ -48,6 +51,7 @@ export const TreasuryPage: React.FC = () => {
   const { data: pendingPayments = [], isLoading: isLoadingPayments, refetch: refetchPayments } = usePaymentRequests({ status: "pending" });
   const { data: allPaymentRequests = [], refetch: refetchAllPayments } = usePaymentRequests();
   const { data: marketPaymentRequests = [], refetch: refetchMarketPayments } = usePaymentRequests({ route: "market" });
+  const { data: currencies = [] } = useReferenceLookups("currencies", { isActive: true });
 
   const createFxRateMutation = useCreateFxRate();
   const executePaymentMutation = useExecutePaymentRequest();
@@ -444,22 +448,28 @@ export const TreasuryPage: React.FC = () => {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-app-label-secondary mb-1">من عملة</label>
-              <input
-                type="text"
+              <SearchableSelect<LookupEntry>
+                options={currencies}
+                value={currencies.find((c) => c.code === fromCurrency) ?? null}
+                onChange={(c) => setFromCurrency(c ? c.code : "")}
+                getOptionId={(c) => c.id}
+                getOptionLabel={(c) => `${c.name} (${c.code})`}
+                getOptionSubLabel={(c) => c.fields?.symbol}
+                placeholder="-- اختر العملة --"
                 required
-                value={fromCurrency}
-                onChange={(e) => setFromCurrency(e.target.value.toUpperCase())}
-                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:outline-none"
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-app-label-secondary mb-1">إلى عملة</label>
-              <input
-                type="text"
+              <SearchableSelect<LookupEntry>
+                options={currencies}
+                value={currencies.find((c) => c.code === toCurrency) ?? null}
+                onChange={(c) => setToCurrency(c ? c.code : "")}
+                getOptionId={(c) => c.id}
+                getOptionLabel={(c) => `${c.name} (${c.code})`}
+                getOptionSubLabel={(c) => c.fields?.symbol}
+                placeholder="-- اختر العملة --"
                 required
-                value={toCurrency}
-                onChange={(e) => setToCurrency(e.target.value.toUpperCase())}
-                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:outline-none"
               />
             </div>
           </div>

@@ -1,7 +1,7 @@
 import apiClient from "../client";
 import type { Paginated } from "./accounting";
 
-export type OverheadCategory = "water" | "electricity" | "rent" | "maintenance" | "other";
+export type OverheadCategory = "water" | "electricity" | "rent" | "maintenance" | "other" | string;
 export type AllocationMethod = "even_split" | "usage_based" | "headcount_based" | "manual_percentage";
 export type AllocationPaymentStatus = "pending" | "approved" | "paid";
 
