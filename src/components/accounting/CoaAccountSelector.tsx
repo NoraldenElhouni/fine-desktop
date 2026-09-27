@@ -16,6 +16,11 @@ export interface CoaAccountSelectorProps {
   newAccount: NewCoaAccountPayload;
   onNewAccountChange: (payload: NewCoaAccountPayload) => void;
   preferredParentCode?: string;
+  /** When true, the auto-prefilled account name is the entity name verbatim
+   *  (e.g. "Acme Co"). When false (default), it is
+   *  `حساب ${entityTypeLabel} - ${defaultEntityName}` (e.g. "حساب المورد - Acme Co").
+   *  Clients and suppliers typically want plain; fixed assets keep the prefix. */
+  useEntityNameDirectly?: boolean;
 }
 
 export const CoaAccountSelector: React.FC<CoaAccountSelectorProps> = ({
@@ -29,6 +34,7 @@ export const CoaAccountSelector: React.FC<CoaAccountSelectorProps> = ({
   newAccount,
   onNewAccountChange,
   preferredParentCode,
+  useEntityNameDirectly = false,
 }) => {
   const { data: accounts = [], isLoading } = useAccounts();
 
