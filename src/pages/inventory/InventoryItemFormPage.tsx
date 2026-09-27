@@ -17,7 +17,12 @@ import {
   SummaryRow,
   formInputClass as inputClass,
 } from "../../components/ui/GuidedForm";
-import { type InventoryItem, UOM_LABELS } from "../../api/endpoints/inventory";
+import {
+  type InventoryItem,
+  type PriceBasis,
+  PRICE_BASIS_LABELS,
+  UOM_LABELS,
+} from "../../api/endpoints/inventory";
 import {
   ITEM_TYPE_LABELS,
   type InventoryItemType,
@@ -62,6 +67,8 @@ const InventoryItemFormPage: React.FC = () => {
   const [lengthM, setLengthM] = useState("");
   const [widthM, setWidthM] = useState("");
   const [heightM, setHeightM] = useState("");
+  const [sellingPrice, setSellingPrice] = useState("");
+  const [priceBasis, setPriceBasis] = useState<PriceBasis>("unit");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -93,6 +100,12 @@ const InventoryItemFormPage: React.FC = () => {
     setLengthM(editingItem.length_m ? String(editingItem.length_m) : "");
     setWidthM(editingItem.width_m ? String(editingItem.width_m) : "");
     setHeightM(editingItem.height_m ? String(editingItem.height_m) : "");
+    setSellingPrice(
+      editingItem.selling_price !== null && editingItem.selling_price !== undefined
+        ? String(Number(editingItem.selling_price))
+        : "",
+    );
+    setPriceBasis(editingItem.price_basis ?? "unit");
     if (
       editingItem.length_m ||
       editingItem.width_m ||
@@ -142,6 +155,8 @@ const InventoryItemFormPage: React.FC = () => {
       length_m: lengthM.trim() ? Number(lengthM) : null,
       width_m: widthM.trim() ? Number(widthM) : null,
       height_m: heightM.trim() ? Number(heightM) : null,
+      selling_price: sellingPrice.trim() ? Number(sellingPrice) : null,
+      price_basis: priceBasis,
     };
 
     try {
@@ -214,6 +229,18 @@ const InventoryItemFormPage: React.FC = () => {
               )
             ) : (
               "سائب"
+            )}
+          </SummaryRow>
+          <SummaryRow label="سعر البيع">
+            {sellingPrice.trim() ? (
+              <>
+                <span className="font-mono">
+                  {formatNumber(Number(sellingPrice))}
+                </span>{" "}
+                د.ل {PRICE_BASIS_LABELS[priceBasis]}
+              </>
+            ) : (
+              <span className="text-app-label-tertiary">يُحدد عند البيع</span>
             )}
           </SummaryRow>
           {volume > 0 && (
@@ -510,6 +537,58 @@ const InventoryItemFormPage: React.FC = () => {
             <Plus className="h-3.5 w-3.5" />
             إضافة المقاس
           </button>
+        )}
+      </Question>
+
+      <Question
+        number="5"
+        title="سعر البيع"
+        subtitle="اختياري — سعر مبدئي يظهر في نقطة البيع ويمكن تعديله عند البيع"
+      >
+        <div className="inline-flex rounded-app-md border border-app-separator p-1 bg-app-bg-secondary">
+          {(Object.keys(PRICE_BASIS_LABELS) as PriceBasis[]).map((basis) => (
+            <button
+              key={basis}
+              type="button"
+              onClick={() => setPriceBasis(basis)}
+              className={cn(
+                type.c1Emphasized,
+                "rounded-app-sm px-4 py-1.5 transition-colors",
+                priceBasis === basis
+                  ? "bg-app-bg-primary text-app-label-primary shadow-sm"
+                  : "text-app-label-secondary hover:text-app-label-primary",
+              )}
+            >
+              {PRICE_BASIS_LABELS[basis]}
+            </button>
+          ))}
+        </div>
+        <Field
+          label={priceBasis === "m3" ? "السعر لكل متر مكعب (د.ل)" : "السعر للقطعة (د.ل)"}
+          hint={
+            priceBasis === "m3"
+              ? "سعر القطعة = السعر × الطول × العرض × الارتفاع"
+              : undefined
+          }
+        >
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="0.00"
+            value={sellingPrice}
+            onChange={(e) => setSellingPrice(e.target.value)}
+            className={cn(inputClass, "font-mono w-48")}
+            dir="ltr"
+          />
+        </Field>
+        {priceBasis === "m3" && volume > 0 && Number(sellingPrice) > 0 && (
+          <span className={cn(type.c1Regular, "text-app-label-secondary")}>
+            سعر القطعة بمقاسها الحالي:{" "}
+            <span className="font-mono font-semibold text-app-accent">
+              {formatNumber(Number(sellingPrice) * volume)} د.ل
+            </span>
+          </span>
         )}
       </Question>
     </GuidedFormPage>

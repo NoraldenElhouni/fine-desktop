@@ -68,6 +68,32 @@ body {
     height: auto !important;
     overflow: visible !important;
   }
+
+  /* Documents keep their own spacing on paper; the page margin frames them. */
+  .print-area.print-document {
+    padding: 0 !important;
+  }
+
+  /* A long table may break across pages, but never inside a row. */
+  .print-area tr {
+    break-inside: avoid;
+  }
+}
+
+/* Invoices, quotations, delivery notes and cutter job sheets print on A4.
+   The POS receipt opts into the 80 mm roll with .print-thermal. */
+@page {
+  size: A4;
+  margin: 12mm;
+}
+
+@page thermal {
+  size: 80mm auto;
+  margin: 3mm;
+}
+
+.print-thermal {
+  page: thermal;
 }
 
 .icon-chevron-forward {

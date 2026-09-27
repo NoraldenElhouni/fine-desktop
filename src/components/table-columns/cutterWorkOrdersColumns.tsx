@@ -37,22 +37,25 @@ export function useCutterWorkOrdersColumns({
           ),
       },
       {
-        id: "stock_lot",
-        header: "البلوك",
+        id: "blocks",
+        header: "البلوكات",
         enableSorting: false,
-        cell: ({ row }) =>
-          row.original.stock_lot ? (
+        cell: ({ row }) => {
+          const blocks = row.original.blocks ?? [];
+          if (blocks.length === 0) return <span className="text-app-label-tertiary">—</span>;
+          return (
             <div className="flex flex-col gap-0.5">
-              <span className="inline-flex items-center gap-1 font-mono text-app-accent">
-                <Package className="h-3 w-3" /> {row.original.stock_lot.lot_number}
-              </span>
+              {blocks.map((b) => (
+                <span key={b.id} className="inline-flex items-center gap-1 font-mono text-app-accent">
+                  <Package className="h-3 w-3" /> {b.stock_lot?.lot_number}
+                </span>
+              ))}
               <span className="text-[10px] text-app-label-tertiary">
-                {formatNumber(Number(row.original.stock_lot.unit_cost))} مثبت
+                {formatNumber(blocks.reduce((sum, b) => sum + Number(b.unit_cost_snapshot), 0))} مثبت
               </span>
             </div>
-          ) : (
-            <span className="text-app-label-tertiary">—</span>
-          ),
+          );
+        },
       },
       {
         id: "lines_count",

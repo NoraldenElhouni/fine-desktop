@@ -27,7 +27,7 @@ export function useCreateCutterOrder() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: {
-      order_number: string;
+      order_number?: string;
       client_id?: string;
       notes?: string;
       stock_lot_id?: string;
@@ -142,14 +142,23 @@ export function useAttachBlock(orderId?: string) {
 export function useDetachBlock(orderId?: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () =>
-      cutterApi.detachBlock(orderId as string),
+    mutationFn: (stockLotId?: string) =>
+      cutterApi.detachBlock(orderId as string, stockLotId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["cutterOrder", orderId] });
       qc.invalidateQueries({ queryKey: ["cutterOrders"] });
       qc.invalidateQueries({ queryKey: ["availableFoamBlocks"] });
       qc.invalidateQueries({ queryKey: ["stockLots"] });
     },
+  });
+}
+
+export function useJobSheet(orderId?: string, enabled = true) {
+  return useQuery({
+    queryKey: ["cutterJobSheet", orderId],
+    queryFn: async () => (await cutterApi.jobSheet(orderId as string)).data,
+    enabled: Boolean(orderId) && enabled,
+    retry: false,
   });
 }
 

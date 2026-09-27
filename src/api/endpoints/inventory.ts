@@ -38,8 +38,43 @@ export interface InventoryItem {
   width_m?: number;
   height_m?: number;
   volume_m3?: number;
+  /** POS starting price — per piece, or per m³ when price_basis is "m3". Editable at the counter. */
+  selling_price?: number | string | null;
+  price_basis?: PriceBasis;
+  /** Only with `with_stock=1`: available quantity on the current unit's shelves. */
+  available_quantity?: number | string | null;
   created_at: string;
   updated_at: string;
+}
+
+export type PriceBasis = "unit" | "m3";
+
+export const PRICE_BASIS_LABELS: Record<PriceBasis, string> = {
+  unit: "للقطعة",
+  m3: "للمتر المكعب",
+};
+
+/**
+ * Mirrors InventoryItem::priceFor on the backend: a "unit" item is price × qty,
+ * an "m3" item is rate × L × W × H × qty (falling back to the item's own size).
+ * Returns null when the item has no price or an m3 item has no size.
+ */
+export function suggestedPrice(
+  item: Pick<InventoryItem, "selling_price" | "price_basis" | "volume_m3">,
+  quantity: number,
+  size?: { length_m?: number | null; width_m?: number | null; height_m?: number | null },
+): number | null {
+  if (item.selling_price === null || item.selling_price === undefined || item.selling_price === "") return null;
+  const rate = Number(item.selling_price);
+  if (item.price_basis !== "m3") return Math.round(rate * quantity * 10000) / 10000;
+  const hasSize = size && size.length_m && size.width_m && size.height_m;
+  const volume = hasSize
+    ? Number(size.length_m) * Number(size.width_m) * Number(size.height_m)
+    : item.volume_m3
+      ? Number(item.volume_m3)
+      : null;
+  if (volume === null) return null;
+  return Math.round(rate * volume * quantity * 10000) / 10000;
 }
 
 type ClearableItemField =
@@ -48,7 +83,8 @@ type ClearableItemField =
   | "container_capacity"
   | "length_m"
   | "width_m"
-  | "height_m";
+  | "height_m"
+  | "selling_price";
 
 /** Create/update body — `null` clears a field on the backend, `undefined` leaves it untouched. */
 export type InventoryItemPayload = Partial<Omit<InventoryItem, ClearableItemField>> & {
@@ -138,7 +174,7 @@ export interface InventoryMovement {
 
 export const inventoryApi = {
   // Inventory Items
-  getItems: (params?: { category_id?: string; item_type?: string; search?: string; page?: number }) =>
+  getItems: (params?: { category_id?: string; item_type?: string; search?: string; page?: number; per_page?: number; with_stock?: 1 }) =>
     apiClient.get<{ data: InventoryItem[]; current_page: number; last_page: number; total: number }>("/inventory-items", { params }),
 
   getItem: (id: string) =>

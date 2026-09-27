@@ -7,10 +7,12 @@ import {
   settlePayable,
   getCashAccounts,
   createCashAccount,
+  updateCashAccount,
 } from "../api/endpoints/procurement";
 import {
   CreateFxRatePayload,
   CreateCashAccountPayload,
+  UpdateCashAccountPayload,
 } from "../types/procurement";
 
 export function useFxRates() {
@@ -64,6 +66,17 @@ export function useCashAccounts(operatingUnitId?: string) {
   return useQuery({
     queryKey: ["cashAccounts", operatingUnitId],
     queryFn: () => getCashAccounts(operatingUnitId),
+  });
+}
+
+export function useUpdateCashAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateCashAccountPayload }) =>
+      updateCashAccount(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["cashAccounts"] });
+    },
   });
 }
 

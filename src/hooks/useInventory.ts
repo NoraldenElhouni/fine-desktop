@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { inventoryApi, type InventoryItemPayload } from "../api/endpoints/inventory";
 
-export function useInventoryItems(params?: { category_id?: string; item_type?: string; search?: string; page?: number }) {
+export function useInventoryItems(params?: { category_id?: string; item_type?: string; search?: string; page?: number; per_page?: number; with_stock?: 1 }) {
   return useQuery({
     queryKey: ["inventoryItems", params],
     queryFn: async () => {

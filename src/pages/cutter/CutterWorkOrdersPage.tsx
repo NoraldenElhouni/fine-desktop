@@ -33,7 +33,6 @@ export const CutterWorkOrdersPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [internalOnly, setInternalOnly] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [orderNumber, setOrderNumber] = useState("");
   const [clientId, setClientId] = useState("");
   const [notes, setNotes] = useState("");
   const [stockLotId, setStockLotId] = useState("");
@@ -53,7 +52,6 @@ export const CutterWorkOrdersPage: React.FC = () => {
   const orders = data?.data ?? [];
 
   const resetCreateForm = () => {
-    setOrderNumber("");
     setClientId("");
     setNotes("");
     setStockLotId("");
@@ -65,7 +63,6 @@ export const CutterWorkOrdersPage: React.FC = () => {
     setError(null);
     createMutation.mutate(
       {
-        order_number: orderNumber,
         client_id: clientId || undefined,
         notes: notes || undefined,
         stock_lot_id: stockLotId || undefined,
@@ -77,11 +74,7 @@ export const CutterWorkOrdersPage: React.FC = () => {
           navigate(`/cutter/orders/${res.data.id}`);
         },
         onError: (err: unknown) =>
-          setError(
-            apiErrorPayload(err)?.errors?.order_number?.[0] ??
-              apiErrorPayload(err)?.message ??
-              "تعذر إنشاء أمر العمل.",
-          ),
+          setError(apiErrorPayload(err)?.message ?? "تعذر إنشاء أمر العمل."),
       },
     );
   };
@@ -217,20 +210,6 @@ export const CutterWorkOrdersPage: React.FC = () => {
             )}
 
             <form id="cutter-work-order-form" onSubmit={submit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-                  رقم الأمر
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={orderNumber}
-                  onChange={(e) => setOrderNumber(e.target.value)}
-                  placeholder="CWO-1042"
-                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
-                />
-              </div>
-
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
                   العميل
