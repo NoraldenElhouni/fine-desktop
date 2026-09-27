@@ -50,11 +50,14 @@ import {
 import { usePermissions } from "../../hooks/usePermissions";
 import { useOperatingUnits } from "../../hooks/usePartners";
 import { useInventoryItems } from "../../hooks/useInventory";
+import { useAccounts } from "../../hooks/useAccounting";
 import { useWarehouses, Warehouse } from "../../hooks/useWarehouses";
 import { InventoryItem } from "../../api/endpoints/inventory";
+import { type Account } from "../../api/endpoints/accounting";
 import { toast } from "../../stores/toastStore";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatNumber } from "../../lib/utils/format";
+import { filterPaymentSourceAccounts } from "../../lib/utils/coa";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { useReferenceLookups } from "../../hooks/useReferenceLookups";
 import type { LookupEntry } from "../../config/referenceLookups";
@@ -132,6 +135,21 @@ export const PurchaseOrdersPage: React.FC = () => {
   const [extraAllocationNote, setExtraAllocationNote] = useState<string>("");
   const [extraAllocationTouched, setExtraAllocationTouched] = useState(false);
   const [hardCapAcknowledged, setHardCapAcknowledged] = useState(false);
+
+  // Payment source account (cash/bank COA sub-account the payment leaves
+  // from). Used by both the foreign `execute_payment` step and the local
+  // `payLocal` action. Strict filter to the 121* asset sub-tree.
+  const { data: accounts = [] } = useAccounts();
+  const paymentSourceAccounts = useMemo(
+    () => filterPaymentSourceAccounts(accounts),
+    [accounts],
+  );
+  const [paymentSourceAccountId, setPaymentSourceAccountId] = useState<string | null>(
+    null,
+  );
+  useEffect(() => {
+    setPaymentSourceAccountId(null);
+  }, [selectedOrder?.id]);
 
   useEffect(() => {
     if (selectedOrder) {
@@ -220,6 +238,10 @@ export const PurchaseOrdersPage: React.FC = () => {
       toast.error("يجب الموافقة على فرق السعر الذي يتجاوز الحد الأقصى قبل المتابعة.");
       return;
     }
+    if (!paymentSourceAccountId) {
+      toast.error("اختر حساب مصدر الدفع من الدليل المحاسبي قبل التنفيذ.");
+      return;
+    }
 
     executePaymentMutation.mutate(
       {
@@ -229,13 +251,16 @@ export const PurchaseOrdersPage: React.FC = () => {
           exact_amount_used_lyd: exactAmountUsedLyd > 0 ? exactAmountUsedLyd : null,
           bank_reference: bankReference.trim() || undefined,
           extra_allocation_note: requiresNote ? extraAllocationNote.trim() : undefined,
+          payment_source_account_id: paymentSourceAccountId,
         },
       },
       {
         onSuccess: () => {
           toast.success("تم سداد الدفعة بنجاح ونقل أمر الشراء إلى مدفوع!");
           refetch();
-          setSelectedOrder((prev) => (prev ? { ...prev, status: "paid" } : null));
+          setSelectedOrder((prev) =>
+            prev ? { ...prev, status: "paid", payment_source_account_id: paymentSourceAccountId } : null,
+          );
         },
         onError: (err: unknown) => {
           const payloadErr = apiErrorPayload(err);
@@ -1186,27 +1211,62 @@ export const PurchaseOrdersPage: React.FC = () => {
                   )}
 
                   {selectedOrder.status !== "paid" && selectedOrder.status !== "closed" && selectedOrder.status !== "draft" && (
-                    <button
-                      type="button"
-                      disabled={actingOnOrder}
-                      onClick={async () => {
-                        setActingOnOrder(true);
-                        try {
-                          await payLocalPurchaseOrder(selectedOrder.id);
-                          toast.success("تم تسجيل السداد وإقفال الأمر");
-                          await refetch();
-                          setSelectedOrder((prev) => (prev ? { ...prev, status: "closed" } : null));
-                        } catch (err: unknown) {
-                          toast.error(apiErrorPayload(err)?.message ?? "فشل السداد");
-                        } finally {
-                          setActingOnOrder(false);
-                        }
-                      }}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
-                    >
-                      <DollarSign className="h-3 w-3" />
-                      <span>سداد</span>
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="w-72">
+                        <SearchableSelect<Account>
+                          options={paymentSourceAccounts}
+                          value={
+                            paymentSourceAccounts.find(
+                              (a) => a.id === paymentSourceAccountId,
+                            ) ?? null
+                          }
+                          onChange={(a) =>
+                            setPaymentSourceAccountId(a ? a.id : null)
+                          }
+                          getOptionId={(a) => a.id}
+                          getOptionLabel={(a) =>
+                            `${a.account_code} - ${a.name}`
+                          }
+                          placeholder="اختر حساب مصدر الدفع…"
+                          size="sm"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        disabled={actingOnOrder || !paymentSourceAccountId}
+                        onClick={async () => {
+                          if (!paymentSourceAccountId) {
+                            toast.error("اختر حساب مصدر الدفع أولاً");
+                            return;
+                          }
+                          setActingOnOrder(true);
+                          try {
+                            await payLocalPurchaseOrder(selectedOrder.id, {
+                              payment_source_account_id: paymentSourceAccountId,
+                            });
+                            toast.success("تم تسجيل السداد وإقفال الأمر");
+                            await refetch();
+                            setSelectedOrder((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    status: "closed",
+                                    payment_source_account_id: paymentSourceAccountId,
+                                  }
+                                : null,
+                            );
+                          } catch (err: unknown) {
+                            toast.error(apiErrorPayload(err)?.message ?? "فشل السداد");
+                          } finally {
+                            setActingOnOrder(false);
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
+                      >
+                        <DollarSign className="h-3 w-3" />
+                        <span>سداد</span>
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -1497,6 +1557,32 @@ export const PurchaseOrdersPage: React.FC = () => {
                       hardCapAcknowledged={hardCapAcknowledged}
                       onAcknowledgeHardCap={setHardCapAcknowledged}
                     />
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
+                        حساب مصدر الدفع <span className="text-app-status-danger">*</span>
+                      </label>
+                      <SearchableSelect<Account>
+                        options={paymentSourceAccounts}
+                        value={
+                          paymentSourceAccounts.find(
+                            (a) => a.id === paymentSourceAccountId,
+                          ) ?? null
+                        }
+                        onChange={(a) =>
+                          setPaymentSourceAccountId(a ? a.id : null)
+                        }
+                        getOptionId={(a) => a.id}
+                        getOptionLabel={(a) =>
+                          `${a.account_code} - ${a.name}`
+                        }
+                        placeholder="اختر الحساب البنكي / الخزينة…"
+                        required
+                      />
+                      <p className="mt-1 text-[10px] text-app-label-tertiary">
+                        الحساب الذي خرج منه المبلغ (121* — النقدية والمصارف).
+                      </p>
+                    </div>
 
                     <div className="grid grid-cols-2 gap-3">
                       <div>

@@ -183,6 +183,7 @@ export interface PurchaseOrder {
   id: string;
   operating_unit_id: string;
   supplier_id: string;
+  payment_source_account_id: string | null;
   supplier?: Supplier;
   currency: string;
   kind: PurchaseOrderKind;
@@ -198,6 +199,7 @@ export interface PurchaseOrder {
   payment_requests?: PaymentRequest[];
   landed_cost_lines?: LandedCostLine[];
   goods_receipt?: GoodsReceipt | null;
+  payment_source_account?: { id: string; account_code: string; name: string } | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -277,6 +279,7 @@ export interface TransitionPurchaseOrderPayload {
   action:
     | 'pending_payment'
     | 'select_route'
+    | 'execute_payment'
     | 'shipment'
     | 'arrive_port'
     | 'arrived_at_warehouse'
@@ -287,6 +290,11 @@ export interface TransitionPurchaseOrderPayload {
   amount_requested?: number;
   held_amount_lyd?: number;
   invoice_ref?: string;
+  fx_rate_used?: number | null;
+  exact_amount_used_lyd?: number | null;
+  bank_reference?: string;
+  extra_allocation_note?: string;
+  payment_source_account_id?: string;
   warehouse_id?: string;
   received_qty?: number;
   condition_notes?: string;
@@ -297,6 +305,7 @@ export interface ExecutePaymentPayload {
   exact_amount_used_lyd?: number | null;
   bank_reference?: string;
   extra_allocation_note?: string;
+  payment_source_account_id?: string;
 }
 
 export interface CreateLandedCostLinePayload {
