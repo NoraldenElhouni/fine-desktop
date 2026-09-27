@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { DollarSign, Printer, CheckCircle2, AlertCircle, TrendingUp, CreditCard, Banknote, Save } from "lucide-react";
-import { PosDailyReport } from "../../api/endpoints/sales";
+import { DollarSign, Printer, CheckCircle2, AlertCircle, TrendingUp, Landmark, Banknote, FileText, Save } from "lucide-react";
+import { PAYMENT_METHOD_LABEL, PosDailyReport } from "../../api/endpoints/sales";
 import { usePosDailyClose, useSavePosDailyClose } from "../../hooks/useSales";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { toast } from "../../stores/toastStore";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../ui/Dialog";
+import { formatNumber } from "../../lib/utils/format";
 
 interface PosDailyCloseModalProps {
   isOpen: boolean;
@@ -12,6 +13,8 @@ interface PosDailyCloseModalProps {
   isLoading?: boolean;
   onClose: () => void;
 }
+
+const METHOD_ICON = { cash: Banknote, bank: Landmark, receivable: FileText } as const;
 
 export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
   isOpen,
@@ -32,10 +35,7 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
     window.print();
   };
 
-  const cashMethod = report?.by_method?.["cash"] || { count: 0, total: 0 };
-  const cardMethod = report?.by_method?.["card"] || { count: 0, total: 0 };
-
-  const expectedCash = savedClose ? Number(savedClose.expected_cash) : Number(cashMethod.total || 0);
+  const expectedCash = savedClose ? Number(savedClose.expected_cash) : Number(report?.expected_cash ?? 0);
   const counted = savedClose
     ? Number(savedClose.counted_cash)
     : countedCash.trim() !== "" ? Number(countedCash) : null;
@@ -52,7 +52,7 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
   };
 
   const saveError = saveClose.isError
-    ? apiErrorPayload(saveClose.error)?.message || "تعذر حفظ إغلاق الصندوق"
+    ? apiErrorPayload(saveClose.error)?.message || "تعذّر حفظ إغلاق الصندوق"
     : null;
 
   return (
@@ -66,7 +66,7 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
             <div>
               <DialogTitle className="text-sm">إغلاق الصندوق والوردية اليومية (Z-Report)</DialogTitle>
               <DialogDescription className="text-[11px]">
-                مطابقة النقد الفعلي بالصندوق مع حركة مبيعات نقطة البيع
+                مطابقة النقد الفعلي بالصندوق مع النقد المستلم فعلياً (مبيعات نقدية + تحصيلات نقدية)
               </DialogDescription>
             </div>
           </div>
@@ -94,54 +94,58 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
                   </div>
                 </div>
                 <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-3 text-start">
-                  <div className="text-[11px] text-app-label-secondary">إجمالي الإيراد</div>
+                  <div className="text-[11px] text-app-label-secondary">إجمالي المبيعات</div>
                   <div className="text-lg font-bold font-mono text-app-accent mt-1">
-                    {Number(report.total).toLocaleString()} <span className="text-xs font-sans">د.ل</span>
+                    {formatNumber(report.total)} <span className="text-xs font-sans">د.ل</span>
                   </div>
                 </div>
                 <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-3 text-start">
                   <div className="text-[11px] text-app-label-secondary">تكلفة البضاعة</div>
                   <div className="text-lg font-bold font-mono text-app-label-primary mt-1">
-                    {Number(report.total_cost).toLocaleString()} <span className="text-xs font-sans">د.ل</span>
+                    {formatNumber(report.total_cost)} <span className="text-xs font-sans">د.ل</span>
                   </div>
                 </div>
               </div>
 
-              {/* Payment Method Breakdown */}
+              {/* Sales by payment method */}
               <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-4 space-y-3">
                 <div className="text-xs font-bold text-app-label-primary flex items-center gap-1.5">
                   <TrendingUp className="h-4 w-4 text-app-accent" />
-                  <span>توزيع المبيعات حسب طريقة الدفع</span>
+                  <span>المبيعات حسب طريقة الدفع</span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <div className="flex items-center justify-between rounded-lg border border-app-separator bg-app-bg-primary p-3">
-                    <div className="flex items-center gap-2">
-                      <Banknote className="h-4 w-4 text-app-status-positive" />
-                      <div>
-                        <div className="text-xs font-semibold text-app-label-primary">نقداً (Cash)</div>
-                        <div className="text-[10px] text-app-label-secondary">{cashMethod.count} عملية</div>
+                <div className="grid grid-cols-3 gap-3 pt-1">
+                  {(["cash", "bank", "receivable"] as const).map((method) => {
+                    const row = report.by_method?.[method] ?? { count: 0, total: 0 };
+                    const Icon = METHOD_ICON[method];
+                    return (
+                      <div key={method} className="flex items-center justify-between rounded-lg border border-app-separator bg-app-bg-primary p-3">
+                        <div className="flex items-center gap-2">
+                          <Icon className="h-4 w-4 text-app-accent" />
+                          <div>
+                            <div className="text-xs font-semibold text-app-label-primary">{PAYMENT_METHOD_LABEL[method]}</div>
+                            <div className="text-[10px] text-app-label-secondary">{row.count} عملية</div>
+                          </div>
+                        </div>
+                        <div className="text-xs font-bold font-mono text-app-label-primary">{formatNumber(row.total)}</div>
                       </div>
-                    </div>
-                    <div className="text-xs font-bold font-mono text-app-label-primary">
-                      {Number(cashMethod.total).toLocaleString()} د.ل
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between rounded-lg border border-app-separator bg-app-bg-primary p-3">
-                    <div className="flex items-center gap-2">
-                      <CreditCard className="h-4 w-4 text-app-status-info" />
-                      <div>
-                        <div className="text-xs font-semibold text-app-label-primary">بطاقة (Card)</div>
-                        <div className="text-[10px] text-app-label-secondary">{cardMethod.count} عملية</div>
-                      </div>
-                    </div>
-                    <div className="text-xs font-bold font-mono text-app-label-primary">
-                      {Number(cardMethod.total).toLocaleString()} د.ل
-                    </div>
-                  </div>
+                    );
+                  })}
                 </div>
               </div>
+
+              {/* Cash actually collected, by treasury — this is what the drawer should match */}
+              {report.by_cash_account.length > 0 && (
+                <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-4 space-y-2">
+                  <div className="text-xs font-bold text-app-label-primary">النقد والمصرفي المُستلم فعلياً حسب الخزينة</div>
+                  {report.by_cash_account.map((row) => (
+                    <div key={row.cash_account_id ?? "unknown"} className="flex items-center justify-between text-xs">
+                      <span className="text-app-label-secondary">{row.name ?? "—"}</span>
+                      <span className="font-mono font-bold">{formatNumber(row.total)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Cash Drawer Reconciliation Section */}
               <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-4 space-y-3">
@@ -155,7 +159,7 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
                       النقد المتوقع حسب النظام
                     </label>
                     <div className="w-full rounded-xl border border-app-separator bg-app-bg-primary px-3 py-2 text-xs font-mono font-bold text-app-label-primary">
-                      {expectedCash.toLocaleString()} د.ل
+                      {formatNumber(expectedCash)} د.ل
                     </div>
                   </div>
 
@@ -165,7 +169,7 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
                     </label>
                     {savedClose ? (
                       <div className="w-full rounded-xl border border-app-separator bg-app-bg-primary px-3 py-2 text-xs font-mono font-bold text-app-label-primary">
-                        {Number(savedClose.counted_cash).toLocaleString()} د.ل
+                        {formatNumber(savedClose.counted_cash)} د.ل
                       </div>
                     ) : (
                       <input
@@ -210,17 +214,17 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
                     {Math.abs(difference) < 0.001 ? (
                       <>
                         <CheckCircle2 className="h-4 w-4 shrink-0" />
-                        <span>الصندوق متطابق تماماً مع حركة المبيعات المسجلة.</span>
+                        <span>الصندوق متطابق تماماً مع النقد المستلم فعلياً.</span>
                       </>
                     ) : difference > 0 ? (
                       <>
                         <AlertCircle className="h-4 w-4 shrink-0" />
-                        <span>يوجد زيادة في الصندوق بمقدار +{difference.toLocaleString()} د.ل</span>
+                        <span>يوجد زيادة في الصندوق بمقدار +{formatNumber(difference)} د.ل</span>
                       </>
                     ) : (
                       <>
                         <AlertCircle className="h-4 w-4 shrink-0" />
-                        <span>يوجد عجز في الصندوق بمقدار {difference.toLocaleString()} د.ل</span>
+                        <span>يوجد عجز في الصندوق بمقدار {formatNumber(difference)} د.ل</span>
                       </>
                     )}
                   </div>

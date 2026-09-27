@@ -86,6 +86,47 @@ export interface CutterWorkOrderLine {
   output_inventory_item_id?: string;
   output_item?: { id: string; name: string; code: string };
   consumptions?: FoamBlockConsumption[];
+  /** Set when this line cuts a sold bundle's piece rather than one the cutter added itself. */
+  sale_bundle_component_id?: string | null;
+  sale_component?: {
+    line?: {
+      description?: string | null;
+      sales_order?: { id: string; order_number: string; client_id?: string | null };
+    };
+  } | null;
+}
+
+/** One foam block attached to a cutter order — an order may cut several. */
+export interface CutterWorkOrderBlock {
+  id: string;
+  stock_lot_id: string;
+  unit_cost_snapshot: number;
+  length_m_snapshot?: number | null;
+  width_m_snapshot?: number | null;
+  height_m_snapshot?: number | null;
+  volume_m3_snapshot?: number | null;
+  stock_lot?: AvailableFoamBlock | null;
+}
+
+export interface CutterJobSheet {
+  order_number: string;
+  status: CutterWorkOrderStatus;
+  date?: string | null;
+  cutter?: string | null;
+  notes?: string | null;
+  blocks: { lot_number?: string | null; length_m?: number | null; width_m?: number | null; height_m?: number | null }[];
+  lines: {
+    requested_spec: string;
+    quantity: number;
+    length_m?: number | null;
+    width_m?: number | null;
+    height_m?: number | null;
+    output_item?: string | null;
+    output_sku?: string | null;
+    sale_number?: string | null;
+    bundle?: string | null;
+    client?: string | null;
+  }[];
 }
 
 export interface ByproductYield {
@@ -112,14 +153,8 @@ export interface CutterWorkOrder {
   byproduct_yields?: ByproductYield[];
   record_version: number;
   created_at: string;
-  // CUT-block-sale: the precut block attached at order creation.
-  stock_lot_id?: string | null;
-  stock_lot?: AvailableFoamBlock | null;
-  block_unit_cost_snapshot?: number | null;
-  block_length_m_snapshot?: number | null;
-  block_width_m_snapshot?: number | null;
-  block_height_m_snapshot?: number | null;
-  block_volume_m3_snapshot?: number | null;
+  /** The foam blocks reserved for this order — several may be attached. */
+  blocks?: CutterWorkOrderBlock[];
 }
 
 export const cutterApi = {
@@ -131,8 +166,9 @@ export const cutterApi = {
 
   getOrder: (id: string) => apiClient.get<CutterWorkOrder>(`/cutter-work-orders/${id}`),
 
+  /** order_number is optional — the server numbers the order (CWO-2026-00001) when omitted. */
   createOrder: (data: {
-    order_number: string;
+    order_number?: string;
     client_id?: string;
     notes?: string;
     stock_lot_id?: string;
@@ -180,8 +216,13 @@ export const cutterApi = {
       stock_lot_id: stockLotId,
     }),
 
-  detachBlock: (id: string) =>
-    apiClient.delete<CutterWorkOrder>(`/cutter-work-orders/${id}/detach-block`),
+  /** Releases the one attached block, or a named one when several are attached. */
+  detachBlock: (id: string, stockLotId?: string) =>
+    apiClient.delete<CutterWorkOrder>(`/cutter-work-orders/${id}/detach-block`, {
+      data: stockLotId ? { stock_lot_id: stockLotId } : undefined,
+    }),
+
+  jobSheet: (id: string) => apiClient.get<CutterJobSheet>(`/cutter-work-orders/${id}/job-sheet`),
 
   recordWeighIn: (
     id: string,

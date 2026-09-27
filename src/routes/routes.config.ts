@@ -24,7 +24,6 @@ import {
   Scissors,
   ShieldCheck,
   ShoppingCart,
-  Store,
   Tags,
   UserCheck,
   Users,
@@ -90,8 +89,7 @@ export const navItems: AppNavItem[] = [
   },
   { id: "cutter", path: "/cutter/orders", label: "التقطيع", icon: Scissors, allowedRoles: ["owner", "admin", "cutter-manager", "cutter-operator", "unit_manager", "manager"] },
   { id: "material-requests", path: "/material-requests", label: "طلبات المواد (MRs)", icon: PackageCheck, allowedRoles: ["owner", "admin", "furniture-manager", "cutter-manager", "foam-manager", "unit_manager", "manager"] },
-  { id: "sales", path: "/sales/orders", label: "المبيعات", icon: ShoppingCart, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "unit_manager", "manager"] },
-  { id: "pos", path: "/sales/pos", label: "نقطة البيع", icon: Store, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "unit_manager", "manager"] },
+  { id: "pos", path: "/sales/pos", label: "المبيعات ونقطة البيع", icon: ShoppingCart, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "cutter-manager", "unit_manager", "manager"] },
   { id: "restock", path: "/sales/restock", label: "التزويد الداخلي", icon: Truck, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "unit_manager", "manager"] },
   { id: "attendance", path: "/hr/attendance", label: "الحضور والانصراف", icon: CalendarCheck2, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"] },
   { id: "labor-rates", path: "/hr/rates", label: "أجور الأدوار", icon: BadgeDollarSign, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager"] },
@@ -155,13 +153,24 @@ export const getBreadcrumbEntries = (
     entries.push({ path: matchingItem.path, label: matchingItem.label });
   }
 
+  // A sale, or its bundle-definition page, is not a tab of the POS hub but
+  // still belongs under it in the breadcrumb: /sales/{id}[/bundles/{id}],
+  // never /sales/pos or /sales/restock (those already matched above).
+  const isSaleDetailPath = /^\/sales\/(?!pos\b|restock\b)[^/]+/.test(normalizedPath);
+  if (isSaleDetailPath && !matchingItem) {
+    const posItem = navItems.find((item) => item.id === "pos");
+    if (posItem) {
+      entries.push({ path: posItem.path, label: posItem.label });
+    }
+  }
+
   if (
     normalizedPath.startsWith("/clients/") ||
     normalizedPath.startsWith("/admin/entities/") ||
     normalizedPath.startsWith("/inventory/") ||
     normalizedPath.startsWith("/manufacturing/batches/") ||
     normalizedPath.startsWith("/cutter/orders/") ||
-    normalizedPath.startsWith("/sales/orders/") ||
+    isSaleDetailPath ||
     normalizedPath.startsWith("/accounting/accounts/")
   ) {
     entries.push({ path: normalizedPath, label: dynamicLabel });

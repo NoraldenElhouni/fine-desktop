@@ -7,9 +7,12 @@ import {
   ShieldAlert,
   Send,
   AlertTriangle,
+  Landmark,
+  Pencil,
 } from "lucide-react";
 import { isAxiosError } from "axios";
 import {
+  CashAccount,
   PaymentRequest,
   PaymentRoute,
   CreateFxRatePayload,
@@ -38,6 +41,7 @@ import { useTreasuryFxRatesColumns } from "../../components/table-columns/treasu
 import { useTreasuryBankHoldsColumns } from "../../components/table-columns/treasuryBankHoldsColumns";
 import { useBlackMarketColumns } from "../../components/table-columns/blackMarketColumns";
 import { FxPreviewCard } from "../../components/treasury/FxPreviewCard";
+import { CashAccountDialog } from "../../components/treasury/CashAccountDialog";
 
 const FX_TOLERANCE_LYD_DEFAULT = 0.01;
 const FX_HARD_CAP_PERCENT_DEFAULT = 5.0;
@@ -59,6 +63,10 @@ export const TreasuryPage: React.FC = () => {
   const isLoading = isLoadingCash || isLoadingFx || isLoadingHolds || isLoadingPayments;
 
   const [activeRouteTab, setActiveRouteTab] = useState<RouteTab>("all");
+  const [cashAccountDialog, setCashAccountDialog] = useState<{ open: boolean; account: CashAccount | null }>({
+    open: false,
+    account: null,
+  });
 
   const handleRefreshAll = () => {
     refetchCash();
@@ -279,6 +287,16 @@ export const TreasuryPage: React.FC = () => {
       </div>
 
       {/* Cash Accounts Cards Grid */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-bold text-app-label-primary">الخزائن والحسابات المصرفية</h3>
+        <button
+          onClick={() => setCashAccountDialog({ open: true, account: null })}
+          className="flex items-center gap-1.5 rounded-xl border border-app-accent/40 bg-app-accent/10 px-3 py-1.5 text-xs font-bold text-app-accent hover:bg-app-accent/15"
+        >
+          <Plus className="h-4 w-4" />
+          <span>إضافة خزينة</span>
+        </button>
+      </div>
       <div className="grid grid-cols-3 gap-4">
         {cashAccounts.length === 0 ? (
           <div className="col-span-3 rounded-2xl border border-dashed border-app-separator bg-app-bg-primary p-4 text-center text-xs text-app-label-secondary">
@@ -287,19 +305,47 @@ export const TreasuryPage: React.FC = () => {
         ) : (
           cashAccounts.map((acc) => (
             <div key={acc.id} className="rounded-2xl border border-app-separator bg-app-bg-primary p-4 shadow-sm space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-app-label-secondary">{acc.name}</span>
-                <span className="rounded-md bg-app-bg-secondary px-2 py-0.5 text-[10px] font-bold text-app-label-primary">
-                  {acc.currency}
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-xs font-bold text-app-label-secondary">
+                  {acc.kind === "bank" ? <Landmark className="h-3.5 w-3.5" /> : <Wallet className="h-3.5 w-3.5" />}
+                  {acc.name}
                 </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="rounded-md bg-app-bg-secondary px-2 py-0.5 text-[10px] font-bold text-app-label-primary">
+                    {acc.currency}
+                  </span>
+                  <button
+                    onClick={() => setCashAccountDialog({ open: true, account: acc })}
+                    className="rounded-md p-1 text-app-label-tertiary hover:bg-app-fill-f1 hover:text-app-accent"
+                    title="تعديل"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
               <p className="text-lg font-extrabold text-app-status-positive font-mono">
                 {formatNumber(acc.balance)} {acc.currency}
               </p>
+              {acc.account ? (
+                <p className="text-[11px] font-mono text-app-label-tertiary">
+                  {acc.account.account_code} — {acc.account.name}
+                </p>
+              ) : (
+                <p className="flex items-center gap-1 text-[11px] font-semibold text-app-status-warning">
+                  <AlertTriangle className="h-3 w-3" />
+                  غير مربوطة بحساب محاسبي — لا تستقبل مبيعات
+                </p>
+              )}
             </div>
           ))
         )}
       </div>
+
+      <CashAccountDialog
+        open={cashAccountDialog.open}
+        cashAccount={cashAccountDialog.account}
+        onClose={() => setCashAccountDialog({ open: false, account: null })}
+      />
 
       {/* Two Column Layout: Pending Payments & FX Rates */}
       <div className="grid grid-cols-2 gap-6">

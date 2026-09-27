@@ -17,6 +17,7 @@ import {
   CreateFxRatePayload,
   CashAccount,
   CreateCashAccountPayload,
+  UpdateCashAccountPayload,
   GetPaymentRequestsParams,
 } from "../../types/procurement";
 
@@ -104,8 +105,8 @@ export const receivePurchaseOrder = async (
 
 /**
  * Wave 5 (local flow): record payment on a received local PO.
- * Transitions received -> paid -> closed (auto-close on full receipt).
- */
+  * Transitions received -> paid -> closed (auto-close on full receipt).
+   */
 export const payLocalPurchaseOrder = async (
   id: string,
   payload: { payment_source_account_id: string },
@@ -244,6 +245,11 @@ export const getCashAccounts = async (operating_unit_id?: string): Promise<CashA
   const response = await apiClient.get<{ data: CashAccount[] }>("/cash-accounts", {
     params: { operating_unit_id },
   });
+  return response.data.data;
+};
+
+export const updateCashAccount = async (id: string, payload: UpdateCashAccountPayload): Promise<CashAccount> => {
+  const response = await apiClient.put<{ data: CashAccount }>(`/cash-accounts/${id}`, payload);
   return response.data.data;
 };
 

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { inventoryApi, InventoryItem } from "../api/endpoints/inventory";
+import { inventoryApi, type InventoryItemPayload } from "../api/endpoints/inventory";
 
-export function useInventoryItems(params?: { category_id?: string; item_type?: string; search?: string; page?: number }) {
+export function useInventoryItems(params?: { category_id?: string; item_type?: string; search?: string; page?: number; per_page?: number; with_stock?: 1 }) {
   return useQuery({
     queryKey: ["inventoryItems", params],
     queryFn: async () => {
@@ -25,7 +25,7 @@ export function useInventoryItem(id?: string) {
 export function useCreateInventoryItem() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<InventoryItem>) => inventoryApi.createItem(data),
+    mutationFn: (data: InventoryItemPayload) => inventoryApi.createItem(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventoryItems"] });
     },
@@ -35,7 +35,7 @@ export function useCreateInventoryItem() {
 export function useUpdateInventoryItem() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<InventoryItem> }) =>
+    mutationFn: ({ id, data }: { id: string; data: InventoryItemPayload }) =>
       inventoryApi.updateItem(id, data),
     onSuccess: (_res, { id }) => {
       queryClient.invalidateQueries({ queryKey: ["inventoryItems"] });

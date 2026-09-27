@@ -19,6 +19,8 @@ export interface OperatingUnit {
   status?: "provisioning" | "active" | "inactive" | string;
   manager_user_id?: string | null;
   manager?: { id: string; name: string } | null;
+  /** The unit's own sales revenue account; null posts sales to the 41 header. */
+  revenue_account_id?: string | null;
   warehouses?: Warehouse[];
   created_at?: string;
   updated_at?: string;
@@ -161,6 +163,7 @@ export interface OperatingUnitUpdatePayload {
   name?: string;
   status?: "provisioning" | "active" | "inactive";
   manager_user_id?: string | null;
+  revenue_account_id?: string | null;
 }
 
 export interface AuditLogFilters {
@@ -183,7 +186,8 @@ export interface CreateEmployeePayload {
   status?: EmployeeStatus;
 }
 
-export type CoaAction = "none" | "link_existing" | "create_new";
+/** "auto" = the server opens the next receivable sub-account under 122. */
+export type CoaAction = "none" | "link_existing" | "create_new" | "auto";
 
 export interface NewCoaAccountPayload {
   parent_account_id: string;
@@ -197,11 +201,13 @@ export interface CreateClientPayload {
   name?: string;
   entity_type?: EntityType;
   tax_number?: string;
-  operating_unit_id: string;
+  /** Optional for a POS quick-add — the backend uses the current unit. */
+  operating_unit_id?: string;
   credit_limit?: number;
   payment_terms_days?: number;
   account_id?: string | null;
   coa_action?: CoaAction;
+  phone?: string;
   new_account?: NewCoaAccountPayload | null;
   status?: ClientStatus;
   city?: string;

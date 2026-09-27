@@ -1,12 +1,29 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { isAxiosError } from "axios";
-import { ArrowRight, Package2, Plus, Trash2 } from "lucide-react";
-import { useBundle, useCreateBundle, useUpdateBundle } from "../../hooks/useBundles";
+import { Package2, Plus, Trash2 } from "lucide-react";
+import {
+  useBundle,
+  useCreateBundle,
+  useUpdateBundle,
+} from "../../hooks/useBundles";
 import { useInventoryItems } from "../../hooks/useInventory";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
-import { type InventoryItem } from "../../api/endpoints/inventory";
+import {
+  Field,
+  GuidedFormLoading,
+  GuidedFormPage,
+  Question,
+  SummaryRow,
+  formInputClass as inputClass,
+} from "../../components/ui/GuidedForm";
+import { type InventoryItem, UOM_LABELS } from "../../api/endpoints/inventory";
 import { toast } from "../../stores/toastStore";
+import { formatNumber } from "../../lib/utils/format";
+import { cn } from "../../lib/utils/utils";
+import { tokens } from "../../lib/tokens";
+
+const type = tokens.typography.webUI;
 
 interface DraftItem {
   key: string;
@@ -45,62 +62,74 @@ const BundleFormPage: React.FC = () => {
         ? editingBundle.items.map((i) => ({
             key: i.id,
             inventoryItemId: i.inventory_item_id,
-            suggestedQuantity: i.suggested_quantity ? String(i.suggested_quantity) : "",
+            suggestedQuantity: i.suggested_quantity
+              ? String(i.suggested_quantity)
+              : "",
           }))
         : [newDraftItem()],
     );
   }, [isEdit, editingBundle]);
 
+  const findItem = (itemId: string) =>
+    inventoryItems.find((i) => i.id === itemId);
+  const unitOf = (item?: InventoryItem) =>
+    item ? UOM_LABELS[item.unit_of_measure] || item.unit_of_measure : "";
+  const chosenItems = items.filter((i) => i.inventoryItemId);
+
   const updateItem = (key: string, patch: Partial<DraftItem>) => {
-    setItems((prev) => prev.map((i) => (i.key === key ? { ...i, ...patch } : i)));
+    setItems((prev) =>
+      prev.map((i) => (i.key === key ? { ...i, ...patch } : i)),
+    );
   };
 
   const removeItem = (key: string) => {
-    setItems((prev) => (prev.length > 1 ? prev.filter((i) => i.key !== key) : prev));
+    setItems((prev) =>
+      prev.length > 1 ? prev.filter((i) => i.key !== key) : prev,
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    const validItems = items.filter((i) => i.inventoryItemId);
-    if (validItems.length === 0) {
-      setError("أضف صنفًا واحدًا على الأقل إلى الحزمة.");
+    if (chosenItems.length === 0) {
+      setError("اختر صنفاً واحداً على الأقل لتضمّه الحزمة.");
       return;
     }
 
     const payload = {
       name: name.trim(),
       description: description.trim() || null,
-      items: validItems.map((i) => ({
+      items: chosenItems.map((i) => ({
         inventory_item_id: i.inventoryItemId,
-        suggested_quantity: i.suggestedQuantity.trim() ? Number(i.suggestedQuantity) : null,
+        suggested_quantity: i.suggestedQuantity.trim()
+          ? Number(i.suggestedQuantity)
+          : null,
       })),
     };
 
     try {
       if (isEdit && id) {
         await updateMutation.mutateAsync({ id, data: payload });
-        toast.success("تم تحديث الحزمة بنجاح");
+        toast.success("تم حفظ التعديلات");
       } else {
         await createMutation.mutateAsync(payload);
-        toast.success("تم إنشاء الحزمة بنجاح");
+        toast.success("تمت إضافة الحزمة");
       }
       navigate("/settings/products/bundles");
     } catch (err: unknown) {
       if (isAxiosError(err)) {
         const errors = err.response?.data?.errors;
         if (errors && typeof errors === "object") {
-          const firstKey = Object.keys(errors)[0];
-          const firstMsg = errors[firstKey]?.[0];
+          const firstMsg = errors[Object.keys(errors)[0]]?.[0];
           if (firstMsg) {
             setError(String(firstMsg));
             return;
           }
         }
-        setError(err.response?.data?.message ?? "فشل حفظ الحزمة");
+        setError(err.response?.data?.message ?? "تعذّر حفظ الحزمة");
       } else {
-        setError("فشل حفظ الحزمة");
+        setError("تعذّر حفظ الحزمة");
       }
     }
   };
@@ -108,134 +137,160 @@ const BundleFormPage: React.FC = () => {
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
   if (isEdit && isLoadingBundle) {
-    return (
-      <div className="flex h-64 items-center justify-center text-xs text-app-label-secondary">
-        جارٍ تحميل بيانات الحزمة…
-      </div>
-    );
+    return <GuidedFormLoading>جارٍ تحميل الحزمة…</GuidedFormLoading>;
   }
 
   return (
-    <div className="space-y-6 p-6" dir="rtl">
-      <Link
-        to="/settings/products/bundles"
-        className="flex items-center gap-1 text-xs font-semibold text-app-accent hover:underline w-fit"
-      >
-        <ArrowRight className="h-4 w-4" />
-        العودة إلى الحزم
-      </Link>
-
-      <h1 className="text-xl font-bold text-app-label-primary flex items-center gap-2">
-        <Package2 className="w-6 h-6 text-app-accent" />
-        {isEdit ? `تعديل الحزمة: ${editingBundle?.name ?? ""}` : "إضافة حزمة"}
-      </h1>
-
-      <form onSubmit={handleSubmit} className="max-w-2xl space-y-4">
-        {error && (
-          <div className="rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-2.5 text-xs text-app-status-danger">
-            {error}
-          </div>
-        )}
-
-        <div>
-          <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-            اسم الحزمة
-          </label>
+    <GuidedFormPage
+      backTo="/settings/products/bundles"
+      backLabel="الحزم"
+      title={isEdit ? `تعديل: ${editingBundle?.name ?? ""}` : "حزمة جديدة"}
+      error={error}
+      onSubmit={handleSubmit}
+      summaryIcon={Package2}
+      summaryTitle={name}
+      summaryPlaceholder="حزمة بدون اسم"
+      summary={
+        <>
+          <SummaryRow label="عدد الأصناف">
+            <span className="font-mono">{chosenItems.length}</span>
+          </SummaryRow>
+          {chosenItems.map((draft) => {
+            const item = findItem(draft.inventoryItemId);
+            const qty = Number(draft.suggestedQuantity);
+            return (
+              <SummaryRow key={draft.key} label={item?.name ?? "—"}>
+                {qty > 0 ? (
+                  <>
+                    <span className="font-mono">{formatNumber(qty)}</span>{" "}
+                    {unitOf(item)}
+                  </>
+                ) : (
+                  <span className="text-app-label-tertiary">
+                    تُحدَّد عند البيع
+                  </span>
+                )}
+              </SummaryRow>
+            );
+          })}
+        </>
+      }
+      submitLabel={isEdit ? "حفظ التعديلات" : "حفظ الحزمة"}
+      isSubmitting={isSubmitting}
+      onCancel={() => navigate("/settings/products/bundles")}
+    >
+      <Question number="1" title="ما هي الحزمة؟">
+        <Field label="اسم الحزمة">
           <input
             type="text"
             required
             placeholder="مثال: طقم غرفة نوم"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
+            className={inputClass}
           />
-        </div>
+        </Field>
 
-        <div>
-          <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
-            الوصف (اختياري)
-          </label>
+        <Field label="وصف مختصر" hint="اختياري — يظهر للبائع عند اختيار الحزمة">
           <textarea
+            rows={2}
+            placeholder="مثال: سرير مزدوج + خزانة + تسريحة"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
+            className={cn(inputClass, "resize-none")}
           />
-        </div>
+        </Field>
+      </Question>
 
-        <div className="space-y-3 p-3.5 bg-app-bg-secondary rounded-xl border border-app-separator">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-app-label-primary">أصناف الحزمة</span>
-            <span className="text-[11px] text-app-label-tertiary">
-              الكمية هنا اقتراحية فقط — تُحدَّد فعليًا عند البيع.
-            </span>
+      <Question
+        number="2"
+        title="ماذا تضمّ الحزمة؟"
+        subtitle="الكمية اقتراح فقط — يمكن تعديلها عند البيع"
+      >
+        <div className="space-y-2">
+          <div
+            className={cn(
+              type.c1Emphasized,
+              "hidden sm:grid grid-cols-[1fr_10rem_2rem] gap-2 text-app-label-secondary",
+            )}
+          >
+            <span>الصنف</span>
+            <span>الكمية المقترحة</span>
+            <span />
           </div>
 
-          <div className="space-y-2">
-            {items.map((item) => (
-              <div key={item.key} className="flex items-center gap-2">
-                <div className="flex-1">
-                  <SearchableSelect<InventoryItem>
-                    options={inventoryItems}
-                    value={inventoryItems.find((i) => i.id === item.inventoryItemId) ?? null}
-                    onChange={(i) => updateItem(item.key, { inventoryItemId: i ? i.id : "" })}
-                    getOptionId={(i) => i.id}
-                    getOptionLabel={(i) => i.name}
-                    getOptionSubLabel={(i) => i.code}
-                    getOptionSearchText={(i) => `${i.name} ${i.code}`}
-                    placeholder="اختر صنفًا…"
-                    size="sm"
-                  />
-                </div>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="الكمية المقترحة"
-                  value={item.suggestedQuantity}
-                  onChange={(e) => updateItem(item.key, { suggestedQuantity: e.target.value })}
-                  className="w-36 px-3 py-2 border rounded-xl bg-app-bg-primary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+          {items.map((draft) => {
+            const item = findItem(draft.inventoryItemId);
+            return (
+              <div
+                key={draft.key}
+                className="grid grid-cols-[1fr_10rem_2rem] items-center gap-2"
+              >
+                <SearchableSelect<InventoryItem>
+                  options={inventoryItems}
+                  value={item ?? null}
+                  onChange={(i) =>
+                    updateItem(draft.key, { inventoryItemId: i ? i.id : "" })
+                  }
+                  getOptionId={(i) => i.id}
+                  getOptionLabel={(i) => i.name}
+                  getOptionSubLabel={(i) => i.code}
+                  getOptionSearchText={(i) => `${i.name} ${i.code}`}
+                  placeholder="اختر صنفاً"
                 />
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="—"
+                    value={draft.suggestedQuantity}
+                    onChange={(e) =>
+                      updateItem(draft.key, {
+                        suggestedQuantity: e.target.value,
+                      })
+                    }
+                    className={cn(inputClass, "font-mono pe-14")}
+                    dir="ltr"
+                  />
+                  {item && (
+                    <span
+                      className={cn(
+                        type.c1Regular,
+                        "pointer-events-none absolute inset-y-0 right-3 flex items-center text-app-label-tertiary",
+                      )}
+                    >
+                      {unitOf(item)}
+                    </span>
+                  )}
+                </div>
                 <button
                   type="button"
-                  onClick={() => removeItem(item.key)}
+                  onClick={() => removeItem(draft.key)}
                   disabled={items.length <= 1}
-                  className="rounded-lg p-1.5 text-app-status-danger hover:bg-app-status-danger/10 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                  title="حذف الصنف"
+                  title="إزالة"
+                  className="flex h-8 w-8 items-center justify-center rounded-app-sm text-app-label-tertiary hover:bg-app-status-danger/10 hover:text-app-status-danger disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-app-label-tertiary"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setItems((prev) => [...prev, newDraftItem()])}
-            className="flex items-center gap-1.5 text-xs font-semibold text-app-accent hover:underline w-fit"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            إضافة صنف
-          </button>
+            );
+          })}
         </div>
 
-        <div className="flex items-center gap-2 pt-2">
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
-          >
-            {isSubmitting ? "جاري الحفظ…" : isEdit ? "تحديث الحزمة" : "حفظ الحزمة"}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate("/settings/products/bundles")}
-            className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
-          >
-            إلغاء
-          </button>
-        </div>
-      </form>
-    </div>
+        <button
+          type="button"
+          onClick={() => setItems((prev) => [...prev, newDraftItem()])}
+          className={cn(
+            type.c1Emphasized,
+            "flex w-fit items-center gap-1.5 text-app-accent hover:underline",
+          )}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          إضافة صنف آخر
+        </button>
+      </Question>
+    </GuidedFormPage>
   );
 };
 
