@@ -39,6 +39,8 @@ export const getPurchaseOrders = async (params?: {
   status?: string;
   /** Wave 5: 'foreign' or 'local'. Omit to fetch both. */
   kind?: PurchaseOrderKind;
+  /** Cap response size to keep the renderer responsive. Defaults to 100 on the server. */
+  per_page?: number;
 }): Promise<PurchaseOrder[]> => {
   const response = await apiClient.get<{ data: PurchaseOrder[] }>("/purchase-orders", { params });
   return response.data.data;

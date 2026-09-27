@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useCallback, useDeferredValue, useRef } from "react";
 import {
   FileCheck,
   Plus,
@@ -90,8 +90,9 @@ export const PurchaseOrdersPage: React.FC = () => {
   const [showReceiveForm, setShowReceiveForm] = useState(false);
   const [actingOnOrder, setActingOnOrder] = useState(false);
 
-  const { data: orders = [], isLoading, error: queryError, refetch } = usePurchaseOrders({
+  const { data: orders = [], isLoading, isFetching, error: queryError, refetch } = usePurchaseOrders({
     kind: market === "all" ? undefined : market,
+    per_page: 100,
   });
   const { data: suppliers = [] } = useSuppliers();
   const { data: operatingUnits = [] } = useOperatingUnits();
@@ -258,12 +259,30 @@ export const PurchaseOrdersPage: React.FC = () => {
   const [selectedUnitId, setSelectedUnitId] = useState("");
   const [selectedSupplierId, setSelectedSupplierId] = useState("");
   const [currency, setCurrency] = useState("USD");
+  const [kind, setKind] = useState<"foreign" | "local">("local");
+  // Remember the foreign-mode currency so toggling back from local restores it.
+  const foreignCurrencyRef = useRef<string>("USD");
   const [lineItems, setLineItems] = useState<PurchaseOrderItemInput[]>([
     { inventory_item_id: "", quantity: 1, unit_price: 0 },
   ]);
   const [itemTypeFilter, setItemTypeFilter] = useState<
     "raw_material" | "packaging" | "barrel" | "pallet"
   >("raw_material");
+  const effectiveCurrency = kind === "local" ? "LYD" : currency;
+
+  // Kind <-> currency consistency. Local orders are always LYD; remember the
+  // foreign currency so toggling back restores it. Intentionally depends only
+  // on `kind` to avoid an effect feedback loop with the currency state.
+  useEffect(() => {
+    if (kind === "local") {
+      foreignCurrencyRef.current = currency;
+      if (currency !== "LYD") {
+        setCurrency("LYD");
+      }
+    } else if (currency === "LYD") {
+      setCurrency(foreignCurrencyRef.current || "USD");
+    }
+  }, [kind]);
 
   const { data: inventoryItemsPage } = useInventoryItems({
     item_type: itemTypeFilter,
@@ -283,6 +302,7 @@ export const PurchaseOrdersPage: React.FC = () => {
     setSelectedUnitId("");
     setSelectedSupplierId("");
     setCurrency("USD");
+    setKind("local");
     setLineItems([{ inventory_item_id: "", quantity: 1, unit_price: 0 }]);
   };
 
@@ -304,7 +324,7 @@ export const PurchaseOrdersPage: React.FC = () => {
   const findInventoryItem = (id: string): InventoryItem | undefined =>
     inventoryItems.find((it) => it.id === id);
 
-  const openOrderDetail = (order: PurchaseOrder) => {
+  const openOrderDetail = useCallback((order: PurchaseOrder) => {
     setSelectedOrder(order);
     setAmountRequested(getPurchaseOrderTotal(order));
     setReceivedQty(Number(order.quantity));
@@ -314,7 +334,7 @@ export const PurchaseOrdersPage: React.FC = () => {
     setWarehouseId(
       order.goods_receipt?.warehouse_id ?? order.arrived_warehouse_id ?? "",
     );
-  };
+  }, []);
 
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -338,13 +358,18 @@ export const PurchaseOrdersPage: React.FC = () => {
     const payload: CreatePurchaseOrderPayload = {
       operating_unit_id: unitId,
       supplier_id: selectedSupplierId,
-      currency,
+      kind,
+      currency: effectiveCurrency,
       items: cleanLines,
     };
 
     createOrderMutation.mutate(payload, {
       onSuccess: () => {
-        toast.success("تم إنشاء أمر الاستيراد بنجاح");
+        toast.success(
+          kind === "local"
+            ? "تم إنشاء أمر الشراء المحلي بنجاح"
+            : "تم إنشاء أمر الاستيراد بنجاح",
+        );
         setIsModalOpen(false);
         resetCreateForm();
       },
@@ -353,7 +378,12 @@ export const PurchaseOrdersPage: React.FC = () => {
         const message =
           payloadErr?.message ||
           (isAxiosError(err) ? err.response?.data?.message : null);
-        toast.error(message || "حدث خطأ أثناء إنشاء أمر الاستيراد");
+        toast.error(
+          message ||
+            (kind === "local"
+              ? "حدث خطأ أثناء إنشاء أمر الشراء المحلي"
+              : "حدث خطأ أثناء إنشاء أمر الاستيراد"),
+        );
       },
     });
   };
@@ -448,7 +478,7 @@ export const PurchaseOrdersPage: React.FC = () => {
     );
   };
 
-  const getStatusBadge = (status: PurchaseOrderStatus) => {
+  const getStatusBadge = useCallback((status: PurchaseOrderStatus) => {
     switch (status) {
       case "draft":
         return <span className="rounded-full bg-app-bg-secondary px-2.5 py-1 text-[10px] font-bold text-app-label-secondary">مسودة</span>;
@@ -473,15 +503,21 @@ export const PurchaseOrdersPage: React.FC = () => {
       default:
         return <span className="rounded-full bg-app-bg-secondary px-2.5 py-1 text-[10px] font-bold text-app-label-secondary">{status}</span>;
     }
-  };
+  }, []);
 
 
-  const orderColumns = usePurchaseOrdersColumns({
-    getStatusBadge,
-    onOpenDetail: openOrderDetail,
-    onEditItems: (order) => setEditingOrder(order),
-  });
-  const ordersTableData = useMemo(() => orders, [orders]);
+  const handleEditItems = useCallback((order: PurchaseOrder) => {
+    setEditingOrder(order);
+  }, []);
+
+  const orderColumnsArgs = useMemo(
+    () => ({ getStatusBadge, onOpenDetail: openOrderDetail, onEditItems: handleEditItems }),
+    [getStatusBadge, openOrderDetail, handleEditItems],
+  );
+  const orderColumns = usePurchaseOrdersColumns(orderColumnsArgs);
+  // Defer the heavy table re-render so the tab click stays interactive.
+  const deferredOrders = useDeferredValue(orders);
+  const ordersTableData = useMemo(() => deferredOrders, [deferredOrders]);
   const ordersTable = useDataTable({
     columns: orderColumns,
     data: ordersTableData,
@@ -564,15 +600,27 @@ export const PurchaseOrdersPage: React.FC = () => {
     );
   };
 
-  const landedCostColumns = usePurchaseOrderLandedCostColumns({
-    selectedOrder,
-    operatingUnits,
-    approveLandedCostMutation,
-    markLandedCostPaidMutation,
-    lineError,
-    onApprove: approveLandedCostLine,
-    onMarkPaid: markLandedCostLinePaid,
-  });
+  const landedCostColumnsArgs = useMemo(
+    () => ({
+      selectedOrder,
+      operatingUnits,
+      approveLandedCostMutation,
+      markLandedCostPaidMutation,
+      lineError,
+      onApprove: approveLandedCostLine,
+      onMarkPaid: markLandedCostLinePaid,
+    }),
+    [
+      selectedOrder,
+      operatingUnits,
+      approveLandedCostMutation,
+      markLandedCostPaidMutation,
+      lineError,
+      approveLandedCostLine,
+      markLandedCostLinePaid,
+    ],
+  );
+  const landedCostColumns = usePurchaseOrderLandedCostColumns(landedCostColumnsArgs);
   const landedCostsTable = useDataTable({
     columns: landedCostColumns,
     data: landedCosts,
@@ -600,21 +648,30 @@ export const PurchaseOrdersPage: React.FC = () => {
               { value: "all" as const, label: "الكل" },
               { value: "foreign" as const, label: "أجنبية" },
               { value: "local" as const, label: "محلية" },
-            ]).map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setMarket(opt.value)}
-                className={cn(
-                  "px-3 py-1 rounded-full text-xs font-semibold transition-colors",
-                  market === opt.value
-                    ? "bg-app-accent text-white"
-                    : "text-app-label-secondary hover:bg-app-fill-f1",
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
+            ]).map((opt) => {
+              const isActive = market === opt.value;
+              const showFetchingCue = isActive && isFetching && !isLoading;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setMarket(opt.value)}
+                  className={cn(
+                    "px-3 py-1 rounded-full text-xs font-semibold transition-colors inline-flex items-center gap-1.5",
+                    isActive
+                      ? "bg-app-accent text-white"
+                      : "text-app-label-secondary hover:bg-app-fill-f1",
+                    showFetchingCue && "opacity-70",
+                  )}
+                  aria-pressed={isActive}
+                >
+                  {showFetchingCue && (
+                    <RefreshCw className="h-3 w-3 animate-spin" aria-hidden />
+                  )}
+                  <span>{opt.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -631,7 +688,7 @@ export const PurchaseOrdersPage: React.FC = () => {
             className="flex items-center gap-1.5 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all active:scale-95"
           >
             <Plus className="h-4 w-4" />
-            <span>إنشاء أمر استيراد جديد</span>
+            <span>إنشاء أمر شراء جديد</span>
           </button>
         </div>
       </div>
@@ -656,9 +713,15 @@ export const PurchaseOrdersPage: React.FC = () => {
         <DialogContent size="3xl">
           <DialogHeader>
             <div>
-              <DialogTitle>إنشاء أمر استيراد جديد</DialogTitle>
+              <DialogTitle>
+                {kind === "local"
+                  ? "إنشاء أمر شراء محلي جديد"
+                  : "إنشاء أمر شراء خارجي جديد"}
+              </DialogTitle>
               <DialogDescription>
-                اختر المورد وأضف بنود الأصناف المطلوب استيرادها.
+                {kind === "local"
+                  ? "دورة مختصرة: موافقة ← استلام ← سداد. العملة مقفلة على الدينار الليبي."
+                  : "اختر المورد وأضف بنود الأصناف المطلوب استيرادها."}
               </DialogDescription>
             </div>
             <DialogClose />
@@ -666,6 +729,57 @@ export const PurchaseOrdersPage: React.FC = () => {
 
           <DialogBody className="p-0">
             <form id="import-order-create-form" onSubmit={handleCreateOrder} className="space-y-4 p-6">
+              {/* Wave 5 / Local-vs-Foreign kind selector. Default: local.
+                  Mirrors the tab strip visual treatment further up the page. */}
+              <div className="rounded-2xl border border-app-separator bg-app-bg-secondary p-3 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-app-label-secondary">
+                  <Package className="h-3.5 w-3.5 text-app-accent" />
+                  <span>نوع أمر الشراء</span>
+                </div>
+                <div className="inline-flex items-center gap-1 rounded-full border border-app-separator bg-app-bg-primary p-1">
+                  {([
+                    {
+                      value: "foreign" as const,
+                      label: "خارجي (استيراد)",
+                      hint: "عملة أجنبية + مسار تمويل",
+                    },
+                    {
+                      value: "local" as const,
+                      label: "محلي",
+                      hint: "موافقة ← استلام ← سداد",
+                    },
+                  ]).map((opt) => {
+                    const active = kind === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setKind(opt.value)}
+                        aria-pressed={active}
+                        className={cn(
+                          "px-3 py-1.5 rounded-full text-xs font-semibold transition-colors inline-flex items-center gap-1.5",
+                          active
+                            ? "bg-app-accent text-white"
+                            : "text-app-label-secondary hover:bg-app-fill-f1",
+                        )}
+                      >
+                        <span>{opt.label}</span>
+                        {active && (
+                          <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[10px]">
+                            {opt.hint}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-app-label-tertiary leading-relaxed">
+                  {kind === "local"
+                    ? "الأوامر المحلية تُعملة بالدينار الليبي تلقائيًا بدون مسار تمويل خارجي."
+                    : "الأوامر الخارجية تمر بمسار اعتماد بنكي/سوق الصرف ثم الشحن والاستلام."}
+                </p>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-app-label-secondary mb-1">
@@ -688,7 +802,7 @@ export const PurchaseOrdersPage: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                    المورد الخارجي{" "}
+                    المورد{" "}
                     <span className="text-app-status-danger">*</span>
                   </label>
                   <SearchableSelect<{
@@ -711,30 +825,45 @@ export const PurchaseOrdersPage: React.FC = () => {
                     placeholder="-- اختر المورد --"
                     required
                   />
+                  {kind === "local" && (
+                    <p className="mt-1 text-[10px] text-app-label-tertiary">
+                      * للأوامر المحلية يُفضّل مورد بعملة افتراضية LYD، لكن يمكنك استخدام أي مورد.
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-1">
-                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                    العملة
-                  </label>
-                  <SearchableSelect<LookupEntry>
-                    options={currencies}
-                    value={currencies.find((c) => c.code === currency) ?? null}
-                    onChange={(c) => setCurrency(c ? c.code : "USD")}
-                    getOptionId={(c) => c.id}
-                    getOptionLabel={(c) => `${c.name} (${c.code})`}
-                    getOptionSubLabel={(c) => c.fields?.symbol}
-                    placeholder="-- العملة --"
-                  />
-                </div>
-                <div className="col-span-2 flex items-end">
-                  <p className="text-[10px] text-app-label-tertiary leading-relaxed">
-                    تُطبق العملة المختارة على جميع بنود الأمر. الإجمالي يُحسب
-                    تلقائيًا من مجموع البنود.
-                  </p>
-                </div>
+                {kind === "foreign" ? (
+                  <>
+                    <div className="col-span-1">
+                      <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                        العملة
+                      </label>
+                      <SearchableSelect<LookupEntry>
+                        options={currencies}
+                        value={currencies.find((c) => c.code === currency) ?? null}
+                        onChange={(c) => setCurrency(c ? c.code : "USD")}
+                        getOptionId={(c) => c.id}
+                        getOptionLabel={(c) => `${c.name} (${c.code})`}
+                        getOptionSubLabel={(c) => c.fields?.symbol}
+                        placeholder="-- العملة --"
+                      />
+                    </div>
+                    <div className="col-span-2 flex items-end">
+                      <p className="text-[10px] text-app-label-tertiary leading-relaxed">
+                        تُطبق العملة المختارة على جميع بنود الأمر. الإجمالي يُحسب
+                        تلقائيًا من مجموع البنود.
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <div className="col-span-3 rounded-xl border border-dashed border-app-separator bg-app-bg-secondary px-3 py-2 text-[11px] text-app-label-secondary">
+                    العملة مقفلة على{" "}
+                    <span className="font-mono font-bold text-app-label-primary">LYD</span>{" "}
+                    للأوامر المحلية.
+                  </div>
+                )}
               </div>
 
               {/* Line items */}
@@ -882,7 +1011,7 @@ export const PurchaseOrdersPage: React.FC = () => {
                                 "block mb-1 text-app-label-secondary",
                               )}
                             >
-                              سعر الوحدة ({currency})
+                              سعر الوحدة ({effectiveCurrency})
                             </label>
                             <input
                               type="number"
@@ -908,7 +1037,7 @@ export const PurchaseOrdersPage: React.FC = () => {
                               إجمالي البند
                             </label>
                             <div className="rounded-lg border border-app-separator bg-app-bg-primary px-2.5 py-1.5 text-xs font-mono font-bold text-app-accent text-start">
-                              {formatNumber(lineTotal)} {currency}
+                              {formatNumber(lineTotal)} {effectiveCurrency}
                             </div>
                           </div>
                         </div>
@@ -928,7 +1057,7 @@ export const PurchaseOrdersPage: React.FC = () => {
                   إجمالي الأمر
                 </span>
                 <span className="text-base font-mono font-bold text-app-label-primary">
-                  {formatNumber(itemsTotal)} {currency}
+                  {formatNumber(itemsTotal)} {effectiveCurrency}
                 </span>
               </div>
               <div className="flex items-center gap-3">
@@ -956,7 +1085,9 @@ export const PurchaseOrdersPage: React.FC = () => {
                 >
                   {createOrderMutation.isPending
                     ? "جاري الحفظ..."
-                    : "حفظ أمر الاستيراد"}
+                    : kind === "local"
+                      ? "حفظ أمر الشراء المحلي"
+                      : "حفظ أمر الاستيراد"}
                 </button>
               </div>
             </div>

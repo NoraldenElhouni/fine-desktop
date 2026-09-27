@@ -63,7 +63,8 @@ export interface BankHold {
 export interface PaymentRequest {
   id: string;
   operating_unit_id: string;
-  import_order_id: string;
+  purchase_order_id?: string;
+  import_order_id?: string;
   route: PaymentRoute;
   invoice_ref?: string | null;
   amount_requested: number;
@@ -79,6 +80,19 @@ export interface PaymentRequest {
   fx_tolerance_lyd?: number;
   fx_hard_cap_percent?: number;
   bank_hold?: BankHold | null;
+  purchase_order?: {
+    id: string;
+    order_number: string;
+    status?: string;
+    supplier_id?: string;
+    supplier?: {
+      id: string;
+      name: string;
+      code?: string | null;
+      contact_person?: string | null;
+      phone?: string | null;
+    } | null;
+  } | null;
   import_order?: {
     id: string;
     order_number: string;
@@ -103,7 +117,8 @@ export interface LandedCostParty {
 
 export interface LandedCostLine {
   id: string;
-  import_order_id: string;
+  purchase_order_id?: string;
+  import_order_id?: string;
   type: LandedCostType;
   amount: number;
   currency: string;
@@ -123,7 +138,8 @@ export interface LandedCostLine {
 
 export interface GoodsReceipt {
   id: string;
-  import_order_id: string;
+  purchase_order_id?: string;
+  import_order_id?: string;
   warehouse_id: string;
   received_qty: number;
   condition_notes?: string | null;

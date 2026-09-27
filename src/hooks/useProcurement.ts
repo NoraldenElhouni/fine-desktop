@@ -52,6 +52,7 @@ export function usePurchaseOrders(params?: {
   operating_unit_id?: string;
   status?: string;
   kind?: PurchaseOrderKind;
+  per_page?: number;
 }) {
   return useQuery({
     queryKey: ["importOrders", params],
