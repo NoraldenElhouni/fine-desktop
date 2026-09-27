@@ -17,7 +17,11 @@ import {
   useOperatingUnit,
   useAuditLog,
   useRestoreOperatingUnit,
+  useUpdateOperatingUnit,
 } from "../../hooks/useOperatingUnits";
+import { useAccounts } from "../../hooks/useAccounting";
+import type { Account } from "../../api/endpoints/accounting";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import {
   useOperatingUnitWarehouses,
   useCreateOperatingUnitWarehouse,
@@ -65,6 +69,12 @@ export const OperatingUnitDetailPage: React.FC = () => {
   const warehousesQuery = useOperatingUnitWarehouses(id);
   const usersQuery = useUsers();
   const restoreMutation = useRestoreOperatingUnit();
+  const updateUnitMutation = useUpdateOperatingUnit();
+  const { data: accounts = [] } = useAccounts();
+  const revenueAccounts = useMemo(
+    () => accounts.filter((a) => a.type === "revenue" && a.account_code.startsWith("4")),
+    [accounts],
+  );
   const createWarehouseMutation = useCreateOperatingUnitWarehouse(id);
   const updateWarehouseMutation = useUpdateWarehouse(id);
   const deleteWarehouseMutation = useDeleteWarehouse(id);
@@ -210,6 +220,31 @@ export const OperatingUnitDetailPage: React.FC = () => {
               <dt className="text-app-label-secondary">تاريخ الإنشاء</dt>
               <dd className="mt-0.5 font-mono text-app-label-primary">
                 {formatDateTime(unit.created_at)}
+              </dd>
+            </div>
+            <div className="col-span-2">
+              <dt className="text-app-label-secondary mb-1">حساب إيرادات المبيعات</dt>
+              <dd>
+                <SearchableSelect<Account>
+                  options={revenueAccounts}
+                  value={revenueAccounts.find((a) => a.id === unit.revenue_account_id) ?? null}
+                  onChange={(a) =>
+                    updateUnitMutation.mutate(
+                      { id: unit.id, revenue_account_id: a ? a.id : null },
+                      {
+                        onSuccess: () => toast.success("تم تحديث حساب الإيرادات"),
+                        onError: (err) =>
+                          toast.error(apiErrorPayload(err)?.message ?? "تعذّر تحديث حساب الإيرادات"),
+                      },
+                    )
+                  }
+                  getOptionId={(a) => a.id}
+                  getOptionLabel={(a) => `${a.account_code} — ${a.name}`}
+                  getOptionSearchText={(a) => `${a.account_code} ${a.name}`}
+                  placeholder="41 — إيرادات المبيعات (افتراضي)"
+                  disabled={isDeleted || updateUnitMutation.isPending}
+                  size="sm"
+                />
               </dd>
             </div>
           </dl>

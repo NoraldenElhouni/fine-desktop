@@ -257,7 +257,7 @@ const App = () => {
             <Route
               path="sales/*"
               element={
-                <AuthorizedRoute allowedRoles={["owner", "admin", "store-manager", "pos-cashier", "unit_manager", "manager"]}>
+                <AuthorizedRoute allowedRoles={["owner", "admin", "store-manager", "pos-cashier", "cutter-manager", "unit_manager", "manager"]}>
                   <SalesRoutes />
                 </AuthorizedRoute>
               }

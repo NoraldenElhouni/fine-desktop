@@ -224,10 +224,17 @@ export interface FxRate {
   created_at?: string;
 }
 
+export type CashAccountKind = "cash" | "bank";
+
 export interface CashAccount {
   id: string;
   operating_unit_id: string;
   name: string;
+  /** cash = a treasury/drawer, bank = a bank account. */
+  kind: CashAccountKind;
+  /** The ledger account money received here is debited to; null = not usable for sales yet. */
+  account_id: string | null;
+  account?: { id: string; account_code: string; name: string } | null;
   currency: string;
   balance: number;
   created_at?: string;
@@ -324,6 +331,14 @@ export interface CreateFxRatePayload {
 export interface CreateCashAccountPayload {
   operating_unit_id: string;
   name: string;
+  kind?: CashAccountKind;
+  account_id?: string | null;
   currency?: string;
   balance?: number;
+}
+
+export interface UpdateCashAccountPayload {
+  name?: string;
+  kind?: CashAccountKind;
+  account_id?: string | null;
 }

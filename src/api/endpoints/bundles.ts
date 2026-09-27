@@ -7,6 +7,11 @@ export interface BundleItem {
   inventory_item_id: string;
   /** A pre-fill hint only, always editable at sale time — never enforced. */
   suggested_quantity?: number | null;
+  /** Default size of this row, in metres — a pre-fill hint for the per-sale definition. */
+  length_m?: number | string | null;
+  width_m?: number | string | null;
+  height_m?: number | string | null;
+  position?: number;
   inventory_item?: InventoryItem;
 }
 
@@ -38,6 +43,9 @@ export interface BundleSalesReport {
 export interface BundleItemInput {
   inventory_item_id: string;
   suggested_quantity?: number | null;
+  length_m?: number | null;
+  width_m?: number | null;
+  height_m?: number | null;
 }
 
 export const bundlesApi = {
