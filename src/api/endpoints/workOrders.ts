@@ -30,7 +30,7 @@ export const workOrdersApi = {
       user?.unit_id;
 
     const payload: Record<string, any> = {
-      product_sku: productSku,
+      product_code: productSku,
       productSku,
       quantity,
       status: "open",
@@ -51,15 +51,15 @@ export const workOrdersApi = {
   ): Promise<WorkOrder> => {
     const response = await apiClient.post<WorkOrder>(`/work-orders/${orderId}/complete`, {
       consumedSku,
-      consumed_sku: consumedSku,
+      consumed_code: consumedSku,
       consumedQty,
       consumed_qty: consumedQty,
     });
     return response.data;
   },
 
-  getStock: async (sku: string): Promise<number> => {
-    const response = await apiClient.get<{ stock: number }>(`/inventory/stock/${sku}`);
+  getStock: async (code: string): Promise<number> => {
+    const response = await apiClient.get<{ stock: number }>(`/inventory/stock/${code}`);
     return response.data.stock ?? 0;
   },
 };

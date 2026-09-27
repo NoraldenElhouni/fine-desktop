@@ -76,7 +76,7 @@ export const navItems: AppNavItem[] = [
   { id: "admin-units", path: "/admin/units", label: "إدارة الوحدات التشغيلية", icon: Building, allowedRoles: ["owner", "admin"] },
   { id: "admin-blueprints", path: "/admin/blueprints", label: "قوالب الوحدات", icon: Layers, allowedRoles: ["owner", "admin"] },
   { id: "suppliers", path: "/suppliers", label: "الموردون", icon: Truck, allowedRoles: ALL_MANAGER_ROLES },
-  { id: "import-orders", path: "/import-orders", label: "أوامر الاستيراد", icon: Package, allowedRoles: ALL_MANAGER_ROLES },
+  { id: "import-orders", path: "/import-orders", label: "أوامر الشراء", icon: Package, allowedRoles: ALL_MANAGER_ROLES },
   { id: "treasury", path: "/treasury", label: "الخزينة وسعر الصرف", icon: Wallet, allowedRoles: ALL_MANAGER_ROLES },
   { id: "employees", path: "/employees", label: "الموظفون والعمالة", icon: UserCheck, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"] },
   { id: "clients", path: "/clients", label: "العملاء", icon: Users, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "accounting-manager", "unit_manager", "manager"] },

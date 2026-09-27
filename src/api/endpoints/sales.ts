@@ -45,7 +45,7 @@ export interface SalesOrderLine {
   quantity: number;
   unit_price: number;
   unit_cost_actual: number;
-  inventory_item?: { id: string; name: string; sku: string };
+  inventory_item?: { id: string; name: string; code: string };
   stock_lot?: StockLotRef | null;
   bundle?: { id: string; name: string } | null;
 }
@@ -85,7 +85,7 @@ export interface Invoice {
   date: string;
   seller?: string;
   buyer: string;
-  lines: { item?: string; sku?: string; quantity: number; unit_price: number; line_total: number; lot_number?: string | null; bundle?: string | null }[];
+  lines: { item?: string; code?: string; quantity: number; unit_price: number; line_total: number; lot_number?: string | null; bundle?: string | null }[];
   total_amount: number;
   amount_paid: number;
   outstanding: number;
@@ -171,7 +171,7 @@ export interface RestockRequest {
   status: "pending_approval" | "approved" | "rejected" | "fulfilled";
   requesting_unit?: { id: string; name: string };
   source_unit?: { id: string; name: string };
-  lines?: { id: string; inventory_item_id: string; quantity: number; inventory_item?: { name: string; sku: string } }[];
+  lines?: { id: string; inventory_item_id: string; quantity: number; inventory_item?: { name: string; code: string } }[];
   created_at: string;
 }
 

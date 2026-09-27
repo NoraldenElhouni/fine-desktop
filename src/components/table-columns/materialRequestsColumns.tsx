@@ -63,7 +63,7 @@ export function useMaterialRequestsColumns({
           <>
             <div className="font-bold">{row.original.inventory_item?.name ?? "—"}</div>
             <div className="text-[10px] font-mono text-app-label-tertiary">
-              {row.original.inventory_item?.sku ?? ""}
+              {row.original.inventory_item?.code ?? ""}
             </div>
           </>
         ),

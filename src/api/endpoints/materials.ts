@@ -21,7 +21,7 @@ export interface MaterialRequest {
   inventory_item?: {
     id: string;
     name: string;
-    sku: string;
+    code: string;
     item_type: string;
     unit_of_measure: string;
   };

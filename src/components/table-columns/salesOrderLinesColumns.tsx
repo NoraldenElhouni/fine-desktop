@@ -12,7 +12,7 @@ export function useSalesOrderLinesColumns(): ColumnDef<SalesOrderLine, unknown>[
         cell: ({ row }) => (
           <>
             {row.original.inventory_item?.name}
-            <span className="text-app-label-tertiary font-mono ms-2">{row.original.inventory_item?.sku}</span>
+            <span className="text-app-label-tertiary font-mono ms-2">{row.original.inventory_item?.code}</span>
           </>
         ),
       },

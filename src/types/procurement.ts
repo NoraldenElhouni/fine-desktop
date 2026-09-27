@@ -1,6 +1,6 @@
 import type { CoaAction, NewCoaAccountPayload } from './entities';
 
-export type ImportOrderStatus =
+export type PurchaseOrderStatus =
   | 'draft'
   | 'pending_payment'
   | 'awaiting_bank_approval'
@@ -12,7 +12,11 @@ export type ImportOrderStatus =
   | 'at_warehouse'
   | 'awaiting_receipt'
   | 'received'
-  | 'complete';
+  | 'complete'
+  | 'approved'
+  | 'closed';
+
+export type PurchaseOrderKind = 'foreign' | 'local';
 
 export type PaymentRoute = 'bank' | 'market';
 export type PaymentRequestStatus = 'pending' | 'paid' | 'rejected';
@@ -127,52 +131,54 @@ export interface GoodsReceipt {
   updated_at?: string;
 }
 
-export interface ImportOrderItemInventoryItem {
+export interface PurchaseOrderItemInventoryItem {
   id: string;
   name: string;
-  sku: string;
+  code: string;
   item_type: string;
   unit_of_measure: string;
 }
 
-export interface ImportOrderItem {
+export interface PurchaseOrderItem {
   id: string;
-  import_order_id: string;
+  purchase_order_id: string;
   inventory_item_id: string;
-  inventory_item?: ImportOrderItemInventoryItem;
+  inventory_item?: PurchaseOrderItemInventoryItem;
   quantity: number;
+  received_quantity: number | null;
   unit_price: number;
   currency: string;
   line_total: number;
   record_version: number;
 }
 
-export interface ImportOrderItemInput {
+export interface PurchaseOrderItemInput {
   inventory_item_id: string;
   quantity: number;
   unit_price: number;
 }
 
-export interface ImportOrderItemsPayload {
-  data: ImportOrderItem[];
+export interface PurchaseOrderItemsPayload {
+  data: PurchaseOrderItem[];
   items_total: number;
 }
 
-export interface ImportOrder {
+export interface PurchaseOrder {
   id: string;
   operating_unit_id: string;
   supplier_id: string;
   supplier?: Supplier;
   currency: string;
+  kind: PurchaseOrderKind;
   negotiated_price: number;
   quantity: number;
   total_amount?: number;
   booked_fx_rate?: number | null;
-  status: ImportOrderStatus;
+  status: PurchaseOrderStatus;
   record_version: number;
   arrived_warehouse_id?: string | null;
   arrived_warehouse?: { id: string; name: string };
-  items?: ImportOrderItemsPayload;
+  items?: PurchaseOrderItemsPayload;
   payment_requests?: PaymentRequest[];
   landed_cost_lines?: LandedCostLine[];
   goods_receipt?: GoodsReceipt | null;
@@ -180,7 +186,7 @@ export interface ImportOrder {
   updated_at?: string;
 }
 
-export function getImportOrderTotal(order: ImportOrder): number {
+export function getPurchaseOrderTotal(order: PurchaseOrder): number {
   if (order.total_amount !== undefined && order.total_amount !== null) {
     return Number(order.total_amount);
   }
@@ -222,21 +228,36 @@ export interface CreateSupplierPayload {
   new_account?: NewCoaAccountPayload | null;
 }
 
-export interface CreateImportOrderPayload {
+export interface CreatePurchaseOrderPayload {
   operating_unit_id: string;
   supplier_id: string;
   currency?: string;
+  /** Defaults to 'foreign' when omitted. Setting 'local' locks currency to LYD. */
+  kind?: PurchaseOrderKind;
   negotiated_price?: number;
   quantity?: number;
-  items?: ImportOrderItemInput[];
+  items?: PurchaseOrderItemInput[];
 }
 
-export interface UpdateImportOrderPayload {
+export interface UpdatePurchaseOrderPayload {
   supplier_id?: string;
-  items: ImportOrderItemInput[];
+  items: PurchaseOrderItemInput[];
 }
 
-export interface TransitionImportOrderPayload {
+/**
+ * Wave 5 (local flow): atomic per-line batch receive payload.
+ * Sent to POST /api/v1/purchase-orders/{id}/receive.
+ */
+export interface ReceiveOrderItemPayload {
+  id: string;
+  received_quantity: number;
+}
+
+export interface ReceiveOrderPayload {
+  items: ReceiveOrderItemPayload[];
+}
+
+export interface TransitionPurchaseOrderPayload {
   action:
     | 'pending_payment'
     | 'select_route'

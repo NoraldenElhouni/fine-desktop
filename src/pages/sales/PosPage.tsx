@@ -38,7 +38,7 @@ interface CartLine {
   key: string;
   item: string;
   name: string;
-  sku?: string;
+  code?: string;
   qty: string;
   price: string;
   stockLotId?: string | null;
@@ -162,7 +162,7 @@ export const PosPage: React.FC = () => {
           key: Math.random().toString(36).slice(2),
           item: item.id,
           name: item.name,
-          sku: item.code,
+          code: item.code,
           qty: "1",
           price: "",
         },
@@ -177,7 +177,7 @@ export const PosPage: React.FC = () => {
         key: Math.random().toString(36).slice(2),
         item: l.inventoryItemId,
         name: l.name,
-        sku: l.code,
+        code: l.code,
         qty: String(l.quantity),
         price: String(l.unitPrice),
         bundleId: l.bundleId,
@@ -223,7 +223,7 @@ export const PosPage: React.FC = () => {
         key: Math.random().toString(36).slice(2),
         item: item.id,
         name: item.name,
-        sku: item.code,
+        code: item.code,
         qty: "1",
         price: String(block.unit_cost),
         stockLotId: block.id,
@@ -236,7 +236,7 @@ export const PosPage: React.FC = () => {
     if (!line.stockLotId) return;
     setPickerState({
       isOpen: true,
-      item: { id: line.item, name: line.name, code: line.sku },
+      item: { id: line.item, name: line.name, code: line.code },
       editingKey: line.key,
     });
   };
@@ -431,8 +431,8 @@ export const PosPage: React.FC = () => {
                   <tr key={l.key} className="hover:bg-app-fill-f1/50 transition-colors">
                     <td className="px-4 py-2.5">
                       <div className="font-semibold text-app-label-primary">{l.name}</div>
-                      {l.sku && (
-                        <div className="text-[10px] font-mono text-app-label-secondary">{l.sku}</div>
+                      {l.code && (
+                        <div className="text-[10px] font-mono text-app-label-secondary">{l.code}</div>
                       )}
                       {l.stockLotId && (
                         <button

@@ -33,7 +33,7 @@ import { MaterialRequestsRoutes } from "../routes/MaterialRequestsRoutes";
 import { CategoryHubPage } from "./hub/CategoryHubPage";
 
 import SuppliersPage from "./procurement/SuppliersPage";
-import ImportOrdersPage from "./procurement/ImportOrdersPage";
+import PurchaseOrdersPage from "./procurement/PurchaseOrdersPage";
 import TreasuryPage from "./treasury/TreasuryPage";
 
 import { AuthorizedRoute } from "../components/AuthorizedRoute";
@@ -179,7 +179,7 @@ const App = () => {
               path="import-orders"
               element={
                 <AuthorizedRoute allowedRoles={ALL_MANAGER_ROLES}>
-                  <ImportOrdersPage />
+                  <PurchaseOrdersPage />
                 </AuthorizedRoute>
               }
             />

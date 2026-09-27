@@ -14,25 +14,25 @@ import {
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { formatNumber } from "../../lib/utils/format";
 import { useInventoryItems } from "../../hooks/useInventory";
-import { useUpdateImportOrder } from "../../hooks/useProcurement";
+import { useUpdatePurchaseOrder } from "../../hooks/useProcurement";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { toast } from "../../stores/toastStore";
 import { tokens } from "../../lib/tokens";
 import { cn } from "../../lib/utils/utils";
 import type { InventoryItem } from "../../api/endpoints/inventory";
 import type {
-  ImportOrder,
-  ImportOrderItemInput,
+  PurchaseOrder,
+  PurchaseOrderItemInput,
 } from "../../types/procurement";
 
-export interface EditImportOrderItemsModalProps {
-  order: ImportOrder;
+export interface EditPurchaseOrderItemsModalProps {
+  order: PurchaseOrder;
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: (updated: ImportOrder) => void;
+  onSuccess?: (updated: PurchaseOrder) => void;
 }
 
-export const EditImportOrderItemsModal: React.FC<EditImportOrderItemsModalProps> = ({
+export const EditPurchaseOrderItemsModal: React.FC<EditPurchaseOrderItemsModalProps> = ({
   order,
   isOpen,
   onClose,
@@ -46,9 +46,9 @@ export const EditImportOrderItemsModal: React.FC<EditImportOrderItemsModalProps>
     item_type: itemTypeFilter,
   });
   const inventoryItems: InventoryItem[] = inventoryItemsPage?.data ?? [];
-  const updateMutation = useUpdateImportOrder();
+  const updateMutation = useUpdatePurchaseOrder();
 
-  const [lineItems, setLineItems] = useState<ImportOrderItemInput[]>([]);
+  const [lineItems, setLineItems] = useState<PurchaseOrderItemInput[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -79,7 +79,7 @@ export const EditImportOrderItemsModal: React.FC<EditImportOrderItemsModalProps>
 
   const updateLine = (
     idx: number,
-    patch: Partial<ImportOrderItemInput>,
+    patch: Partial<PurchaseOrderItemInput>,
   ) => {
     setLineItems((prev) =>
       prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)),

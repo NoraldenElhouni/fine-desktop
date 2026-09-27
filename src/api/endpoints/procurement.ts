@@ -2,10 +2,12 @@ import apiClient from "../client";
 import {
   Supplier,
   CreateSupplierPayload,
-  ImportOrder,
-  CreateImportOrderPayload,
-  UpdateImportOrderPayload,
-  TransitionImportOrderPayload,
+  PurchaseOrder,
+  CreatePurchaseOrderPayload,
+  UpdatePurchaseOrderPayload,
+  TransitionPurchaseOrderPayload,
+  ReceiveOrderPayload,
+  PurchaseOrderKind,
   PaymentRequest,
   ExecutePaymentPayload,
   BankHold,
@@ -32,41 +34,81 @@ export const createSupplier = async (payload: CreateSupplierPayload): Promise<Su
 };
 
 // Import Orders API
-export const getImportOrders = async (params?: {
+export const getPurchaseOrders = async (params?: {
   operating_unit_id?: string;
   status?: string;
-}): Promise<ImportOrder[]> => {
-  const response = await apiClient.get<{ data: ImportOrder[] }>("/import-orders", { params });
+  /** Wave 5: 'foreign' or 'local'. Omit to fetch both. */
+  kind?: PurchaseOrderKind;
+}): Promise<PurchaseOrder[]> => {
+  const response = await apiClient.get<{ data: PurchaseOrder[] }>("/purchase-orders", { params });
   return response.data.data;
 };
 
-export const getImportOrder = async (id: string): Promise<ImportOrder> => {
-  const response = await apiClient.get<{ data: ImportOrder }>(`/import-orders/${id}`);
+export const getPurchaseOrder = async (id: string): Promise<PurchaseOrder> => {
+  const response = await apiClient.get<{ data: PurchaseOrder }>(`/purchase-orders/${id}`);
   return response.data.data;
 };
 
-export const createImportOrder = async (payload: CreateImportOrderPayload): Promise<ImportOrder> => {
-  const response = await apiClient.post<{ data: ImportOrder }>("/import-orders", payload);
+export const createPurchaseOrder = async (payload: CreatePurchaseOrderPayload): Promise<PurchaseOrder> => {
+  const response = await apiClient.post<{ data: PurchaseOrder }>("/purchase-orders", payload);
   return response.data.data;
 };
 
-export const updateImportOrder = async (
+export const updatePurchaseOrder = async (
   id: string,
-  payload: UpdateImportOrderPayload
-): Promise<ImportOrder> => {
-  const response = await apiClient.put<{ data: ImportOrder }>(`/import-orders/${id}`, payload);
+  payload: UpdatePurchaseOrderPayload
+): Promise<PurchaseOrder> => {
+  const response = await apiClient.put<{ data: PurchaseOrder }>(`/purchase-orders/${id}`, payload);
   return response.data.data;
 };
 
-export const transitionImportOrder = async (
+export const transitionPurchaseOrder = async (
   id: string,
-  payload: TransitionImportOrderPayload
-): Promise<{ message: string; data: ImportOrder }> => {
-  const response = await apiClient.post<{ message: string; data: ImportOrder }>(
-    `/import-orders/${id}/transition`,
+  payload: TransitionPurchaseOrderPayload
+): Promise<{ message: string; data: PurchaseOrder }> => {
+  const response = await apiClient.post<{ message: string; data: PurchaseOrder }>(
+    `/purchase-orders/${id}/transition`,
     payload
   );
   return response.data;
+};
+
+/**
+ * Wave 5 (local flow): approve a draft local purchase order.
+ * Manager sign-off before goods can be received.
+ */
+export const approvePurchaseOrder = async (id: string): Promise<PurchaseOrder> => {
+  const response = await apiClient.post<{ message: string; data: PurchaseOrder }>(
+    `/purchase-orders/${id}/approve`,
+  );
+  return response.data.data;
+};
+
+/**
+ * Wave 5 (local flow): atomic per-line batch receive.
+ * Updates each PurchaseOrderItem.received_quantity atomically.
+ * If all lines are fully received, transitions the order to 'received'.
+ */
+export const receivePurchaseOrder = async (
+  id: string,
+  payload: ReceiveOrderPayload,
+): Promise<PurchaseOrder> => {
+  const response = await apiClient.post<{ message: string; data: PurchaseOrder }>(
+    `/purchase-orders/${id}/receive`,
+    payload,
+  );
+  return response.data.data;
+};
+
+/**
+ * Wave 5 (local flow): record payment on a received local PO.
+ * Transitions received -> paid -> closed (auto-close on full receipt).
+ */
+export const payLocalPurchaseOrder = async (id: string): Promise<PurchaseOrder> => {
+  const response = await apiClient.post<{ message: string; data: PurchaseOrder }>(
+    `/purchase-orders/${id}/pay-local`,
+  );
+  return response.data.data;
 };
 
 // Payment Requests & Bank Holds API
@@ -96,7 +138,7 @@ export const getBankHolds = async (): Promise<BankHold[]> => {
 // Landed Costs API
 export const getLandedCostLines = async (orderId: string): Promise<LandedCostLine[]> => {
   const response = await apiClient.get<{ data: LandedCostLine[] }>(
-    `/import-orders/${orderId}/landed-cost-lines`
+    `/purchase-orders/${orderId}/landed-cost-lines`
   );
   return response.data.data;
 };
@@ -106,7 +148,7 @@ export const createLandedCostLine = async (
   payload: CreateLandedCostLinePayload
 ): Promise<LandedCostLine> => {
   const response = await apiClient.post<{ data: LandedCostLine }>(
-    `/import-orders/${orderId}/landed-cost-lines`,
+    `/purchase-orders/${orderId}/landed-cost-lines`,
     payload
   );
   return response.data.data;
@@ -117,7 +159,7 @@ export const confirmLandedCostLine = async (
   lineId: string
 ): Promise<{ message: string; data: LandedCostLine }> => {
   const response = await apiClient.post<{ message: string; data: LandedCostLine }>(
-    `/import-orders/${orderId}/landed-cost-lines/${lineId}/approve`
+    `/purchase-orders/${orderId}/landed-cost-lines/${lineId}/approve`
   );
   return response.data;
 };
@@ -128,7 +170,7 @@ export const approveLandedCostLine = async (
   note?: string
 ): Promise<{ message: string; data: LandedCostLine }> => {
   const response = await apiClient.post<{ message: string; data: LandedCostLine }>(
-    `/import-orders/${orderId}/landed-cost-lines/${lineId}/approve`,
+    `/purchase-orders/${orderId}/landed-cost-lines/${lineId}/approve`,
     { note }
   );
   return response.data;
@@ -140,7 +182,7 @@ export const markLandedCostLinePaid = async (
   note?: string
 ): Promise<{ message: string; data: LandedCostLine }> => {
   const response = await apiClient.post<{ message: string; data: LandedCostLine }>(
-    `/import-orders/${orderId}/landed-cost-lines/${lineId}/mark-paid`,
+    `/purchase-orders/${orderId}/landed-cost-lines/${lineId}/mark-paid`,
     { note }
   );
   return response.data;

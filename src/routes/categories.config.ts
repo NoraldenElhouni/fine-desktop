@@ -42,7 +42,7 @@ export const categoryGroups: CategoryGroup[] = [
   {
     id: "procurement",
     label: "التوريد والاعتمادات",
-    description: "تتبع أوامر الاستيراد الخارجي، وحجوزات المصارف، وأسعار الصرف وتكاليف التوريد",
+    description: "تتبع أوامر الشراء المحلية والخارجية، وحجوزات المصارف، وأسعار الصرف وتكاليف التوريد",
     icon: Package,
     path: "/hub/procurement",
     itemIds: ["import-orders", "treasury"],

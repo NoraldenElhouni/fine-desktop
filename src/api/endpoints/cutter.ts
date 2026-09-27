@@ -69,7 +69,7 @@ export interface AvailableFoamBlock {
   volume_m3?: number | null;
   status: string;
   warehouse?: { id: string; name: string };
-  inventory_item?: { id: string; name: string; sku: string };
+  inventory_item?: { id: string; name: string; code: string };
 }
 
 export interface CutterWorkOrderLine {
@@ -84,7 +84,7 @@ export interface CutterWorkOrderLine {
   template_height_m?: number;
   template_volume_m3?: number;
   output_inventory_item_id?: string;
-  output_item?: { id: string; name: string; sku: string };
+  output_item?: { id: string; name: string; code: string };
   consumptions?: FoamBlockConsumption[];
 }
 

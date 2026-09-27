@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { ColumnDef } from "../ui/DataTable";
 import { formatNumber } from "../../lib/utils/format";
-import { ImportOrder, LandedCostLine } from "../../types/procurement";
+import { PurchaseOrder, LandedCostLine } from "../../types/procurement";
 import { OperatingUnit } from "../../types/entities";
 import {
   useApproveLandedCostLine,
@@ -9,8 +9,8 @@ import {
 } from "../../hooks/useProcurement";
 import { AllocationPaymentActions } from "../allocations/AllocationPaymentActions";
 
-export interface UseImportOrderLandedCostColumnsArgs {
-  selectedOrder: ImportOrder | null;
+export interface UsePurchaseOrderLandedCostColumnsArgs {
+  selectedOrder: PurchaseOrder | null;
   operatingUnits: OperatingUnit[];
   approveLandedCostMutation: ReturnType<typeof useApproveLandedCostLine>;
   markLandedCostPaidMutation: ReturnType<typeof useMarkLandedCostLinePaid>;
@@ -19,7 +19,7 @@ export interface UseImportOrderLandedCostColumnsArgs {
   onMarkPaid: (line: LandedCostLine, note: string) => void;
 }
 
-export function useImportOrderLandedCostColumns({
+export function usePurchaseOrderLandedCostColumns({
   selectedOrder,
   operatingUnits,
   approveLandedCostMutation,
@@ -27,7 +27,7 @@ export function useImportOrderLandedCostColumns({
   lineError,
   onApprove,
   onMarkPaid,
-}: UseImportOrderLandedCostColumnsArgs): ColumnDef<LandedCostLine, unknown>[] {
+}: UsePurchaseOrderLandedCostColumnsArgs): ColumnDef<LandedCostLine, unknown>[] {
   return useMemo<ColumnDef<LandedCostLine, unknown>[]>(
     () => [
       {

@@ -2,11 +2,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getSuppliers,
   createSupplier,
-  getImportOrders,
-  getImportOrder,
-  createImportOrder,
-  updateImportOrder,
-  transitionImportOrder,
+  getPurchaseOrders,
+  getPurchaseOrder,
+  createPurchaseOrder,
+  updatePurchaseOrder,
+  transitionPurchaseOrder,
+  approvePurchaseOrder,
+  receivePurchaseOrder,
+  payLocalPurchaseOrder,
   getPaymentRequests,
   executePaymentRequest,
   getBankHolds,
@@ -17,9 +20,11 @@ import {
 } from "../api/endpoints/procurement";
 import {
   CreateSupplierPayload,
-  CreateImportOrderPayload,
-  UpdateImportOrderPayload,
-  TransitionImportOrderPayload,
+  CreatePurchaseOrderPayload,
+  UpdatePurchaseOrderPayload,
+  TransitionPurchaseOrderPayload,
+  ReceiveOrderPayload,
+  PurchaseOrderKind,
   ExecutePaymentPayload,
   CreateLandedCostLinePayload,
   GetPaymentRequestsParams,
@@ -43,35 +48,73 @@ export function useCreateSupplier() {
   });
 }
 
-export function useImportOrders(params?: {
+export function usePurchaseOrders(params?: {
   operating_unit_id?: string;
   status?: string;
+  kind?: PurchaseOrderKind;
 }) {
   return useQuery({
     queryKey: ["importOrders", params],
-    queryFn: () => getImportOrders(params),
+    queryFn: () => getPurchaseOrders(params),
   });
 }
 
-export function useImportOrder(id?: string) {
+export function useApprovePurchaseOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => approvePurchaseOrder(id),
+    onSuccess: (_, id) => {
+      qc.invalidateQueries({ queryKey: ["importOrders"] });
+      qc.invalidateQueries({ queryKey: ["importOrder", id] });
+    },
+  });
+}
+
+export function useReceivePurchaseOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: ReceiveOrderPayload }) =>
+      receivePurchaseOrder(id, payload),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["importOrders"] });
+      qc.invalidateQueries({ queryKey: ["importOrder", vars.id] });
+      qc.invalidateQueries({ queryKey: ["inventoryValuation"] });
+      qc.invalidateQueries({ queryKey: ["stockLots"] });
+    },
+  });
+}
+
+export function usePayLocalPurchaseOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => payLocalPurchaseOrder(id),
+    onSuccess: (_, id) => {
+      qc.invalidateQueries({ queryKey: ["importOrders"] });
+      qc.invalidateQueries({ queryKey: ["importOrder", id] });
+      qc.invalidateQueries({ queryKey: ["cashAccounts"] });
+    },
+  });
+}
+
+export function usePurchaseOrder(id?: string) {
   return useQuery({
     queryKey: ["importOrder", id],
-    queryFn: () => getImportOrder(id as string),
+    queryFn: () => getPurchaseOrder(id as string),
     enabled: Boolean(id),
   });
 }
 
-export function useCreateImportOrder() {
+export function useCreatePurchaseOrder() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: CreateImportOrderPayload) => createImportOrder(payload),
+    mutationFn: (payload: CreatePurchaseOrderPayload) => createPurchaseOrder(payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["importOrders"] });
     },
   });
 }
 
-export function useUpdateImportOrder() {
+export function useUpdatePurchaseOrder() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({
@@ -79,8 +122,8 @@ export function useUpdateImportOrder() {
       payload,
     }: {
       id: string;
-      payload: UpdateImportOrderPayload;
-    }) => updateImportOrder(id, payload),
+      payload: UpdatePurchaseOrderPayload;
+    }) => updatePurchaseOrder(id, payload),
     onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: ["importOrders"] });
       qc.invalidateQueries({ queryKey: ["importOrder", variables.id] });
@@ -88,7 +131,7 @@ export function useUpdateImportOrder() {
   });
 }
 
-export function useTransitionImportOrder() {
+export function useTransitionPurchaseOrder() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({
@@ -96,8 +139,8 @@ export function useTransitionImportOrder() {
       payload,
     }: {
       id: string;
-      payload: TransitionImportOrderPayload;
-    }) => transitionImportOrder(id, payload),
+      payload: TransitionPurchaseOrderPayload;
+    }) => transitionPurchaseOrder(id, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["importOrders"] });
       qc.invalidateQueries({ queryKey: ["importOrder"] });

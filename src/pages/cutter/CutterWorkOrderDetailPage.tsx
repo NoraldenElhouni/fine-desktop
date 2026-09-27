@@ -306,7 +306,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
                 {order.stock_lot.lot_number}
               </div>
               <div className="text-[10px] text-app-label-tertiary mt-0.5">
-                {order.stock_lot.inventory_item?.sku ?? ""} {order.stock_lot.inventory_item?.name ?? ""}
+                {order.stock_lot.inventory_item?.code ?? ""} {order.stock_lot.inventory_item?.name ?? ""}
               </div>
             </div>
             <div>
@@ -390,10 +390,10 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
                 getOptionId={(b) => b.id}
                 getOptionLabel={(b) => b.lot_number}
                 getOptionSubLabel={(b) =>
-                  `${b.inventory_item?.sku ?? ""} · ${Number(b.volume_m3 ?? 0).toFixed(4)} م³ · ${formatNumber(Number(b.unit_cost))} LYD · ${b.warehouse?.name ?? ""}`
+                  `${b.inventory_item?.code ?? ""} · ${Number(b.volume_m3 ?? 0).toFixed(4)} م³ · ${formatNumber(Number(b.unit_cost))} LYD · ${b.warehouse?.name ?? ""}`
                 }
                 getOptionSearchText={(b) =>
-                  `${b.lot_number} ${b.inventory_item?.sku ?? ""} ${b.inventory_item?.name ?? ""}`
+                  `${b.lot_number} ${b.inventory_item?.code ?? ""} ${b.inventory_item?.name ?? ""}`
                 }
                 placeholder="ابحث برقم اللوت أو رمز الصنف…"
               />
@@ -585,7 +585,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
                     </div>
                     <div className="text-xs text-app-label-tertiary">
                       الكمية {line.quantity}
-                      {line.output_item && ` · المخرجات ${line.output_item.sku}`}
+                      {line.output_item && ` · المخرجات ${line.output_item.code}`}
                     </div>
                   </div>
                   {line.template_volume_m3 ? (

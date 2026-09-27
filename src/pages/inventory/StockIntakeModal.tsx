@@ -3,7 +3,7 @@ import { AlertTriangle, Calculator, Layers, PackagePlus, Settings2, Sparkles } f
 import { useQuery } from "@tanstack/react-query";
 import { useStockIntake } from "../../hooks/useInventory";
 import { useWarehouses } from "../../hooks/useWarehouses";
-import { getImportOrders } from "../../api/endpoints/procurement";
+import { getPurchaseOrders } from "../../api/endpoints/procurement";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import type { InventoryItem } from "../../api/endpoints/inventory";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
@@ -17,7 +17,7 @@ import {
   DialogBody,
   DialogFooter,
 } from "../../components/ui/Dialog";
-import { ImportOrder, getImportOrderTotal } from "../../types/procurement";
+import { PurchaseOrder, getPurchaseOrderTotal } from "../../types/procurement";
 import { formatNumber } from "../../lib/utils/format";
 
 type IntakeSource = "opening_balance" | "purchase_cash" | "purchase_credit" | "import_receipt";
@@ -34,17 +34,17 @@ const num = (v: string): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
-const generateSuggestedLot = (item?: InventoryItem | null, order?: ImportOrder | null): string => {
-  const sku = item?.code?.replace(/[^A-Za-z0-9_-]/g, "") || "ITEM";
+const generateSuggestedLot = (item?: InventoryItem | null, order?: PurchaseOrder | null): string => {
+  const code = item?.code?.replace(/[^A-Za-z0-9_-]/g, "") || "ITEM";
   const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, "");
   const randomSeq = String(Math.floor(10 + Math.random() * 90));
 
   if (order) {
     const orderRef = order.id.slice(0, 6);
-    return `IMP-${orderRef}-${sku}-${randomSeq}`;
+    return `IMP-${orderRef}-${code}-${randomSeq}`;
   }
 
-  return `LOT-${sku}-${dateStr}-${randomSeq}`;
+  return `LOT-${code}-${dateStr}-${randomSeq}`;
 };
 
 export const StockIntakeModal: React.FC<{
@@ -64,15 +64,15 @@ export const StockIntakeModal: React.FC<{
   const [showUomCustomizer, setShowUomCustomizer] = useState(false);
   const [unitCost, setUnitCost] = useState("");
   const [source, setSource] = useState<IntakeSource>("purchase_credit");
-  const [importOrderId, setImportOrderId] = useState("");
+  const [importOrderId, setPurchaseOrderId] = useState("");
 
   const { data: warehouses } = useWarehouses();
   const { data: importOrders } = useQuery({
     queryKey: ["importOrders", "received-and-complete"],
     queryFn: async () => {
       const [received, complete] = await Promise.all([
-        getImportOrders({ status: "received" }),
-        getImportOrders({ status: "complete" }),
+        getPurchaseOrders({ status: "received" }),
+        getPurchaseOrders({ status: "complete" }),
       ]);
       return [...received, ...complete];
     },
@@ -81,8 +81,8 @@ export const StockIntakeModal: React.FC<{
   const intakeMutation = useStockIntake();
 
   const selectedItem = useMemo(() => items.find((i) => i.id === itemId) ?? null, [items, itemId]);
-  const selectedImportOrder = useMemo(
-    () => (importOrders as ImportOrder[] | undefined)?.find((o) => o.id === importOrderId) ?? null,
+  const selectedPurchaseOrder = useMemo(
+    () => (importOrders as PurchaseOrder[] | undefined)?.find((o) => o.id === importOrderId) ?? null,
     [importOrders, importOrderId],
   );
 
@@ -90,7 +90,7 @@ export const StockIntakeModal: React.FC<{
     const newId = item ? item.id : "";
     setItemId(newId);
     if (!lotNumber.trim() && item) {
-      setLotNumber(generateSuggestedLot(item, selectedImportOrder));
+      setLotNumber(generateSuggestedLot(item, selectedPurchaseOrder));
     }
     if (item) {
       const cUom = item.primary_uom || "";
@@ -155,9 +155,9 @@ export const StockIntakeModal: React.FC<{
     }
   };
 
-  const handleImportOrderChange = (order: ImportOrder | null) => {
+  const handlePurchaseOrderChange = (order: PurchaseOrder | null) => {
     const newOrderId = order ? order.id : "";
-    setImportOrderId(newOrderId);
+    setPurchaseOrderId(newOrderId);
 
     if (order) {
       // Auto-prefill warehouse if available on the order
@@ -188,7 +188,7 @@ export const StockIntakeModal: React.FC<{
   };
 
   const triggerAutoLot = () => {
-    setLotNumber(generateSuggestedLot(selectedItem, selectedImportOrder));
+    setLotNumber(generateSuggestedLot(selectedItem, selectedPurchaseOrder));
   };
 
   const submit = (e: React.FormEvent) => {
@@ -472,14 +472,14 @@ export const StockIntakeModal: React.FC<{
                 <label className="block text-xs font-semibold text-app-label-secondary mb-1">
                   أمر الشراء / الاستيراد المرتبط
                 </label>
-                <SearchableSelect<ImportOrder>
-                  options={(importOrders as ImportOrder[]) ?? []}
-                  value={selectedImportOrder}
-                  onChange={handleImportOrderChange}
+                <SearchableSelect<PurchaseOrder>
+                  options={(importOrders as PurchaseOrder[]) ?? []}
+                  value={selectedPurchaseOrder}
+                  onChange={handlePurchaseOrderChange}
                   getOptionId={(o) => o.id}
                   getOptionLabel={(o) => `${o.supplier?.name ?? "مورد غير محدد"} (أمر #${o.id.slice(0, 6)})`}
                   getOptionSubLabel={(o) =>
-                    `الكمية: ${formatNumber(o.quantity)} | الإجمالي: ${formatNumber(getImportOrderTotal(o))} ${o.currency ?? ""} | الحالة: ${o.status}`
+                    `الكمية: ${formatNumber(o.quantity)} | الإجمالي: ${formatNumber(getPurchaseOrderTotal(o))} ${o.currency ?? ""} | الحالة: ${o.status}`
                   }
                   getOptionSearchText={(o) =>
                     `${o.supplier?.name ?? ""} ${o.id.slice(0, 6)} ${o.currency ?? ""}`

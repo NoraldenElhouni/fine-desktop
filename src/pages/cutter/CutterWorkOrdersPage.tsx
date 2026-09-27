@@ -260,12 +260,12 @@ export const CutterWorkOrdersPage: React.FC = () => {
                   getOptionId={(b) => b.id}
                   getOptionLabel={(b) => b.lot_number}
                   getOptionSubLabel={(b) =>
-                    `${b.inventory_item?.sku ?? ""} · ${formatNumber(Number(b.unit_cost))} ${
+                    `${b.inventory_item?.code ?? ""} · ${formatNumber(Number(b.unit_cost))} ${
                       b.warehouse?.name ?? ""
                     }`
                   }
                   getOptionSearchText={(b) =>
-                    `${b.lot_number} ${b.inventory_item?.sku ?? ""} ${b.inventory_item?.name ?? ""}`
+                    `${b.lot_number} ${b.inventory_item?.code ?? ""} ${b.inventory_item?.name ?? ""}`
                   }
                   placeholder="لا يوجد بلوك بعد — يُختار لاحقاً"
                 />

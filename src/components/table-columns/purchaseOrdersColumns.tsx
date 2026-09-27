@@ -2,30 +2,46 @@ import { useMemo, type ReactNode } from "react";
 import { Building, ArrowRight, Edit } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { formatNumber } from "../../lib/utils/format";
-import { ImportOrder, ImportOrderStatus, getImportOrderTotal } from "../../types/procurement";
+import { PurchaseOrder, PurchaseOrderStatus, getPurchaseOrderTotal } from "../../types/procurement";
 
-export interface UseImportOrdersColumnsArgs {
-  getStatusBadge: (status: ImportOrderStatus) => ReactNode;
-  onOpenDetail: (order: ImportOrder) => void;
-  onEditItems?: (order: ImportOrder) => void;
+export interface UsePurchaseOrdersColumnsArgs {
+  getStatusBadge: (status: PurchaseOrderStatus) => ReactNode;
+  onOpenDetail: (order: PurchaseOrder) => void;
+  onEditItems?: (order: PurchaseOrder) => void;
 }
 
-export function useImportOrdersColumns({
+export function usePurchaseOrdersColumns({
   getStatusBadge,
   onOpenDetail,
   onEditItems,
-}: UseImportOrdersColumnsArgs): ColumnDef<ImportOrder, unknown>[] {
-  return useMemo<ColumnDef<ImportOrder, unknown>[]>(
+}: UsePurchaseOrdersColumnsArgs): ColumnDef<PurchaseOrder, unknown>[] {
+  return useMemo<ColumnDef<PurchaseOrder, unknown>[]>(
     () => [
       {
         id: "supplier",
-        header: "المورد الخارجي",
+        header: "المورد",
         accessorFn: (ord) => ord.supplier?.name || "مورد غير محدد",
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
             <Building className="h-4 w-4 text-app-accent" />
             <span>{row.original.supplier?.name || "مورد غير محدد"}</span>
           </div>
+        ),
+      },
+      {
+        id: "kind",
+        header: "النوع",
+        accessorFn: (ord) => ord.kind,
+        cell: ({ row }) => (
+          <span
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
+              row.original.kind === "local"
+                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                : "bg-purple-50 text-purple-700 border border-purple-200"
+            }`}
+          >
+            {row.original.kind === "local" ? "محلي" : "أجنبي"}
+          </span>
         ),
       },
       {
@@ -63,9 +79,9 @@ export function useImportOrdersColumns({
       {
         id: "total_amount",
         header: "إجمالي الاعتماد المستهدف",
-        accessorFn: (ord) => getImportOrderTotal(ord),
+        accessorFn: (ord) => getPurchaseOrderTotal(ord),
         cell: ({ row }) =>
-          `${formatNumber(getImportOrderTotal(row.original))} ${row.original.currency}`,
+          `${formatNumber(getPurchaseOrderTotal(row.original))} ${row.original.currency}`,
         meta: { className: "font-mono font-bold text-emerald-700" },
       },
       {

@@ -152,7 +152,7 @@ export const RestockRequestsPage: React.FC = () => {
                 <div className="text-xs text-app-label-secondary font-mono">
                   {r.lines?.map((l) => (
                     <span key={l.id} className="me-4">
-                      {l.inventory_item?.name ?? l.inventory_item?.sku} × {Number(l.quantity)}
+                      {l.inventory_item?.name ?? l.inventory_item?.code} × {Number(l.quantity)}
                     </span>
                   ))}
                 </div>

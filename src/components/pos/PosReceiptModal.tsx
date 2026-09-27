@@ -72,8 +72,8 @@ export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({
                 <div key={line.id} className="flex justify-between items-center text-[11px]">
                   <div className="flex-1 truncate pe-2">
                     <div className="font-semibold text-gray-900">{line.inventory_item?.name || "صنف تجاري"}</div>
-                    {line.inventory_item?.sku && (
-                      <div className="text-[9px] text-gray-500">{line.inventory_item.sku}</div>
+                    {line.inventory_item?.code && (
+                      <div className="text-[9px] text-gray-500">{line.inventory_item.code}</div>
                     )}
                     {line.stock_lot?.lot_number && (
                       <div className="text-[9px] text-gray-700 font-bold">

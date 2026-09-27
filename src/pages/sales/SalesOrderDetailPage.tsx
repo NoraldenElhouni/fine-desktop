@@ -244,7 +244,7 @@ export const SalesOrderDetailPage: React.FC = () => {
               {invoice.lines.map((l, i) => (
                 <tr key={i}>
                   <td className="py-1.5">
-                    {l.item} <span className="text-app-label-tertiary font-mono">{l.sku}</span>
+                    {l.item} <span className="text-app-label-tertiary font-mono">{l.code}</span>
                     {l.lot_number && (
                       <span className="ms-2 rounded bg-app-accent/10 px-1.5 py-0.5 text-[10px] font-mono font-bold text-app-accent">
                         لوت: {l.lot_number}
