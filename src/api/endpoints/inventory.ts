@@ -42,6 +42,19 @@ export interface InventoryItem {
   updated_at: string;
 }
 
+type ClearableItemField =
+  | "primary_uom"
+  | "secondary_uom"
+  | "container_capacity"
+  | "length_m"
+  | "width_m"
+  | "height_m";
+
+/** Create/update body — `null` clears a field on the backend, `undefined` leaves it untouched. */
+export type InventoryItemPayload = Partial<Omit<InventoryItem, ClearableItemField>> & {
+  [K in ClearableItemField]?: InventoryItem[K] | null;
+};
+
 export interface StockLot {
   id: string;
   inventory_item_id: string;
@@ -131,10 +144,10 @@ export const inventoryApi = {
   getItem: (id: string) =>
     apiClient.get<InventoryItem>(`/inventory-items/${id}`),
 
-  createItem: (data: Partial<InventoryItem>) =>
+  createItem: (data: InventoryItemPayload) =>
     apiClient.post<InventoryItem>("/inventory-items", data),
 
-  updateItem: (id: string, data: Partial<InventoryItem>) =>
+  updateItem: (id: string, data: InventoryItemPayload) =>
     apiClient.put<InventoryItem>(`/inventory-items/${id}`, data),
 
   // Stock Lots

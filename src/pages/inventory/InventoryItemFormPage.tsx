@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { isAxiosError } from "axios";
-import { ArrowRight, Calculator, Info, Layers, Package, Plus, Ruler } from "lucide-react";
+import { ArrowRight, Package, Plus, X } from "lucide-react";
 import {
   useCreateInventoryItem,
   useInventoryItem,
@@ -10,36 +10,97 @@ import {
 import { useItemCategories } from "../../hooks/useCategories";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { type InventoryItem, UOM_LABELS } from "../../api/endpoints/inventory";
+import {
+  ITEM_TYPE_LABELS,
+  type InventoryItemType,
+} from "../../api/endpoints/categories";
 import { toast } from "../../stores/toastStore";
 import { formatNumber } from "../../lib/utils/format";
+import { cn } from "../../lib/utils/utils";
+import { tokens } from "../../lib/tokens";
 
-/** One consistent card chrome for every field group on this form. */
-const SectionCard: React.FC<{ icon: React.ElementType; title: string; children: React.ReactNode }> = ({
-  icon: Icon,
-  title,
-  children,
-}) => (
-  <div className="space-y-3 p-4 bg-app-bg-secondary rounded-xl border border-app-separator">
-    <div className="flex items-center gap-2 text-xs font-bold text-app-label-primary">
-      <Icon className="w-4 h-4 text-app-accent" />
-      <span>{title}</span>
+const type = tokens.typography.webUI;
+
+const UNIT_CHOICES: { value: string; label: string; hint: string }[] = [
+  { value: "kg", label: "كيلوغرام", hint: "مواد تُوزن" },
+  { value: "liter", label: "لتر", hint: "سوائل" },
+  { value: "m3", label: "متر مكعب", hint: "قوالب إسفنج" },
+  { value: "meter", label: "متر", hint: "أقمشة ولفّات" },
+  { value: "each", label: "قطعة", hint: "تُعدّ بالعدد" },
+];
+
+const PACKAGE_PRESETS = ["برميل", "صندوق", "كيس", "رول", "طرد", "منصة"];
+
+const inputClass = cn(
+  "w-full px-3 py-2 rounded-app-md border border-app-separator bg-app-bg-primary text-app-label-primary",
+  "placeholder:text-app-label-tertiary focus:border-app-accent focus:outline-none",
+  type.b2Regular,
+);
+
+const Field: React.FC<{
+  label: string;
+  hint?: React.ReactNode;
+  aside?: React.ReactNode;
+  children: React.ReactNode;
+}> = ({ label, hint, aside, children }) => (
+  <div className="space-y-1.5">
+    <div className="flex items-center justify-between">
+      <label className={cn(type.c1Emphasized, "text-app-label-secondary")}>
+        {label}
+      </label>
+      {aside}
     </div>
     {children}
+    {hint && (
+      <p className={cn(type.c1Regular, "text-app-label-tertiary")}>{hint}</p>
+    )}
   </div>
 );
 
-/** The small "here's what that means" confirmation banner, reused for both computed previews. */
-const Callout: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="flex items-center gap-2 p-2 rounded-lg bg-app-accent/10 border border-app-accent/20 text-xs text-app-accent">
-    <Calculator className="w-4 h-4 shrink-0" />
-    <span>{children}</span>
-  </div>
+const Question: React.FC<{
+  number: string;
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}> = ({ number, title, subtitle, children }) => (
+  <section className="py-6 first:pt-0 border-b border-app-separator last:border-b-0">
+    <div className="flex items-start gap-3 mb-4">
+      <span
+        className={cn(
+          type.c1Emphasized,
+          "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-app-accent/10 text-app-accent",
+        )}
+      >
+        {number}
+      </span>
+      <div>
+        <h2 className={cn(type.t2Emphasized, "text-app-label-primary")}>
+          {title}
+        </h2>
+        {subtitle && (
+          <p className={cn(type.c1Regular, "text-app-label-tertiary")}>
+            {subtitle}
+          </p>
+        )}
+      </div>
+    </div>
+    <div className="space-y-4 ps-9">{children}</div>
+  </section>
 );
 
-const inputClass =
-  "w-full px-3 py-2 border rounded-xl bg-app-bg-primary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none";
-const labelClass = "block text-xs font-semibold text-app-label-secondary mb-1";
-const helperClass = "text-[11px] text-app-label-tertiary mt-1";
+const SummaryRow: React.FC<{ label: string; children: React.ReactNode }> = ({
+  label,
+  children,
+}) => (
+  <div className="flex items-start justify-between gap-3 py-2 border-b border-app-separator last:border-b-0">
+    <span className={cn(type.c1Regular, "text-app-label-tertiary shrink-0")}>
+      {label}
+    </span>
+    <span className={cn(type.c1Emphasized, "text-app-label-primary text-end")}>
+      {children}
+    </span>
+  </div>
+);
 
 const InventoryItemFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -54,86 +115,93 @@ const InventoryItemFormPage: React.FC = () => {
   const [name, setName] = useState("");
   const [codeSegment, setCodeSegment] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [itemType, setItemType] = useState<InventoryItem["item_type"]>("raw_material");
+  const [itemType, setItemType] =
+    useState<InventoryItem["item_type"]>("raw_material");
   const [uom, setUom] = useState<InventoryItem["unit_of_measure"]>("kg");
-  const [hasContainerTracking, setHasContainerTracking] = useState(false);
-  const [primaryUom, setPrimaryUom] = useState("");
-  const [secondaryUom, setSecondaryUom] = useState("");
-  const [containerCapacity, setContainerCapacity] = useState("");
-  const [dimensionsVisible, setDimensionsVisible] = useState(false);
+  const [isPackaged, setIsPackaged] = useState(false);
+  const [packageName, setPackageName] = useState("");
+  const [capacity, setCapacity] = useState("");
+  const [showSize, setShowSize] = useState(false);
   const [lengthM, setLengthM] = useState("");
   const [widthM, setWidthM] = useState("");
   const [heightM, setHeightM] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  // م³ items almost always have known dimensions; other UOMs rarely do, so
-  // only auto-reveal the dimensions card for volumetric items — everything
-  // else can still open it manually via the "إضافة مقاس" button.
   useEffect(() => {
-    if (uom === "m3") {
-      setDimensionsVisible(true);
-    }
+    if (uom === "m3") setShowSize(true);
   }, [uom]);
 
   useEffect(() => {
     if (!isEdit || !editingItem) return;
     setName(editingItem.name);
-    // The category prefix is derived, not stored — strip it back off so the
-    // input only ever holds the part the user actually typed.
-    const categoryPrefix = editingItem.category?.code ?? "";
+    const prefix = editingItem.category?.code ?? "";
     setCodeSegment(
-      categoryPrefix && editingItem.code.startsWith(categoryPrefix)
-        ? editingItem.code.slice(categoryPrefix.length)
+      prefix && editingItem.code.startsWith(prefix)
+        ? editingItem.code.slice(prefix.length)
         : editingItem.code,
     );
     setCategoryId(editingItem.category_id ?? "");
     setItemType(editingItem.item_type);
     setUom(editingItem.unit_of_measure || "kg");
-    const hasContainers =
-      Boolean(editingItem.container_capacity && Number(editingItem.container_capacity) > 0) ||
-      Boolean(editingItem.primary_uom);
-    setHasContainerTracking(hasContainers);
-    setPrimaryUom(editingItem.primary_uom ?? "");
-    setSecondaryUom(editingItem.secondary_uom ?? "");
-    setContainerCapacity(editingItem.container_capacity ? String(editingItem.container_capacity) : "");
+    setIsPackaged(
+      Number(editingItem.container_capacity) > 0 ||
+        Boolean(editingItem.primary_uom),
+    );
+    setPackageName(editingItem.primary_uom ?? "");
+    setCapacity(
+      editingItem.container_capacity
+        ? String(editingItem.container_capacity)
+        : "",
+    );
     setLengthM(editingItem.length_m ? String(editingItem.length_m) : "");
     setWidthM(editingItem.width_m ? String(editingItem.width_m) : "");
     setHeightM(editingItem.height_m ? String(editingItem.height_m) : "");
-    const hasDimensions = Boolean(editingItem.length_m || editingItem.width_m || editingItem.height_m);
-    if (hasDimensions || editingItem.unit_of_measure === "m3") {
-      setDimensionsVisible(true);
+    if (
+      editingItem.length_m ||
+      editingItem.width_m ||
+      editingItem.height_m ||
+      editingItem.unit_of_measure === "m3"
+    ) {
+      setShowSize(true);
     }
   }, [isEdit, editingItem]);
 
   const selectedCategory = categories?.find((c) => c.id === categoryId);
   const categoryPrefix = selectedCategory?.code ?? "";
   const fullCode = `${categoryPrefix}${codeSegment.trim()}`;
-  const containerUnitLabel = UOM_LABELS[secondaryUom] || secondaryUom || UOM_LABELS[uom] || uom;
+  const typeFromCategory = Boolean(selectedCategory?.item_type);
+  const unitLabel = UOM_LABELS[uom] || uom;
+  const capacityNumber = Number(capacity);
+  const volume = Number(lengthM) * Number(widthM) * Number(heightM);
 
-  const handleCategoryChange = (nextCategoryId: string) => {
-    setCategoryId(nextCategoryId);
+  const handleCategoryChange = (nextId: string) => {
+    setCategoryId(nextId);
+    const matched = categories?.find((c) => c.id === nextId);
+    if (matched?.item_type)
+      setItemType(matched.item_type as InventoryItem["item_type"]);
+  };
 
-    // Dynamically populate itemType if the selected category defines an item_type
-    const matchedCategory = categories?.find((c) => c.id === nextCategoryId);
-    if (matchedCategory?.item_type) {
-      setItemType(matchedCategory.item_type as InventoryItem["item_type"]);
-    }
+  const clearSize = () => {
+    setLengthM("");
+    setWidthM("");
+    setHeightM("");
+    setShowSize(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    const parsedCapacity = containerCapacity.trim() ? Number(containerCapacity) : null;
     const payload = {
       name: name.trim(),
       code: fullCode,
       category_id: categoryId || undefined,
       item_type: itemType,
       unit_of_measure: uom,
-      primary_uom: hasContainerTracking ? (primaryUom.trim() || undefined) : null,
-      secondary_uom: hasContainerTracking ? (secondaryUom.trim() || uom) : null,
-      container_capacity: hasContainerTracking && parsedCapacity && parsedCapacity > 0 ? parsedCapacity : null,
+      primary_uom: isPackaged ? packageName.trim() || null : null,
+      secondary_uom: isPackaged ? uom : null,
+      container_capacity:
+        isPackaged && capacityNumber > 0 ? capacityNumber : null,
       length_m: lengthM.trim() ? Number(lengthM) : null,
       width_m: widthM.trim() ? Number(widthM) : null,
       height_m: heightM.trim() ? Number(heightM) : null,
@@ -142,334 +210,461 @@ const InventoryItemFormPage: React.FC = () => {
     try {
       if (isEdit && id) {
         await updateItemMutation.mutateAsync({ id, data: payload });
-        toast.success("تم تحديث صنف المخزون بنجاح");
+        toast.success("تم حفظ التعديلات");
       } else {
         await createItemMutation.mutateAsync(payload);
-        toast.success("تم إنشاء صنف المخزون بنجاح");
+        toast.success("تمت إضافة الصنف");
       }
       navigate("/settings/products/items");
     } catch (err: unknown) {
       if (isAxiosError(err)) {
         const errors = err.response?.data?.errors;
         if (errors && typeof errors === "object") {
-          const firstKey = Object.keys(errors)[0];
-          const firstMsg = errors[firstKey]?.[0];
+          const firstMsg = errors[Object.keys(errors)[0]]?.[0];
           if (firstMsg) {
             setError(String(firstMsg));
             return;
           }
         }
-        setError(err.response?.data?.message ?? "فشل حفظ صنف المخزون");
+        setError(err.response?.data?.message ?? "تعذّر حفظ الصنف");
       } else {
-        setError("فشل حفظ صنف المخزون");
+        setError("تعذّر حفظ الصنف");
       }
     }
   };
 
-  const isSubmitting = createItemMutation.isPending || updateItemMutation.isPending;
+  const isSubmitting =
+    createItemMutation.isPending || updateItemMutation.isPending;
 
   if (isEdit && isLoadingItem) {
     return (
-      <div className="flex h-64 items-center justify-center text-xs text-app-label-secondary">
-        جارٍ تحميل بيانات الصنف…
+      <div
+        className={cn(
+          type.b2Regular,
+          "flex h-64 items-center justify-center text-app-label-secondary",
+        )}
+      >
+        جارٍ تحميل الصنف…
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 p-6" dir="rtl">
-      <Link
-        to="/settings/products/items"
-        className="flex items-center gap-1 text-xs font-semibold text-app-accent hover:underline w-fit"
+    <div className="p-6 space-y-5" dir="rtl">
+      <div className="space-y-2">
+        <Link
+          to="/settings/products/items"
+          className={cn(
+            type.c1Emphasized,
+            "flex w-fit items-center gap-1 text-app-accent hover:underline",
+          )}
+        >
+          <ArrowRight className="h-4 w-4" />
+          الأصناف
+        </Link>
+        <h1 className={cn(type.largeTitleEmphasized, "text-app-label-primary")}>
+          {isEdit ? `تعديل: ${editingItem?.name ?? ""}` : "صنف جديد"}
+        </h1>
+      </div>
+
+      <form
+        onSubmit={handleSubmit}
+        className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start max-w-5xl"
       >
-        <ArrowRight className="h-4 w-4" />
-        العودة إلى الأصناف
-      </Link>
+        <div className="rounded-app-xl border border-app-separator bg-app-bg-primary p-6">
+          {error && (
+            <div
+              className={cn(
+                type.c1Regular,
+                "mb-5 rounded-app-md border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-app-status-danger",
+              )}
+            >
+              {error}
+            </div>
+          )}
 
-      <h1 className="text-xl font-bold text-app-label-primary flex items-center gap-2">
-        <Package className="w-6 h-6 text-app-accent" />
-        {isEdit ? `تعديل الصنف: ${editingItem?.name ?? ""}` : "إنشاء صنف مخزون"}
-      </h1>
-
-      <form onSubmit={handleSubmit} className="max-w-2xl space-y-4">
-        {error && (
-          <div className="rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-2.5 text-xs text-app-status-danger">
-            {error}
-          </div>
-        )}
-
-        <SectionCard icon={Info} title="بيانات الصنف">
-          <div>
-            <label className={labelClass}>الفئة</label>
-            <SearchableSelect<{ id: string; name: string; code?: string }>
-              options={categories ?? []}
-              value={categories?.find((c) => c.id === categoryId) ?? null}
-              onChange={(c) => handleCategoryChange(c ? c.id : "")}
-              getOptionId={(c) => c.id}
-              getOptionLabel={(c) => c.name}
-              getOptionSubLabel={(c) => c.code}
-              getOptionSearchText={(c) => `${c.name} ${c.code ?? ""}`}
-              placeholder="اختر فئة الصنف"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass}>اسم الصنف</label>
+          <Question number="1" title="ما هو الصنف؟">
+            <Field label="اسم الصنف">
               <input
                 type="text"
                 required
+                placeholder="مثال: كحول صناعي"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className={inputClass}
               />
-            </div>
+            </Field>
 
-            <div>
-              <label className={labelClass}>رمز الصنف</label>
-              <div className="flex items-center gap-1.5">
-                {categoryPrefix && (
-                  <span
-                    className="shrink-0 rounded-lg bg-app-fill-f1 px-2.5 py-2 text-xs font-mono font-bold text-app-label-secondary"
-                    dir="ltr"
-                  >
-                    {categoryPrefix}
-                  </span>
-                )}
-                <input
-                  type="text"
-                  required
-                  placeholder={categoryPrefix ? "مثال: 01" : "الرمز الكامل"}
-                  value={codeSegment}
-                  onChange={(e) => setCodeSegment(e.target.value)}
-                  className={`${inputClass} font-mono`}
-                  dir="ltr"
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field
+                label="التصنيف"
+                hint="يحدد بداية الرمز ونوع الصنف تلقائياً"
+              >
+                <SearchableSelect<{ id: string; name: string; code?: string }>
+                  options={categories ?? []}
+                  value={selectedCategory ?? null}
+                  onChange={(c) => handleCategoryChange(c ? c.id : "")}
+                  getOptionId={(c) => c.id}
+                  getOptionLabel={(c) => c.name}
+                  getOptionSubLabel={(c) => c.code}
+                  getOptionSearchText={(c) => `${c.name} ${c.code ?? ""}`}
+                  placeholder="اختر التصنيف"
                 />
-              </div>
-              {categoryPrefix && codeSegment.trim() && (
-                <p className={helperClass}>
-                  الرمز الكامل:{" "}
-                  <span className="font-mono font-bold text-app-accent" dir="ltr">
-                    {fullCode}
-                  </span>
-                </p>
-              )}
-            </div>
-          </div>
+              </Field>
 
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs font-semibold text-app-label-secondary">نوع الصنف</label>
-              {categories?.find((c) => c.id === categoryId)?.item_type && (
-                <span className="text-[10px] text-app-accent font-medium">تلقائي من الفئة</span>
-              )}
-            </div>
-            <select
-              value={itemType}
-              onChange={(e) => setItemType(e.target.value as InventoryItem["item_type"])}
-              className={inputClass}
-            >
-              <option value="raw_material">مادة خام</option>
-              <option value="foam_block">قالب إسفنج</option>
-              <option value="cut_template_piece">قطعة قالب تشذيب</option>
-              <option value="slice">شريحة</option>
-              <option value="byproduct_fill">حشو ثانوي</option>
-              <option value="furniture_finished_good">منتج أثاث تام</option>
-              <option value="barrel">برميل</option>
-              <option value="pallet">منصة نقالة</option>
-              <option value="packaging">تغليف</option>
-            </select>
-          </div>
-        </SectionCard>
-
-        <SectionCard icon={Layers} title="وحدات القياس والتعبئة">
-          <div>
-            <label className={labelClass}>الوحدة الأساسية</label>
-            <select value={uom} onChange={(e) => setUom(e.target.value)} className={inputClass}>
-              <option value="kg">كجم (كيلوغرام)</option>
-              <option value="liter">لتر</option>
-              <option value="m3">م³ (متر مكعب)</option>
-              <option value="meter">متر</option>
-              <option value="each">قطعة / وحدة</option>
-            </select>
-            <p className={helperClass}>تُستخدم لحساب الكميات وتكلفة المخزون في النظام.</p>
-          </div>
-
-          <div className="pt-3 border-t border-app-separator space-y-3">
-            <label className="flex items-start gap-2.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={hasContainerTracking}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setHasContainerTracking(checked);
-                  if (checked && !secondaryUom) {
-                    setSecondaryUom(uom);
-                  }
-                  if (!checked) {
-                    setPrimaryUom("");
-                    setSecondaryUom("");
-                    setContainerCapacity("");
-                  }
-                }}
-                className="mt-0.5 rounded border-app-separator text-app-accent focus:ring-app-accent"
-              />
-              <div className="flex-1">
-                <span className="text-xs font-semibold text-app-label-primary block">
-                  الصنف يُخزَّن في حاويات
-                </span>
-                <span className={helperClass + " block"}>
-                  فعّل هذا إذا كان الصنف يُورَّد أو يُخزَّن في حاويات بسعة ثابتة، مثل براميل أو صناديق أو أكياس.
-                </span>
-              </div>
-            </label>
-
-            {hasContainerTracking && (
-              <div className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelClass}>وحدة الحاوية</label>
-                    <input
-                      type="text"
-                      placeholder="مثال: برميل, صندوق, طرد"
-                      value={primaryUom}
-                      onChange={(e) => setPrimaryUom(e.target.value)}
-                      className={inputClass}
-                    />
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {["برميل", "صندوق", "طرد", "منصة نقالة", "كيس", "رول"].map((preset) => (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => setPrimaryUom(preset)}
-                          className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
-                            primaryUom === preset
-                              ? "bg-app-accent text-white border-app-accent"
-                              : "bg-app-bg-primary border-app-separator text-app-label-secondary hover:text-app-label-primary"
-                          }`}
-                        >
-                          {preset}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className={labelClass}>سعة الحاوية الواحدة ({containerUnitLabel})</label>
-                    <input
-                      type="number"
-                      step="0.0001"
-                      min="0"
-                      placeholder="مثال: 200"
-                      value={containerCapacity}
-                      onChange={(e) => setContainerCapacity(e.target.value)}
-                      className={`${inputClass} font-mono`}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className={labelClass}>الوحدة الداخلية</label>
+              <Field label="رمز الصنف">
+                <div className="flex items-center gap-1.5" dir="ltr">
+                  {categoryPrefix && (
+                    <span
+                      className={cn(
+                        type.b2Emphasized,
+                        "shrink-0 rounded-app-md bg-app-fill-f1 px-2.5 py-2 font-mono text-app-label-secondary",
+                      )}
+                    >
+                      {categoryPrefix}
+                    </span>
+                  )}
                   <input
                     type="text"
-                    placeholder={UOM_LABELS[uom] || uom}
-                    value={secondaryUom}
-                    onChange={(e) => setSecondaryUom(e.target.value)}
-                    className={inputClass}
+                    required
+                    placeholder={categoryPrefix ? "01" : "الرمز"}
+                    value={codeSegment}
+                    onChange={(e) => setCodeSegment(e.target.value)}
+                    className={cn(inputClass, "font-mono")}
                   />
-                  <p className={helperClass}>الوحدة التي تُقاس بها محتويات الحاوية. الافتراضي: نفس الوحدة الأساسية.</p>
                 </div>
-
-                {Number(containerCapacity) > 0 && primaryUom && (
-                  <Callout>
-                    كل 1 {primaryUom} ={" "}
-                    <strong className="font-bold font-mono">
-                      {formatNumber(Number(containerCapacity))} {containerUnitLabel}
-                    </strong>
-                  </Callout>
-                )}
-              </div>
-            )}
-          </div>
-        </SectionCard>
-
-        {dimensionsVisible ? (
-          <SectionCard icon={Ruler} title="المقاس">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className={labelClass}>الطول (م)</label>
-                <input
-                  type="number"
-                  step="0.001"
-                  min="0"
-                  placeholder="مثال: 1.00"
-                  value={lengthM}
-                  onChange={(e) => setLengthM(e.target.value)}
-                  className={`${inputClass} font-mono`}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>العرض (م)</label>
-                <input
-                  type="number"
-                  step="0.001"
-                  min="0"
-                  placeholder="مثال: 2.00"
-                  value={widthM}
-                  onChange={(e) => setWidthM(e.target.value)}
-                  className={`${inputClass} font-mono`}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>الارتفاع (م)</label>
-                <input
-                  type="number"
-                  step="0.001"
-                  min="0"
-                  placeholder="مثال: 2.40"
-                  value={heightM}
-                  onChange={(e) => setHeightM(e.target.value)}
-                  className={`${inputClass} font-mono`}
-                />
-              </div>
+              </Field>
             </div>
 
-            {Number(lengthM) > 0 && Number(widthM) > 0 && Number(heightM) > 0 && (
-              <Callout>
-                الحجم ={" "}
-                <strong className="font-bold font-mono">
-                  {formatNumber(Number(lengthM) * Number(widthM) * Number(heightM))} م³
-                </strong>
-              </Callout>
-            )}
-          </SectionCard>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setDimensionsVisible(true)}
-            className="flex items-center gap-1.5 text-xs font-semibold text-app-accent hover:underline w-fit"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            إضافة مقاس
-          </button>
-        )}
+            <Field
+              label="نوع الصنف"
+              aside={
+                typeFromCategory && (
+                  <span className={cn(type.c1Regular, "text-app-accent")}>
+                    محدد من التصنيف
+                  </span>
+                )
+              }
+            >
+              <select
+                value={itemType}
+                onChange={(e) =>
+                  setItemType(e.target.value as InventoryItem["item_type"])
+                }
+                className={inputClass}
+              >
+                {(Object.keys(ITEM_TYPE_LABELS) as InventoryItemType[]).map(
+                  (key) => (
+                    <option key={key} value={key}>
+                      {ITEM_TYPE_LABELS[key]}
+                    </option>
+                  ),
+                )}
+              </select>
+            </Field>
+          </Question>
 
-        <div className="flex items-center gap-2 pt-2">
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
+          <Question
+            number="2"
+            title="كيف تُحسب كميته؟"
+            subtitle="بهذه الوحدة يُسجَّل الرصيد وتُحسب التكلفة"
           >
-            {isSubmitting ? "جاري الحفظ…" : isEdit ? "تحديث الصنف" : "حفظ الصنف"}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate("/settings/products/items")}
-            className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              {UNIT_CHOICES.map((choice) => {
+                const active = uom === choice.value;
+                return (
+                  <button
+                    key={choice.value}
+                    type="button"
+                    onClick={() => setUom(choice.value)}
+                    className={cn(
+                      "rounded-app-md border px-3 py-2.5 text-start transition-colors",
+                      active
+                        ? "border-app-accent bg-app-accent/10"
+                        : "border-app-separator bg-app-bg-primary hover:bg-app-fill-f1",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        type.b2Emphasized,
+                        "block",
+                        active ? "text-app-accent" : "text-app-label-primary",
+                      )}
+                    >
+                      {choice.label}
+                    </span>
+                    <span
+                      className={cn(
+                        type.c1Regular,
+                        "block text-app-label-tertiary",
+                      )}
+                    >
+                      {choice.hint}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </Question>
+
+          <Question
+            number="3"
+            title="هل يُورَّد في عبوات؟"
+            subtitle="مثل براميل أو صناديق أو أكياس بسعة ثابتة"
           >
-            إلغاء
-          </button>
+            <div className="inline-flex rounded-app-md border border-app-separator p-1 bg-app-bg-secondary">
+              {[
+                { value: false, label: "لا" },
+                { value: true, label: "نعم، في عبوات" },
+              ].map((opt) => (
+                <button
+                  key={String(opt.value)}
+                  type="button"
+                  onClick={() => setIsPackaged(opt.value)}
+                  className={cn(
+                    type.c1Emphasized,
+                    "rounded-app-sm px-4 py-1.5 transition-colors",
+                    isPackaged === opt.value
+                      ? "bg-app-bg-primary text-app-label-primary shadow-sm"
+                      : "text-app-label-secondary hover:text-app-label-primary",
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            {isPackaged && (
+              <div className="space-y-3 rounded-app-lg bg-app-bg-secondary p-4">
+                <div
+                  className={cn(
+                    type.b2Regular,
+                    "flex flex-wrap items-center gap-2 text-app-label-primary",
+                  )}
+                >
+                  <span>كل</span>
+                  <input
+                    type="text"
+                    placeholder="برميل"
+                    value={packageName}
+                    onChange={(e) => setPackageName(e.target.value)}
+                    className={cn(inputClass, "w-32")}
+                  />
+                  <span>يحتوي على</span>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    min="0"
+                    placeholder="200"
+                    value={capacity}
+                    onChange={(e) => setCapacity(e.target.value)}
+                    className={cn(inputClass, "w-28 font-mono")}
+                    dir="ltr"
+                  />
+                  <span>{unitLabel}</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {PACKAGE_PRESETS.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setPackageName(preset)}
+                      className={cn(
+                        type.c1Regular,
+                        "rounded-full border px-2.5 py-0.5 transition-colors",
+                        packageName === preset
+                          ? "border-app-accent bg-app-accent text-white"
+                          : "border-app-separator bg-app-bg-primary text-app-label-secondary hover:text-app-label-primary",
+                      )}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Question>
+
+          <Question
+            number="4"
+            title="المقاس"
+            subtitle="اختياري — الطول والعرض والارتفاع بالمتر"
+          >
+            {showSize ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    {
+                      label: "الطول",
+                      value: lengthM,
+                      set: setLengthM,
+                      ph: "1.00",
+                    },
+                    {
+                      label: "العرض",
+                      value: widthM,
+                      set: setWidthM,
+                      ph: "2.00",
+                    },
+                    {
+                      label: "الارتفاع",
+                      value: heightM,
+                      set: setHeightM,
+                      ph: "0.20",
+                    },
+                  ].map((f) => (
+                    <Field key={f.label} label={f.label}>
+                      <input
+                        type="number"
+                        step="0.001"
+                        min="0"
+                        placeholder={f.ph}
+                        value={f.value}
+                        onChange={(e) => f.set(e.target.value)}
+                        className={cn(inputClass, "font-mono")}
+                        dir="ltr"
+                      />
+                    </Field>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span
+                    className={cn(type.c1Regular, "text-app-label-secondary")}
+                  >
+                    {volume > 0 ? (
+                      <>
+                        الحجم:{" "}
+                        <span className="font-mono font-semibold text-app-accent">
+                          {formatNumber(volume)} م³
+                        </span>
+                      </>
+                    ) : (
+                      "أدخل الأبعاد الثلاثة لحساب الحجم"
+                    )}
+                  </span>
+                  {uom !== "m3" && (
+                    <button
+                      type="button"
+                      onClick={clearSize}
+                      className={cn(
+                        type.c1Regular,
+                        "flex items-center gap-1 text-app-label-tertiary hover:text-app-status-danger",
+                      )}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      إزالة المقاس
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowSize(true)}
+                className={cn(
+                  type.c1Emphasized,
+                  "flex w-fit items-center gap-1.5 text-app-accent hover:underline",
+                )}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                إضافة المقاس
+              </button>
+            )}
+          </Question>
         </div>
+
+        <aside className="lg:sticky lg:top-6 rounded-app-xl border border-app-separator bg-app-bg-secondary p-5 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-app-lg bg-app-accent/10">
+              <Package className="h-5 w-5 text-app-accent" />
+            </div>
+            <div className="min-w-0">
+              <p
+                className={cn(
+                  type.b1Emphasized,
+                  "truncate",
+                  name.trim()
+                    ? "text-app-label-primary"
+                    : "text-app-label-tertiary",
+                )}
+              >
+                {name.trim() || "صنف بدون اسم"}
+              </p>
+              <p
+                className={cn(
+                  type.c1Regular,
+                  "font-mono text-app-label-secondary",
+                )}
+                dir="ltr"
+              >
+                {fullCode || "—"}
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <SummaryRow label="التصنيف">
+              {selectedCategory?.name ?? "—"}
+            </SummaryRow>
+            <SummaryRow label="النوع">
+              {ITEM_TYPE_LABELS[itemType as InventoryItemType] ?? itemType}
+            </SummaryRow>
+            <SummaryRow label="يُحسب بـ">{unitLabel}</SummaryRow>
+            <SummaryRow label="التوريد">
+              {isPackaged ? (
+                packageName.trim() && capacityNumber > 0 ? (
+                  <>
+                    {packageName.trim()} ={" "}
+                    <span className="font-mono">
+                      {formatNumber(capacityNumber)}
+                    </span>{" "}
+                    {unitLabel}
+                  </>
+                ) : (
+                  <span className="text-app-label-tertiary">
+                    في عبوات — أكمل البيانات
+                  </span>
+                )
+              ) : (
+                "سائب"
+              )}
+            </SummaryRow>
+            {volume > 0 && (
+              <SummaryRow label="المقاس">
+                <span className="font-mono" dir="ltr">
+                  {lengthM} × {widthM} × {heightM} م
+                </span>
+              </SummaryRow>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2 pt-1">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className={cn(
+                type.b2Emphasized,
+                "w-full rounded-app-md bg-app-accent py-2.5 text-white hover:opacity-90 disabled:opacity-50",
+              )}
+            >
+              {isSubmitting
+                ? "جارٍ الحفظ…"
+                : isEdit
+                  ? "حفظ التعديلات"
+                  : "حفظ الصنف"}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/settings/products/items")}
+              className={cn(
+                type.b2Regular,
+                "w-full rounded-app-md py-2 text-app-label-secondary hover:bg-app-fill-f1",
+              )}
+            >
+              إلغاء
+            </button>
+          </div>
+        </aside>
       </form>
     </div>
   );
