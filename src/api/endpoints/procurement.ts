@@ -105,11 +105,15 @@ export const receivePurchaseOrder = async (
 
 /**
  * Wave 5 (local flow): record payment on a received local PO.
- * Transitions received -> paid -> closed (auto-close on full receipt).
- */
-export const payLocalPurchaseOrder = async (id: string): Promise<PurchaseOrder> => {
+  * Transitions received -> paid -> closed (auto-close on full receipt).
+   */
+export const payLocalPurchaseOrder = async (
+  id: string,
+  payload: { payment_source_account_id: string },
+): Promise<PurchaseOrder> => {
   const response = await apiClient.post<{ message: string; data: PurchaseOrder }>(
     `/purchase-orders/${id}/pay-local`,
+    payload,
   );
   return response.data.data;
 };

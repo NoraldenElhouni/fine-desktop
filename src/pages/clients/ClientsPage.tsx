@@ -544,7 +544,8 @@ export const ClientsPage: React.FC = () => {
                 onSelectedAccountIdChange={setSelectedAccountId}
                 newAccount={newAccount}
                 onNewAccountChange={setNewAccount}
-                preferredParentCode="122"
+                preferredParentCode="13"
+                useEntityNameDirectly
               />
             </form>
           </DialogBody>

@@ -13,6 +13,7 @@ import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { CoaAccountSelector } from "../../components/accounting/CoaAccountSelector";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useFixedAssetsColumns } from "../../components/table-columns/fixedAssetsColumns";
@@ -21,6 +22,7 @@ import {
   type DepreciationMethod,
   type FixedAsset,
 } from "../../api/endpoints/fixedAssets";
+import { type CoaAction, type NewCoaAccountPayload } from "../../types/entities";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -48,6 +50,28 @@ export const FixedAssetsPage: React.FC = () => {
     operating_unit_id: "",
   });
 
+  // COA link (mirrors client/supplier). Default "none" preserves the legacy
+  // behaviour of posting to the universal "14" Fixed Assets account.
+  const [coaAction, setCoaAction] = useState<CoaAction>("none");
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [newAccount, setNewAccount] = useState<NewCoaAccountPayload>({
+    parent_account_id: "",
+    account_code: "",
+    name: "",
+    currency: "LYD",
+  });
+
+  const resetCoaForm = () => {
+    setCoaAction("none");
+    setSelectedAccountId(null);
+    setNewAccount({
+      parent_account_id: "",
+      account_code: "",
+      name: "",
+      currency: "LYD",
+    });
+  };
+
   const { data: assets, isLoading } = useFixedAssets();
   const { data: units } = useQuery({ queryKey: ["operatingUnits"], queryFn: () => getOperatingUnits() });
   const { data: schedule } = useFixedAssetSchedule(scheduleFor?.id);
@@ -62,6 +86,26 @@ export const FixedAssetsPage: React.FC = () => {
   const submitAsset = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (coaAction === "link_existing" && !selectedAccountId) {
+      setError("يرجى اختيار الحساب المراد ربطه من دليل الحسابات");
+      return;
+    }
+    if (coaAction === "create_new") {
+      if (!newAccount.parent_account_id) {
+        setError("يرجى اختيار الحساب الأب لإنشاء حساب في دليل الحسابات");
+        return;
+      }
+      if (!newAccount.account_code.trim()) {
+        setError("يرجى إدخال رمز الحساب الفرعي");
+        return;
+      }
+      if (!newAccount.name.trim()) {
+        setError("يرجى إدخال اسم الحساب المالي");
+        return;
+      }
+    }
+
     createMutation.mutate(
       {
         name: form.name,
@@ -74,9 +118,15 @@ export const FixedAssetsPage: React.FC = () => {
         payment_source: form.payment_source,
         is_company_wide: form.scope === "company",
         operating_unit_id: form.scope === "unit" ? form.operating_unit_id : undefined,
+        coa_action: coaAction,
+        account_id: coaAction === "link_existing" ? selectedAccountId : undefined,
+        new_account: coaAction === "create_new" ? newAccount : undefined,
       },
       {
-        onSuccess: () => setShowForm(false),
+        onSuccess: () => {
+          setShowForm(false);
+          resetCoaForm();
+        },
         onError: (err) => fail(err, "تعذر تسجيل الأصل."),
       },
     );
@@ -348,6 +398,19 @@ export const FixedAssetsPage: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              <CoaAccountSelector
+                entityTypeLabel="الأصل الثابت"
+                defaultEntityName={form.name}
+                currency="LYD"
+                action={coaAction}
+                onActionChange={setCoaAction}
+                selectedAccountId={selectedAccountId}
+                onSelectedAccountIdChange={setSelectedAccountId}
+                newAccount={newAccount}
+                onNewAccountChange={setNewAccount}
+                preferredParentCode="14"
+              />
 
             </form>
           </DialogBody>

@@ -298,6 +298,7 @@ export const SuppliersPage: React.FC = () => {
             newAccount={newAccount}
             onNewAccountChange={setNewAccount}
             preferredParentCode="21"
+            useEntityNameDirectly
           />
 
         </form>

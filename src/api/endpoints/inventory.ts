@@ -222,8 +222,13 @@ export const inventoryApi = {
     save_as_item_default?: boolean;
     unit_cost: number;
     source: "opening_balance" | "purchase_cash" | "purchase_credit" | "import_receipt";
+    purchase_order_id?: string;
     import_order_id?: string;
-  }) => apiClient.post<StockLot>("/stock-lots/intake", data),
+  }) =>
+    apiClient.post<StockLot>("/stock-lots/intake", {
+      ...data,
+      purchase_order_id: data.purchase_order_id ?? data.import_order_id,
+    }),
 
   processCutRemnant: (
     id: string,

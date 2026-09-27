@@ -58,8 +58,9 @@ export interface PendingApprovals {
   }[];
   landed_cost_lines: {
     id: string;
-    import_order_id: string;
-    operating_unit_id: string;
+    purchase_order_id?: string;
+    import_order_id?: string;
+    operating_unit_id?: string;
     status: string;
     amount: number;
     currency: string;
@@ -81,8 +82,9 @@ export interface MyAllocationApprovals {
   landed_cost_lines: {
     id: string;
     kind: "landed_cost_line";
-    import_order_id: string;
-    operating_unit_id: string;
+    purchase_order_id?: string;
+    import_order_id?: string;
+    operating_unit_id?: string;
     status: string;
     amount: number;
     currency: string;

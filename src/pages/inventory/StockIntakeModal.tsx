@@ -207,6 +207,7 @@ export const StockIntakeModal: React.FC<{
         save_as_item_default: saveAsDefault,
         unit_cost: num(unitCost),
         source,
+        purchase_order_id: source === "import_receipt" ? importOrderId : undefined,
         import_order_id: source === "import_receipt" ? importOrderId : undefined,
       },
       {
