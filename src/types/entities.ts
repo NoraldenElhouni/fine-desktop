@@ -28,8 +28,13 @@ export interface OperatingUnit {
 export interface Warehouse {
   id: string;
   operating_unit_id: string;
+  parent_id?: string | null;
   name: string;
   is_internal_unit?: boolean;
+  /** Only meaningful on a sub-warehouse — a "location-types" reference-lookup code (e.g. SHELF). */
+  location_type?: string | null;
+  /** Only present on a top-level warehouse, from GET /warehouses. */
+  children?: Warehouse[];
   created_at?: string;
   updated_at?: string;
 }

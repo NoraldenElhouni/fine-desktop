@@ -131,9 +131,24 @@ export const createOperatingUnitWarehouse = async (
   return response.data;
 };
 
+/** Create a warehouse in the caller's current operating unit context (or an
+ * explicit `operating_unit_id` for a company-wide caller with none pinned).
+ * Pass `parent_id` to create a sub-warehouse instead — it inherits the
+ * parent's operating unit regardless of `operating_unit_id`. */
+export const createWarehouse = async (payload: {
+  name: string;
+  is_internal_unit?: boolean;
+  operating_unit_id?: string;
+  parent_id?: string;
+  location_type?: string;
+}): Promise<Warehouse> => {
+  const response = await apiClient.post<Warehouse>("/warehouses", payload);
+  return response.data;
+};
+
 export const updateWarehouse = async (
   id: string,
-  payload: { name?: string; is_internal_unit?: boolean },
+  payload: { name?: string; is_internal_unit?: boolean; location_type?: string | null },
 ): Promise<Warehouse> => {
   const response = await apiClient.put<Warehouse>(`/warehouses/${id}`, payload);
   return response.data;

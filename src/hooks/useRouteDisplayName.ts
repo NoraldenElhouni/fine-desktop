@@ -10,21 +10,17 @@ export const useRouteDisplayName = (pathname: string) => {
       { path: "/clients/:id", end: true },
       normalizedPath,
     );
-    const orderMatch = matchPath(
-      { path: "/orders/:id", end: true },
-      normalizedPath,
-    );
     const accountMatch = matchPath(
       { path: "/accounting/accounts/:id", end: true },
       normalizedPath,
     );
 
-    if (!clientMatch && !orderMatch && !accountMatch) {
+    if (!clientMatch && !accountMatch) {
       setDisplayName("…");
       return;
     }
 
-    const id = clientMatch?.params.id ?? orderMatch?.params.id ?? accountMatch?.params.id;
+    const id = clientMatch?.params.id ?? accountMatch?.params.id;
     setDisplayName("…");
 
     const timer = window.setTimeout(() => {
@@ -33,12 +29,7 @@ export const useRouteDisplayName = (pathname: string) => {
         return;
       }
 
-      if (accountMatch) {
-        setDisplayName("تفاصيل الحساب");
-        return;
-      }
-
-      setDisplayName(id ? `طلب #${id}` : "طلب");
+      setDisplayName("تفاصيل الحساب");
     }, 250);
 
     return () => window.clearTimeout(timer);

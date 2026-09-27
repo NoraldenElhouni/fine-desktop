@@ -6,13 +6,11 @@ import {
   Landmark,
   Layers,
   MapPin,
-  MapPinned,
   Minus,
   Plus,
   Receipt,
   Ruler,
   UsersRound,
-  Warehouse,
 } from "lucide-react";
 
 /**
@@ -398,56 +396,16 @@ export const DEDUCTION_TYPES_LOOKUP: LookupConfig = {
   ],
 };
 
-export const WAREHOUSES_LOOKUP: LookupConfig = {
-  key: "warehouses",
-  path: "list",
-  title: "المخازن",
-  description:
-    "المخازن الفعلية للمواد الخام والمنتج التام وقطع الغيار عبر وحدات الشركة، وتُستخدم في حركات المخزون والتسويات.",
-  icon: Warehouse,
-  singular: "مخزن",
-  nameLabel: "اسم المخزن",
-  namePlaceholder: "مثال: مخزن المواد الخام",
-  codeLabel: "رمز المخزن",
-  codePlaceholder: "مثال: WH-RAW",
-  searchPlaceholder: "بحث باسم المخزن أو رمزه...",
-  fields: [
-    {
-      key: "type",
-      label: "نوع المخزن",
-      type: "select",
-      chip: true,
-      options: [
-        { value: "raw_materials", label: "مواد خام" },
-        { value: "finished_goods", label: "منتج تام" },
-        { value: "spare_parts", label: "قطع غيار ومستلزمات" },
-        { value: "general", label: "عام" },
-      ],
-    },
-    { key: "location", label: "الموقع", type: "text", placeholder: "مثال: مصنع الفوم - طبرق" },
-  ],
-  seed: [
-    row("wh-raw-foam", "مخزن المواد الخام - الفوم", "WH-RAW-FOAM", { type: "raw_materials", location: "مصنع الفوم - طبرق" }, { notes: "كيماويات ومواد أولية لخط الإنتاج" }),
-    row("wh-fg-foam", "مخزن المنتج التام - قوالب الفوم", "WH-FG-FOAM", { type: "finished_goods", location: "مصنع الفوم - طبرق" }),
-    row("wh-cut", "مخزن قطع التقطيع", "WH-CUT", { type: "finished_goods", location: "خط التقطيع - طبرق" }),
-    row("wh-furn", "مخزن الأثاث تام الصنع", "WH-FURN", { type: "finished_goods", location: "مصنع التجميع - طبرق" }),
-    row("wh-spare", "مخزن قطع الغيار والمستلزمات", "WH-SPARE", { type: "spare_parts", location: "المستودع المركزي - طبرق" }),
-    row("wh-show", "مخزن المعرض", "WH-SHOW", { type: "general", location: "المعرض - طبرق" }),
-    row("wh-old", "المخزن القديم", "WH-OLD", { type: "general", location: "—" }, { isActive: false, notes: "أُوقف بعد افتتاح المستودع المركزي" }),
-  ],
-};
-
-const WAREHOUSE_OPTIONS: LookupFieldOption[] = WAREHOUSES_LOOKUP.seed.map((warehouse) => ({
-  value: warehouse.code,
-  label: warehouse.name,
-}));
-
+// Warehouses and their sub-locations are real `warehouses` rows (self-referencing
+// parent_id) now, managed on WarehousesSettingsPage against the actual API — the
+// same records سجل المخزون المسلسل والدفعات reads. Only the location *type* label
+// (shelf/floor/container) remains a reference lookup.
 export const LOCATION_TYPES_LOOKUP: LookupConfig = {
   key: "location-types",
   path: "types",
   title: "أنواع مواقع التخزين",
   description:
-    "تصنيفات مواقع التخزين الفرعية داخل المخازن (رف، منطقة أرضية، حاوية...)، وتُستخدم عند تعريف مواقع التخزين الفرعية.",
+    "تصنيفات مواقع التخزين الفرعية داخل المخازن (رف، منطقة أرضية، حاوية...)، وتُستخدم عند تعريف موقع فرعي تابع لمخزن.",
   icon: Layers,
   singular: "نوع موقع",
   nameLabel: "اسم النوع",
@@ -463,43 +421,7 @@ export const LOCATION_TYPES_LOOKUP: LookupConfig = {
   ],
 };
 
-const LOCATION_TYPE_OPTIONS: LookupFieldOption[] = LOCATION_TYPES_LOOKUP.seed.map((type) => ({
-  value: type.code,
-  label: type.name,
-}));
-
-export const STORAGE_LOCATIONS_LOOKUP: LookupConfig = {
-  key: "storage-locations",
-  path: "locations",
-  title: "مواقع التخزين الفرعية",
-  description:
-    "الأرفف والمناطق الفرعية داخل كل مخزن، وتُستخدم لتحديد موقع الصنف بدقة عند الجرد والتسويات.",
-  icon: MapPinned,
-  singular: "موقع تخزين",
-  nameLabel: "اسم الموقع",
-  namePlaceholder: "مثال: الرف A1",
-  codeLabel: "رمز الموقع",
-  codePlaceholder: "مثال: WH-RAW-FOAM-A1",
-  searchPlaceholder: "بحث باسم الموقع أو رمزه...",
-  fields: [
-    { key: "warehouse", label: "المخزن التابع له", type: "select", chip: true, options: WAREHOUSE_OPTIONS },
-    { key: "zoneType", label: "نوع الموقع", type: "select", chip: true, options: LOCATION_TYPE_OPTIONS },
-  ],
-  seed: [
-    row("loc-raw-a1", "الرف A1", "WH-RAW-FOAM-A1", { warehouse: "WH-RAW-FOAM", zoneType: "SHELF" }),
-    row("loc-raw-a2", "الرف A2", "WH-RAW-FOAM-A2", { warehouse: "WH-RAW-FOAM", zoneType: "SHELF" }),
-    row("loc-fg-f1", "المنطقة الأرضية 1", "WH-FG-FOAM-F1", { warehouse: "WH-FG-FOAM", zoneType: "FLOOR" }),
-    row("loc-cut-b1", "الرف B1", "WH-CUT-B1", { warehouse: "WH-CUT", zoneType: "SHELF" }),
-    row("loc-furn-f1", "المنطقة الأرضية 1", "WH-FURN-F1", { warehouse: "WH-FURN", zoneType: "FLOOR" }),
-    row("loc-spare-c1", "حاوية C1", "WH-SPARE-C1", { warehouse: "WH-SPARE", zoneType: "CONTAINER" }),
-  ],
-};
-
-export const WAREHOUSE_LOOKUPS: LookupConfig[] = [
-  WAREHOUSES_LOOKUP,
-  LOCATION_TYPES_LOOKUP,
-  STORAGE_LOCATIONS_LOOKUP,
-];
+export const WAREHOUSE_LOOKUPS: LookupConfig[] = [LOCATION_TYPES_LOOKUP];
 
 export const REFERENCE_LOOKUPS: LookupConfig[] = [
   MEASUREMENT_UNITS_LOOKUP,
