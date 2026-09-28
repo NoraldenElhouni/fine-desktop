@@ -290,6 +290,19 @@ export const PurchaseOrdersPage: React.FC = () => {
   const [lineItems, setLineItems] = useState<PurchaseOrderItemInput[]>([
     { inventory_item_id: "", quantity: 1, unit_price: 0 },
   ]);
+  // Destination warehouse — where the goods will land as StockLots once the
+  // order reaches its final accounting step. Optional on create (can be set
+  // later on the foreign arriveAtWarehouse step), but recommended.
+  const [destinationWarehouseId, setDestinationWarehouseId] = useState("");
+  // Warehouses filtered by the currently selected operating unit so the picker
+  // stays short. `warehouses` is loaded globally; we narrow on the fly.
+  const destinationWarehouseOptions = useMemo(
+    () =>
+      warehouses.filter(
+        (w) => !selectedUnitId || (w as Warehouse).operating_unit_id === selectedUnitId,
+      ),
+    [warehouses, selectedUnitId],
+  );
   const [itemTypeFilter, setItemTypeFilter] = useState<
     "raw_material" | "packaging" | "barrel" | "pallet"
   >("raw_material");
@@ -328,6 +341,7 @@ export const PurchaseOrdersPage: React.FC = () => {
     setSelectedSupplierId("");
     setCurrency("USD");
     setKind("local");
+    setDestinationWarehouseId("");
     setLineItems([{ inventory_item_id: "", quantity: 1, unit_price: 0 }]);
   };
 
@@ -386,6 +400,7 @@ export const PurchaseOrdersPage: React.FC = () => {
       kind,
       currency: effectiveCurrency,
       items: cleanLines,
+      destination_warehouse_id: destinationWarehouseId || undefined,
     };
 
     createOrderMutation.mutate(payload, {
@@ -817,7 +832,16 @@ export const PurchaseOrdersPage: React.FC = () => {
                       operatingUnits.find((u) => u.id === selectedUnitId) ??
                       null
                     }
-                    onChange={(u) => setSelectedUnitId(u ? u.id : "")}
+                    onChange={(u) => {
+                      const next = u ? u.id : "";
+                      setSelectedUnitId(next);
+                      // Reset the destination warehouse when the operating
+                      // unit changes — the previously-picked warehouse may
+                      // belong to a different unit.
+                      if (next !== selectedUnitId) {
+                        setDestinationWarehouseId("");
+                      }
+                    }}
                     getOptionId={(u) => u.id}
                     getOptionLabel={(u) => u.name}
                     placeholder="-- اختر الوحدة --"
@@ -856,6 +880,32 @@ export const PurchaseOrdersPage: React.FC = () => {
                     </p>
                   )}
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                  المخزن الوجهة{" "}
+                  <span className="text-[10px] text-app-label-tertiary font-normal">
+                    (اختياري — يُحدَّد هنا أو عند وصول الشحنة)
+                  </span>
+                </label>
+                <SearchableSelect<Warehouse>
+                  options={destinationWarehouseOptions}
+                  value={
+                    destinationWarehouseOptions.find(
+                      (w) => w.id === destinationWarehouseId,
+                    ) ?? null
+                  }
+                  onChange={(w) => setDestinationWarehouseId(w ? w.id : "")}
+                  getOptionId={(w) => w.id}
+                  getOptionLabel={(w) => w.name}
+                  getOptionSearchText={(w) => `${w.name} ${w.location_type ?? ""}`}
+                  placeholder="-- اختر المخزن الوجهة --"
+                />
+                <p className="mt-1 text-[10px] text-app-label-tertiary leading-relaxed">
+                  عند اكتمال أمر الشراء (مستلم ومدفوع) ستُضاف الأصناف تلقائياً إلى هذا المخزن.
+                  يمكنك تجاوزه لاحقاً في خطوة الوصول إلى المخزن للأوامر الخارجية.
+                </p>
               </div>
 
               <div className="grid grid-cols-3 gap-2">
@@ -1142,7 +1192,18 @@ export const PurchaseOrdersPage: React.FC = () => {
                     <span className="font-bold text-emerald-600 font-mono">
                       {formatNumber(getPurchaseOrderTotal(selectedOrder))}{" "}
                       {selectedOrder.currency}
-                    </span>
+                    </span>{" "}
+                    | المخزن الوجهة:{" "}
+                    {selectedOrder.resolved_warehouse_id ? (
+                      <span className="font-bold text-app-accent">
+                        {selectedOrder.destination_warehouse?.name ??
+                          (selectedOrder.arrived_warehouse?.name ?? "—")}
+                      </span>
+                    ) : (
+                      <span className="font-bold text-app-status-danger">
+                        غير محدد
+                      </span>
+                    )}
                   </DialogDescription>
                 </>
               )}
