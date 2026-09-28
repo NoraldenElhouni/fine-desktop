@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./pages/App";
+import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 
 const queryClient = new QueryClient();
 const rootElement = document.getElementById("root");
@@ -10,7 +11,9 @@ if (!rootElement) {
 const root = createRoot(rootElement);
 
 root.render(
-  <QueryClientProvider client={queryClient}>
-    <App />
-  </QueryClientProvider>,
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <App />
+    </QueryClientProvider>
+  </ErrorBoundary>,
 );

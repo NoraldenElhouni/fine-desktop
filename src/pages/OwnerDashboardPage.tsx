@@ -320,7 +320,7 @@ export const OwnerDashboardPage: React.FC = () => {
                   {item.status === "paid" ? "مدفوع" : "بانتظار"})
                 </div>
                 <div className="text-[10px] font-mono text-app-label-secondary">
-                  وحدة {item.operating_unit_id.slice(0, 8)} ·{" "}
+                  وحدة {item.operating_unit_id ? item.operating_unit_id.slice(0, 8) : "عامة"} ·{" "}
                   {formatNumber(item.amount)} · {item.category ?? "—"}
                 </div>
               </div>
@@ -331,7 +331,7 @@ export const OwnerDashboardPage: React.FC = () => {
                   تكلفة رأسمالية — {item.type}
                 </div>
                 <div className="text-[10px] font-mono text-app-label-secondary">
-                  أمر استيراد {item.import_order_id.slice(0, 8)} ·{" "}
+                  أمر شراء {(item.purchase_order_id ?? item.import_order_id ?? "").slice(0, 8)} ·{" "}
                   {formatNumber(item.amount)} {item.currency}
                 </div>
               </div>

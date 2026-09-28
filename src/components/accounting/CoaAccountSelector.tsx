@@ -16,6 +16,11 @@ export interface CoaAccountSelectorProps {
   newAccount: NewCoaAccountPayload;
   onNewAccountChange: (payload: NewCoaAccountPayload) => void;
   preferredParentCode?: string;
+  /** When true, the auto-prefilled account name is the entity name verbatim
+   *  (e.g. "Acme Co"). When false (default), it is
+   *  `حساب ${entityTypeLabel} - ${defaultEntityName}` (e.g. "حساب المورد - Acme Co").
+   *  Clients and suppliers typically want plain; fixed assets keep the prefix. */
+  useEntityNameDirectly?: boolean;
 }
 
 export const CoaAccountSelector: React.FC<CoaAccountSelectorProps> = ({
@@ -29,6 +34,7 @@ export const CoaAccountSelector: React.FC<CoaAccountSelectorProps> = ({
   newAccount,
   onNewAccountChange,
   preferredParentCode,
+  useEntityNameDirectly = false,
 }) => {
   const { data: accounts = [], isLoading } = useAccounts();
 
@@ -70,26 +76,31 @@ export const CoaAccountSelector: React.FC<CoaAccountSelectorProps> = ({
       }
       if (candidate) {
         const suggestedCode = suggestNextCode(candidate);
+        const autoName = defaultEntityName
+          ? (useEntityNameDirectly ? defaultEntityName : `حساب ${entityTypeLabel} - ${defaultEntityName}`)
+          : "";
         onNewAccountChange({
           ...newAccount,
           parent_account_id: candidate.id,
           account_code: newAccount.account_code || suggestedCode,
-          name: newAccount.name || (defaultEntityName ? `حساب ${entityTypeLabel} - ${defaultEntityName}` : ""),
+          name: newAccount.name || autoName,
           currency: newAccount.currency || currency,
         });
       }
     }
-  }, [action, accounts, preferredParentCode]);
+  }, [action, accounts, preferredParentCode, useEntityNameDirectly]);
 
   // Keep name synced if user enters entity name and account name is empty
   useEffect(() => {
     if (action === "create_new" && defaultEntityName && !newAccount.name) {
       onNewAccountChange({
         ...newAccount,
-        name: `حساب ${entityTypeLabel} - ${defaultEntityName}`,
+        name: useEntityNameDirectly
+          ? defaultEntityName
+          : `حساب ${entityTypeLabel} - ${defaultEntityName}`,
       });
     }
-  }, [defaultEntityName, action]);
+  }, [defaultEntityName, action, useEntityNameDirectly]);
 
   const selectedParentAccount = useMemo(() => {
     return accounts.find((a) => a.id === newAccount.parent_account_id) || null;

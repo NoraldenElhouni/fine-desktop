@@ -129,7 +129,7 @@ export const MyAllocationApprovalsWidget: React.FC = () => {
               </div>
               <button
                 type="button"
-                onClick={() => navigate("/procurement/import-orders")}
+                onClick={() => navigate("/import-orders")}
                 className="text-[10px] font-bold text-app-accent hover:underline"
               >
                 فتح
@@ -139,7 +139,7 @@ export const MyAllocationApprovalsWidget: React.FC = () => {
               {l.status === "pending" && (
                 <button
                   type="button"
-                  onClick={() => handleApprove("landed_cost_line", l.id, { orderId: l.import_order_id })}
+                  onClick={() => handleApprove("landed_cost_line", l.id, { orderId: l.purchase_order_id ?? l.import_order_id ?? "" })}
                   className="flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1 text-[11px] font-bold text-white hover:opacity-90"
                 >
                   <ShieldCheck className="h-3.5 w-3.5" /> اعتماد
@@ -148,7 +148,7 @@ export const MyAllocationApprovalsWidget: React.FC = () => {
               {l.status === "approved" && (
                 <button
                   type="button"
-                  onClick={() => handleMarkPaid("landed_cost_line", l.id, { orderId: l.import_order_id })}
+                  onClick={() => handleMarkPaid("landed_cost_line", l.id, { orderId: l.purchase_order_id ?? l.import_order_id ?? "" })}
                   className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white hover:opacity-90"
                 >
                   <DollarSign className="h-3.5 w-3.5" /> تأكيد الدفع

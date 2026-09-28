@@ -1,5 +1,6 @@
 import apiClient from "../client";
 import type { Paginated } from "./accounting";
+import type { CoaAction, NewCoaAccountPayload } from "../../types/entities";
 
 export type DepreciationMethod = "straight_line" | "declining_balance";
 export type FixedAssetStatus = "active" | "under_maintenance" | "disposed";
@@ -25,6 +26,7 @@ export interface DepreciationEntry {
 export interface FixedAsset {
   id: string;
   operating_unit_id: string | null;
+  account_id: string | null;
   name: string;
   asset_code: string;
   acquisition_cost: string;
@@ -37,6 +39,7 @@ export interface FixedAsset {
   disposal_proceeds: string | null;
   disposed_at: string | null;
   operating_unit?: { id: string; name: string } | null;
+  account?: { id: string; account_code: string; name: string } | null;
   depreciation_entries?: DepreciationEntry[];
 }
 
@@ -57,6 +60,11 @@ export interface CreateAssetPayload {
   payment_source: "cash" | "payable";
   is_company_wide?: boolean;
   operating_unit_id?: string | null;
+  /** COA link — mirrors the client/supplier pattern. Omit to fall back to the
+   * universal "14" Fixed Assets account (legacy behaviour). */
+  coa_action?: CoaAction;
+  account_id?: string | null;
+  new_account?: NewCoaAccountPayload | null;
 }
 
 export const fixedAssetsApi = {

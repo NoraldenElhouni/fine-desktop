@@ -88,10 +88,11 @@ export function useReceivePurchaseOrder() {
 export function usePayLocalPurchaseOrder() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => payLocalPurchaseOrder(id),
-    onSuccess: (_, id) => {
+    mutationFn: ({ id, payload }: { id: string; payload: { payment_source_account_id: string } }) =>
+      payLocalPurchaseOrder(id, payload),
+    onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ["importOrders"] });
-      qc.invalidateQueries({ queryKey: ["importOrder", id] });
+      qc.invalidateQueries({ queryKey: ["importOrder", vars.id] });
       qc.invalidateQueries({ queryKey: ["cashAccounts"] });
     },
   });
