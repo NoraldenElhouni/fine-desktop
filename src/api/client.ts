@@ -2,7 +2,6 @@ import axios from "axios";
 import { useAuthStore } from "../stores/authStore";
 import { useServerConfigStore, normalizeServerUrl } from "../stores/serverConfigStore";
 import { useConflictStore } from "../stores/conflictStore";
-import { useUpdateStore } from "../stores/updateStore";
 
 const apiClient = axios.create({
   headers: {
@@ -101,20 +100,6 @@ apiClient.interceptors.response.use(
           must_change_password: true,
         });
       }
-    } else if (
-      error.response?.status === 426 ||
-      error.response?.data?.code === "FORCE_UPDATE_REQUIRED"
-    ) {
-      const data = error.response?.data || {};
-      useUpdateStore.getState().setForceUpdate(true, {
-        currentVersion:
-          data.current_version ||
-          (typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "1.0.24"),
-        requiredVersion: data.required_version || "",
-        latestVersion: data.latest_version || data.required_version || "",
-        updateUrl: data.update_url,
-        directDownloadUrl: data.direct_download_url,
-      });
     }
     return Promise.reject(error);
   },

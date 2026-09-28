@@ -6,10 +6,8 @@ import LoginPage from "./auth/LoginPage";
 import ChangePasswordPage from "./auth/ChangePasswordPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { ServerConfigDialog } from "../components/settings/ServerConfigDialog";
-import { ForcedUpdateModal } from "../components/update/ForcedUpdateModal";
-import { recordSystemVersion, checkUpdateStatus } from "../api/endpoints/system";
-import { useUpdateStore } from "../stores/updateStore";
-import Dashboard from "./Dashboard";
+import { UpdateModal } from "../components/update/UpdateModal";
+import { recordSystemVersion } from "../api/endpoints/system";
 import { OwnerDashboardPage } from "./OwnerDashboardPage";
 import { FinancialReportsPage } from "./accounting/FinancialReportsPage";
 import { BundleSalesReportPage } from "./reports/BundleSalesReportPage";
@@ -31,12 +29,12 @@ import { MaterialRequestsRoutes } from "../routes/MaterialRequestsRoutes";
 
 import { CategoryHubPage } from "./hub/CategoryHubPage";
 
-import SuppliersPage from "./procurement/SuppliersPage";
-import PurchaseOrdersPage from "./procurement/PurchaseOrdersPage";
-import TreasuryPage from "./treasury/TreasuryPage";
-
 import { AuthorizedRoute } from "../components/AuthorizedRoute";
 import { ALL_MANAGER_ROLES } from "../routes/routes.config";
+import { SuppliersPage } from "./procurement/SuppliersPage";
+import { PurchaseOrdersPage } from "./procurement/PurchaseOrdersPage";
+import { TreasuryPage } from "./treasury/TreasuryPage";
+import { Dashboard } from "./Dashboard";
 
 /**
  * The landing screen depends on who is looking: a company-wide role gets the
@@ -91,7 +89,11 @@ const App = () => {
           setVersionHud({ show: true, desktop: dVer, backend: null });
           recordSystemVersion(dVer)
             .then((res) => {
-              setVersionHud({ show: true, desktop: dVer, backend: res.backend_version });
+              setVersionHud({
+                show: true,
+                desktop: dVer,
+                backend: res.backend_version,
+              });
             })
             .catch(() => {
               setVersionHud({ show: true, desktop: dVer, backend: "offline" });
@@ -104,31 +106,6 @@ const App = () => {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
-
-  useEffect(() => {
-    const pollVersion = () => {
-      checkUpdateStatus()
-        .then((res) => {
-          if (res.is_update_required) {
-            useUpdateStore.getState().setForceUpdate(true, {
-              currentVersion:
-                typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "1.0.24",
-              requiredVersion: res.min_desktop_version || "",
-              latestVersion: res.latest_desktop_version || "",
-              updateUrl: res.update_url,
-              directDownloadUrl: res.direct_download_url,
-            });
-          }
-        })
-        .catch(() => {
-          // Ignore network errors during background heartbeat
-        });
-    };
-
-    pollVersion();
-    const interval = setInterval(pollVersion, 60000);
-    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -193,7 +170,21 @@ const App = () => {
             <Route
               path="employees/*"
               element={
-                <AuthorizedRoute allowedRoles={["owner", "admin", "hr-manager", "accounting-manager", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"]}>
+                <AuthorizedRoute
+                  allowedRoles={[
+                    "owner",
+                    "admin",
+                    "hr-manager",
+                    "accounting-manager",
+                    "unit_manager",
+                    "manager",
+                    "foam-manager",
+                    "cutter-manager",
+                    "furniture-manager",
+                    "store-manager",
+                    "procurement-manager",
+                  ]}
+                >
                   <EmployeesRoutes />
                 </AuthorizedRoute>
               }
@@ -201,7 +192,17 @@ const App = () => {
             <Route
               path="clients/*"
               element={
-                <AuthorizedRoute allowedRoles={["owner", "admin", "store-manager", "pos-cashier", "accounting-manager", "unit_manager", "manager"]}>
+                <AuthorizedRoute
+                  allowedRoles={[
+                    "owner",
+                    "admin",
+                    "store-manager",
+                    "pos-cashier",
+                    "accounting-manager",
+                    "unit_manager",
+                    "manager",
+                  ]}
+                >
                   <ClientsRoutes />
                 </AuthorizedRoute>
               }
@@ -217,7 +218,22 @@ const App = () => {
             <Route
               path="inventory/*"
               element={
-                <AuthorizedRoute allowedRoles={["owner", "admin", "inventory-manager", "foam-manager", "foam-operator", "cutter-manager", "cutter-operator", "furniture-manager", "assembler", "store-manager", "unit_manager", "manager"]}>
+                <AuthorizedRoute
+                  allowedRoles={[
+                    "owner",
+                    "admin",
+                    "inventory-manager",
+                    "foam-manager",
+                    "foam-operator",
+                    "cutter-manager",
+                    "cutter-operator",
+                    "furniture-manager",
+                    "assembler",
+                    "store-manager",
+                    "unit_manager",
+                    "manager",
+                  ]}
+                >
                   <InventoryRoutes />
                 </AuthorizedRoute>
               }
@@ -225,7 +241,16 @@ const App = () => {
             <Route
               path="manufacturing/*"
               element={
-                <AuthorizedRoute allowedRoles={["owner", "admin", "foam-manager", "foam-operator", "unit_manager", "manager"]}>
+                <AuthorizedRoute
+                  allowedRoles={[
+                    "owner",
+                    "admin",
+                    "foam-manager",
+                    "foam-operator",
+                    "unit_manager",
+                    "manager",
+                  ]}
+                >
                   <ManufacturingRoutes />
                 </AuthorizedRoute>
               }
@@ -233,7 +258,16 @@ const App = () => {
             <Route
               path="cutter/*"
               element={
-                <AuthorizedRoute allowedRoles={["owner", "admin", "cutter-manager", "cutter-operator", "unit_manager", "manager"]}>
+                <AuthorizedRoute
+                  allowedRoles={[
+                    "owner",
+                    "admin",
+                    "cutter-manager",
+                    "cutter-operator",
+                    "unit_manager",
+                    "manager",
+                  ]}
+                >
                   <CutterRoutes />
                 </AuthorizedRoute>
               }
@@ -241,7 +275,16 @@ const App = () => {
             <Route
               path="settings/*"
               element={
-                <AuthorizedRoute allowedRoles={["owner", "admin", "furniture-manager", "assembler", "unit_manager", "manager"]}>
+                <AuthorizedRoute
+                  allowedRoles={[
+                    "owner",
+                    "admin",
+                    "furniture-manager",
+                    "assembler",
+                    "unit_manager",
+                    "manager",
+                  ]}
+                >
                   <SettingsRoutes />
                 </AuthorizedRoute>
               }
@@ -249,7 +292,17 @@ const App = () => {
             <Route
               path="material-requests"
               element={
-                <AuthorizedRoute allowedRoles={["owner", "admin", "furniture-manager", "cutter-manager", "foam-manager", "unit_manager", "manager"]}>
+                <AuthorizedRoute
+                  allowedRoles={[
+                    "owner",
+                    "admin",
+                    "furniture-manager",
+                    "cutter-manager",
+                    "foam-manager",
+                    "unit_manager",
+                    "manager",
+                  ]}
+                >
                   <MaterialRequestsRoutes />
                 </AuthorizedRoute>
               }
@@ -257,7 +310,17 @@ const App = () => {
             <Route
               path="sales/*"
               element={
-                <AuthorizedRoute allowedRoles={["owner", "admin", "store-manager", "pos-cashier", "cutter-manager", "unit_manager", "manager"]}>
+                <AuthorizedRoute
+                  allowedRoles={[
+                    "owner",
+                    "admin",
+                    "store-manager",
+                    "pos-cashier",
+                    "cutter-manager",
+                    "unit_manager",
+                    "manager",
+                  ]}
+                >
                   <SalesRoutes />
                 </AuthorizedRoute>
               }
@@ -267,7 +330,21 @@ const App = () => {
             <Route
               path="reports"
               element={
-                <AuthorizedRoute allowedRoles={["owner", "admin", "accounting-manager", "treasury-officer", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"]}>
+                <AuthorizedRoute
+                  allowedRoles={[
+                    "owner",
+                    "admin",
+                    "accounting-manager",
+                    "treasury-officer",
+                    "unit_manager",
+                    "manager",
+                    "foam-manager",
+                    "cutter-manager",
+                    "furniture-manager",
+                    "store-manager",
+                    "procurement-manager",
+                  ]}
+                >
                   <FinancialReportsPage />
                 </AuthorizedRoute>
               }
@@ -275,7 +352,16 @@ const App = () => {
             <Route
               path="reports/bundles"
               element={
-                <AuthorizedRoute allowedRoles={["owner", "admin", "store-manager", "pos-cashier", "unit_manager", "manager"]}>
+                <AuthorizedRoute
+                  allowedRoles={[
+                    "owner",
+                    "admin",
+                    "store-manager",
+                    "pos-cashier",
+                    "unit_manager",
+                    "manager",
+                  ]}
+                >
                   <BundleSalesReportPage />
                 </AuthorizedRoute>
               }
@@ -294,17 +380,26 @@ const App = () => {
         >
           <div className="flex items-center gap-2">
             <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-semibold text-neutral-300">Fine ERP Build</span>
+            <span className="font-semibold text-neutral-300">
+              Fine ERP Build
+            </span>
           </div>
           <span className="text-neutral-600">|</span>
           <div className="font-mono flex items-center gap-2">
             <span>
-              Desktop: <strong className="text-white">v{versionHud.desktop}</strong>
+              Desktop:{" "}
+              <strong className="text-white">v{versionHud.desktop}</strong>
             </span>
             <span className="text-neutral-600">•</span>
             <span>
               Backend:{" "}
-              <strong className={versionHud.backend === "offline" ? "text-rose-400" : "text-emerald-400"}>
+              <strong
+                className={
+                  versionHud.backend === "offline"
+                    ? "text-rose-400"
+                    : "text-emerald-400"
+                }
+              >
                 {versionHud.backend ? `v${versionHud.backend}` : "..."}
               </strong>
             </span>
@@ -319,7 +414,7 @@ const App = () => {
           </button>
         </div>
       )}
-      <ForcedUpdateModal />
+      <UpdateModal />
     </Router>
   );
 };

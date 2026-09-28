@@ -3,7 +3,6 @@ import { contextBridge, ipcRenderer } from "electron";
 const api = {
   // App lifecycle
   getAppVersion: () => ipcRenderer.invoke("app:get-version"),
-  checkForUpdates: () => ipcRenderer.invoke("app:check-updates"),
 
   // Window controls
   minimize: () => ipcRenderer.send("window:minimize"),
@@ -20,20 +19,21 @@ const api = {
   showNotification: (title: string, body: string) =>
     ipcRenderer.send("notification:show", { title, body }),
 
-  // Auto-updater
-  startAutoUpdate: (options?: { downloadUrl?: string }) =>
-    ipcRenderer.invoke("update:start-auto-update", options),
-  installUpdateAndRestart: () =>
-    ipcRenderer.invoke("update:install-and-restart"),
-  downloadDirectInstaller: (url: string) =>
-    ipcRenderer.invoke("update:download-direct-installer", { url }),
+  // Auto-updater (electron-updater, GitHub releases)
+  checkForUpdates: () => ipcRenderer.invoke("update:check"),
+  installUpdateAndRestart: () => ipcRenderer.invoke("update:install-and-restart"),
+  onUpdateStatus: (cb: (status: string, version?: string) => void) => {
+    const handler = (_: unknown, status: string, version?: string) => cb(status, version);
+    ipcRenderer.on("update:status", handler);
+    return () => ipcRenderer.removeListener("update:status", handler);
+  },
   onUpdateProgress: (cb: (data: { percent: number; speed?: string; transferred?: number; total?: number }) => void) => {
     const handler = (_: unknown, data: any) => cb(data);
     ipcRenderer.on("update:progress", handler);
     return () => ipcRenderer.removeListener("update:progress", handler);
   },
-  onUpdateDownloaded: (cb: () => void) => {
-    const handler = () => cb();
+  onUpdateDownloaded: (cb: (version?: string) => void) => {
+    const handler = (_: unknown, version?: string) => cb(version);
     ipcRenderer.on("update:downloaded", handler);
     return () => ipcRenderer.removeListener("update:downloaded", handler);
   },

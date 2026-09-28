@@ -11,7 +11,6 @@ declare global {
   interface Window {
     electronAPI?: {
       getAppVersion: () => Promise<string>;
-      checkForUpdates: () => Promise<unknown>;
       minimize: () => void;
       maximize: () => void;
       close: () => void;
@@ -19,12 +18,12 @@ declare global {
       onNetworkChange: (cb: (online: boolean) => void) => void;
       showNotification: (title: string, body: string) => void;
 
-      // Auto-updater methods & listeners
-      startAutoUpdate: (options?: { downloadUrl?: string }) => Promise<{ success: boolean; message?: string }>;
+      // Auto-updater methods & listeners (electron-updater, GitHub releases)
+      checkForUpdates: () => Promise<{ success: boolean; message?: string }>;
       installUpdateAndRestart: () => Promise<void>;
-      downloadDirectInstaller: (url: string) => Promise<{ success: boolean; message?: string }>;
+      onUpdateStatus: (cb: (status: string, version?: string) => void) => () => void;
       onUpdateProgress: (cb: (data: UpdateProgressData) => void) => () => void;
-      onUpdateDownloaded: (cb: () => void) => () => void;
+      onUpdateDownloaded: (cb: (version?: string) => void) => () => void;
       onUpdateError: (cb: (errorMsg: string) => void) => () => void;
     };
   }

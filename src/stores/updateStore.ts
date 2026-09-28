@@ -1,72 +1,48 @@
 import { create } from "zustand";
 
-export type UpdateStatus = "idle" | "checking" | "downloading" | "downloaded" | "error";
-
-export interface UpdateDetails {
-  currentVersion: string;
-  requiredVersion: string;
-  latestVersion?: string;
-  updateUrl?: string;
-  directDownloadUrl?: string;
-  status: UpdateStatus;
-  progressPercent: number;
-  downloadSpeed?: string;
-  errorMessage?: string | null;
-}
+export type UpdateStatus =
+  | "idle"
+  | "checking"
+  | "available"
+  | "not-available"
+  | "downloading"
+  | "downloaded"
+  | "error";
 
 interface UpdateState {
-  isForceUpdateRequired: boolean;
-  details: UpdateDetails;
-  setForceUpdate: (required: boolean, details?: Partial<UpdateDetails>) => void;
+  status: UpdateStatus;
+  version?: string;
+  progressPercent: number;
+  downloadSpeed?: string;
+  errorMessage: string | null;
+  setStatus: (status: UpdateStatus, version?: string) => void;
   setProgress: (percent: number, speed?: string) => void;
-  setStatus: (status: UpdateStatus, errorMessage?: string | null) => void;
+  setError: (message: string) => void;
   reset: () => void;
 }
 
-const defaultDetails: UpdateDetails = {
-  currentVersion: typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "1.0.24",
-  requiredVersion: "",
-  latestVersion: "",
-  updateUrl: "https://github.com/NoraldenElhouni/fine-desktop/releases/latest",
-  status: "idle",
+const initialState = {
+  status: "idle" as UpdateStatus,
+  version: undefined as string | undefined,
   progressPercent: 0,
-  downloadSpeed: "",
-  errorMessage: null,
+  downloadSpeed: undefined as string | undefined,
+  errorMessage: null as string | null,
 };
 
 export const useUpdateStore = create<UpdateState>((set) => ({
-  isForceUpdateRequired: false,
-  details: { ...defaultDetails },
-  setForceUpdate: (required, newDetails) =>
+  ...initialState,
+  setStatus: (status, version) =>
     set((state) => ({
-      isForceUpdateRequired: required,
-      details: {
-        ...state.details,
-        ...(newDetails || {}),
-        status: newDetails?.status ?? (required ? "checking" : state.details.status),
-      },
+      status,
+      version: version ?? state.version,
+      progressPercent: status === "downloaded" ? 100 : state.progressPercent,
     })),
   setProgress: (percent, speed) =>
-    set((state) => ({
-      details: {
-        ...state.details,
-        status: "downloading",
-        progressPercent: Math.min(100, Math.max(0, percent)),
-        downloadSpeed: speed || state.details.downloadSpeed,
-      },
-    })),
-  setStatus: (status, errorMessage = null) =>
-    set((state) => ({
-      details: {
-        ...state.details,
-        status,
-        errorMessage: errorMessage !== undefined ? errorMessage : state.details.errorMessage,
-        progressPercent: status === "downloaded" ? 100 : state.details.progressPercent,
-      },
-    })),
-  reset: () =>
     set({
-      isForceUpdateRequired: false,
-      details: { ...defaultDetails },
+      status: "downloading",
+      progressPercent: Math.min(100, Math.max(0, percent)),
+      downloadSpeed: speed,
     }),
+  setError: (message) => set({ status: "error", errorMessage: message }),
+  reset: () => set({ ...initialState }),
 }));
