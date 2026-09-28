@@ -62,6 +62,19 @@ export function useDeleteAccount() {
   });
 }
 
+export function useReparentAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, parentAccountId }: { id: string; parentAccountId: string }) =>
+      accountingApi.reparentAccount(id, parentAccountId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+      qc.invalidateQueries({ queryKey: ["account"] });
+      qc.invalidateQueries({ queryKey: ["trialBalance"] });
+    },
+  });
+}
+
 export function useAccount(accountId?: string) {
   const companyWide = useIsCompanyWide();
   return useQuery({
