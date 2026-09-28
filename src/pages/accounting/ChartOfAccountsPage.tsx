@@ -9,6 +9,7 @@ import { formatNumber } from "../../lib/utils/format";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useChartOfAccountsLedgerColumns } from "../../components/table-columns/chartOfAccountsColumns";
 import { AccountDetailsDialog } from "../../components/accounting/AccountDetailsDialog";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import {
   Dialog,
   DialogContent,
@@ -110,16 +111,6 @@ const CreateAccountDialog: React.FC<CreateAccountDialogProps> = ({
 
   const createAccountMutation = useCreateAccount();
 
-  const handleParentChange = (parentId: string) => {
-    setParentAccountId(parentId);
-    if (parentId) {
-      const parent = accounts.find((a) => a.id === parentId);
-      if (parent) {
-        setType(parent.type);
-      }
-    }
-  };
-
   const selectedParent = useMemo(
     () => accounts.find((a) => a.id === parentAccountId),
     [accounts, parentAccountId]
@@ -188,18 +179,19 @@ const CreateAccountDialog: React.FC<CreateAccountDialogProps> = ({
               <label className="mb-1 block text-xs font-semibold text-app-label-secondary">
                 الحساب الأب (اختياري)
               </label>
-              <select
-                value={parentAccountId}
-                onChange={(e) => handleParentChange(e.target.value)}
-                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-              >
-                <option value="">بدون حساب أب (حساب رئيسي)</option>
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.account_code} - {a.name} ({ACCOUNT_TYPE_LABEL[a.type]})
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect<Account>
+                options={accounts}
+                value={parentAccountId ? accounts.find((a) => a.id === parentAccountId) ?? null : null}
+                onChange={(acc) => {
+                  setParentAccountId(acc ? acc.id : "");
+                  if (acc) setType(acc.type);
+                }}
+                getOptionId={(acc) => acc.id}
+                getOptionLabel={(acc) => `${acc.account_code} - ${acc.name} (${ACCOUNT_TYPE_LABEL[acc.type]})`}
+                getOptionSearchText={(acc) => `${acc.account_code} ${acc.name}`}
+                placeholder="اختر الحساب الأب (اختياري) — اتركه فارغًا لإنشاء حساب رئيسي"
+                size="sm"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
