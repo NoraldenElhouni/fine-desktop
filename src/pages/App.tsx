@@ -6,7 +6,6 @@ import LoginPage from "./auth/LoginPage";
 import ChangePasswordPage from "./auth/ChangePasswordPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { ServerConfigDialog } from "../components/settings/ServerConfigDialog";
-import { UpdateModal } from "../components/update/UpdateModal";
 import { recordSystemVersion } from "../api/endpoints/system";
 import { OwnerDashboardPage } from "./OwnerDashboardPage";
 import { FinancialReportsPage } from "./accounting/FinancialReportsPage";
@@ -414,7 +413,6 @@ const App = () => {
           </button>
         </div>
       )}
-      <UpdateModal />
     </Router>
   );
 };
