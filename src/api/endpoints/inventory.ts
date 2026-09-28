@@ -1,5 +1,6 @@
 import apiClient from "../client";
 import { ItemCategory } from "./categories";
+import type { InventoryItemAccount } from "./inventoryItemAccounts";
 
 export const UOM_LABELS: Record<string, string> = {
   kg: "كجم",
@@ -43,6 +44,8 @@ export interface InventoryItem {
   price_basis?: PriceBasis;
   /** Only with `with_stock=1`: available quantity on the current unit's shelves. */
   available_quantity?: number | string | null;
+  /** Per-event chart-of-accounts overrides, when eager-loaded by index()/show(). */
+  accounts?: InventoryItemAccount[];
   created_at: string;
   updated_at: string;
 }
