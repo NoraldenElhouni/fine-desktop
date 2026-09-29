@@ -1,8 +1,13 @@
 import { useMemo } from "react";
-import { Pencil, Tags } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Pencil, Tags } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { InventoryItem, UOM_LABELS } from "../../api/endpoints/inventory";
 import { ITEM_TYPE_LABELS, InventoryItemType } from "../../api/endpoints/categories";
+import {
+  INVENTORY_EVENT_LABELS,
+  REQUIRED_INVENTORY_EVENTS,
+  type InventoryEventType,
+} from "../../api/endpoints/inventoryItemAccounts";
 import { formatDate, formatNumber } from "../../lib/utils/format";
 
 export interface UseInventoryItemsColumnsArgs {
@@ -75,6 +80,69 @@ export function useInventoryItemsColumns({ onEdit }: UseInventoryItemsColumnsArg
             );
           }
           return <span className="font-semibold text-app-label-primary text-xs">{uomLabel}</span>;
+        },
+      },
+      {
+        id: "accounts",
+        header: "الحسابات",
+        enableSorting: false,
+        cell: ({ row }) => {
+          const accounts = row.original.accounts ?? [];
+          const byType = new Map<InventoryEventType, { id: string; account_code: string; name: string }>();
+          for (const row_ of accounts) {
+            if (row_.account) byType.set(row_.event_type, row_.account);
+          }
+          const linkedCount = byType.size;
+          const missingRequired = REQUIRED_INVENTORY_EVENTS.filter((e) => !byType.has(e));
+          const allRequired = missingRequired.length === 0;
+
+          const chips: React.ReactNode[] = [];
+          for (const ev of REQUIRED_INVENTORY_EVENTS) {
+            const acc = byType.get(ev);
+            if (acc) {
+              chips.push(
+                <span
+                  key={ev}
+                  className="inline-flex items-center gap-1 rounded-full bg-app-bg-secondary border border-app-separator px-2 py-0.5 text-[10px] font-mono font-semibold text-app-label-primary"
+                  title={`${INVENTORY_EVENT_LABELS[ev]} → ${acc.name}`}
+                >
+                  <span className="text-app-accent">{acc.account_code}</span>
+                  <span className="text-app-label-tertiary">·</span>
+                  <span>{INVENTORY_EVENT_LABELS[ev]}</span>
+                </span>,
+              );
+            } else {
+              chips.push(
+                <span
+                  key={ev}
+                  className="inline-flex items-center gap-1 rounded-full border border-dashed border-app-status-danger/40 bg-app-status-danger/5 px-2 py-0.5 text-[10px] font-semibold text-app-status-danger"
+                  title={`${INVENTORY_EVENT_LABELS[ev]} غير مربوط`}
+                >
+                  <AlertTriangle className="h-3 w-3" />
+                  {INVENTORY_EVENT_LABELS[ev]}
+                </span>,
+              );
+            }
+          }
+
+          return (
+            <div className="flex flex-col gap-1 items-start">
+              <div className="flex flex-wrap gap-1">{chips}</div>
+              <span
+                className={`text-[10px] font-semibold ${
+                  allRequired ? "text-app-status-positive" : "text-app-status-danger"
+                }`}
+              >
+                {allRequired ? (
+                  <span className="inline-flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" /> مكتمل ({linkedCount}/12)
+                  </span>
+                ) : (
+                  <span>ينقصه {missingRequired.length} حدث ({linkedCount}/12)</span>
+                )}
+              </span>
+            </div>
+          );
         },
       },
       {

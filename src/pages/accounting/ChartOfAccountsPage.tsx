@@ -9,6 +9,7 @@ import { formatNumber } from "../../lib/utils/format";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useChartOfAccountsLedgerColumns } from "../../components/table-columns/chartOfAccountsColumns";
 import { AccountDetailsDialog } from "../../components/accounting/AccountDetailsDialog";
+import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { ChangeAccountParentDialog } from "../../components/accounting/ChangeAccountParentDialog";
 import {
   Dialog,
@@ -48,6 +49,34 @@ const buildTree = (accounts: Account[]): TreeNode[] => {
   return attach(null);
 };
 
+const normalizeSearch = (input: string): string => input.trim().toLocaleLowerCase("ar-LY");
+
+/**
+ * Wrap matched substring of `text` (case-insensitive) with a yellow
+ * highlight span. Returns an array of React nodes safe to render inside a
+ * `<span>`. When there is no match, the original text is returned as a
+ * single string node.
+ */
+const highlightMatch = (text: string, term: string): React.ReactNode => {
+  if (!term) return text;
+  const normalizedTerm = normalizeSearch(term);
+  const normalizedText = text.toLocaleLowerCase("ar-LY");
+  const idx = normalizedText.indexOf(normalizedTerm);
+  if (idx < 0) return text;
+  const before = text.slice(0, idx);
+  const match = text.slice(idx, idx + term.length);
+  const after = text.slice(idx + term.length);
+  return (
+    <>
+      {before}
+      <mark className="rounded bg-yellow-200 px-0.5 text-inherit dark:bg-yellow-500/30">
+        {match}
+      </mark>
+      {after}
+    </>
+  );
+};
+
 /**
  * Prunes a tree (already built by `buildTree`) down to the 5 main root
  * accounts plus any account with real movement, plus whatever zero-movement
@@ -82,16 +111,6 @@ const CreateAccountDialog: React.FC<CreateAccountDialogProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const createAccountMutation = useCreateAccount();
-
-  const handleParentChange = (parentId: string) => {
-    setParentAccountId(parentId);
-    if (parentId) {
-      const parent = accounts.find((a) => a.id === parentId);
-      if (parent) {
-        setType(parent.type);
-      }
-    }
-  };
 
   const selectedParent = useMemo(
     () => accounts.find((a) => a.id === parentAccountId),
@@ -161,18 +180,19 @@ const CreateAccountDialog: React.FC<CreateAccountDialogProps> = ({
               <label className="mb-1 block text-xs font-semibold text-app-label-secondary">
                 الحساب الأب (اختياري)
               </label>
-              <select
-                value={parentAccountId}
-                onChange={(e) => handleParentChange(e.target.value)}
-                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-              >
-                <option value="">بدون حساب أب (حساب رئيسي)</option>
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.account_code} - {a.name} ({ACCOUNT_TYPE_LABEL[a.type]})
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect<Account>
+                options={accounts}
+                value={parentAccountId ? accounts.find((a) => a.id === parentAccountId) ?? null : null}
+                onChange={(acc) => {
+                  setParentAccountId(acc ? acc.id : "");
+                  if (acc) setType(acc.type);
+                }}
+                getOptionId={(acc) => acc.id}
+                getOptionLabel={(acc) => `${acc.account_code} - ${acc.name} (${ACCOUNT_TYPE_LABEL[acc.type]})`}
+                getOptionSearchText={(acc) => `${acc.account_code} ${acc.name}`}
+                placeholder="اختر الحساب الأب (اختياري) — اتركه فارغًا لإنشاء حساب رئيسي"
+                size="sm"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -269,6 +289,8 @@ export const ChartOfAccountsPage: React.FC = () => {
   const [selected, setSelected] = useState<Account | null>(null);
   const [ledgerPage, setLedgerPage] = useState(1);
   const [sideSearch, setSideSearch] = useState("");
+  const [treeSearch, setTreeSearch] = useState("");
+  const [savedExpandedIds, setSavedExpandedIds] = useState<Set<string>>(() => new Set());
   const [createOpen, setCreateOpen] = useState(false);
   const [detailsAccountId, setDetailsAccountId] = useState<string | null>(null);
   const [reparentAccountId, setReparentAccountId] = useState<string | null>(null);
@@ -279,6 +301,7 @@ export const ChartOfAccountsPage: React.FC = () => {
     setSelected(null);
     setLedgerPage(1);
     setSideSearch("");
+    setTreeSearch("");
   };
 
   const { hasRole } = usePermissions();
@@ -297,6 +320,84 @@ export const ChartOfAccountsPage: React.FC = () => {
     () => (view === "effected" ? pruneToEffected(fullTree) : fullTree),
     [view, fullTree],
   );
+
+  /**
+   * Apply the tree search filter: keep any node whose code or name matches,
+   * plus every ancestor of a matched node so the context is preserved. When
+   * the search box is empty, the original (effected/full) tree is returned.
+   */
+  const treeFilter = useMemo(() => {
+    const q = normalizeSearch(treeSearch);
+    if (!q) {
+      return { tree, matchedIds: new Set<string>(), ancestorIds: new Set<string>() };
+    }
+
+    const matched = new Set<string>();
+    const ancestors = new Set<string>();
+
+    const mark = (node: TreeNode, chain: string[]): boolean => {
+      const selfMatches = (() => {
+        const haystack = `${node.account.account_code} ${node.account.name}`.toLocaleLowerCase("ar-LY");
+        return haystack.includes(q);
+      })();
+
+      const nextChain = [...chain, node.account.id];
+      let anyChildMatches = false;
+      for (const child of node.children) {
+        if (mark(child, nextChain)) anyChildMatches = true;
+      }
+
+      if (selfMatches) {
+        matched.add(node.account.id);
+        for (const ancId of chain) ancestors.add(ancId);
+      } else if (anyChildMatches) {
+        ancestors.add(node.account.id);
+      }
+
+      return selfMatches || anyChildMatches;
+    };
+
+    for (const root of tree) mark(root, []);
+
+    const prune = (node: TreeNode): TreeNode | null => {
+      const keptChildren = node.children
+        .map(prune)
+        .filter((c): c is TreeNode => c !== null);
+      if (matched.has(node.account.id) || keptChildren.length > 0) {
+        return { account: node.account, children: keptChildren };
+      }
+      return null;
+    };
+
+    const filtered: TreeNode[] = [];
+    for (const root of tree) {
+      const kept = prune(root);
+      if (kept !== null) filtered.push(kept);
+    }
+
+    return { tree: filtered, matchedIds: matched, ancestorIds: ancestors };
+  }, [tree, treeSearch]);
+
+  const visibleTree = treeFilter.tree;
+
+  // While a search is active, auto-expand every ancestor of a match so the
+  // context renders. Save the user's prior expansion set so we can restore
+  // it when they clear the search.
+  React.useEffect(() => {
+    const term = treeSearch.trim();
+    if (term === "") {
+      // restore prior expansion
+      if (savedExpandedIds.size > 0 || expandedIds.size > 0) {
+        setExpandedIds(savedExpandedIds);
+        setSavedExpandedIds(new Set());
+      }
+    } else {
+      if (savedExpandedIds.size === 0) {
+        setSavedExpandedIds(expandedIds);
+      }
+      setExpandedIds(treeFilter.ancestorIds);
+    }
+  }, [treeSearch, treeFilter.ancestorIds]);
 
   const toggleAccount = (id: string) => {
     setExpandedIds((prev) => {
@@ -338,13 +439,15 @@ export const ChartOfAccountsPage: React.FC = () => {
   const renderNode = (node: TreeNode, depth: number): React.ReactNode => {
     const hasChildren = node.children.length > 0;
     const isExpanded = expandedIds.has(node.account.id);
+    const searchTerm = treeSearch.trim();
+    const isMatch = searchTerm !== "" && treeFilter.matchedIds.has(node.account.id);
 
     return (
       <React.Fragment key={node.account.id}>
         <div
           className={`w-full flex items-center gap-2 px-4 py-2 text-start hover:bg-app-fill-f1 transition-colors ${
             selected?.id === node.account.id ? "bg-app-accent-subtle" : ""
-          }`}
+          } ${isMatch ? "bg-yellow-50 dark:bg-yellow-500/10" : ""}`}
           style={{ paddingInlineStart: `${16 + depth * 20}px` }}
         >
           {hasChildren ? (
@@ -379,14 +482,14 @@ export const ChartOfAccountsPage: React.FC = () => {
             className="flex-1 flex items-center gap-3 text-start min-w-0"
           >
             <span className="font-mono font-bold text-app-accent text-xs">
-              {node.account.account_code}
+              {searchTerm ? highlightMatch(node.account.account_code, searchTerm) : node.account.account_code}
             </span>
             <span
               className={`text-xs truncate ${
                 node.children.length > 0 ? "font-bold" : ""
               } text-app-label-primary`}
             >
-              {node.account.name}
+              {searchTerm ? highlightMatch(node.account.name, searchTerm) : node.account.name}
             </span>
             <span
               className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
@@ -508,13 +611,43 @@ export const ChartOfAccountsPage: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
+          <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-app-separator bg-app-bg-secondary p-2.5">
+            <div className="relative flex-1">
+              <Search className="absolute start-2.5 top-2 h-3.5 w-3.5 text-app-label-tertiary pointer-events-none" />
+              <input
+                type="text"
+                value={treeSearch}
+                onChange={(e) => setTreeSearch(e.target.value)}
+                placeholder="بحث برمز الحساب أو اسمه…"
+                className="w-full rounded-lg border border-app-separator bg-app-bg-primary py-1.5 pe-2 ps-7 text-xs text-app-label-primary placeholder:text-app-label-tertiary focus:outline-none focus:ring-1 focus:ring-app-accent"
+                dir="rtl"
+              />
+            </div>
+            {treeSearch && (
+              <button
+                type="button"
+                onClick={() => setTreeSearch("")}
+                className="rounded-lg border border-app-separator p-1.5 text-app-label-secondary hover:bg-app-fill-f1"
+                title="مسح البحث"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <span className="text-[10px] font-semibold text-app-label-tertiary">
+              {treeSearch ? `${treeFilter.matchedIds.size} نتيجة` : `${(accounts ?? []).length} حساب`}
+            </span>
+          </div>
           {isLoading ? (
             <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">
               جارٍ التحميل…
             </div>
+          ) : visibleTree.length === 0 ? (
+            <div className="flex h-48 items-center justify-center text-xs text-app-label-secondary">
+              لا توجد حسابات مطابقة للبحث.
+            </div>
           ) : (
             <div className="divide-y divide-app-separator">
-              {tree.map((node) => renderNode(node, 0))}
+              {visibleTree.map((node) => renderNode(node, 0))}
             </div>
           )}
         </div>

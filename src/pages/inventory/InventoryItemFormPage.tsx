@@ -9,6 +9,7 @@ import {
 } from "../../hooks/useInventory";
 import { useItemCategories } from "../../hooks/useCategories";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { InventoryItemAccountsEditor } from "../../components/inventory/InventoryItemAccountsEditor";
 import {
   Field,
   GuidedFormLoading,
@@ -590,6 +591,14 @@ const InventoryItemFormPage: React.FC = () => {
             </span>
           </span>
         )}
+      </Question>
+
+      <Question
+        number="6"
+        title="ربط الحسابات (دليل الحسابات)"
+        subtitle="كل صنف يجب أن يُربط بحساب واحد على الأقل لكل حدث محاسبي — النظام يرفض أي حركة على صنف غير مكتمل الربط"
+      >
+        <InventoryItemAccountsEditor itemId={id ?? null} />
       </Question>
     </GuidedFormPage>
   );
