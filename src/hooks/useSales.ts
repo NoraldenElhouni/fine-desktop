@@ -74,7 +74,7 @@ export function useDeliveryNote(id?: string, enabled = true) {
   });
 }
 
-/** Treasuries and banks this unit's POS can receive money into. */
+/** Company-wide treasuries and banks the POS can receive money into. */
 export function usePaymentAccounts() {
   return useQuery({
     queryKey: ["paymentAccounts"],

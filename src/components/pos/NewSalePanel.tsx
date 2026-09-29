@@ -474,7 +474,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
               </select>
               {treasuries.length === 0 && (
                 <p className="text-[11px] text-app-status-warning">
-                  لا توجد {method === "cash" ? "خزينة" : "حسابات مصرفية"} لهذه الوحدة — أضفها من صفحة الخزينة.
+                  لا توجد {method === "cash" ? "خزينة" : "حسابات مصرفية"} — أضفها من صفحة الخزينة.
                 </p>
               )}
             </div>

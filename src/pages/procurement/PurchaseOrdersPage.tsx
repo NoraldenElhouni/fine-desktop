@@ -677,7 +677,7 @@ export const PurchaseOrdersPage: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold text-app-label-primary flex items-center gap-2">
             <Package className="h-6 w-6 text-app-accent" />
-            <span>منظومة أوامر الشراء</span>
+            <span>مشتريات</span>
           </h1>
           <p className="text-xs text-app-label-secondary mt-1">
             أوامر الشراء الأجنبية مع دورة المسار الكامل، والأوامر المحلية بسلسلة الحالة المختصرة (موافقة ← استلام ← سداد ← إقفال)
