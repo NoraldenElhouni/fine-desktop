@@ -2,10 +2,14 @@ import { app, BrowserWindow, shell, session, nativeImage, ipcMain } from "electr
 import path from "node:path";
 import fs from "node:fs";
 import started from "electron-squirrel-startup";
-import { setupUpdater } from "./updater";
+import { updateElectronApp } from "update-electron-app";
 
 app.setName("Fine ERP");
 process.title = "Fine ERP";
+
+if (app.isPackaged) {
+  updateElectronApp();
+}
 
 if (process.platform === "win32") {
   app.setAppUserModelId("Fine ERP");
@@ -133,7 +137,6 @@ app.on("ready", () => {
     callback({ responseHeaders });
   });
   createWindow();
-  setupUpdater(() => mainWindow);
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common

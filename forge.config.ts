@@ -14,6 +14,7 @@ const config: ForgeConfig = {
     asar: true,
     icon: "./assets/icons/icon",
     name: "Fine ERP",
+    executableName: "fine-desktop",
   },
   rebuildConfig: {},
   makers: [
