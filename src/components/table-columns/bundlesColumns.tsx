@@ -20,21 +20,6 @@ export function useBundlesColumns({ onEdit, onDelete }: UseBundlesColumnsArgs = 
         cell: ({ row }) => row.original.name,
       },
       {
-        id: "scope",
-        header: "النطاق",
-        enableSorting: false,
-        cell: ({ row }) =>
-          row.original.operating_unit_id ? (
-            <span className="rounded-full bg-app-fill-f1 px-2 py-0.5 text-[10px] font-semibold text-app-label-secondary">
-              خاصة بوحدة
-            </span>
-          ) : (
-            <span className="rounded-full bg-app-accent-subtle px-2 py-0.5 text-[10px] font-semibold text-app-accent">
-              مشتركة لكل الوحدات
-            </span>
-          ),
-      },
-      {
         id: "items",
         header: "الأصناف",
         enableSorting: false,

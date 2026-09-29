@@ -17,8 +17,6 @@ export interface BundleItem {
 
 export interface Bundle {
   id: string;
-  /** null = shared across every operating unit; set = specific to one unit. */
-  operating_unit_id?: string | null;
   name: string;
   description?: string | null;
   items: BundleItem[];

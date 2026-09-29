@@ -25,7 +25,6 @@ export const ITEM_TYPE_LABELS: Record<InventoryItemType, string> = {
 
 export interface ItemCategory {
   id: string;
-  operating_unit_id?: string;
   parent_id?: string | null;
   name: string;
   /** This category's own segment of the hierarchical code, e.g. '01'. */
