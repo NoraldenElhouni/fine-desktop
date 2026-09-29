@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { ListTree, Plus, X, Eye, Maximize2, Search, RotateCcw, ExternalLink, ChevronDown, GitMerge } from "lucide-react";
+import { ListTree, Plus, X, Eye, Maximize2, Search, RotateCcw, ExternalLink, ChevronDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { isAxiosError } from "axios";
 import { useAccounts, useAccountLedger, useCreateAccount } from "../../hooks/useAccounting";
@@ -10,7 +10,7 @@ import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useChartOfAccountsLedgerColumns } from "../../components/table-columns/chartOfAccountsColumns";
 import { AccountDetailsDialog } from "../../components/accounting/AccountDetailsDialog";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
-import { ChangeAccountParentDialog } from "../../components/accounting/ChangeAccountParentDialog";
+// (removed) ChangeAccountParentDialog — now lives inline in AccountEditDialog
 import {
   Dialog,
   DialogContent,
@@ -293,7 +293,7 @@ export const ChartOfAccountsPage: React.FC = () => {
   const [savedExpandedIds, setSavedExpandedIds] = useState<Set<string>>(() => new Set());
   const [createOpen, setCreateOpen] = useState(false);
   const [detailsAccountId, setDetailsAccountId] = useState<string | null>(null);
-  const [reparentAccountId, setReparentAccountId] = useState<string | null>(null);
+  // (removed) reparentAccountId state — reparenting is now done inline in the edit dialog
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
 
   const handleViewChange = (next: "effected" | "full") => {
@@ -599,16 +599,6 @@ export const ChartOfAccountsPage: React.FC = () => {
         accountId={detailsAccountId}
       />
 
-      <ChangeAccountParentDialog
-        account={
-          reparentAccountId
-            ? (accounts ?? []).find((a) => a.id === reparentAccountId) ?? null
-            : null
-        }
-        open={Boolean(reparentAccountId)}
-        onClose={() => setReparentAccountId(null)}
-      />
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
           <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-app-separator bg-app-bg-secondary p-2.5">
@@ -672,17 +662,6 @@ export const ChartOfAccountsPage: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-1.5">
-                {selected.parent_account_id !== null && (
-                  <button
-                    type="button"
-                    onClick={() => setReparentAccountId(selected.id)}
-                    className="flex items-center gap-1 rounded-lg border border-app-separator bg-app-bg-secondary px-2.5 py-1 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 hover:text-app-accent"
-                    title="تغيير الحساب الأب"
-                  >
-                    <GitMerge className="w-3.5 h-3.5" />
-                    تغيير الأب
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={() => setDetailsAccountId(selected.id)}

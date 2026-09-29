@@ -1,15 +1,20 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { isAxiosError } from "axios";
-import { ArrowRight, Pencil, Trash2 } from "lucide-react";
+import { ArrowRight, Pencil, ShieldCheck, Trash2 } from "lucide-react";
 import { useAccount, useUpdateAccount, useDeleteAccount } from "../../hooks/useAccounting";
+import { useUsers } from "../../hooks/useUsers";
+import { useAuditLog } from "../../hooks/useOperatingUnits";
 import { usePermissions } from "../../hooks/usePermissions";
 import { ACCOUNT_TYPE_LABEL, type Account } from "../../api/endpoints/accounting";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { AccountDetailsContent } from "../../components/accounting/AccountDetailsContent";
 import { AccountEditDialog } from "../../components/accounting/AccountEditDialog";
+import { AuditLogFiltersBar } from "../../components/audit-log/AuditLogFilters";
+import { AuditLogTimeline } from "../../components/audit-log/AuditLogTimeline";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { toast } from "../../stores/toastStore";
+import type { AuditLogFilters } from "../../types/entities";
 
 const TYPE_STYLE: Record<Account["type"], string> = {
   asset: "bg-app-accent-subtle text-app-accent border-app-accent/20",
@@ -29,9 +34,25 @@ const AccountDetailPage: React.FC = () => {
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [auditFilters, setAuditFilters] = useState<AuditLogFilters>({});
 
   const updateAccountMutation = useUpdateAccount();
   const deleteAccountMutation = useDeleteAccount();
+
+  const auditQuery = useAuditLog({
+    table: "accounts",
+    recordId: id,
+    action: auditFilters.action,
+    from: auditFilters.from,
+    to: auditFilters.to,
+  });
+
+  const usersQuery = useUsers();
+  const userLookup = useMemo(() => {
+    const map: Record<string, string> = {};
+    (usersQuery.data ?? []).forEach((u) => { map[u.id] = u.name; });
+    return map;
+  }, [usersQuery.data]);
 
   if (isLoading) {
     return (
@@ -130,6 +151,28 @@ const AccountDetailPage: React.FC = () => {
       </div>
 
       <AccountDetailsContent key={id} accountId={id} />
+
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-app-accent" />
+          <h2 className="text-sm font-bold text-app-label-primary">سجل النشاط</h2>
+          <span className="text-[10px] text-app-label-tertiary">
+            ({auditQuery.data?.length ?? 0} حدث)
+          </span>
+        </div>
+        <AuditLogFiltersBar filters={auditFilters} onChange={setAuditFilters} />
+        {auditQuery.isLoading ? (
+          <div className="rounded-2xl border border-app-separator bg-app-bg-secondary p-6 text-center text-xs text-app-label-secondary">
+            جاري التحميل...
+          </div>
+        ) : (
+          <AuditLogTimeline
+            entries={auditQuery.data ?? []}
+            userLookup={userLookup}
+            emptyMessage="لا توجد سجلات نشاط (ربما لم تتطابق المرشحات)."
+          />
+        )}
+      </section>
 
       <AccountEditDialog
         open={isEditOpen}

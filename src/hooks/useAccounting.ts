@@ -75,6 +75,42 @@ export function useReparentAccount() {
   });
 }
 
+/**
+ * Save edits from the AccountEditDialog: PUT updates name / code / currency,
+ * and if the parent picker changed, PATCH the parent in the same transaction.
+ *
+ * Returns the account state from the PUT. If the subsequent PATCH fails, the
+ * PUT changes are still committed — the parent error is surfaced via the
+ * PATCH's thrown rejection, which the dialog toasts separately.
+ */
+export function useSaveAccountEdits() {
+  const update = useUpdateAccount();
+  const reparent = useReparentAccount();
+  return useMutation({
+    mutationFn: async (vars: {
+      id: string;
+      payload: import("../api/endpoints/accounting").UpdateAccountPayload;
+      newParentId?: string;
+      currentParentId?: string | null;
+    }) => {
+      const updated = await update.mutateAsync({ id: vars.id, payload: vars.payload });
+      if (
+        vars.newParentId !== undefined &&
+        vars.newParentId !== vars.currentParentId
+      ) {
+        await reparent.mutateAsync({ id: vars.id, parentAccountId: vars.newParentId });
+        // Refresh after the reparent so the caller's stale snapshot picks up the
+        // new parent_account_id.
+        return accountingApi.getAccount(vars.id).then((r) => r.data.data);
+      }
+      return updated;
+    },
+    onSuccess: () => {
+      // All cache invalidations are handled by the underlying mutations.
+    },
+  });
+}
+
 export function useAccount(accountId?: string) {
   const companyWide = useIsCompanyWide();
   return useQuery({
