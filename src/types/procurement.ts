@@ -195,6 +195,15 @@ export interface PurchaseOrder {
   record_version: number;
   arrived_warehouse_id?: string | null;
   arrived_warehouse?: { id: string; name: string };
+  destination_warehouse_id?: string | null;
+  destination_warehouse?: {
+    id: string;
+    code: string;
+    name: string;
+    operating_unit_id: string;
+  } | null;
+  /** arrived_warehouse_id ?? destination_warehouse_id — the warehouse where the lots will land. */
+  resolved_warehouse_id?: string | null;
   items?: PurchaseOrderItemsPayload;
   payment_requests?: PaymentRequest[];
   landed_cost_lines?: LandedCostLine[];
@@ -262,10 +271,13 @@ export interface CreatePurchaseOrderPayload {
   negotiated_price?: number;
   quantity?: number;
   items?: PurchaseOrderItemInput[];
+  /** Where the goods will land as StockLots once the order reaches its final accounting step. */
+  destination_warehouse_id?: string;
 }
 
 export interface UpdatePurchaseOrderPayload {
   supplier_id?: string;
+  destination_warehouse_id?: string;
   items: PurchaseOrderItemInput[];
 }
 

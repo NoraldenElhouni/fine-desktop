@@ -180,6 +180,12 @@ export const accountingApi = {
   updateAccount: (id: string, payload: UpdateAccountPayload) =>
     apiClient.put<{ message: string; data: Account }>(`/accounts/${id}`, payload),
 
+  reparentAccount: (id: string, parentAccountId: string) =>
+    apiClient.patch<{ message: string; data: AccountDetails }>(
+      `/accounts/${id}/parent`,
+      { parent_account_id: parentAccountId },
+    ),
+
   deleteAccount: (id: string) =>
     apiClient.delete<{ message: string }>(`/accounts/${id}`),
 
