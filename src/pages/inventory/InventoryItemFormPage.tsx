@@ -7,7 +7,7 @@ import {
   useInventoryItem,
   useUpdateInventoryItem,
 } from "../../hooks/useInventory";
-import { useItemCategories } from "../../hooks/useCategories";
+import { useLeafItemCategories } from "../../hooks/useCategories";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { InventoryItemAccountsEditor } from "../../components/inventory/InventoryItemAccountsEditor";
 import {
@@ -51,7 +51,7 @@ const InventoryItemFormPage: React.FC = () => {
   const navigate = useNavigate();
 
   const { data: editingItem, isLoading: isLoadingItem } = useInventoryItem(id);
-  const { data: categories } = useItemCategories();
+  const { data: leafCategories, all: categories } = useLeafItemCategories(editingItem?.category_id ?? undefined);
   const createItemMutation = useCreateInventoryItem();
   const updateItemMutation = useUpdateInventoryItem();
 
@@ -271,14 +271,14 @@ const InventoryItemFormPage: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="التصنيف" hint="يحدد بداية الرمز ونوع الصنف تلقائياً">
-            <SearchableSelect<{ id: string; name: string; code?: string }>
-              options={categories ?? []}
-              value={selectedCategory ?? null}
+            <SearchableSelect<{ id: string; name: string; code?: string; path?: string }>
+              options={leafCategories}
+              value={leafCategories.find((c) => c.id === categoryId) ?? selectedCategory ?? null}
               onChange={(c) => handleCategoryChange(c ? c.id : "")}
               getOptionId={(c) => c.id}
-              getOptionLabel={(c) => c.name}
+              getOptionLabel={(c) => c.path ?? c.name}
               getOptionSubLabel={(c) => c.code}
-              getOptionSearchText={(c) => `${c.name} ${c.code ?? ""}`}
+              getOptionSearchText={(c) => `${c.path ?? c.name} ${c.code ?? ""}`}
               placeholder="اختر التصنيف"
             />
           </Field>
