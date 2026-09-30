@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowRight,
+  BookOpen,
   Building2,
   MapPin,
   Pencil,
@@ -22,6 +23,7 @@ import {
 import { useAccounts } from "../../hooks/useAccounting";
 import type { Account } from "../../api/endpoints/accounting";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { OperatingUnitAccountsEditor } from "../../components/admin/OperatingUnitAccountsEditor";
 import {
   useOperatingUnitWarehouses,
   useCreateOperatingUnitWarehouse,
@@ -329,6 +331,19 @@ export const OperatingUnitDetailPage: React.FC = () => {
             </ul>
           )}
         </div>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <BookOpen className="h-4 w-4 text-app-accent" />
+          <h2 className="text-sm font-bold text-app-label-primary">ربط الحسابات بدليل الحسابات</h2>
+        </div>
+        {!isDeleted && <OperatingUnitAccountsEditor unitId={unit.id} />}
+        {isDeleted && (
+          <div className="rounded-2xl border border-app-separator bg-app-bg-secondary p-4 text-xs text-app-label-secondary">
+            لا يمكن تعديل الحسابات على وحدة محذوفة.
+          </div>
+        )}
       </section>
 
       <section className="space-y-3">

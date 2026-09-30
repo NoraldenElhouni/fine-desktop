@@ -5,45 +5,45 @@ import { isAxiosError } from "axios";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import { useAccounts } from "../../hooks/useAccounting";
 import {
-  inventoryItemAccountsApi,
+  operatingUnitAccountsApi,
   INVENTORY_EVENT_TYPES,
   INVENTORY_EVENT_LABELS,
   REQUIRED_INVENTORY_EVENTS,
   type InventoryEventType,
-  type InventoryItemAccount,
-} from "../../api/endpoints/inventoryItemAccounts";
+  type OperatingUnitAccount,
+} from "../../api/endpoints/operatingUnitAccounts";
 import { toast } from "../../stores/toastStore";
 
-interface InventoryItemAccountsEditorProps {
-  itemId: string | null;
+interface OperatingUnitAccountsEditorProps {
+  unitId: string | null;
 }
 
 const EVENT_ORDER: InventoryEventType[] = [...INVENTORY_EVENT_TYPES];
 
-export const InventoryItemAccountsEditor: React.FC<InventoryItemAccountsEditorProps> = ({
-  itemId,
+export const OperatingUnitAccountsEditor: React.FC<OperatingUnitAccountsEditorProps> = ({
+  unitId,
 }) => {
   const queryClient = useQueryClient();
   const accountsQuery = useAccounts();
   const accounts = accountsQuery.data ?? [];
 
   const list = useQuery({
-    queryKey: ["inventory-item-accounts", itemId],
-    queryFn: () => inventoryItemAccountsApi.list(itemId as string).then((r) => r.data),
-    enabled: Boolean(itemId),
+    queryKey: ["operating-unit-accounts", unitId],
+    queryFn: () => operatingUnitAccountsApi.list(unitId as string).then((r) => r.data),
+    enabled: Boolean(unitId),
   });
 
   const upsertMutation = useMutation({
     mutationFn: (vars: { event: InventoryEventType; accountId: string | null }) =>
       vars.accountId === null
-        ? inventoryItemAccountsApi.remove(itemId as string, lookupRowId(list.data, vars.event))
-        : inventoryItemAccountsApi.upsert(itemId as string, {
+        ? operatingUnitAccountsApi.remove(unitId as string, lookupRowId(list.data, vars.event))
+        : operatingUnitAccountsApi.upsert(unitId as string, {
             event_type: vars.event,
             account_id: vars.accountId,
           }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["inventory-item-accounts", itemId] });
-      queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
+      queryClient.invalidateQueries({ queryKey: ["operating-unit-accounts", unitId] });
+      queryClient.invalidateQueries({ queryKey: ["operating-units"] });
     },
     onError: (err: unknown) => {
       toast.error(extractErrorMessage(err, "فشل حفظ ربط الحساب"));
@@ -51,7 +51,7 @@ export const InventoryItemAccountsEditor: React.FC<InventoryItemAccountsEditorPr
   });
 
   const byType = useMemo(() => {
-    const map = new Map<InventoryEventType, InventoryItemAccount>();
+    const map = new Map<InventoryEventType, OperatingUnitAccount>();
     for (const row of list.data?.data ?? []) {
       map.set(row.event_type, row);
     }
@@ -61,10 +61,10 @@ export const InventoryItemAccountsEditor: React.FC<InventoryItemAccountsEditorPr
   const linkedCount = byType.size;
   const missingRequired = REQUIRED_INVENTORY_EVENTS.filter((e) => !byType.get(e)?.account);
 
-  if (!itemId) {
+  if (!unitId) {
     return (
       <div className="rounded-xl border border-dashed border-app-separator bg-app-bg-secondary p-3 text-xs text-app-label-secondary">
-        احفظ الصنف أولاً لتتمكن من ربط الحسابات.
+        اختر وحدة تشغيلية لربط الحسابات.
       </div>
     );
   }
@@ -88,6 +88,10 @@ export const InventoryItemAccountsEditor: React.FC<InventoryItemAccountsEditorPr
           </span>
         )}
       </div>
+
+      <p className="text-[10px] text-app-label-secondary">
+        كل صنف يدخل هذه الوحدة التشغيلية يستخدم هذه الحسابات — لا حاجة لربط الصنف نفسه بدليل الحسابات.
+      </p>
 
       {list.isLoading ? (
         <div className="flex items-center gap-2 rounded-xl border border-app-separator bg-app-bg-secondary p-3 text-xs text-app-label-secondary">
@@ -115,7 +119,7 @@ export const InventoryItemAccountsEditor: React.FC<InventoryItemAccountsEditorPr
                     {isRequired && (
                       <span
                         className="rounded-full bg-app-status-danger/15 px-1.5 py-0.5 text-[9px] font-bold text-app-status-danger"
-                        title="بدون هذا الحساب يرفض النظام أي حركة على الصنف"
+                        title="بدون هذا الحساب يرفض النظام أي حركة في هذه الوحدة"
                       >
                         مطلوب
                       </span>
@@ -169,7 +173,7 @@ export const InventoryItemAccountsEditor: React.FC<InventoryItemAccountsEditorPr
 };
 
 function lookupRowId(
-  data: { data: InventoryItemAccount[] } | undefined,
+  data: { data: OperatingUnitAccount[] } | undefined,
   event: InventoryEventType,
 ): string {
   const row = data?.data.find((r) => r.event_type === event);
