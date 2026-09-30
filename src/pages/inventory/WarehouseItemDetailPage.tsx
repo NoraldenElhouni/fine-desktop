@@ -22,7 +22,7 @@ import {
   INVENTORY_EVENT_LABELS,
   REQUIRED_INVENTORY_EVENTS,
   type InventoryEventType,
-} from "../../api/endpoints/inventoryItemAccounts";
+} from "../../api/endpoints/operatingUnitAccounts";
 import { formatNumber } from "../../lib/utils/format";
 import {
   Dialog,
@@ -37,6 +37,8 @@ import {
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useStockLedgerColumns } from "../../components/table-columns/stockLedgerColumns";
 import { useInventoryMovementColumns } from "../../components/table-columns/inventoryMovementColumns";
+import { useOperatingUnit } from "../../hooks/useOperatingUnits";
+import { useServerConfigStore } from "../../stores/serverConfigStore";
 
 const WarehouseItemDetailPage: React.FC = () => {
   const { warehouseId, itemId } = useParams<{ warehouseId: string; itemId: string }>();
@@ -50,6 +52,7 @@ const WarehouseItemDetailPage: React.FC = () => {
   const [byproductKg, setByproductKg] = useState<number>(0);
 
   const { data: item } = useInventoryItem(itemId);
+  const pinnedUnitId = useServerConfigStore((s) => s.operatingUnitId);
   const { data: lotData, isLoading: isLoadingLots } = useStockLots({
     warehouse_id: warehouseId,
     inventory_item_id: itemId,
@@ -170,7 +173,7 @@ const WarehouseItemDetailPage: React.FC = () => {
       </div>
 
       {/* Accounts map */}
-      <ItemAccountsPanel itemId={itemId ?? null} />
+      <UnitAccountsPanel unitId={pinnedUnitId} />
 
       {/* Lots */}
       <div>
@@ -351,16 +354,16 @@ const WarehouseItemDetailPage: React.FC = () => {
 
 export default WarehouseItemDetailPage;
 
-interface ItemAccountsPanelProps {
-  itemId: string | null;
+interface UnitAccountsPanelProps {
+  unitId: string | null;
 }
 
-const ItemAccountsPanel: React.FC<ItemAccountsPanelProps> = ({ itemId }) => {
-  const { data: item } = useInventoryItem(itemId);
-  const accounts = item?.accounts ?? [];
+const UnitAccountsPanel: React.FC<UnitAccountsPanelProps> = ({ unitId }) => {
+  const unitQuery = useOperatingUnit(unitId ?? undefined);
+  const accounts = unitQuery.data?.accounts ?? [];
   const byType = new Map<InventoryEventType, { id: string; account_code: string; name: string; type: string }>();
   for (const row of accounts) {
-    if (row.account) byType.set(row.event_type, row.account);
+    if (row.account) byType.set(row.event_type as InventoryEventType, row.account);
   }
   const linkedCount = byType.size;
   const missingRequired = REQUIRED_INVENTORY_EVENTS.filter((e) => !byType.has(e));
@@ -387,11 +390,14 @@ const ItemAccountsPanel: React.FC<ItemAccountsPanelProps> = ({ itemId }) => {
             </>
           ) : (
             <>
-              <AlertTriangle className="h-3.5 w-3.5" /> ينقصه {missingRequired.length} حدث للحركة
+              <AlertTriangle className="h-3.5 w-3.5" /> ينقص الوحدة {missingRequired.length} حدث للحركة
             </>
           )}
         </span>
       </div>
+      <p className="px-4 pt-3 text-[10px] text-app-label-secondary">
+        هذه الحسابات موروثة من الوحدة التشغيلية — عدّلها في صفحة إعدادات الوحدة.
+      </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 p-3">
         {Object.entries(INVENTORY_EVENT_LABELS).map(([event, label]) => {
           const ev = event as InventoryEventType;

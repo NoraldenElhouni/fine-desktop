@@ -40,8 +40,8 @@ export const INVENTORY_EVENT_LABELS: Record<InventoryEventType, string> = {
 /**
  * Events whose absence blocks a real posting (intake / sale / etc.). The
  * backend hard-fails with 422 `INVENTORY_ACCOUNT_NOT_LINKED` when one of
- * these is missing; the others are surfaced as warnings until the matching
- * service comes online.
+ * these is missing on the unit; the others are surfaced as warnings until
+ * the matching service comes online.
  */
 export const REQUIRED_INVENTORY_EVENTS: InventoryEventType[] = [
   "purchases",
@@ -49,36 +49,36 @@ export const REQUIRED_INVENTORY_EVENTS: InventoryEventType[] = [
   "cogs",
 ];
 
-export interface InventoryItemAccount {
+export interface OperatingUnitAccount {
   id: string;
   event_type: InventoryEventType;
   event_label: string;
   account: Pick<Account, "id" | "account_code" | "name" | "type" | "currency"> | null;
 }
 
-export interface InventoryItemAccountsResponse {
-  data: InventoryItemAccount[];
+export interface OperatingUnitAccountsResponse {
+  data: OperatingUnitAccount[];
   meta: {
     linked_count: number;
     total_events: number;
   };
 }
 
-export interface UpsertInventoryItemAccountPayload {
+export interface UpsertOperatingUnitAccountPayload {
   event_type: InventoryEventType;
   account_id: string;
 }
 
-export const inventoryItemAccountsApi = {
-  list: (itemId: string) =>
-    apiClient.get<InventoryItemAccountsResponse>(`/inventory-items/${itemId}/accounts`),
+export const operatingUnitAccountsApi = {
+  list: (unitId: string) =>
+    apiClient.get<OperatingUnitAccountsResponse>(`/operating-units/${unitId}/accounts`),
 
-  upsert: (itemId: string, payload: UpsertInventoryItemAccountPayload) =>
-    apiClient.post<{ data: InventoryItemAccount; message: string }>(
-      `/inventory-items/${itemId}/accounts`,
+  upsert: (unitId: string, payload: UpsertOperatingUnitAccountPayload) =>
+    apiClient.post<{ data: OperatingUnitAccount; message: string }>(
+      `/operating-units/${unitId}/accounts`,
       payload,
     ),
 
-  remove: (itemId: string, rowId: string) =>
-    apiClient.delete<{ message: string }>(`/inventory-items/${itemId}/accounts/${rowId}`),
+  remove: (unitId: string, rowId: string) =>
+    apiClient.delete<{ message: string }>(`/operating-units/${unitId}/accounts/${rowId}`),
 };

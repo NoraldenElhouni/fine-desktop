@@ -21,6 +21,23 @@ export interface OperatingUnit {
   manager?: { id: string; name: string } | null;
   /** The unit's own sales revenue account; null posts sales to the 41 header. */
   revenue_account_id?: string | null;
+  /**
+   * Per-event chart-of-accounts overrides for this unit, when eager-loaded by
+   * the show endpoint. Every item transacted inside this unit inherits these
+   * accounts — the inventory item itself carries no account data.
+   */
+  accounts?: Array<{
+    id: string;
+    event_type: string;
+    event_label: string;
+    account: {
+      id: string;
+      account_code: string;
+      name: string;
+      type: string;
+      currency: string;
+    } | null;
+  }>;
   warehouses?: Warehouse[];
   created_at?: string;
   updated_at?: string;
