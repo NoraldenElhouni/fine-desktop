@@ -158,6 +158,11 @@ export interface UpdateAccountPayload {
   name?: string;
   account_code?: string;
   currency?: string;
+  /**
+   * When set and differs from the current parent, the edit dialog also fires
+   * PATCH /api/v1/accounts/{id}/parent after the PUT (via useSaveAccountEdits).
+   */
+  parent_account_id?: string;
 }
 
 /**
