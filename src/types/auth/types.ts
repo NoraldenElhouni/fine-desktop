@@ -10,7 +10,8 @@ export interface UserRole {
 export interface User {
   id: string | number;
   name: string;
-  email: string;
+  email?: string | null;
+  phone?: string | null;
   is_active: boolean;
   must_change_password?: boolean;
   role_slugs?: string[];

@@ -54,9 +54,11 @@ const UsersPage: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [roleId, setRoleId] = useState("");
   const [unitId, setUnitId] = useState("");
@@ -74,14 +76,32 @@ const UsersPage: React.FC = () => {
 
   const submitCreate = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) {
+      setFormError("الاسم مطلوب.");
+      return;
+    }
+    if (!email.trim() && !phone.trim()) {
+      setFormError("يجب إدخال البريد الإلكتروني أو رقم الهاتف على الأقل.");
+      return;
+    }
+    if (phone.trim() && !/^09\d{8}$/.test(phone.trim())) {
+      setFormError("رقم الهاتف يجب أن يتكون من 10 أرقام ويبدأ بـ 09.");
+      return;
+    }
     setFormError(null);
     createUser.mutate(
-      { name, email, password },
+      {
+        name: name.trim(),
+        email: email.trim() || null,
+        phone: phone.trim() || null,
+        password,
+      },
       {
         onSuccess: () => {
           setShowCreate(false);
           setName("");
           setEmail("");
+          setPhone("");
           setPassword("");
           toast.success("تم إنشاء المستخدم — سيُطلب منه تغيير كلمة المرور عند أول دخول");
         },
@@ -132,7 +152,8 @@ const UsersPage: React.FC = () => {
   const openEdit = (u: AppUser) => {
     setEditing(u);
     setEditName(u.name);
-    setEditEmail(u.email);
+    setEditEmail(u.email ?? "");
+    setEditPhone(u.phone ?? "");
     setEditPassword("");
     setFormError(null);
   };
@@ -140,6 +161,14 @@ const UsersPage: React.FC = () => {
   const submitEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editing) return;
+    if (!editEmail.trim() && !editPhone.trim()) {
+      setFormError("يجب توفير البريد الإلكتروني أو رقم الهاتف على الأقل.");
+      return;
+    }
+    if (editPhone.trim() && !/^09\d{8}$/.test(editPhone.trim())) {
+      setFormError("رقم الهاتف يجب أن يتكون من 10 أرقام ويبدأ بـ 09.");
+      return;
+    }
     if (editPassword && editPassword.length < 8) {
       setFormError("كلمة المرور يجب أن تكون 8 أحرف على الأقل.");
       return;
@@ -148,13 +177,15 @@ const UsersPage: React.FC = () => {
     const payload: {
       id: string;
       name: string;
-      email: string;
+      email?: string | null;
+      phone?: string | null;
       password?: string;
       record_version: number;
     } = {
       id: editing.id,
       name: editName.trim(),
-      email: editEmail.trim(),
+      email: editEmail.trim() || null,
+      phone: editPhone.trim() || null,
       record_version: editing.record_version,
     };
     if (editPassword) {
@@ -312,17 +343,34 @@ const UsersPage: React.FC = () => {
                   className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-app-label-secondary mb-1">البريد الإلكتروني</label>
-                <input
-                  type="email"
-                  required
-                  dir="ltr"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">البريد الإلكتروني (اختياري)</label>
+                  <input
+                    type="email"
+                    dir="ltr"
+                    placeholder="name@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">رقم الهاتف (اختياري)</label>
+                  <input
+                    type="tel"
+                    dir="ltr"
+                    placeholder="09xxxxxxxx"
+                    maxLength={10}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                  />
+                </div>
               </div>
+              <p className="text-[11px] text-app-label-tertiary">
+                * يجب إدخال البريد الإلكتروني أو رقم الهاتف (10 أرقام يبدأ بـ 09) على الأقل.
+              </p>
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary mb-1">
                   كلمة المرور المؤقتة (8 أحرف على الأقل)
@@ -491,17 +539,34 @@ const UsersPage: React.FC = () => {
                   className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-app-label-secondary mb-1">البريد الإلكتروني</label>
-                <input
-                  type="email"
-                  required
-                  dir="ltr"
-                  value={editEmail}
-                  onChange={(e) => setEditEmail(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">البريد الإلكتروني (اختياري)</label>
+                  <input
+                    type="email"
+                    dir="ltr"
+                    placeholder="name@example.com"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">رقم الهاتف (اختياري)</label>
+                  <input
+                    type="tel"
+                    dir="ltr"
+                    placeholder="09xxxxxxxx"
+                    maxLength={10}
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                  />
+                </div>
               </div>
+              <p className="text-[11px] text-app-label-tertiary">
+                * يجب توفير البريد الإلكتروني أو رقم الهاتف (10 أرقام يبدأ بـ 09) على الأقل.
+              </p>
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary mb-1">
                   إعادة تعيين كلمة المرور (اختياري)

@@ -7,7 +7,8 @@ export interface UserRolePivot {
 export interface AppUser {
   id: string;
   name: string;
-  email: string;
+  email?: string | null;
+  phone?: string | null;
   is_active: boolean;
   must_change_password: boolean;
   record_version: number;
@@ -30,14 +31,15 @@ export const usersApi = {
       params: options.withTrashed ? { with_trashed: 1 } : {},
     }),
 
-  create: (data: { name: string; email: string; password: string }) =>
+  create: (data: { name: string; email?: string | null; phone?: string | null; password: string }) =>
     apiClient.post<{ data: AppUser }>("/users", data),
 
   update: (
     id: string,
     data: {
       name?: string;
-      email?: string;
+      email?: string | null;
+      phone?: string | null;
       password?: string;
       is_active?: boolean;
       record_version: number;

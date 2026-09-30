@@ -81,6 +81,7 @@ const UserDetail: React.FC = () => {
   const [showEdit, setShowEdit] = useState(false);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [editIsActive, setEditIsActive] = useState(true);
   const [editError, setEditError] = useState<string | null>(null);
@@ -139,7 +140,8 @@ const UserDetail: React.FC = () => {
   const openEditDialog = () => {
     if (!user) return;
     setEditName(user.name);
-    setEditEmail(user.email);
+    setEditEmail(user.email ?? "");
+    setEditPhone(user.phone ?? "");
     setEditPassword("");
     setEditIsActive(user.is_active);
     setEditError(null);
@@ -149,25 +151,39 @@ const UserDetail: React.FC = () => {
   const submitEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    if (!editEmail.trim() && !editPhone.trim()) {
+      setEditError("يجب توفير البريد الإلكتروني أو رقم الهاتف على الأقل.");
+      return;
+    }
+    if (editPhone.trim() && !/^09\d{8}$/.test(editPhone.trim())) {
+      setEditError("رقم الهاتف يجب أن يتكون من 10 أرقام ويبدأ بـ 09.");
+      return;
+    }
+    if (editPassword.trim() && editPassword.trim().length < 8) {
+      setEditError("كلمة المرور يجب أن تكون 8 أحرف على الأقل.");
+      return;
+    }
     setEditError(null);
 
     const payload: {
       id: string;
       name: string;
-      email: string;
+      email?: string | null;
+      phone?: string | null;
       password?: string;
       is_active: boolean;
       record_version: number;
     } = {
       id: user.id,
       name: editName.trim(),
-      email: editEmail.trim(),
+      email: editEmail.trim() || null,
+      phone: editPhone.trim() || null,
       is_active: editIsActive,
       record_version: user.record_version,
     };
 
     if (editPassword.trim()) {
-      payload.password = editPassword;
+      payload.password = editPassword.trim();
     }
 
     updateUser.mutate(payload, {
@@ -382,8 +398,10 @@ const UserDetail: React.FC = () => {
                   </span>
                 )}
               </div>
-              <div className="mt-1 font-mono text-xs text-app-label-secondary" dir="ltr">
-                {user.email}
+              <div className="mt-1 flex items-center gap-3 font-mono text-xs text-app-label-secondary" dir="ltr">
+                {user.email && <span>{user.email}</span>}
+                {user.email && user.phone && <span>•</span>}
+                {user.phone && <span>{user.phone}</span>}
               </div>
             </div>
           </div>
@@ -519,7 +537,14 @@ const UserDetail: React.FC = () => {
               <div>
                 <div className="text-app-label-secondary">البريد الإلكتروني</div>
                 <div className="font-mono text-app-label-primary mt-0.5" dir="ltr">
-                  {user.email}
+                  {user.email || "—"}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-app-label-secondary">رقم الهاتف</div>
+                <div className="font-mono text-app-label-primary mt-0.5" dir="ltr">
+                  {user.phone || "—"}
                 </div>
               </div>
 
@@ -791,19 +816,38 @@ const UserDetail: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-app-label-secondary">
-                  البريد الإلكتروني
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={editEmail}
-                  onChange={(e) => setEditEmail(e.target.value)}
-                  className="w-full font-mono rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
-                  dir="ltr"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-app-label-secondary">
+                    البريد الإلكتروني (اختياري)
+                  </label>
+                  <input
+                    type="email"
+                    value={editEmail}
+                    placeholder="name@example.com"
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    className="w-full font-mono rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                    dir="ltr"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-app-label-secondary">
+                    رقم الهاتف (اختياري)
+                  </label>
+                  <input
+                    type="tel"
+                    value={editPhone}
+                    placeholder="09xxxxxxxx"
+                    maxLength={10}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    className="w-full font-mono rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                    dir="ltr"
+                  />
+                </div>
               </div>
+              <p className="text-[11px] text-app-label-tertiary">
+                * يجب توفير البريد الإلكتروني أو رقم الهاتف (10 أرقام يبدأ بـ 09) على الأقل.
+              </p>
 
               <div>
                 <label className="mb-1 block text-xs font-semibold text-app-label-secondary">

@@ -31,7 +31,7 @@ export function useUsersColumns({
         id: "user",
         header: "المستخدم",
         accessorFn: (u) =>
-          [u.name, u.email, ...(u.roles?.map((r) => r.name) ?? [])].join(" "),
+          [u.name, u.email, u.phone, ...(u.roles?.map((r) => r.name) ?? [])].filter(Boolean).join(" "),
         cell: ({ row }) => (
           <div>
             {onViewDetails ? (
@@ -45,8 +45,10 @@ export function useUsersColumns({
             ) : (
               <div className="font-bold">{row.original.name}</div>
             )}
-            <div className="text-app-label-secondary font-mono text-xs" dir="ltr">
-              {row.original.email}
+            <div className="text-app-label-secondary font-mono text-xs flex items-center gap-2" dir="ltr">
+              {row.original.email && <span>{row.original.email}</span>}
+              {row.original.email && row.original.phone && <span>•</span>}
+              {row.original.phone && <span>{row.original.phone}</span>}
             </div>
           </div>
         ),
