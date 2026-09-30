@@ -2,6 +2,7 @@ import apiClient from "../client";
 import {
   Supplier,
   CreateSupplierPayload,
+  UpdateSupplierPayload,
   PurchaseOrder,
   CreatePurchaseOrderPayload,
   UpdatePurchaseOrderPayload,
@@ -31,6 +32,11 @@ export const getSuppliers = async (operating_unit_id?: string): Promise<Supplier
 
 export const createSupplier = async (payload: CreateSupplierPayload): Promise<Supplier> => {
   const response = await apiClient.post<{ data: Supplier }>("/suppliers", payload);
+  return response.data.data;
+};
+
+export const updateSupplier = async (id: string, payload: UpdateSupplierPayload): Promise<Supplier> => {
+  const response = await apiClient.put<{ data: Supplier }>(`/suppliers/${id}`, payload);
   return response.data.data;
 };
 

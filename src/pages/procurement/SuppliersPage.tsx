@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { Truck, Plus, RefreshCw, Building } from "lucide-react";
 import { isAxiosError } from "axios";
-import { CreateSupplierPayload } from "../../types/procurement";
-import { useSuppliers, useCreateSupplier } from "../../hooks/useProcurement";
+import { CreateSupplierPayload, Supplier, UpdateSupplierPayload } from "../../types/procurement";
+import { useSuppliers, useCreateSupplier, useUpdateSupplier } from "../../hooks/useProcurement";
 import { useOperatingUnits } from "../../hooks/usePartners";
 import { useReferenceLookups } from "../../hooks/useReferenceLookups";
 import type { LookupEntry } from "../../config/referenceLookups";
@@ -32,6 +32,24 @@ export const SuppliersPage: React.FC = () => {
   const [coaAction, setCoaAction] = useState<CoaAction>("create_new");
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [newAccount, setNewAccount] = useState<NewCoaAccountPayload>({
+    parent_account_id: "",
+    account_code: "",
+    name: "",
+    currency: "USD",
+  });
+
+  // Edit Supplier States
+  const updateSupplierMutation = useUpdateSupplier();
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [editUnitId, setEditUnitId] = useState("");
+  const [editName, setEditName] = useState("");
+  const [editContact, setEditContact] = useState("");
+  const [editDefaultCurrency, setEditDefaultCurrency] = useState("USD");
+  const [editAddress, setEditAddress] = useState("");
+  const [editCoaAction, setEditCoaAction] = useState<CoaAction>("none");
+  const [editSelectedAccountId, setEditSelectedAccountId] = useState<string | null>(null);
+  const [editNewAccount, setEditNewAccount] = useState<NewCoaAccountPayload>({
     parent_account_id: "",
     account_code: "",
     name: "",
@@ -117,7 +135,93 @@ export const SuppliersPage: React.FC = () => {
     });
   };
 
-  const columns = useSuppliersColumns();
+  const handleOpenEditModal = (supplier: Supplier) => {
+    setEditingSupplier(supplier);
+    setEditUnitId(supplier.operating_unit_id);
+    setEditName(supplier.name || "");
+    setEditContact(supplier.contact || "");
+    setEditDefaultCurrency(supplier.default_currency || "USD");
+    setEditAddress(supplier.address || "");
+    setEditCoaAction(supplier.account_id ? "link_existing" : "none");
+    setEditSelectedAccountId(supplier.account_id || null);
+    setEditNewAccount({
+      parent_account_id: "",
+      account_code: "",
+      name: "",
+      currency: supplier.default_currency || "USD",
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateSupplier = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSupplier) return;
+
+    const unitId = editUnitId || editingSupplier.operating_unit_id;
+    if (!editName.trim() || !unitId) {
+      toast.error("يرجى تعبئة اسم المورد والوحدة التشغيلية");
+      return;
+    }
+
+    if (editCoaAction === "create_new") {
+      if (!editNewAccount.parent_account_id) {
+        toast.error("يرجى اختيار الحساب الأب لإنشاء حساب في دليل الحسابات");
+        return;
+      }
+      if (!editNewAccount.account_code.trim()) {
+        toast.error("يرجى إدخال رمز الحساب الفرعي");
+        return;
+      }
+      if (!editNewAccount.name.trim()) {
+        toast.error("يرجى إدخال اسم الحساب المالي");
+        return;
+      }
+    }
+
+    if (editCoaAction === "link_existing" && !editSelectedAccountId) {
+      toast.error("يرجى اختيار الحساب المراد ربطه من دليل الحسابات");
+      return;
+    }
+
+    const payload: UpdateSupplierPayload = {
+      operating_unit_id: unitId,
+      name: editName.trim(),
+      contact: editContact.trim() || undefined,
+      default_currency: editDefaultCurrency,
+      address: editAddress.trim() || undefined,
+      coa_action: editCoaAction,
+      account_id: editCoaAction === "link_existing" ? editSelectedAccountId : (editCoaAction === "none" ? null : undefined),
+      new_account:
+        editCoaAction === "create_new"
+          ? {
+              parent_account_id: editNewAccount.parent_account_id,
+              account_code: editNewAccount.account_code.trim(),
+              name: editNewAccount.name.trim(),
+              currency: editNewAccount.currency || editDefaultCurrency,
+            }
+          : undefined,
+    };
+
+    updateSupplierMutation.mutate(
+      { id: editingSupplier.id, payload },
+      {
+        onSuccess: () => {
+          toast.success("تم تحديث بيانات المورد بنجاح");
+          setIsEditModalOpen(false);
+          setEditingSupplier(null);
+        },
+        onError: (err: unknown) => {
+          const payloadErr = apiErrorPayload(err);
+          const message =
+            payloadErr?.message ||
+            (isAxiosError(err) ? err.response?.data?.message : null);
+          toast.error(message || "تعذر تحديث بيانات المورد");
+        },
+      }
+    );
+  };
+
+  const columns = useSuppliersColumns({ onEdit: handleOpenEditModal });
   const tableData = useMemo(() => suppliers, [suppliers]);
   const suppliersTable = useDataTable({
     columns,
@@ -318,6 +422,130 @@ export const SuppliersPage: React.FC = () => {
               className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
             >
               {createSupplierMutation.isPending ? "جاري الحفظ..." : "حفظ المورد"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Supplier Modal */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent size="md">
+          <DialogHeader>
+            <DialogTitle>تعديل بيانات المورد الخارجي</DialogTitle>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody>
+            <form id="supplier-edit-form" onSubmit={handleUpdateSupplier} className="space-y-4" dir="rtl">
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                  الوحدة التشغيلية <span className="text-app-status-danger">*</span>
+                </label>
+                <SearchableSelect<{ id: string; name: string }>
+                  options={operatingUnits}
+                  value={operatingUnits.find((u) => u.id === editUnitId) ?? null}
+                  onChange={(u) => setEditUnitId(u ? u.id : "")}
+                  getOptionId={(u) => u.id}
+                  getOptionLabel={(u) => u.name}
+                  placeholder="-- اختر الوحدة التشغيلية --"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                  اسم الشركة / المورد <span className="text-app-status-danger">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="مثال: Istanbul Chemical Traders"
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                    جهة الاتصال / الهاتف / البريد
+                  </label>
+                  <input
+                    type="text"
+                    value={editContact}
+                    onChange={(e) => setEditContact(e.target.value)}
+                    placeholder="مثال: contact@company.com"
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                    العملة الافتراضية للتعامل
+                  </label>
+                  <SearchableSelect<LookupEntry>
+                    options={currencies}
+                    value={currencies.find((c) => c.code === editDefaultCurrency) ?? null}
+                    onChange={(c) => {
+                      if (c) {
+                        setEditDefaultCurrency(c.code);
+                        setEditNewAccount((prev) => ({ ...prev, currency: c.code }));
+                      }
+                    }}
+                    getOptionId={(c) => c.id}
+                    getOptionLabel={(c) => `${c.name} (${c.code})`}
+                    getOptionSubLabel={(c) => c.fields?.symbol}
+                    placeholder="-- اختر العملة --"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                  العنوان / المرفأ / بلد الشحن
+                </label>
+                <input
+                  type="text"
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                  placeholder="مثال: إسطنبول، تركيا - ميناء أمبارلي"
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                />
+              </div>
+
+              {/* Chart of Accounts Linkage */}
+              <CoaAccountSelector
+                entityTypeLabel="المورد"
+                defaultEntityName={editName.trim()}
+                currency={editDefaultCurrency}
+                action={editCoaAction}
+                onActionChange={setEditCoaAction}
+                selectedAccountId={editSelectedAccountId}
+                onSelectedAccountIdChange={setEditSelectedAccountId}
+                newAccount={editNewAccount}
+                onNewAccountChange={setEditNewAccount}
+                preferredParentCode="21"
+                useEntityNameDirectly
+              />
+            </form>
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => {
+                setIsEditModalOpen(false);
+                setEditingSupplier(null);
+              }}
+              className="rounded-xl border border-app-separator bg-app-bg-secondary px-4 py-2 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              form="supplier-edit-form"
+              disabled={updateSupplierMutation.isPending || !editName.trim()}
+              className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+            >
+              {updateSupplierMutation.isPending ? "جاري الحفظ..." : "حفظ التعديلات"}
             </button>
           </DialogFooter>
         </DialogContent>

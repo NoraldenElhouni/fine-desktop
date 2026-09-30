@@ -1,10 +1,14 @@
 import { useMemo } from "react";
-import { Building2, MapPin } from "lucide-react";
+import { Building2, MapPin, Pencil, Phone } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { Client } from "../../types/entities";
 import { formatNumber } from "../../lib/utils/format";
 
-export function useClientsColumns(): ColumnDef<Client, unknown>[] {
+export interface UseClientsColumnsArgs {
+  onEdit?: (client: Client) => void;
+}
+
+export function useClientsColumns({ onEdit }: UseClientsColumnsArgs = {}): ColumnDef<Client, unknown>[] {
   return useMemo<ColumnDef<Client, unknown>[]>(
     () => [
       {
@@ -17,7 +21,13 @@ export function useClientsColumns(): ColumnDef<Client, unknown>[] {
             <span className="text-app-label-primary font-bold">
               {row.original.entity?.name || "بدون اسم"}
             </span>
-            <div className="flex items-center gap-2 text-[10px] text-app-label-secondary">
+            <div className="flex items-center gap-2 text-[10px] text-app-label-secondary flex-wrap">
+              {row.original.entity?.phone && (
+                <span className="inline-flex items-center gap-0.5 text-app-label-primary font-mono font-medium" dir="ltr">
+                  <Phone className="w-2.5 h-2.5 shrink-0 text-app-accent" />
+                  {row.original.entity.phone}
+                </span>
+              )}
               {row.original.entity?.city && (
                 <span className="inline-flex items-center gap-0.5 text-app-accent font-medium">
                   <MapPin className="w-2.5 h-2.5 shrink-0" />
@@ -138,7 +148,32 @@ export function useClientsColumns(): ColumnDef<Client, unknown>[] {
           </span>
         ),
       },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        meta: { align: "end" },
+        cell: ({ row }) => {
+          const client = row.original;
+          return (
+            <div className="flex items-center justify-end gap-1.5">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit?.(client);
+                }}
+                className="flex items-center gap-1 rounded-lg border border-app-separator px-2.5 py-1 text-xs font-semibold text-app-label-secondary hover:border-app-accent hover:text-app-accent hover:bg-app-accent-subtle transition-colors"
+                title="تعديل بيانات العميل"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>تعديل</span>
+              </button>
+            </div>
+          );
+        },
+      },
     ],
-    []
+    [onEdit]
   );
 }

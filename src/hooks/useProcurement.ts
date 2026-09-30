@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getSuppliers,
   createSupplier,
+  updateSupplier,
   getPurchaseOrders,
   getPurchaseOrder,
   createPurchaseOrder,
@@ -20,6 +21,7 @@ import {
 } from "../api/endpoints/procurement";
 import {
   CreateSupplierPayload,
+  UpdateSupplierPayload,
   CreatePurchaseOrderPayload,
   UpdatePurchaseOrderPayload,
   TransitionPurchaseOrderPayload,
@@ -41,6 +43,18 @@ export function useCreateSupplier() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateSupplierPayload) => createSupplier(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["suppliers"] });
+      qc.invalidateQueries({ queryKey: ["entities"] });
+    },
+  });
+}
+
+export function useUpdateSupplier() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateSupplierPayload }) =>
+      updateSupplier(id, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["suppliers"] });
       qc.invalidateQueries({ queryKey: ["entities"] });

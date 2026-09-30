@@ -262,6 +262,17 @@ export interface CreateSupplierPayload {
   new_account?: NewCoaAccountPayload | null;
 }
 
+export interface UpdateSupplierPayload {
+  operating_unit_id?: string;
+  name?: string;
+  contact?: string;
+  default_currency?: string;
+  address?: string;
+  account_id?: string | null;
+  coa_action?: CoaAction;
+  new_account?: NewCoaAccountPayload | null;
+}
+
 export interface CreatePurchaseOrderPayload {
   operating_unit_id: string;
   supplier_id: string;

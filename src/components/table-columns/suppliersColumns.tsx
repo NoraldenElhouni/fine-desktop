@@ -1,9 +1,13 @@
 import { useMemo } from "react";
-import { Building, Building2, MapPin } from "lucide-react";
+import { Building, Building2, MapPin, Pencil } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { Supplier } from "../../types/procurement";
 
-export function useSuppliersColumns(): ColumnDef<Supplier, unknown>[] {
+export interface UseSuppliersColumnsArgs {
+  onEdit?: (supplier: Supplier) => void;
+}
+
+export function useSuppliersColumns({ onEdit }: UseSuppliersColumnsArgs = {}): ColumnDef<Supplier, unknown>[] {
   return useMemo<ColumnDef<Supplier, unknown>[]>(
     () => [
       {
@@ -75,7 +79,32 @@ export function useSuppliersColumns(): ColumnDef<Supplier, unknown>[] {
           return <span className="text-[11px] text-app-label-secondary">—</span>;
         },
       },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        meta: { align: "end" },
+        cell: ({ row }) => {
+          const supplier = row.original;
+          return (
+            <div className="flex items-center justify-end gap-1.5">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit?.(supplier);
+                }}
+                className="flex items-center gap-1 rounded-lg border border-app-separator px-2.5 py-1 text-xs font-semibold text-app-label-secondary hover:border-app-accent hover:text-app-accent hover:bg-app-accent-subtle transition-colors"
+                title="تعديل بيانات المورد"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>تعديل</span>
+              </button>
+            </div>
+          );
+        },
+      },
     ],
-    []
+    [onEdit]
   );
 }

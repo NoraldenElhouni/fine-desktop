@@ -65,6 +65,7 @@ export interface Entity {
   name: string;
   entity_type: EntityType;
   tax_number?: string | null;
+  phone?: string | null;
   city?: string | null;
   address?: string | null;
   user_id?: string | null;
@@ -212,4 +213,8 @@ export interface CreateClientPayload {
   status?: ClientStatus;
   city?: string;
   address?: string;
+}
+
+export interface UpdateClientPayload extends Partial<CreateClientPayload> {
+  record_version: number;
 }
