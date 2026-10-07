@@ -21,6 +21,10 @@ export interface Account {
   total_debit: number;
   total_credit: number;
   balance: number;
+  direct_debit?: number;
+  direct_credit?: number;
+  direct_balance?: number;
+  has_children?: boolean;
 }
 
 export interface AccountDetails extends Account {
@@ -30,6 +34,7 @@ export interface AccountDetails extends Account {
     name: string;
     type: AccountType;
   } | null;
+  direct_transaction_count?: number;
   transaction_count?: number;
   created_at?: string;
 }
@@ -40,6 +45,7 @@ export interface AccountLedgerParams {
   to?: string;
   search?: string;
   company_wide?: boolean;
+  include_children?: boolean;
 }
 
 export interface JournalLine {
@@ -205,6 +211,7 @@ export const accountingApi = {
         to: params?.to || undefined,
         search: params?.search || undefined,
         company_wide: params?.company_wide || undefined,
+        include_children: params?.include_children ? 1 : undefined,
       },
     }),
 

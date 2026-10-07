@@ -13,6 +13,7 @@ import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useSuppliersColumns } from "../../components/table-columns/suppliersColumns";
 import { CoaAccountSelector } from "../../components/accounting/CoaAccountSelector";
+import { PartnerStatementDialog } from "../../components/accounting/PartnerStatementDialog";
 import type { CoaAction, NewCoaAccountPayload } from "../../types/entities";
 
 export const SuppliersPage: React.FC = () => {
@@ -221,7 +222,18 @@ export const SuppliersPage: React.FC = () => {
     );
   };
 
-  const columns = useSuppliersColumns({ onEdit: handleOpenEditModal });
+  const [statementOpen, setStatementOpen] = useState(false);
+  const [statementSupplier, setStatementSupplier] = useState<Supplier | null>(null);
+
+  const handleOpenStatement = (supplier: Supplier) => {
+    setStatementSupplier(supplier);
+    setStatementOpen(true);
+  };
+
+  const columns = useSuppliersColumns({
+    onEdit: handleOpenEditModal,
+    onViewStatement: handleOpenStatement,
+  });
   const tableData = useMemo(() => suppliers, [suppliers]);
   const suppliersTable = useDataTable({
     columns,
@@ -550,6 +562,17 @@ export const SuppliersPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Statement of Account Dialog */}
+      {statementSupplier && (
+        <PartnerStatementDialog
+          open={statementOpen}
+          onOpenChange={setStatementOpen}
+          partyType="supplier"
+          partyId={statementSupplier.id}
+          partyName={statementSupplier.name}
+        />
+      )}
     </div>
   );
 };

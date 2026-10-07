@@ -1,14 +1,15 @@
 import { useMemo } from "react";
-import { Building2, MapPin, Pencil, Phone } from "lucide-react";
+import { Building2, FileText, MapPin, Pencil, Phone } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { Client } from "../../types/entities";
 import { formatNumber } from "../../lib/utils/format";
 
 export interface UseClientsColumnsArgs {
   onEdit?: (client: Client) => void;
+  onViewStatement?: (client: Client) => void;
 }
 
-export function useClientsColumns({ onEdit }: UseClientsColumnsArgs = {}): ColumnDef<Client, unknown>[] {
+export function useClientsColumns({ onEdit, onViewStatement }: UseClientsColumnsArgs = {}): ColumnDef<Client, unknown>[] {
   return useMemo<ColumnDef<Client, unknown>[]>(
     () => [
       {
@@ -161,6 +162,18 @@ export function useClientsColumns({ onEdit }: UseClientsColumnsArgs = {}): Colum
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
+                  onViewStatement?.(client);
+                }}
+                className="flex items-center gap-1 rounded-lg border border-app-separator px-2.5 py-1 text-xs font-semibold text-app-label-primary hover:border-app-accent hover:text-app-accent hover:bg-app-accent-subtle transition-colors"
+                title="عرض كشف حساب العميل"
+              >
+                <FileText className="w-3.5 h-3.5 text-app-accent" />
+                <span>كشف حساب</span>
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
                   onEdit?.(client);
                 }}
                 className="flex items-center gap-1 rounded-lg border border-app-separator px-2.5 py-1 text-xs font-semibold text-app-label-secondary hover:border-app-accent hover:text-app-accent hover:bg-app-accent-subtle transition-colors"
@@ -174,6 +187,6 @@ export function useClientsColumns({ onEdit }: UseClientsColumnsArgs = {}): Colum
         },
       },
     ],
-    [onEdit]
+    [onEdit, onViewStatement]
   );
 }

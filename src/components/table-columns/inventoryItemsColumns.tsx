@@ -95,6 +95,44 @@ export function useInventoryItemsColumns({ onEdit }: UseInventoryItemsColumnsArg
         },
       },
       {
+        id: "pricing",
+        header: "الأسعار (قطاعي / جملة)",
+        enableSorting: false,
+        meta: { className: "text-xs" },
+        cell: ({ row }) => {
+          const item = row.original;
+          const retail = item.selling_price !== null && item.selling_price !== undefined ? Number(item.selling_price) : null;
+          const wholesale = item.wholesale_price !== null && item.wholesale_price !== undefined ? Number(item.wholesale_price) : null;
+          const cost = item.cost_price !== null && item.cost_price !== undefined ? Number(item.cost_price) : null;
+
+          if (retail === null && wholesale === null && cost === null) {
+            return <span className="text-app-label-tertiary">—</span>;
+          }
+
+          return (
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-1.5 font-mono">
+                {retail !== null && (
+                  <span className="font-semibold text-app-label-primary" title="سعر بيع القطعة">
+                    {formatNumber(retail)} <span className="text-[10px] font-sans text-app-label-tertiary">قطاعي</span>
+                  </span>
+                )}
+                {wholesale !== null && (
+                  <span className="text-app-accent font-semibold" title="سعر بيع بالجملة">
+                    {formatNumber(wholesale)} <span className="text-[10px] font-sans text-app-label-tertiary">جملة</span>
+                  </span>
+                )}
+              </div>
+              {cost !== null && (
+                <div className="text-[10px] text-app-label-tertiary font-mono" title="سعر التكلفة">
+                  تكلفة: {formatNumber(cost)} د.ل
+                </div>
+              )}
+            </div>
+          );
+        },
+      },
+      {
         id: "created_at",
         accessorKey: "created_at",
         header: "تاريخ الإنشاء",

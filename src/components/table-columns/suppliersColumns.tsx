@@ -1,13 +1,14 @@
 import { useMemo } from "react";
-import { Building, Building2, MapPin, Pencil } from "lucide-react";
+import { Building, Building2, FileText, MapPin, Pencil } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { Supplier } from "../../types/procurement";
 
 export interface UseSuppliersColumnsArgs {
   onEdit?: (supplier: Supplier) => void;
+  onViewStatement?: (supplier: Supplier) => void;
 }
 
-export function useSuppliersColumns({ onEdit }: UseSuppliersColumnsArgs = {}): ColumnDef<Supplier, unknown>[] {
+export function useSuppliersColumns({ onEdit, onViewStatement }: UseSuppliersColumnsArgs = {}): ColumnDef<Supplier, unknown>[] {
   return useMemo<ColumnDef<Supplier, unknown>[]>(
     () => [
       {
@@ -92,6 +93,18 @@ export function useSuppliersColumns({ onEdit }: UseSuppliersColumnsArgs = {}): C
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
+                  onViewStatement?.(supplier);
+                }}
+                className="flex items-center gap-1 rounded-lg border border-app-separator px-2.5 py-1 text-xs font-semibold text-app-label-primary hover:border-app-accent hover:text-app-accent hover:bg-app-accent-subtle transition-colors"
+                title="عرض كشف حساب المورد"
+              >
+                <FileText className="w-3.5 h-3.5 text-app-accent" />
+                <span>كشف حساب</span>
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
                   onEdit?.(supplier);
                 }}
                 className="flex items-center gap-1 rounded-lg border border-app-separator px-2.5 py-1 text-xs font-semibold text-app-label-secondary hover:border-app-accent hover:text-app-accent hover:bg-app-accent-subtle transition-colors"
@@ -105,6 +118,6 @@ export function useSuppliersColumns({ onEdit }: UseSuppliersColumnsArgs = {}): C
         },
       },
     ],
-    [onEdit]
+    [onEdit, onViewStatement]
   );
 }

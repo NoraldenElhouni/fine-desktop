@@ -23,6 +23,7 @@ import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useClientsColumns } from "../../components/table-columns/clientsColumns";
 import { CoaAccountSelector } from "../../components/accounting/CoaAccountSelector";
+import { PartnerStatementDialog } from "../../components/accounting/PartnerStatementDialog";
 import type { CoaAction, NewCoaAccountPayload } from "../../types/entities";
 
 export const ClientsPage: React.FC = () => {
@@ -299,7 +300,18 @@ export const ClientsPage: React.FC = () => {
       "تعذر تحميل سجلات العملاء"
     : null;
 
-  const columns = useClientsColumns({ onEdit: handleOpenEditModal });
+  const [statementOpen, setStatementOpen] = useState(false);
+  const [statementClient, setStatementClient] = useState<Client | null>(null);
+
+  const handleOpenStatement = (client: Client) => {
+    setStatementClient(client);
+    setStatementOpen(true);
+  };
+
+  const columns = useClientsColumns({
+    onEdit: handleOpenEditModal,
+    onViewStatement: handleOpenStatement,
+  });
 
   const tableData = useMemo(() => clients, [clients]);
   const clientsTable = useDataTable({
@@ -918,6 +930,17 @@ export const ClientsPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Statement of Account Dialog */}
+      {statementClient && (
+        <PartnerStatementDialog
+          open={statementOpen}
+          onOpenChange={setStatementOpen}
+          partyType="client"
+          partyId={statementClient.id}
+          partyName={statementClient.entity?.name}
+        />
+      )}
     </div>
   );
 };

@@ -38,8 +38,14 @@ export interface InventoryItem {
   width_m?: number;
   height_m?: number;
   volume_m3?: number;
-  /** POS starting price — per piece, or per m³ when price_basis is "m3". Editable at the counter. */
+  /** Accounting cost basis per piece or m³ */
+  cost_price?: number | string | null;
+  /** Procurement purchase price per piece or m³ */
+  purchase_price?: number | string | null;
+  /** POS starting retail price — per piece, or per m³ when price_basis is "m3". Editable at the counter. */
   selling_price?: number | string | null;
+  /** Wholesale / trade selling price */
+  wholesale_price?: number | string | null;
   price_basis?: PriceBasis;
   /** Only with `with_stock=1`: available quantity on the current unit's shelves. */
   available_quantity?: number | string | null;
@@ -77,6 +83,24 @@ export function suggestedPrice(
   return Math.round(rate * volume * quantity * 10000) / 10000;
 }
 
+export function suggestedWholesalePrice(
+  item: Pick<InventoryItem, "wholesale_price" | "price_basis" | "volume_m3">,
+  quantity: number,
+  size?: { length_m?: number | null; width_m?: number | null; height_m?: number | null },
+): number | null {
+  if (item.wholesale_price === null || item.wholesale_price === undefined || item.wholesale_price === "") return null;
+  const rate = Number(item.wholesale_price);
+  if (item.price_basis !== "m3") return Math.round(rate * quantity * 10000) / 10000;
+  const hasSize = size && size.length_m && size.width_m && size.height_m;
+  const volume = hasSize
+    ? Number(size.length_m) * Number(size.width_m) * Number(size.height_m)
+    : item.volume_m3
+      ? Number(item.volume_m3)
+      : null;
+  if (volume === null) return null;
+  return Math.round(rate * volume * quantity * 10000) / 10000;
+}
+
 type ClearableItemField =
   | "primary_uom"
   | "secondary_uom"
@@ -84,7 +108,10 @@ type ClearableItemField =
   | "length_m"
   | "width_m"
   | "height_m"
-  | "selling_price";
+  | "cost_price"
+  | "purchase_price"
+  | "selling_price"
+  | "wholesale_price";
 
 /** Create/update body — `null` clears a field on the backend, `undefined` leaves it untouched. */
 export type InventoryItemPayload = Partial<Omit<InventoryItem, ClearableItemField>> & {

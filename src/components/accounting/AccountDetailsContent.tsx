@@ -19,6 +19,7 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
   const [searchTerm, setSearchTerm] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [includeChildren, setIncludeChildren] = useState(false);
 
   const { data: account, isLoading: accountLoading } = useAccount(accountId);
 
@@ -27,6 +28,7 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
     from: from.trim() || undefined,
     to: to.trim() || undefined,
     search: searchTerm.trim() || undefined,
+    include_children: includeChildren,
   });
 
   const columns = useChartOfAccountsLedgerColumns();
@@ -46,6 +48,7 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
     setFrom("");
     setTo("");
     setPage(1);
+    setIncludeChildren(false);
   };
 
   const currency = account?.currency ?? "LYD";
@@ -68,7 +71,7 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-3">
           <div className="flex items-center justify-between text-xs text-app-label-secondary">
-            <span>الرصيد الحالي</span>
+            <span>{account.has_children ? "الرصيد التجميعي" : "الرصيد الحالي"}</span>
             <Coins className="h-3.5 w-3.5 text-app-accent" />
           </div>
           <div className="mt-1 flex items-baseline gap-1">
@@ -77,6 +80,11 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
             </span>
             <span className="text-[11px] text-app-label-tertiary">{currency}</span>
           </div>
+          {account.has_children && account.direct_balance !== undefined && (
+            <div className="mt-1 text-[11px] text-app-label-tertiary">
+              المباشر: <span className="font-mono font-semibold">{formatNumber(account.direct_balance)}</span> {currency}
+            </div>
+          )}
         </div>
 
         <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-3">
@@ -90,6 +98,11 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
             </span>
             <span className="text-[11px] text-app-label-tertiary">{currency}</span>
           </div>
+          {account.has_children && account.direct_debit !== undefined && (
+            <div className="mt-1 text-[11px] text-app-label-tertiary">
+              المباشر: <span className="font-mono font-semibold">{formatNumber(account.direct_debit)}</span> {currency}
+            </div>
+          )}
         </div>
 
         <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-3">
@@ -103,6 +116,11 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
             </span>
             <span className="text-[11px] text-app-label-tertiary">{currency}</span>
           </div>
+          {account.has_children && account.direct_credit !== undefined && (
+            <div className="mt-1 text-[11px] text-app-label-tertiary">
+              المباشر: <span className="font-mono font-semibold">{formatNumber(account.direct_credit)}</span> {currency}
+            </div>
+          )}
         </div>
 
         <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-3">
@@ -160,7 +178,22 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
             />
           </div>
 
-          {(searchTerm || from || to) && (
+          {account.has_children && (
+            <label className="flex items-center gap-2 cursor-pointer text-xs text-app-label-secondary hover:text-app-label-primary px-1">
+              <input
+                type="checkbox"
+                checked={includeChildren}
+                onChange={(e) => {
+                  setIncludeChildren(e.target.checked);
+                  setPage(1);
+                }}
+                className="rounded border-app-separator text-app-accent focus:ring-app-accent"
+              />
+              <span>تضمين الحسابات الفرعية</span>
+            </label>
+          )}
+
+          {(searchTerm || from || to || includeChildren) && (
             <button
               type="button"
               onClick={handleResetFilters}

@@ -295,6 +295,7 @@ export const ChartOfAccountsPage: React.FC = () => {
   const [detailsAccountId, setDetailsAccountId] = useState<string | null>(null);
   // (removed) reparentAccountId state — reparenting is now done inline in the edit dialog
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
+  const [includeChildren, setIncludeChildren] = useState(false);
 
   const handleViewChange = (next: "effected" | "full") => {
     setView(next);
@@ -302,6 +303,7 @@ export const ChartOfAccountsPage: React.FC = () => {
     setLedgerPage(1);
     setSideSearch("");
     setTreeSearch("");
+    setIncludeChildren(false);
   };
 
   const { hasRole } = usePermissions();
@@ -312,6 +314,7 @@ export const ChartOfAccountsPage: React.FC = () => {
     {
       page: ledgerPage,
       search: sideSearch.trim() || undefined,
+      include_children: includeChildren,
     }
   );
 
@@ -498,7 +501,12 @@ export const ChartOfAccountsPage: React.FC = () => {
             >
               {ACCOUNT_TYPE_LABEL[node.account.type]}
             </span>
-            <span className="ms-auto font-mono text-xs text-app-label-primary">
+            <span
+              className={`ms-auto font-mono text-xs ${
+                node.children.length > 0 ? "font-bold text-app-label-primary" : "text-app-label-primary"
+              }`}
+              title={node.children.length > 0 ? "رصيد تجميعي شامل الحسابات الفرعية" : undefined}
+            >
               {formatNumber(node.account.balance)}
             </span>
           </button>
@@ -693,24 +701,59 @@ export const ChartOfAccountsPage: React.FC = () => {
             {/* Quick KPI stats */}
             <div className="grid grid-cols-3 gap-2 border-b border-app-separator bg-app-bg-secondary/40 p-3 text-xs">
               <div className="rounded-lg border border-app-separator bg-app-bg-primary p-2">
-                <div className="text-[11px] text-app-label-secondary">الرصيد</div>
+                <div className="flex items-center justify-between text-[11px] text-app-label-secondary">
+                  <span>{selected.has_children ? "الرصيد التجميعي" : "الرصيد"}</span>
+                </div>
                 <div className="mt-0.5 font-mono font-bold text-app-label-primary">
                   {formatNumber(selected.balance)}
                 </div>
+                {selected.has_children && selected.direct_balance !== undefined && (
+                  <div className="mt-0.5 text-[10px] text-app-label-tertiary">
+                    المباشر: {formatNumber(selected.direct_balance)}
+                  </div>
+                )}
               </div>
               <div className="rounded-lg border border-app-separator bg-app-bg-primary p-2">
                 <div className="text-[11px] text-app-label-secondary">مدين</div>
                 <div className="mt-0.5 font-mono font-semibold text-app-status-positive">
                   {formatNumber(selected.total_debit)}
                 </div>
+                {selected.has_children && selected.direct_debit !== undefined && (
+                  <div className="mt-0.5 text-[10px] text-app-label-tertiary">
+                    المباشر: {formatNumber(selected.direct_debit)}
+                  </div>
+                )}
               </div>
               <div className="rounded-lg border border-app-separator bg-app-bg-primary p-2">
                 <div className="text-[11px] text-app-label-secondary">دائن</div>
                 <div className="mt-0.5 font-mono font-semibold text-app-status-danger">
                   {formatNumber(selected.total_credit)}
                 </div>
+                {selected.has_children && selected.direct_credit !== undefined && (
+                  <div className="mt-0.5 text-[10px] text-app-label-tertiary">
+                    المباشر: {formatNumber(selected.direct_credit)}
+                  </div>
+                )}
               </div>
             </div>
+
+            {/* Sub-accounts ledger toggle if parent */}
+            {selected.has_children && (
+              <div className="flex items-center justify-between border-b border-app-separator bg-app-bg-secondary/20 px-3 py-2 text-xs">
+                <label className="flex items-center gap-2 cursor-pointer text-app-label-secondary hover:text-app-label-primary">
+                  <input
+                    type="checkbox"
+                    checked={includeChildren}
+                    onChange={(e) => {
+                      setIncludeChildren(e.target.checked);
+                      setLedgerPage(1);
+                    }}
+                    className="rounded border-app-separator text-app-accent focus:ring-app-accent"
+                  />
+                  <span>تضمين حركات الحسابات الفرعية في كشف الحركة</span>
+                </label>
+              </div>
+            )}
 
             {/* Search filter */}
             <div className="flex items-center gap-2 border-b border-app-separator bg-app-bg-primary p-3">

@@ -128,6 +128,7 @@ export function useAccountLedger(
     from?: string;
     to?: string;
     search?: string;
+    include_children?: boolean;
   }
 ) {
   const companyWide = useIsCompanyWide();

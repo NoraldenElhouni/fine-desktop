@@ -1013,11 +1013,19 @@ export const PurchaseOrdersPage: React.FC = () => {
                               onChange={(item) =>
                                 updateLine(idx, {
                                   inventory_item_id: item ? item.id : "",
+                                  unit_price:
+                                    item && item.purchase_price !== null && item.purchase_price !== undefined && (!line.unit_price || Number(line.unit_price) === 0)
+                                      ? Number(item.purchase_price)
+                                      : line.unit_price,
                                 })
                               }
                               getOptionId={(it) => it.id}
                               getOptionLabel={(it) => it.name}
-                              getOptionSubLabel={(it) => `${it.code} · ${it.unit_of_measure}`}
+                              getOptionSubLabel={(it) =>
+                                `${it.code} · ${it.unit_of_measure}${
+                                  it.purchase_price ? ` · سعر الشراء: ${it.purchase_price} د.ل` : ""
+                                }`
+                              }
                               getOptionSearchText={(it) =>
                                 `${it.name} ${it.code}`
                               }

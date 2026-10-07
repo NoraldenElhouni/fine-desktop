@@ -67,7 +67,11 @@ const InventoryItemFormPage: React.FC = () => {
   const [lengthM, setLengthM] = useState("");
   const [widthM, setWidthM] = useState("");
   const [heightM, setHeightM] = useState("");
+  const [costPrice, setCostPrice] = useState("");
+  const [purchasePrice, setPurchasePrice] = useState("");
   const [sellingPrice, setSellingPrice] = useState("");
+  const [wholesalePrice, setWholesalePrice] = useState("");
+  const [costManuallyEdited, setCostManuallyEdited] = useState(false);
   const [priceBasis, setPriceBasis] = useState<PriceBasis>("unit");
   const [error, setError] = useState<string | null>(null);
 
@@ -100,11 +104,29 @@ const InventoryItemFormPage: React.FC = () => {
     setLengthM(editingItem.length_m ? String(editingItem.length_m) : "");
     setWidthM(editingItem.width_m ? String(editingItem.width_m) : "");
     setHeightM(editingItem.height_m ? String(editingItem.height_m) : "");
+    setCostPrice(
+      editingItem.cost_price !== null && editingItem.cost_price !== undefined
+        ? String(Number(editingItem.cost_price))
+        : "",
+    );
+    setPurchasePrice(
+      editingItem.purchase_price !== null && editingItem.purchase_price !== undefined
+        ? String(Number(editingItem.purchase_price))
+        : "",
+    );
     setSellingPrice(
       editingItem.selling_price !== null && editingItem.selling_price !== undefined
         ? String(Number(editingItem.selling_price))
         : "",
     );
+    setWholesalePrice(
+      editingItem.wholesale_price !== null && editingItem.wholesale_price !== undefined
+        ? String(Number(editingItem.wholesale_price))
+        : "",
+    );
+    if (editingItem.cost_price !== null && editingItem.cost_price !== undefined) {
+      setCostManuallyEdited(true);
+    }
     setPriceBasis(editingItem.price_basis ?? "unit");
     if (
       editingItem.length_m ||
@@ -138,6 +160,18 @@ const InventoryItemFormPage: React.FC = () => {
     setShowSize(false);
   };
 
+  const handlePurchasePriceChange = (val: string) => {
+    setPurchasePrice(val);
+    if (!costManuallyEdited) {
+      setCostPrice(val);
+    }
+  };
+
+  const handleCostPriceChange = (val: string) => {
+    setCostPrice(val);
+    setCostManuallyEdited(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -155,7 +189,10 @@ const InventoryItemFormPage: React.FC = () => {
       length_m: lengthM.trim() ? Number(lengthM) : null,
       width_m: widthM.trim() ? Number(widthM) : null,
       height_m: heightM.trim() ? Number(heightM) : null,
+      cost_price: costPrice.trim() ? Number(costPrice) : null,
+      purchase_price: purchasePrice.trim() ? Number(purchasePrice) : null,
       selling_price: sellingPrice.trim() ? Number(sellingPrice) : null,
+      wholesale_price: wholesalePrice.trim() ? Number(wholesalePrice) : null,
       price_basis: priceBasis,
     };
 
@@ -231,7 +268,7 @@ const InventoryItemFormPage: React.FC = () => {
               "سائب"
             )}
           </SummaryRow>
-          <SummaryRow label="سعر البيع">
+          <SummaryRow label="سعر بيع القطعة">
             {sellingPrice.trim() ? (
               <>
                 <span className="font-mono">
@@ -240,9 +277,29 @@ const InventoryItemFormPage: React.FC = () => {
                 د.ل {PRICE_BASIS_LABELS[priceBasis]}
               </>
             ) : (
-              <span className="text-app-label-tertiary">يُحدد عند البيع</span>
+              <span className="text-app-label-tertiary">غير محدد</span>
             )}
           </SummaryRow>
+          <SummaryRow label="سعر بيع بالجملة">
+            {wholesalePrice.trim() ? (
+              <>
+                <span className="font-mono">
+                  {formatNumber(Number(wholesalePrice))}
+                </span>{" "}
+                د.ل {PRICE_BASIS_LABELS[priceBasis]}
+              </>
+            ) : (
+              <span className="text-app-label-tertiary">غير محدد</span>
+            )}
+          </SummaryRow>
+          {(costPrice.trim() || purchasePrice.trim()) && (
+            <SummaryRow label="التكلفة / الشراء">
+              <span className="font-mono">
+                {costPrice.trim() ? formatNumber(Number(costPrice)) : "—"} / {purchasePrice.trim() ? formatNumber(Number(purchasePrice)) : "—"}
+              </span>{" "}
+              د.ل
+            </SummaryRow>
+          )}
           {volume > 0 && (
             <SummaryRow label="المقاس">
               <span className="font-mono" dir="ltr">
@@ -542,54 +599,164 @@ const InventoryItemFormPage: React.FC = () => {
 
       <Question
         number="5"
-        title="سعر البيع"
-        subtitle="اختياري — سعر مبدئي يظهر في نقطة البيع ويمكن تعديله عند البيع"
+        title="الأسعار والتسعير"
+        subtitle="اختياري — تحديد تكاليف الشراء والتكلفة وأسعار البيع بالقطعة وبالجملة"
       >
-        <div className="inline-flex rounded-app-md border border-app-separator p-1 bg-app-bg-secondary">
-          {(Object.keys(PRICE_BASIS_LABELS) as PriceBasis[]).map((basis) => (
-            <button
-              key={basis}
-              type="button"
-              onClick={() => setPriceBasis(basis)}
-              className={cn(
-                type.c1Emphasized,
-                "rounded-app-sm px-4 py-1.5 transition-colors",
-                priceBasis === basis
-                  ? "bg-app-bg-primary text-app-label-primary shadow-sm"
-                  : "text-app-label-secondary hover:text-app-label-primary",
+        <div className="space-y-5">
+          {/* Basis selector: unit vs m3 */}
+          <div>
+            <label className="block text-xs font-semibold text-app-label-secondary mb-1.5">
+              أساس احتساب السعر
+            </label>
+            <div className="inline-flex rounded-app-md border border-app-separator p-1 bg-app-bg-secondary">
+              {(Object.keys(PRICE_BASIS_LABELS) as PriceBasis[]).map((basis) => (
+                <button
+                  key={basis}
+                  type="button"
+                  onClick={() => setPriceBasis(basis)}
+                  className={cn(
+                    type.c1Emphasized,
+                    "rounded-app-sm px-4 py-1.5 transition-colors",
+                    priceBasis === basis
+                      ? "bg-app-bg-primary text-app-label-primary shadow-sm"
+                      : "text-app-label-secondary hover:text-app-label-primary",
+                  )}
+                >
+                  {PRICE_BASIS_LABELS[basis]}
+                </button>
+              ))}
+            </div>
+            {priceBasis === "m3" && (
+              <p className="mt-1 text-[11px] text-app-label-tertiary">
+                الأسعار المدخلة أدناه ستُحسب لكل متر مكعب (م³).
+              </p>
+            )}
+          </div>
+
+          {/* Group 1: Cost & Purchase */}
+          <div className="rounded-xl border border-app-separator bg-app-bg-secondary/40 p-4 space-y-3">
+            <h4 className="text-xs font-bold text-app-label-primary flex items-center gap-1.5">
+              <span>أسعار التكلفة والتوريد (Sourcing & Costs)</span>
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field
+                label={priceBasis === "m3" ? "سعر الشراء للمتر المكعب (د.ل)" : "سعر الشراء (د.ل)"}
+                hint="سعر الشراء من المورد — يُقترح كقيمة مبدئية لسعر التكلفة"
+              >
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={purchasePrice}
+                  onChange={(e) => handlePurchasePriceChange(e.target.value)}
+                  className={cn(inputClass, "font-mono")}
+                  dir="ltr"
+                />
+              </Field>
+
+              <Field
+                label={priceBasis === "m3" ? "سعر التكلفة للمتر المكعب (د.ل)" : "سعر التكلفة (د.ل)"}
+                hint="التكلفة الإجمالية (شراء + شحن/جمارك) — قابلة للتعديل بحرية"
+              >
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={costPrice}
+                  onChange={(e) => handleCostPriceChange(e.target.value)}
+                  className={cn(inputClass, "font-mono")}
+                  dir="ltr"
+                />
+              </Field>
+            </div>
+          </div>
+
+          {/* Group 2: Selling Prices */}
+          <div className="rounded-xl border border-app-separator bg-app-bg-secondary/40 p-4 space-y-3">
+            <h4 className="text-xs font-bold text-app-label-primary flex items-center gap-1.5">
+              <span>أسعار البيع (Selling Prices)</span>
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field
+                label={priceBasis === "m3" ? "سعر بيع القطعة للمتر المكعب (د.ل)" : "سعر بيع القطعة (قطاعي) (د.ل)"}
+                hint="سعر البيع الافتراضي للمستهلك أو المعرض"
+              >
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={sellingPrice}
+                  onChange={(e) => setSellingPrice(e.target.value)}
+                  className={cn(inputClass, "font-mono")}
+                  dir="ltr"
+                />
+              </Field>
+
+              <Field
+                label={priceBasis === "m3" ? "سعر بيع بالجملة للمتر المكعب (د.ل)" : "سعر بيع بالجملة (د.ل)"}
+                hint="سعر البيع لعملاء الجملة والتجار"
+              >
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={wholesalePrice}
+                  onChange={(e) => setWholesalePrice(e.target.value)}
+                  className={cn(inputClass, "font-mono")}
+                  dir="ltr"
+                />
+              </Field>
+            </div>
+          </div>
+
+          {/* Profit margin live feedback */}
+          {Number(costPrice) > 0 && (Number(sellingPrice) > 0 || Number(wholesalePrice) > 0) && (
+            <div className="flex flex-wrap items-center gap-4 text-xs bg-app-bg-primary border border-app-separator p-2.5 rounded-lg">
+              {Number(sellingPrice) > 0 && (
+                <div>
+                  <span className="text-app-label-secondary">هامش ربح القطعة: </span>
+                  <span className={cn("font-mono font-bold", Number(sellingPrice) >= Number(costPrice) ? "text-app-status-positive" : "text-app-status-danger")}>
+                    {formatNumber(((Number(sellingPrice) - Number(costPrice)) / Number(sellingPrice)) * 100)}%
+                  </span>
+                  <span className="text-app-label-tertiary font-mono ms-1">
+                    (+{formatNumber(Number(sellingPrice) - Number(costPrice))} د.ل)
+                  </span>
+                </div>
               )}
-            >
-              {PRICE_BASIS_LABELS[basis]}
-            </button>
-          ))}
+              {Number(wholesalePrice) > 0 && (
+                <div>
+                  <span className="text-app-label-secondary">هامش ربح الجملة: </span>
+                  <span className={cn("font-mono font-bold", Number(wholesalePrice) >= Number(costPrice) ? "text-app-status-positive" : "text-app-status-danger")}>
+                    {formatNumber(((Number(wholesalePrice) - Number(costPrice)) / Number(wholesalePrice)) * 100)}%
+                  </span>
+                  <span className="text-app-label-tertiary font-mono ms-1">
+                    (+{formatNumber(Number(wholesalePrice) - Number(costPrice))} د.ل)
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {priceBasis === "m3" && volume > 0 && (
+            <div className="text-[11px] text-app-label-secondary">
+              حساب المقاس الحالي ({formatNumber(volume)} م³):{" "}
+              {Number(sellingPrice) > 0 && (
+                <span className="me-3">
+                  قطاعي: <strong className="font-mono text-app-accent">{formatNumber(Number(sellingPrice) * volume)} د.ل</strong>
+                </span>
+              )}
+              {Number(wholesalePrice) > 0 && (
+                <span>
+                  جملة: <strong className="font-mono text-app-accent">{formatNumber(Number(wholesalePrice) * volume)} د.ل</strong>
+                </span>
+              )}
+            </div>
+          )}
         </div>
-        <Field
-          label={priceBasis === "m3" ? "السعر لكل متر مكعب (د.ل)" : "السعر للقطعة (د.ل)"}
-          hint={
-            priceBasis === "m3"
-              ? "سعر القطعة = السعر × الطول × العرض × الارتفاع"
-              : undefined
-          }
-        >
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder="0.00"
-            value={sellingPrice}
-            onChange={(e) => setSellingPrice(e.target.value)}
-            className={cn(inputClass, "font-mono w-48")}
-            dir="ltr"
-          />
-        </Field>
-        {priceBasis === "m3" && volume > 0 && Number(sellingPrice) > 0 && (
-          <span className={cn(type.c1Regular, "text-app-label-secondary")}>
-            سعر القطعة بمقاسها الحالي:{" "}
-            <span className="font-mono font-semibold text-app-accent">
-              {formatNumber(Number(sellingPrice) * volume)} د.ل
-            </span>
-          </span>
-        )}
       </Question>
     </GuidedFormPage>
   );
