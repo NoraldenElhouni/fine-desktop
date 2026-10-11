@@ -148,6 +148,7 @@ export interface ManualJournalPayload {
     debit?: number;
     credit?: number;
     operating_unit_id?: string | null;
+    client_id?: string | null;
     memo?: string | null;
   }[];
 }
