@@ -13,6 +13,7 @@ import {
   Database,
   Warehouse,
   Droplets,
+  FileSpreadsheet,
   Factory,
   Layers,
   LayoutGrid,
@@ -69,6 +70,14 @@ export const SETTINGS_ROLES = [
   "manager",
 ];
 
+export const DEBTOR_STATEMENT_ROLES = [
+  "owner",
+  "accounting-manager",
+  "manager",
+  "unit_manager",
+  "treasury-officer",
+];
+
 export const navItems: AppNavItem[] = [
   { id: "dashboard", path: "/", label: "لوحة التحكم", icon: LayoutGrid },
   { id: "admin-entities", path: "/admin/entities", label: "إدارة الكيانات (مشرف)", icon: Building2, allowedRoles: ["owner", "admin"] },
@@ -101,6 +110,7 @@ export const navItems: AppNavItem[] = [
   { id: "overhead", path: "/accounting/overhead", label: "المصاريف العمومية", icon: Droplets, allowedRoles: ["owner", "admin", "accounting-manager"] },
   { id: "fixed-assets", path: "/accounting/assets", label: "الأصول الثابتة", icon: Building, allowedRoles: ["owner", "admin", "accounting-manager"] },
   { id: "reports", path: "/reports", label: "التقارير المالية", icon: BarChart3, allowedRoles: ["owner", "admin", "accounting-manager", "treasury-officer", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"] },
+  { id: "debtor-statements", path: "/reports/debtors", label: "كشف حساب المدينين", icon: FileSpreadsheet, allowedRoles: DEBTOR_STATEMENT_ROLES },
   { id: "reports-bundles", path: "/reports/bundles", label: "تقرير مبيعات الحزم", icon: Package2, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "unit_manager", "manager"] },
   { id: "users", path: "/users", label: "المستخدمون والصلاحيات", icon: ShieldCheck, allowedRoles: ["owner", "admin"] },
   { id: "settings-company", path: "/settings/company", label: "إعدادات الشركة", icon: Building2, allowedRoles: ["owner", "admin"] },
@@ -139,15 +149,14 @@ export const getBreadcrumbEntries = (
     }
   }
 
-  const matchingItem = navItems.find((item) => {
-    if (item.path === "/") {
-      return false;
-    }
-
-    return (
-      normalizedPath === item.path || normalizedPath.startsWith(`${item.path}/`)
-    );
-  });
+  // Longest matching path wins so /reports/debtors beats its parent /reports.
+  const matchingItem = navItems
+    .filter(
+      (item) =>
+        item.path !== "/" &&
+        (normalizedPath === item.path || normalizedPath.startsWith(`${item.path}/`)),
+    )
+    .sort((a, b) => b.path.length - a.path.length)[0];
 
   if (matchingItem) {
     entries.push({ path: matchingItem.path, label: matchingItem.label });

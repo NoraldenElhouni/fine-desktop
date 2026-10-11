@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { BookOpenText, Plus, AlertTriangle, Trash2, ChevronDown, ChevronUp, PencilLine } from "lucide-react";
+import { useClients } from "../../hooks/useClients";
+import type { Client } from "../../types/entities";
 import { useJournalEntries, useCreateManualEntry, useAccounts } from "../../hooks/useAccounting";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import type { JournalEntry, JournalLine } from "../../api/endpoints/accounting";
@@ -14,9 +16,17 @@ const num = (v: string): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
+const RECEIVABLE_ROOT_CODE = "122";
+
+const PARTY_ERROR_MESSAGES: Record<string, string> = {
+  PARTY_ON_NON_RECEIVABLE: "لا يمكن ربط عميل إلا بحساب ذمم مدينة",
+  PARTY_ACCOUNT_MISMATCH: "حساب العميل لا يطابق الحساب المختار",
+};
+
 interface FormLine {
   key: string;
   account_code: string;
+  client_id: string;
   side: "debit" | "credit";
   amount: string;
   memo: string;
@@ -25,6 +35,7 @@ interface FormLine {
 const emptyLine = (side: "debit" | "credit"): FormLine => ({
   key: Math.random().toString(36).slice(2),
   account_code: "",
+  client_id: "",
   side,
   amount: "",
   memo: "",
@@ -70,11 +81,28 @@ export const JournalEntriesPage: React.FC = () => {
     page,
   });
   const { data: accounts } = useAccounts();
+  const { data: clients = [] } = useClients();
   const createMutation = useCreateManualEntry();
 
   const totalDebit = lines.reduce((s, l) => s + (l.side === "debit" ? num(l.amount) : 0), 0);
   const totalCredit = lines.reduce((s, l) => s + (l.side === "credit" ? num(l.amount) : 0), 0);
   const isBalanced = Math.abs(totalDebit - totalCredit) < 0.0001 && totalDebit > 0;
+
+  // Receivable subtree: account 122 plus every descendant, walked via parent_account_id.
+  const receivableCodes = useMemo(() => {
+    const byId = new Map((accounts ?? []).map((a) => [a.id, a]));
+    const inSubtree = (id: string): boolean => {
+      const seen = new Set<string>();
+      let cur = byId.get(id);
+      while (cur && !seen.has(cur.id)) {
+        if (cur.account_code === RECEIVABLE_ROOT_CODE) return true;
+        seen.add(cur.id);
+        cur = cur.parent_account_id ? byId.get(cur.parent_account_id) : undefined;
+      }
+      return false;
+    };
+    return new Set((accounts ?? []).filter((a) => inSubtree(a.id)).map((a) => a.account_code));
+  }, [accounts]);
 
   const patchLine = (key: string, patch: Partial<FormLine>) =>
     setLines(lines.map((l) => (l.key === key ? { ...l, ...patch } : l)));
@@ -90,6 +118,7 @@ export const JournalEntriesPage: React.FC = () => {
           account_code: l.account_code,
           [l.side]: num(l.amount),
           memo: l.memo || undefined,
+          ...(l.client_id && receivableCodes.has(l.account_code) ? { client_id: l.client_id } : {}),
         })),
       },
       {
@@ -99,7 +128,14 @@ export const JournalEntriesPage: React.FC = () => {
           setEntryDate("");
           setLines([emptyLine("debit"), emptyLine("credit")]);
         },
-        onError: (err) => setError(apiErrorPayload(err)?.message ?? "تعذر ترحيل القيد."),
+        onError: (err) => {
+          const payload = apiErrorPayload(err);
+          setError(
+            (payload?.code && PARTY_ERROR_MESSAGES[payload.code]) ||
+              payload?.message ||
+              "تعذر ترحيل القيد.",
+          );
+        },
       },
     );
   };
@@ -268,6 +304,7 @@ export const JournalEntriesPage: React.FC = () => {
                       onChange={(a) =>
                         patchLine(l.key, {
                           account_code: a ? a.account_code : "",
+                          client_id: a && receivableCodes.has(a.account_code) ? l.client_id : "",
                         })
                       }
                       getOptionId={(a) => a.id}
@@ -281,6 +318,21 @@ export const JournalEntriesPage: React.FC = () => {
                       required
                     />
                   </div>
+                  {receivableCodes.has(l.account_code) && (
+                    <div className="flex flex-col w-44">
+                      <label className="block text-[10px] font-semibold text-app-label-secondary mb-0.5">العميل (اختياري)</label>
+                      <SearchableSelect<Client>
+                        options={clients}
+                        value={clients.find((c) => c.id === l.client_id) ?? null}
+                        onChange={(c) => patchLine(l.key, { client_id: c ? c.id : "" })}
+                        getOptionId={(c) => c.id}
+                        getOptionLabel={(c) => c.entity?.name ?? c.id}
+                        getOptionSearchText={(c) => c.entity?.name ?? c.id}
+                        placeholder="العميل…"
+                        size="sm"
+                      />
+                    </div>
+                  )}
                   <div className="flex flex-col">
                     <label className="block text-[10px] font-semibold text-app-label-secondary mb-0.5">الطرف</label>
                     <select

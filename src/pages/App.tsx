@@ -9,6 +9,7 @@ import { ServerConfigDialog } from "../components/settings/ServerConfigDialog";
 import { recordSystemVersion } from "../api/endpoints/system";
 import { OwnerDashboardPage } from "./OwnerDashboardPage";
 import { FinancialReportsPage } from "./accounting/FinancialReportsPage";
+import { DebtorStatementsPage } from "./accounting/DebtorStatementsPage";
 import { BundleSalesReportPage } from "./reports/BundleSalesReportPage";
 import { useIsCompanyWide } from "../hooks/useAccounting";
 import UsersRoutes from "../routes/UsersRoutes";
@@ -29,7 +30,7 @@ import { MaterialRequestsRoutes } from "../routes/MaterialRequestsRoutes";
 import { CategoryHubPage } from "./hub/CategoryHubPage";
 
 import { AuthorizedRoute } from "../components/AuthorizedRoute";
-import { ALL_MANAGER_ROLES } from "../routes/routes.config";
+import { ALL_MANAGER_ROLES, DEBTOR_STATEMENT_ROLES } from "../routes/routes.config";
 import { SuppliersPage } from "./procurement/SuppliersPage";
 import { PurchaseOrdersPage } from "./procurement/PurchaseOrdersPage";
 import { TreasuryPage } from "./treasury/TreasuryPage";
@@ -345,6 +346,14 @@ const App = () => {
                   ]}
                 >
                   <FinancialReportsPage />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="reports/debtors"
+              element={
+                <AuthorizedRoute allowedRoles={DEBTOR_STATEMENT_ROLES}>
+                  <DebtorStatementsPage />
                 </AuthorizedRoute>
               }
             />

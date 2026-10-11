@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   BarChart3,
   CheckCircle2,
@@ -10,6 +11,7 @@ import {
   ArrowDownLeft,
   AlertCircle,
   Wallet,
+  FileSpreadsheet,
 } from "lucide-react";
 import {
   useIncomeStatement,
@@ -64,6 +66,7 @@ export const FinancialReportsPage: React.FC = () => {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [asOf, setAsOf] = useState("");
+  const navigate = useNavigate();
 
   // Statement dialog state
   const [statementOpen, setStatementOpen] = useState(false);
@@ -188,6 +191,24 @@ export const FinancialReportsPage: React.FC = () => {
               className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
             />
           </label>
+        )}
+
+        {tab === "clients_ar" && (
+          <button
+            type="button"
+            onClick={() => {
+              const pad = (n: number) => String(n).padStart(2, "0");
+              const now = new Date();
+              const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+              const end = asOf || today;
+              const params = new URLSearchParams({ from: `${end.slice(0, 7)}-01`, to: end });
+              navigate(`/reports/debtors?${params.toString()}`);
+            }}
+            className="ms-auto flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1"
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5" />
+            كشف حساب المدينين لهذه الفترة
+          </button>
         )}
       </div>
 

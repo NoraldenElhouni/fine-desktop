@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   AlertCircle,
   Download,
@@ -42,12 +43,21 @@ const isoDate = (d: Date): string => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
-/** Single source of initial filter values (extended by URL param initialisation later). */
-function defaultFilters(): DebtorFilters {
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const validIso = (v: string | null): v is string => {
+  if (!v || !ISO_DATE_RE.test(v)) return false;
+  const d = new Date(`${v}T00:00:00`);
+  return !Number.isNaN(d.getTime()) && isoDate(d) === v;
+};
+
+/** Single source of initial filter values; `?from=&to=` (YYYY-MM-DD) override the defaults. */
+function defaultFilters(search?: URLSearchParams): DebtorFilters {
   const now = new Date();
+  const qFrom = search?.get("from") ?? null;
+  const qTo = search?.get("to") ?? null;
   return {
-    from: isoDate(new Date(now.getFullYear(), now.getMonth(), 1)),
-    to: isoDate(now),
+    from: validIso(qFrom) ? qFrom : isoDate(new Date(now.getFullYear(), now.getMonth(), 1)),
+    to: validIso(qTo) ? qTo : isoDate(now),
     clientIds: [],
     status: "",
     city: "",
@@ -162,8 +172,14 @@ const inputClass =
   "rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs text-app-label-primary focus:border-app-accent focus:outline-none";
 
 export const DebtorStatementsPage: React.FC = () => {
-  const [filters, setFilters] = useState<DebtorFilters>(defaultFilters);
-  const [submitted, setSubmitted] = useState<DebtorStatementParams | null>(null);
+  const [searchParams] = useSearchParams();
+  const [filters, setFilters] = useState<DebtorFilters>(() => defaultFilters(searchParams));
+  // Auto-submit once on mount when both valid dates arrive via the URL (shortcut from reports).
+  const [submitted, setSubmitted] = useState<DebtorStatementParams | null>(() =>
+    validIso(searchParams.get("from")) && validIso(searchParams.get("to"))
+      ? toParams(defaultFilters(searchParams))
+      : null,
+  );
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showPrint, setShowPrint] = useState(false);
 

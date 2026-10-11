@@ -89,7 +89,7 @@ export const categoryGroups: CategoryGroup[] = [
     description: "سجل اليومية العامة، شجرة الحسابات، ميزان المراجعة، المصاريف العمومية، والأصول والتقارير",
     icon: BarChart3,
     path: "/hub/finance",
-    itemIds: ["journal", "accounts", "trial-balance", "overhead", "fixed-assets", "reports"],
+    itemIds: ["journal", "accounts", "trial-balance", "overhead", "fixed-assets", "reports", "debtor-statements"],
     get items() {
       return findItems(this.itemIds);
     },
