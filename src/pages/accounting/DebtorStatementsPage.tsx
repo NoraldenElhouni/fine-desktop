@@ -20,6 +20,7 @@ import type {
 import type { Client } from "../../types/entities";
 import { formatInteger, formatNumber } from "../../lib/utils/format";
 import { downloadCsv, toCsv, type CsvColumn } from "../../lib/utils/csv";
+import { DebtorStatementsPrint } from "../../components/print/DebtorStatementsPrint";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import {
   DebtorStatementSection,
@@ -225,8 +226,9 @@ export const DebtorStatementsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Print view is mounted here by the print task; `showPrint` drives it. */}
-      {showPrint && null}
+      {showPrint && data && (
+        <DebtorStatementsPrint data={data} onlyClientIds={selectedIds} onClose={() => setShowPrint(false)} />
+      )}
 
       <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-app-separator bg-app-bg-primary p-3 shadow-sm">
         <label className="flex items-center gap-2 text-xs text-app-label-secondary">

@@ -78,6 +78,16 @@ body {
   .print-area tr {
     break-inside: avoid;
   }
+
+  /* Long tables repeat their header row on every page. */
+  .print-area thead {
+    display: table-header-group;
+  }
+
+  /* Start a block (e.g. one debtor's statement) on a fresh page. */
+  .print-area .print-page-break {
+    break-before: page;
+  }
 }
 
 /* Invoices, quotations, delivery notes and cutter job sheets print on A4.
