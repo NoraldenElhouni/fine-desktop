@@ -104,6 +104,10 @@ export const JournalEntriesPage: React.FC = () => {
     return new Set((accounts ?? []).filter((a) => inSubtree(a.id)).map((a) => a.account_code));
   }, [accounts]);
 
+  // A client bound to a sub-account may only sit on that account (backend PARTY_ACCOUNT_MISMATCH).
+  const clientFitsAccount = (client: Client, accountId: string | undefined): boolean =>
+    !client.account_id || client.account_id === accountId;
+
   const patchLine = (key: string, patch: Partial<FormLine>) =>
     setLines(lines.map((l) => (l.key === key ? { ...l, ...patch } : l)));
 
@@ -304,7 +308,12 @@ export const JournalEntriesPage: React.FC = () => {
                       onChange={(a) =>
                         patchLine(l.key, {
                           account_code: a ? a.account_code : "",
-                          client_id: a && receivableCodes.has(a.account_code) ? l.client_id : "",
+                          client_id:
+                            a &&
+                            receivableCodes.has(a.account_code) &&
+                            clients.some((c) => c.id === l.client_id && clientFitsAccount(c, a.id))
+                              ? l.client_id
+                              : "",
                         })
                       }
                       getOptionId={(a) => a.id}
@@ -322,7 +331,9 @@ export const JournalEntriesPage: React.FC = () => {
                     <div className="flex flex-col w-44">
                       <label className="block text-[10px] font-semibold text-app-label-secondary mb-0.5">العميل (اختياري)</label>
                       <SearchableSelect<Client>
-                        options={clients}
+                        options={clients.filter((c) =>
+                          clientFitsAccount(c, accounts?.find((a) => a.account_code === l.account_code)?.id),
+                        )}
                         value={clients.find((c) => c.id === l.client_id) ?? null}
                         onChange={(c) => patchLine(l.key, { client_id: c ? c.id : "" })}
                         getOptionId={(c) => c.id}

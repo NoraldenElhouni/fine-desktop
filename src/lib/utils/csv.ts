@@ -9,10 +9,13 @@ function quote(field: string): string {
   return `"${field.replace(/"/g, '""')}"`;
 }
 
+/** Cells a spreadsheet would run as a formula (CSV injection); a leading ' keeps them text. */
+const FORMULA_START = /^[=+\-@\t\r]/;
+
 function format(value: string | number | null): string {
   if (value === null) return "";
   if (typeof value === "number") return Number.isFinite(value) ? value.toFixed(2) : "";
-  return value;
+  return FORMULA_START.test(value) ? `'${value}` : value;
 }
 
 export function toCsv<T>(rows: T[], columns: CsvColumn<T>[]): string {

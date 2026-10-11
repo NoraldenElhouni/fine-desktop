@@ -263,8 +263,8 @@ export const PartnerStatementDialog: React.FC<PartnerStatementDialogProps> = ({
                       </td>
                     </tr>
                   ) : statement?.transactions && statement.transactions.length > 0 ? (
-                    statement.transactions.map((tx) => (
-                      <tr key={tx.id} className="hover:bg-app-fill-f1/30 transition-colors">
+                    statement.transactions.map((tx, index) => (
+                      <tr key={`${tx.id}-${index}`} className="hover:bg-app-fill-f1/30 transition-colors">
                         <td className="px-3 py-2 font-mono text-[11px] text-app-label-secondary text-start" dir="ltr">
                           {tx.date.replace("T", " ").substring(0, 16)}
                         </td>

@@ -87,6 +87,10 @@ export interface PartnerStatementResponse {
   transactions: PartnerStatementTransaction[];
 }
 
+/** Laravel's `boolean` rule rejects "true"/"false", so booleans go over the wire as 1/0. */
+const flag = (value: boolean | undefined): 0 | 1 | undefined =>
+  value === undefined ? undefined : value ? 1 : 0;
+
 export const partnerReportsApi = {
   getBalances: (
     type: "clients" | "suppliers",
@@ -97,7 +101,7 @@ export const partnerReportsApi = {
         type,
         as_of: params?.as_of || undefined,
         operating_unit_id: params?.operating_unit_id || undefined,
-        company_wide: params?.company_wide || undefined,
+        company_wide: flag(params?.company_wide),
       },
     }),
 
@@ -113,7 +117,7 @@ export const partnerReportsApi = {
         from: params?.from || undefined,
         to: params?.to || undefined,
         operating_unit_id: params?.operating_unit_id || undefined,
-        company_wide: params?.company_wide || undefined,
+        company_wide: flag(params?.company_wide),
       },
     }),
 };

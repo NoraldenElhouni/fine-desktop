@@ -142,7 +142,8 @@ function buildCsvRows(data: DebtorStatementsResponse): CsvRow[] {
     city: "",
     date: "",
     reference: "",
-    description: "الإجمالي",
+    // Totals cover named debtors only, not the unassigned rows exported above.
+    description: "إجمالي المدينين",
     debit: data.totals.debit,
     credit: data.totals.credit,
     balance: data.totals.closing,
