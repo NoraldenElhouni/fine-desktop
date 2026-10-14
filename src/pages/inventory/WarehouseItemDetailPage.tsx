@@ -123,18 +123,30 @@ const WarehouseItemDetailPage: React.FC = () => {
 
   return (
     <div className="space-y-6 p-6" dir="rtl">
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate(`/inventory/ledger/${warehouseId}`)}
-          className="rounded-xl border border-app-separator bg-app-bg-secondary p-2 hover:bg-app-fill-f1 transition-colors"
-          aria-label="رجوع"
-        >
-          <ArrowRight className="w-4 h-4 text-app-label-secondary" />
-        </button>
-        <div>
-          <h1 className="text-xl font-bold text-app-label-primary">{item?.name ?? "الصنف"}</h1>
-          <p className="text-xs text-app-label-tertiary font-mono mt-0.5">{item?.code}</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(`/inventory/ledger/${warehouseId}`)}
+            className="rounded-xl border border-app-separator bg-app-bg-secondary p-2 hover:bg-app-fill-f1 transition-colors"
+            aria-label="رجوع"
+          >
+            <ArrowRight className="w-4 h-4 text-app-label-secondary" />
+          </button>
+          <div>
+            <h1 className="text-xl font-bold text-app-label-primary">{item?.name ?? "الصنف"}</h1>
+            <p className="text-xs text-app-label-tertiary font-mono mt-0.5">{item?.code}</p>
+          </div>
         </div>
+
+        {itemId && (
+          <button
+            onClick={() => navigate(`/inventory/items/${itemId}/movement-card`)}
+            className="inline-flex items-center gap-2 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-medium text-app-label-primary hover:bg-app-fill-f1 transition-colors"
+          >
+            <History className="w-4 h-4 text-app-accent" />
+            كرت الصنف
+          </button>
+        )}
       </div>
 
       {/* KPI Cards */}

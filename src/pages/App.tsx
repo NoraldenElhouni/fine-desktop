@@ -12,6 +12,7 @@ import { FinancialReportsPage } from "./accounting/FinancialReportsPage";
 import { DebtorStatementsPage } from "./accounting/DebtorStatementsPage";
 import { BundleSalesReportPage } from "./reports/BundleSalesReportPage";
 import { SalesMarginReportPage } from "./reports/SalesMarginReportPage";
+import { StockMovementCardPage } from "./inventory/StockMovementCardPage";
 import { useIsCompanyWide } from "../hooks/useAccounting";
 import UsersRoutes from "../routes/UsersRoutes";
 import ClientsRoutes from "../routes/ClientsRoutes";
@@ -35,6 +36,7 @@ import {
   ALL_MANAGER_ROLES,
   DEBTOR_STATEMENT_ROLES,
   SALES_MARGIN_ROLES,
+  STOCK_MOVEMENT_CARD_ROLES,
 } from "../routes/routes.config";
 import { SuppliersPage } from "./procurement/SuppliersPage";
 import { PurchaseOrdersPage } from "./procurement/PurchaseOrdersPage";
@@ -217,6 +219,14 @@ const App = () => {
               element={
                 <AuthorizedRoute allowedRoles={["owner", "admin"]}>
                   <UsersRoutes />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="inventory/items/:id/movement-card"
+              element={
+                <AuthorizedRoute allowedRoles={STOCK_MOVEMENT_CARD_ROLES}>
+                  <StockMovementCardPage />
                 </AuthorizedRoute>
               }
             />

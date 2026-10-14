@@ -97,6 +97,25 @@ export const SALES_MARGIN_ROLES = [
   "treasury-officer",
 ];
 
+export const STOCK_MOVEMENT_CARD_ROLES = [
+  "owner",
+  "admin",
+  "foam-manager",
+  "foam-operator",
+  "cutter-manager",
+  "cutter-operator",
+  "furniture-manager",
+  "assembler",
+  "store-manager",
+  "pos-cashier",
+  "procurement-manager",
+  "treasury-officer",
+  "accounting-manager",
+  "unit_manager",
+  "manager",
+  "inventory-manager",
+];
+
 export const navItems: AppNavItem[] = [
   { id: "dashboard", path: "/", label: "لوحة التحكم", icon: LayoutGrid },
   { id: "admin-entities", path: "/admin/entities", label: "إدارة الكيانات (مشرف)", icon: Building2, allowedRoles: ["owner", "admin"] },
