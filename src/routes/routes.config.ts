@@ -26,6 +26,7 @@ import {
   ShieldCheck,
   ShoppingCart,
   Tags,
+  TrendingUp,
   UserCheck,
   Users,
   Truck,
@@ -78,6 +79,24 @@ export const DEBTOR_STATEMENT_ROLES = [
   "treasury-officer",
 ];
 
+export const SALES_MARGIN_ROLES = [
+  "owner",
+  "accounting-manager",
+  "unit_manager",
+  "manager",
+  "inventory-manager",
+  "foam-manager",
+  "foam-operator",
+  "cutter-manager",
+  "cutter-operator",
+  "furniture-manager",
+  "assembler",
+  "store-manager",
+  "pos-cashier",
+  "procurement-manager",
+  "treasury-officer",
+];
+
 export const navItems: AppNavItem[] = [
   { id: "dashboard", path: "/", label: "لوحة التحكم", icon: LayoutGrid },
   { id: "admin-entities", path: "/admin/entities", label: "إدارة الكيانات (مشرف)", icon: Building2, allowedRoles: ["owner", "admin"] },
@@ -111,6 +130,7 @@ export const navItems: AppNavItem[] = [
   { id: "fixed-assets", path: "/accounting/assets", label: "الأصول الثابتة", icon: Building, allowedRoles: ["owner", "admin", "accounting-manager"] },
   { id: "reports", path: "/reports", label: "التقارير المالية", icon: BarChart3, allowedRoles: ["owner", "admin", "accounting-manager", "treasury-officer", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"] },
   { id: "debtor-statements", path: "/reports/debtors", label: "كشف حساب المدينين", icon: FileSpreadsheet, allowedRoles: DEBTOR_STATEMENT_ROLES },
+  { id: "sales-margin", path: "/reports/sales-margin", label: "هامش ربح المبيعات", icon: TrendingUp, allowedRoles: SALES_MARGIN_ROLES },
   { id: "reports-bundles", path: "/reports/bundles", label: "تقرير مبيعات الحزم", icon: Package2, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "unit_manager", "manager"] },
   { id: "users", path: "/users", label: "المستخدمون والصلاحيات", icon: ShieldCheck, allowedRoles: ["owner", "admin"] },
   { id: "settings-company", path: "/settings/company", label: "إعدادات الشركة", icon: Building2, allowedRoles: ["owner", "admin"] },

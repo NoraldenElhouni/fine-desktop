@@ -11,6 +11,7 @@ import { OwnerDashboardPage } from "./OwnerDashboardPage";
 import { FinancialReportsPage } from "./accounting/FinancialReportsPage";
 import { DebtorStatementsPage } from "./accounting/DebtorStatementsPage";
 import { BundleSalesReportPage } from "./reports/BundleSalesReportPage";
+import { SalesMarginReportPage } from "./reports/SalesMarginReportPage";
 import { useIsCompanyWide } from "../hooks/useAccounting";
 import UsersRoutes from "../routes/UsersRoutes";
 import ClientsRoutes from "../routes/ClientsRoutes";
@@ -30,7 +31,11 @@ import { MaterialRequestsRoutes } from "../routes/MaterialRequestsRoutes";
 import { CategoryHubPage } from "./hub/CategoryHubPage";
 
 import { AuthorizedRoute } from "../components/AuthorizedRoute";
-import { ALL_MANAGER_ROLES, DEBTOR_STATEMENT_ROLES } from "../routes/routes.config";
+import {
+  ALL_MANAGER_ROLES,
+  DEBTOR_STATEMENT_ROLES,
+  SALES_MARGIN_ROLES,
+} from "../routes/routes.config";
 import { SuppliersPage } from "./procurement/SuppliersPage";
 import { PurchaseOrdersPage } from "./procurement/PurchaseOrdersPage";
 import { TreasuryPage } from "./treasury/TreasuryPage";
@@ -354,6 +359,14 @@ const App = () => {
               element={
                 <AuthorizedRoute allowedRoles={DEBTOR_STATEMENT_ROLES}>
                   <DebtorStatementsPage />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="reports/sales-margin"
+              element={
+                <AuthorizedRoute allowedRoles={SALES_MARGIN_ROLES}>
+                  <SalesMarginReportPage />
                 </AuthorizedRoute>
               }
             />
