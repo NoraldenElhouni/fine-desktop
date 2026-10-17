@@ -27,9 +27,16 @@ import {
 import { toast } from "../../stores/toastStore";
 import { isAxiosError } from "axios";
 
+/** Arabic text for delete refusals whose backend message is English. */
+const DELETE_REFUSAL_MESSAGE: Record<string, string> = {
+  BASE_CURRENCY: "لا يمكن حذف العملة الأساسية للشركة.",
+  CURRENCY_IN_USE: "العملة مستخدمة في حسابات أو مستندات ولا يمكن حذفها — يمكنك إيقاف تفعيلها بدلاً من ذلك.",
+};
+
 const getErrorMessage = (err: unknown, fallback: string): string => {
   if (isAxiosError(err)) {
-    return (err.response?.data as { message?: string })?.message || fallback;
+    const data = err.response?.data as { message?: string; code?: string } | undefined;
+    return (data?.code && DELETE_REFUSAL_MESSAGE[data.code]) || data?.message || fallback;
   }
   return fallback;
 };
