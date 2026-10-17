@@ -4,6 +4,7 @@ import { useAccounts } from "../../hooks/useAccounting";
 import { Account } from "../../api/endpoints/accounting";
 import { CoaAction, NewCoaAccountPayload } from "../../types/entities";
 import { SearchableSelect } from "../ui/SearchableSelect";
+import { leafAccounts } from "../../lib/utils/coa";
 
 export interface CoaAccountSelectorProps {
   entityTypeLabel: string; // e.g. "العميل" or "المورد"
@@ -210,7 +211,7 @@ export const CoaAccountSelector: React.FC<CoaAccountSelectorProps> = ({
             اختر الحساب من دليل الحسابات <span className="text-app-status-danger">*</span>
           </label>
           <SearchableSelect<Account>
-            options={accounts}
+            options={leafAccounts(accounts)}
             value={selectedExistingAccount}
             onChange={(acc) => onSelectedAccountIdChange(acc ? acc.id : null)}
             getOptionId={(acc) => acc.id}

@@ -13,6 +13,7 @@ import {
   type OperatingUnitAccount,
 } from "../../api/endpoints/operatingUnitAccounts";
 import { toast } from "../../stores/toastStore";
+import { leafAccounts } from "../../lib/utils/coa";
 
 interface OperatingUnitAccountsEditorProps {
   unitId: string | null;
@@ -131,7 +132,7 @@ export const OperatingUnitAccountsEditor: React.FC<OperatingUnitAccountsEditorPr
                 </div>
                 <div className="w-72">
                   <SearchableSelect<{ id: string; account_code: string; name: string; type: string }>
-                    options={accounts}
+                    options={leafAccounts(accounts)}
                     value={selected}
                     onChange={(acc) =>
                       upsertMutation.mutate({

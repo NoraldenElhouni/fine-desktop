@@ -9,6 +9,7 @@ import { apiErrorPayload } from "../../api/endpoints/production";
 import type { Account } from "../../api/endpoints/accounting";
 import type { CashAccount, CashAccountKind } from "../../types/procurement";
 import { toast } from "../../stores/toastStore";
+import { leafAccounts } from "../../lib/utils/coa";
 
 /** Treasuries and banks live under 121 الأموال الجاهزة والنقدية. */
 const TREASURY_PARENT_PREFIX = "121";
@@ -39,7 +40,7 @@ export const CashAccountDialog: React.FC<CashAccountDialogProps> = ({ open, onCl
     setError(null);
   }, [open, cashAccount]);
 
-  const treasuryAccounts = accounts.filter(
+  const treasuryAccounts = leafAccounts(accounts).filter(
     (a) => a.account_code.startsWith(TREASURY_PARENT_PREFIX) && a.account_code !== TREASURY_PARENT_PREFIX,
   );
   const selectedAccount = treasuryAccounts.find((a) => a.id === accountId) ?? null;

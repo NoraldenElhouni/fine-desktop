@@ -46,6 +46,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../components/ui/Dialog";
+import { leafAccounts } from "../../lib/utils/coa";
 
 const formatDateTime = (iso?: string): string => {
   if (!iso) return "—";
@@ -74,7 +75,7 @@ export const OperatingUnitDetailPage: React.FC = () => {
   const updateUnitMutation = useUpdateOperatingUnit();
   const { data: accounts = [] } = useAccounts();
   const revenueAccounts = useMemo(
-    () => accounts.filter((a) => a.type === "revenue" && a.account_code.startsWith("4")),
+    () => leafAccounts(accounts).filter((a) => a.type === "revenue" && a.account_code.startsWith("4")),
     [accounts],
   );
   const createWarehouseMutation = useCreateOperatingUnitWarehouse(id);

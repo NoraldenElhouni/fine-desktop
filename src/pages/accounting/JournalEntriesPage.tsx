@@ -10,6 +10,7 @@ import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useJournalLinesColumns } from "../../components/table-columns/journalLinesColumns";
+import { leafAccounts } from "../../lib/utils/coa";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -300,7 +301,7 @@ export const JournalEntriesPage: React.FC = () => {
                   <div className="flex flex-col flex-1">
                     <label className="block text-[10px] font-semibold text-app-label-secondary mb-0.5">الحساب</label>
                     <SearchableSelect<{ id: string; account_code: string; name: string; type?: string }>
-                      options={accounts ?? []}
+                      options={leafAccounts(accounts ?? [], ["122"])}
                       value={
                         accounts?.find((a) => a.account_code === l.account_code) ??
                         null

@@ -13,7 +13,20 @@ import type { Account } from "../../api/endpoints/accounting";
  * already how `useAccounts` returns them).
  */
 export function filterPaymentSourceAccounts(accounts: Account[]): Account[] {
-  return accounts.filter(
+  return leafAccounts(accounts).filter(
     (a) => a.type === "asset" && a.account_code.startsWith("121"),
+  );
+}
+
+/**
+ * Accounts that can take a posting or a link: those with no sub-accounts.
+ * The backend refuses headers (BR-GL-001), so pickers should not offer them.
+ * `allowedHeaderCodes` keeps specific headers selectable (the receivable root
+ * 122 takes client-tagged manual lines by design).
+ */
+export function leafAccounts(accounts: Account[], allowedHeaderCodes: string[] = []): Account[] {
+  const parents = new Set(accounts.map((a) => a.parent_account_id).filter(Boolean));
+  return accounts.filter(
+    (a) => !parents.has(a.id) || allowedHeaderCodes.includes(a.account_code),
   );
 }
