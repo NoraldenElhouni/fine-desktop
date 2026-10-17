@@ -24,6 +24,23 @@ import { cn } from "../../lib/utils/utils";
 import { tokens } from "../../lib/tokens";
 import { usePermissions } from "../../hooks/usePermissions";
 
+/** Arabic names for permission modules (config/permissions.php on the backend). */
+const MODULE_LABEL: Record<string, string> = {
+  users: "المستخدمون",
+  procurement: "المشتريات",
+  treasury: "الخزانة",
+  inventory: "المخزون",
+  foam: "مصنع الإسفنج",
+  cutting: "القص",
+  furniture: "الأثاث",
+  sales: "المبيعات ونقطة البيع",
+  accounting: "المحاسبة",
+  hr: "الموارد البشرية والرواتب",
+  production: "طلبات المواد",
+  clients: "العملاء",
+  settings: "الإعدادات",
+};
+
 const PROTECTED_SLUGS = ["owner", "admin"];
 
 const slugify = (input: string): string =>
@@ -469,7 +486,7 @@ export const RolesPage: React.FC = () => {
                     {Object.entries(groupedPermissions).map(([module, perms]) => (
                       <div key={module} className="p-3 bg-app-bg-secondary">
                         <div className="text-[10px] font-bold uppercase tracking-wider text-app-label-tertiary mb-2">
-                          {module}
+                          {MODULE_LABEL[module] ?? module}
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {perms.map((p) => {
