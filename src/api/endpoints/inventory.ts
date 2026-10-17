@@ -230,8 +230,6 @@ export const inventoryApi = {
     { params },
   ),
 
-  createLot: (data: Partial<StockLot>) =>
-    apiClient.post<StockLot>("/stock-lots", data),
 
   updateLot: (id: string, data: Partial<StockLot> & { record_version: number }) =>
     apiClient.put<StockLot>(`/stock-lots/${id}`, data),

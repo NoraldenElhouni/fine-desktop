@@ -1,7 +1,9 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeftRight, Warehouse as WarehouseIcon } from "lucide-react";
+import { ArrowLeftRight, PackagePlus, Warehouse as WarehouseIcon } from "lucide-react";
 import { useWarehouses } from "../../hooks/useWarehouses";
+import { useInventoryItems } from "../../hooks/useInventory";
+import { StockIntakeModal } from "./StockIntakeModal";
 import { useServerConfigStore } from "../../stores/serverConfigStore";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useWarehousesColumns } from "../../components/table-columns/warehousesColumns";
@@ -12,6 +14,10 @@ export const WarehousesLedgerPage: React.FC = () => {
   const { operatingUnitId } = useServerConfigStore();
 
   const { data: warehouses, isLoading } = useWarehouses();
+  const [intakeOpen, setIntakeOpen] = useState(false);
+  // Goods intake is the only manual way stock enters: it records the INV-06
+  // movement and posts the value, unlike a bare lot insert.
+  const { data: itemsPage } = useInventoryItems({ per_page: 100 });
 
   const columns = useWarehousesColumns();
   const tableData = useMemo(() => warehouses ?? [], [warehouses]);
@@ -37,12 +43,20 @@ export const WarehousesLedgerPage: React.FC = () => {
         </div>
 
         {operatingUnitId && (
-          <button
-            onClick={() => navigate("/inventory/transfers")}
-            className="flex items-center gap-2 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all active:scale-95"
-          >
-            <ArrowLeftRight className="w-4 h-4" /> نقل بين المخازن
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIntakeOpen(true)}
+              className="flex items-center gap-2 rounded-xl border border-app-separator bg-app-bg-secondary px-4 py-2 text-xs font-bold text-app-label-primary shadow-sm hover:bg-app-fill-f1 transition-all active:scale-95"
+            >
+              <PackagePlus className="w-4 h-4 text-app-accent" /> استلام مخزون
+            </button>
+            <button
+              onClick={() => navigate("/inventory/transfers")}
+              className="flex items-center gap-2 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all active:scale-95"
+            >
+              <ArrowLeftRight className="w-4 h-4" /> نقل بين المخازن
+            </button>
+          </div>
         )}
       </div>
 
@@ -55,6 +69,8 @@ export const WarehousesLedgerPage: React.FC = () => {
         />
         <DataTable.Pagination />
       </DataTable>
+
+      {intakeOpen && <StockIntakeModal items={itemsPage?.data ?? []} onClose={() => setIntakeOpen(false)} />}
     </div>
   );
 };
