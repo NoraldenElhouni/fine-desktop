@@ -286,6 +286,12 @@ export const BatchBlocksPage: React.FC = () => {
   const advance = () => {
     if (!batchId || !nextStatus) return;
     setError(null);
+
+    if (nextStatus === "closed" && (!batch?.material_cost || Number(batch.material_cost) <= 0)) {
+      setError("أدخل تكلفة المواد من شاشة تعديل الدفعة قبل الإغلاق — بدونها لن تُحمَّل البلوكات أي تكلفة.");
+      return;
+    }
+
     transitionMutation.mutate(
       { id: batchId, status: nextStatus },
       {
@@ -354,7 +360,12 @@ export const BatchBlocksPage: React.FC = () => {
             يُطبق على كل بلوك) · نطاق الكثافة{" "}
             <span className="font-mono">{batch.formula_params?.density_band ?? "—"}</span> ·{" "}
             {batch.formula_params?.cure_time_minutes ?? "—"} دقيقة · سرعة السير الناقل{" "}
-            {batch.formula_params?.conveyor_speed ?? "—"}
+            {batch.formula_params?.conveyor_speed ?? "—"} · تكلفة المواد{" "}
+            <span className="font-mono font-bold">
+              {batch.material_cost && Number(batch.material_cost) > 0
+                ? `${Number(batch.material_cost)} د.ل`
+                : "—"}
+            </span>
           </p>
         </div>
       </div>

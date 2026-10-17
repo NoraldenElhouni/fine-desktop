@@ -28,6 +28,7 @@ const emptyForm = {
   density_band: "",
   cure_time_minutes: "",
   conveyor_speed: "",
+  material_cost: "",
   status: "planned",
 };
 
@@ -58,11 +59,19 @@ export const ProductionBatchesPage: React.FC = () => {
       cure_time_minutes: form.cure_time_minutes ? Number(form.cure_time_minutes) : undefined,
       conveyor_speed: form.conveyor_speed ? Number(form.conveyor_speed) : undefined,
     },
+    ...(form.material_cost.trim() !== "" ? { material_cost: Number(form.material_cost) } : {}),
     ...(confirm ? { confirm_non_sequential: true } : {}),
   });
 
   const submit = (confirm = false) => {
     setError(null);
+    if (form.material_cost.trim() !== "") {
+      const cost = Number(form.material_cost);
+      if (isNaN(cost) || cost <= 0) {
+        setError("تكلفة المواد يجب أن تكون أكبر من صفر");
+        return;
+      }
+    }
     createMutation.mutate(buildPayload(confirm), {
       onSuccess: () => {
         setShowForm(false);
@@ -99,6 +108,7 @@ export const ProductionBatchesPage: React.FC = () => {
       cure_time_minutes: batch.formula_params?.cure_time_minutes ? String(batch.formula_params.cure_time_minutes) : "",
       conveyor_speed: batch.formula_params?.conveyor_speed ? String(batch.formula_params.conveyor_speed) : "",
       status: batch.status,
+      material_cost: batch.material_cost && Number(batch.material_cost) > 0 ? String(batch.material_cost) : "",
     });
     setError(null);
   };
@@ -106,6 +116,22 @@ export const ProductionBatchesPage: React.FC = () => {
   const submitEdit = () => {
     if (!editingBatch) return;
     setError(null);
+
+    if (editForm.status === "closed") {
+      const cost = Number(editForm.material_cost);
+      if (editForm.material_cost.trim() === "" || isNaN(cost) || cost <= 0) {
+        setError("أدخل تكلفة المواد قبل إغلاق الدفعة");
+        return;
+      }
+    }
+
+    if (editForm.material_cost.trim() !== "") {
+      const cost = Number(editForm.material_cost);
+      if (isNaN(cost) || cost <= 0) {
+        setError("تكلفة المواد يجب أن تكون أكبر من صفر");
+        return;
+      }
+    }
 
     const payload: Partial<CreateBatchInput> & { record_version: number } = {
       bun_width_m: Number(editForm.bun_width_m),
@@ -116,6 +142,7 @@ export const ProductionBatchesPage: React.FC = () => {
         conveyor_speed: editForm.conveyor_speed ? Number(editForm.conveyor_speed) : undefined,
       },
       record_version: editingBatch.record_version,
+      ...(editForm.material_cost.trim() !== "" ? { material_cost: Number(editForm.material_cost) } : {}),
     };
 
     if ((editingBatch.blocks_count ?? 0) === 0 && Number(editForm.operation_number) !== editingBatch.operation_number) {
@@ -326,6 +353,20 @@ export const ProductionBatchesPage: React.FC = () => {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                  تكلفة المواد (د.ل)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.material_cost}
+                  onChange={(e) => setForm({ ...form, material_cost: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                />
+              </div>
+
               {warning && (
                 <div className="rounded-xl border border-app-status-yellow/40 bg-app-status-yellow/10 p-4 space-y-3">
                   <div className="flex items-start gap-2 text-xs text-app-label-primary">
@@ -487,6 +528,20 @@ export const ProductionBatchesPage: React.FC = () => {
                     className="w-full px-3 py-2 border rounded-xl bg-app-bg-primary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                  تكلفة المواد (د.ل)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={editForm.material_cost}
+                  onChange={(e) => setEditForm({ ...editForm, material_cost: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                />
               </div>
 
               <div>
