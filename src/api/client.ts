@@ -2,6 +2,7 @@ import axios from "axios";
 import { useAuthStore } from "../stores/authStore";
 import { useServerConfigStore, normalizeServerUrl } from "../stores/serverConfigStore";
 import { useConflictStore } from "../stores/conflictStore";
+import { useUpdateRequiredStore } from "../stores/updateRequiredStore";
 
 const apiClient = axios.create({
   headers: {
@@ -13,6 +14,11 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   (config) => {
+    const updateInfo = useUpdateRequiredStore.getState().info;
+    if (updateInfo) {
+      return Promise.reject(new Error(updateInfo.message_ar));
+    }
+
     // Dynamically resolve base URL and avoid Axios root-relative URL stripping
     const rawServerUrl = useServerConfigStore.getState().serverUrl;
     if (rawServerUrl) {
@@ -68,6 +74,13 @@ apiClient.interceptors.response.use(
     if (!error.response || error.code === "ERR_NETWORK" || error.code === "ECONNREFUSED" || error.response?.status >= 502) {
       const errMsg = error.message || "Network error / Server unreachable";
       useServerConfigStore.getState().setServerConnected(false, errMsg);
+    }
+
+    if (
+      error.response?.status === 426 &&
+      error.response?.data?.code === "FORCE_UPDATE_REQUIRED"
+    ) {
+      useUpdateRequiredStore.getState().setRequired(error.response.data);
     }
 
     // A stored unit id from a different (or reseeded) database makes every
