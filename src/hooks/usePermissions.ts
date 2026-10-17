@@ -57,11 +57,13 @@ export function usePermissions() {
     return permissions.includes(permission);
   };
 
-  const canAccess = (item?: { allowedRoles?: string[] }): boolean => {
-    if (!item || !item.allowedRoles || item.allowedRoles.length === 0) {
-      return true;
+  /** Role list (if any) AND view permission (if any) — mirrors the API's two checks. */
+  const canAccess = (item?: { allowedRoles?: string[]; permission?: string }): boolean => {
+    if (!item) return true;
+    if (item.allowedRoles && item.allowedRoles.length > 0 && !hasRole(item.allowedRoles)) {
+      return false;
     }
-    return hasRole(item.allowedRoles);
+    return item.permission ? hasPermission(item.permission) : true;
   };
 
   return {

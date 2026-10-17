@@ -39,6 +39,12 @@ export interface AppNavItem {
   label: string;
   icon: LucideIcon;
   allowedRoles?: string[];
+  /**
+   * Backend view permission the screen needs (config/permissions.php). The
+   * item shows only when the user's role is allowed AND they hold it —
+   * the same two checks the API makes (require.role + require.module).
+   */
+  permission?: string;
 }
 
 export interface BreadcrumbEntry {
@@ -121,41 +127,42 @@ export const navItems: AppNavItem[] = [
   { id: "admin-entities", path: "/admin/entities", label: "إدارة الكيانات (مشرف)", icon: Building2, allowedRoles: ["owner", "admin"] },
   { id: "admin-units", path: "/admin/units", label: "إدارة الوحدات التشغيلية", icon: Building, allowedRoles: ["owner", "admin"] },
   { id: "admin-blueprints", path: "/admin/blueprints", label: "قوالب الوحدات", icon: Layers, allowedRoles: ["owner", "admin"] },
-  { id: "suppliers", path: "/suppliers", label: "الموردون", icon: Truck, allowedRoles: ALL_MANAGER_ROLES },
-  { id: "import-orders", path: "/import-orders", label: "مشتريات", icon: Package, allowedRoles: ALL_MANAGER_ROLES },
-  { id: "treasury", path: "/treasury", label: "الخزينة وسعر الصرف", icon: Wallet, allowedRoles: ALL_MANAGER_ROLES },
-  { id: "employees", path: "/employees", label: "الموظفون والعمالة", icon: UserCheck, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"] },
-  { id: "clients", path: "/clients", label: "العملاء", icon: Users, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "accounting-manager", "unit_manager", "manager"] },
-  { id: "inventory", path: "/inventory/ledger", label: "المخزون والقطع", icon: Boxes, allowedRoles: ["owner", "admin", "inventory-manager", "foam-manager", "foam-operator", "cutter-manager", "cutter-operator", "furniture-manager", "assembler", "store-manager", "unit_manager", "manager"] },
+  { id: "suppliers", path: "/suppliers", label: "الموردون", icon: Truck, allowedRoles: ALL_MANAGER_ROLES, permission: "view-procurement" },
+  { id: "import-orders", path: "/import-orders", label: "مشتريات", icon: Package, allowedRoles: ALL_MANAGER_ROLES, permission: "view-procurement" },
+  { id: "treasury", path: "/treasury", label: "الخزينة وسعر الصرف", icon: Wallet, allowedRoles: ALL_MANAGER_ROLES, permission: "view-treasury" },
+  { id: "employees", path: "/employees", label: "الموظفون والعمالة", icon: UserCheck, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"], permission: "view-hr" },
+  { id: "clients", path: "/clients", label: "العملاء", icon: Users, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "accounting-manager", "unit_manager", "manager"], permission: "view-clients" },
+  { id: "inventory", path: "/inventory/ledger", label: "المخزون والقطع", icon: Boxes, allowedRoles: ["owner", "admin", "inventory-manager", "foam-manager", "foam-operator", "cutter-manager", "cutter-operator", "furniture-manager", "assembler", "store-manager", "unit_manager", "manager"], permission: "view-inventory" },
   {
     id: "manufacturing",
     path: "/manufacturing/batches",
     label: "التصنيع",
     icon: Factory,
     allowedRoles: ["owner", "admin", "foam-manager", "foam-operator", "unit_manager", "manager"],
+    permission: "view-foam",
   },
-  { id: "cutter", path: "/cutter/orders", label: "التقطيع", icon: Scissors, allowedRoles: ["owner", "admin", "cutter-manager", "cutter-operator", "unit_manager", "manager"] },
-  { id: "material-requests", path: "/material-requests", label: "طلبات المواد (MRs)", icon: PackageCheck, allowedRoles: ["owner", "admin", "furniture-manager", "cutter-manager", "foam-manager", "unit_manager", "manager"] },
-  { id: "pos", path: "/sales/pos", label: "المبيعات ونقطة البيع", icon: ShoppingCart, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "cutter-manager", "unit_manager", "manager"] },
-  { id: "restock", path: "/sales/restock", label: "التزويد الداخلي", icon: Truck, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "unit_manager", "manager"] },
-  { id: "attendance", path: "/hr/attendance", label: "الحضور والانصراف", icon: CalendarCheck2, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"] },
-  { id: "labor-rates", path: "/hr/rates", label: "أجور الأدوار", icon: BadgeDollarSign, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager"] },
-  { id: "payroll", path: "/hr/payroll", label: "مسير الرواتب", icon: Banknote, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager"] },
-  { id: "leave", path: "/hr/leave", label: "طلبات الإجازة", icon: CalendarOff, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"] },
-  { id: "journal", path: "/accounting/journal", label: "دفتر اليومية", icon: BookOpenText, allowedRoles: ["owner", "admin", "accounting-manager"] },
-  { id: "accounts", path: "/accounting/accounts", label: "شجرة الحسابات", icon: ListTree, allowedRoles: ["owner", "admin", "accounting-manager"] },
-  { id: "trial-balance", path: "/accounting/trial-balance", label: "ميزان المراجعة", icon: Scale, allowedRoles: ["owner", "admin", "accounting-manager"] },
-  { id: "overhead", path: "/accounting/overhead", label: "المصاريف العمومية", icon: Droplets, allowedRoles: ["owner", "admin", "accounting-manager"] },
-  { id: "fixed-assets", path: "/accounting/assets", label: "الأصول الثابتة", icon: Building, allowedRoles: ["owner", "admin", "accounting-manager"] },
-  { id: "reports", path: "/reports", label: "التقارير المالية", icon: BarChart3, allowedRoles: ["owner", "admin", "accounting-manager", "treasury-officer", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"] },
-  { id: "debtor-statements", path: "/reports/debtors", label: "كشف حساب المدينين", icon: FileSpreadsheet, allowedRoles: DEBTOR_STATEMENT_ROLES },
-  { id: "sales-margin", path: "/reports/sales-margin", label: "هامش ربح المبيعات", icon: TrendingUp, allowedRoles: SALES_MARGIN_ROLES },
-  { id: "reports-bundles", path: "/reports/bundles", label: "تقرير مبيعات الحزم", icon: Package2, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "unit_manager", "manager"] },
+  { id: "cutter", path: "/cutter/orders", label: "التقطيع", icon: Scissors, allowedRoles: ["owner", "admin", "cutter-manager", "cutter-operator", "unit_manager", "manager"], permission: "view-cutting" },
+  { id: "material-requests", path: "/material-requests", label: "طلبات المواد (MRs)", icon: PackageCheck, allowedRoles: ["owner", "admin", "furniture-manager", "cutter-manager", "foam-manager", "unit_manager", "manager"], permission: "view-material-requests" },
+  { id: "pos", path: "/sales/pos", label: "المبيعات ونقطة البيع", icon: ShoppingCart, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "cutter-manager", "unit_manager", "manager"], permission: "view-sales" },
+  { id: "restock", path: "/sales/restock", label: "التزويد الداخلي", icon: Truck, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "unit_manager", "manager"], permission: "view-inventory" },
+  { id: "attendance", path: "/hr/attendance", label: "الحضور والانصراف", icon: CalendarCheck2, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"], permission: "view-hr" },
+  { id: "labor-rates", path: "/hr/rates", label: "أجور الأدوار", icon: BadgeDollarSign, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager"], permission: "view-hr" },
+  { id: "payroll", path: "/hr/payroll", label: "مسير الرواتب", icon: Banknote, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager"], permission: "view-hr" },
+  { id: "leave", path: "/hr/leave", label: "طلبات الإجازة", icon: CalendarOff, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"], permission: "view-hr" },
+  { id: "journal", path: "/accounting/journal", label: "دفتر اليومية", icon: BookOpenText, allowedRoles: ["owner", "admin", "accounting-manager"], permission: "view-accounting" },
+  { id: "accounts", path: "/accounting/accounts", label: "شجرة الحسابات", icon: ListTree, allowedRoles: ["owner", "admin", "accounting-manager"], permission: "view-accounting" },
+  { id: "trial-balance", path: "/accounting/trial-balance", label: "ميزان المراجعة", icon: Scale, allowedRoles: ["owner", "admin", "accounting-manager"], permission: "view-accounting" },
+  { id: "overhead", path: "/accounting/overhead", label: "المصاريف العمومية", icon: Droplets, allowedRoles: ["owner", "admin", "accounting-manager"], permission: "view-accounting" },
+  { id: "fixed-assets", path: "/accounting/assets", label: "الأصول الثابتة", icon: Building, allowedRoles: ["owner", "admin", "accounting-manager"], permission: "view-accounting" },
+  { id: "reports", path: "/reports", label: "التقارير المالية", icon: BarChart3, allowedRoles: ["owner", "admin", "accounting-manager", "treasury-officer", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"], permission: "view-accounting" },
+  { id: "debtor-statements", path: "/reports/debtors", label: "كشف حساب المدينين", icon: FileSpreadsheet, allowedRoles: DEBTOR_STATEMENT_ROLES, permission: "view-debtor-statements" },
+  { id: "sales-margin", path: "/reports/sales-margin", label: "هامش ربح المبيعات", icon: TrendingUp, allowedRoles: SALES_MARGIN_ROLES, permission: "view-accounting" },
+  { id: "reports-bundles", path: "/reports/bundles", label: "تقرير مبيعات الحزم", icon: Package2, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "unit_manager", "manager"], permission: "view-accounting" },
   { id: "users", path: "/users", label: "المستخدمون والصلاحيات", icon: ShieldCheck, allowedRoles: ["owner", "admin"] },
   { id: "settings-company", path: "/settings/company", label: "إعدادات الشركة", icon: Building2, allowedRoles: ["owner", "admin"] },
-  { id: "settings-products", path: "/settings/products", label: "إعدادات المنتجات", icon: Tags, allowedRoles: SETTINGS_ROLES },
+  { id: "settings-products", path: "/settings/products", label: "إعدادات المنتجات", icon: Tags, allowedRoles: SETTINGS_ROLES, permission: "view-inventory" },
   { id: "settings-data", path: "/settings/data", label: "إعدادات البيانات", icon: Database, allowedRoles: ["owner", "admin"] },
-  { id: "settings-warehouses", path: "/settings/warehouses", label: "إعدادات المخازن", icon: Warehouse, allowedRoles: SETTINGS_ROLES },
+  { id: "settings-warehouses", path: "/settings/warehouses", label: "إعدادات المخازن", icon: Warehouse, allowedRoles: SETTINGS_ROLES, permission: "view-inventory" },
 ];
 
 export const getBreadcrumbEntries = (
