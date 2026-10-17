@@ -10,12 +10,16 @@ export const useRouteDisplayName = (pathname: string) => {
       { path: "/clients/:id", end: true },
       normalizedPath,
     );
+    const employeeMatch = matchPath(
+      { path: "/employees/:id", end: true },
+      normalizedPath,
+    );
     const accountMatch = matchPath(
       { path: "/accounting/accounts/:id", end: true },
       normalizedPath,
     );
 
-    if (!clientMatch && !accountMatch) {
+    if (!clientMatch && !employeeMatch && !accountMatch) {
       setDisplayName("…");
       return;
     }
@@ -26,6 +30,11 @@ export const useRouteDisplayName = (pathname: string) => {
     const timer = window.setTimeout(() => {
       if (clientMatch) {
         setDisplayName(id ? `عميل ${id}` : "عميل");
+        return;
+      }
+
+      if (employeeMatch) {
+        setDisplayName("تفاصيل الموظف");
         return;
       }
 

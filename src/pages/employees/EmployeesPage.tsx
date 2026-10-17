@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { UserCheck, Plus, RefreshCw } from "lucide-react";
 import { isAxiosError } from "axios";
-import { PayType, EmployeeStatus } from "../../types/entities";
+import { PayType, EmployeeStatus, Employee } from "../../types/entities";
 import { useEmployees, useCreateEmployee } from "../../hooks/useEmployees";
 import { useEntities, useOperatingUnits } from "../../hooks/usePartners";
 import { useReferenceLookups } from "../../hooks/useReferenceLookups";
@@ -15,6 +16,7 @@ import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useEmployeesColumns } from "../../components/table-columns/employeesColumns";
 
 export const EmployeesPage: React.FC = () => {
+  const navigate = useNavigate();
   const { allowManualEntitySelection } = useServerConfigStore();
   const [selectedOperatingUnitId, setSelectedOperatingUnitId] = useState("");
 
@@ -164,6 +166,7 @@ export const EmployeesPage: React.FC = () => {
           <DataTable.Content
             isLoading={isLoading}
             emptyMessage="لا يوجد موظفون مضافون"
+            onRowClick={(row: Employee) => navigate(`/employees/${row.id}`)}
             emptyIcon={UserCheck}
           />
           <DataTable.Pagination />

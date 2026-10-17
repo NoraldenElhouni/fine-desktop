@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Users, Plus, RefreshCw, CreditCard } from "lucide-react";
 import { isAxiosError } from "axios";
 import { EntityType, Client, ClientStatus } from "../../types/entities";
@@ -27,6 +28,7 @@ import { PartnerStatementDialog } from "../../components/accounting/PartnerState
 import type { CoaAction, NewCoaAccountPayload } from "../../types/entities";
 
 export const ClientsPage: React.FC = () => {
+  const navigate = useNavigate();
   const { allowManualEntitySelection } = useServerConfigStore();
   const [selectedOperatingUnitId, setSelectedOperatingUnitId] = useState("");
 
@@ -420,6 +422,7 @@ export const ClientsPage: React.FC = () => {
           <DataTable.Content
             isLoading={isLoading}
             emptyMessage="لا يوجد عملاء مضافون"
+            onRowClick={(row: Client) => navigate(`/clients/${row.id}`)}
             emptyIcon={Users}
           />
           <DataTable.Pagination />

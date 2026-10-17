@@ -1,10 +1,12 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import {
   getEmployees,
   getEmployee,
   createEmployee,
   updateEmployee,
   deleteEmployee,
+  getEmployeeAttendance,
+  getEmployeePayslips,
   GetEmployeesParams,
 } from "../api/endpoints/employees";
 import { CreateEmployeePayload } from "../types/entities";
@@ -59,5 +61,23 @@ export function useDeleteEmployee() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["employees"] });
     },
+  });
+}
+
+export function useEmployeeAttendance(id?: string, page = 1) {
+  return useQuery({
+    queryKey: ["employeeAttendance", id, page],
+    queryFn: () => getEmployeeAttendance(id as string, page),
+    enabled: Boolean(id),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useEmployeePayslips(id?: string, page = 1) {
+  return useQuery({
+    queryKey: ["employeePayslips", id, page],
+    queryFn: () => getEmployeePayslips(id as string, page),
+    enabled: Boolean(id),
+    placeholderData: keepPreviousData,
   });
 }

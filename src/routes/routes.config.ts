@@ -214,6 +214,7 @@ export const getBreadcrumbEntries = (
 
   if (
     normalizedPath.startsWith("/clients/") ||
+    normalizedPath.startsWith("/employees/") ||
     normalizedPath.startsWith("/admin/entities/") ||
     normalizedPath.startsWith("/inventory/") ||
     normalizedPath.startsWith("/manufacturing/batches/") ||
