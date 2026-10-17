@@ -363,7 +363,7 @@ export const BatchBlocksPage: React.FC = () => {
             {batch.formula_params?.conveyor_speed ?? "—"} · تكلفة المواد{" "}
             <span className="font-mono font-bold">
               {batch.material_cost && Number(batch.material_cost) > 0
-                ? `${Number(batch.material_cost)} د.ل`
+                ? `${Number(batch.material_cost).toLocaleString()} د.ل`
                 : "—"}
             </span>
           </p>
