@@ -4,7 +4,7 @@ import {
   ArrowRight, Banknote, Boxes, Building2, FileText, Package, ShoppingCart, Truck, UserRound,
 } from "lucide-react";
 import { useCollectPayment, useSale, usePaymentAccounts } from "../../hooks/useSales";
-import { FULFILLMENT_LABEL, PAYMENT_METHOD_LABEL, SALE_STATUS_LABEL, formatSizeCm } from "../../api/endpoints/sales";
+import { FULFILLMENT_LABEL, PAYMENT_METHOD_LABEL, SALES_ERROR_MESSAGE, SALE_STATUS_LABEL, formatSizeCm } from "../../api/endpoints/sales";
 import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatDateTime, formatNumber } from "../../lib/utils/format";
 import { StatusBadge } from "../../components/ui/StatusBadge";
@@ -46,7 +46,10 @@ export const SaleDetailPage: React.FC = () => {
       { id: sale.id, amount: Number(amount), method, cash_account_id: cashAccountId },
       {
         onSuccess: () => { setAmount(""); toast.success("تم تسجيل التحصيل"); },
-        onError: (err) => setError(apiErrorPayload(err)?.message ?? "تعذّر تسجيل التحصيل."),
+        onError: (err) => {
+          const payload = apiErrorPayload(err);
+          setError((payload?.code && SALES_ERROR_MESSAGE[payload.code]) || payload?.message || "تعذّر تسجيل التحصيل.");
+        },
       },
     );
   };

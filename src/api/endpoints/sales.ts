@@ -34,6 +34,11 @@ export const SALE_STATUS_LABEL: Record<SaleStatus, string> = {
 
 export type FulfillmentStatus = "awaiting_definition" | "in_progress" | "ready" | "delivered";
 
+/** Arabic text for sales guard codes whose backend message is English. */
+export const SALES_ERROR_MESSAGE: Record<string, string> = {
+  POS_DAY_ALREADY_CLOSED: "تم إقفال يومية الصندوق لهذا اليوم — لا يمكن تسجيل مبيعات أو تحصيلات جديدة حتى الغد.",
+};
+
 export const FULFILLMENT_LABEL: Record<FulfillmentStatus, string> = {
   awaiting_definition: "بانتظار تحديد محتوى الحزمة",
   in_progress: "قيد التجهيز",

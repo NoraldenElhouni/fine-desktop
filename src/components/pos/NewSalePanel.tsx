@@ -25,6 +25,7 @@ import {
   PAYMENT_METHOD_LABEL,
   PaymentMethod,
   Quotation,
+  SALES_ERROR_MESSAGE,
   Sale,
   formatSizeCm,
 } from "../../api/endpoints/sales";
@@ -264,7 +265,9 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   const fail = (err: unknown) => {
     const payload = apiErrorPayload(err);
     const fieldError = payload?.errors ? Object.values(payload.errors)[0]?.[0] : undefined;
-    setError(fieldError ?? payload?.message ?? "تعذّر إتمام العملية.");
+    setError(
+      (payload?.code && SALES_ERROR_MESSAGE[payload.code]) || fieldError || payload?.message || "تعذّر إتمام العملية.",
+    );
   };
 
   const submit = () => {
