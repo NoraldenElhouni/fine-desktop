@@ -30,7 +30,8 @@ import {
   useOpenPayrollRun,
   usePayrollAction,
 } from "../../hooks/useHr";
-import { apiErrorPayload } from "../../api/endpoints/production";
+import { apiErrorMessage } from "../../api/endpoints/production";
+import { TreasurySelect } from "../../components/treasury/TreasurySelect";
 import {
   PAYROLL_STATUS_LABEL,
   type PayrollRun,
@@ -146,6 +147,8 @@ export const PayrollPage: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<string>(currentMonthStr);
   const [viewMode, setViewMode] = useState<"month" | "all">("month");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [postingRun, setPostingRun] = useState<PayrollRun | null>(null);
+  const [postTreasuryId, setPostTreasuryId] = useState("");
   const [createPeriod, setCreatePeriod] = useState<string>(currentMonthStr);
 
   const { data: allRunsData, isLoading: isAllRunsLoading } = usePayrollRuns({ per_page: 50 });
@@ -162,8 +165,7 @@ export const PayrollPage: React.FC = () => {
   // Fetch payslips for the active run
   const { data: payslips, isLoading: isPayslipsLoading } = usePayslips(activeRun?.id);
 
-  const fail = (err: unknown, fallback: string) =>
-    setError(apiErrorPayload(err)?.message ?? fallback);
+  const fail = (err: unknown, fallback: string) => setError(apiErrorMessage(err, fallback));
 
   const openRun = (targetPeriod: string) => {
     setError(null);
@@ -181,9 +183,32 @@ export const PayrollPage: React.FC = () => {
     const next = NEXT_ACTION[run.status];
     if (!next) return;
     setError(null);
+    // Posting writes the journal, so it asks which treasury the net pay left from.
+    if (next.action === "post") {
+      setPostingRun(run);
+      return;
+    }
     actionMutation.mutate(
       { id: run.id, action: next.action },
       { onError: (err) => fail(err, "تعذر تنفيذ الإجراء.") },
+    );
+  };
+
+  const postRun = () => {
+    if (!postingRun || !postTreasuryId) return;
+    setError(null);
+    actionMutation.mutate(
+      { id: postingRun.id, action: "post", cashAccountId: postTreasuryId },
+      {
+        onSuccess: () => {
+          setPostingRun(null);
+          setPostTreasuryId("");
+        },
+        onError: (err) => {
+          setPostingRun(null);
+          fail(err, "تعذر ترحيل المسير.");
+        },
+      },
     );
   };
 
@@ -804,6 +829,47 @@ export const PayrollPage: React.FC = () => {
                 })}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Post a paid run — pick the treasury net pay left from */}
+      {postingRun && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl border border-app-separator bg-app-bg-primary p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-app-label-primary flex items-center gap-2">
+              <Banknote className="w-5 h-5 text-app-accent" />
+              ترحيل مسير {postingRun.period}
+            </h3>
+            <p className="text-xs text-app-label-secondary mt-1">
+              يُقيَّد صافي الرواتب ({formatNumber(Number(postingRun.total_net || 0))}) دائناً على الخزينة المختارة،
+              والاستقطاعات على حساب استقطاعات الرواتب المستحقة.
+            </p>
+
+            <TreasurySelect
+              value={postTreasuryId}
+              onChange={setPostTreasuryId}
+              label="الخزينة التي صُرفت منها الرواتب"
+              className="mt-4 space-y-1"
+            />
+
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPostingRun(null)}
+                className="rounded-xl border border-app-separator bg-app-bg-secondary px-4 py-2 text-xs font-bold text-app-label-secondary hover:bg-app-fill-f1"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={postRun}
+                disabled={!postTreasuryId || actionMutation.isPending}
+                className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+              >
+                {actionMutation.isPending ? "جارٍ الترحيل…" : "ترحيل للدفاتر"}
+              </button>
+            </div>
           </div>
         </div>
       )}

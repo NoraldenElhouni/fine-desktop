@@ -10,7 +10,8 @@ import {
   useTransitionAsset,
 } from "../../hooks/useFixedAssets";
 import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
-import { apiErrorPayload } from "../../api/endpoints/production";
+import { apiErrorMessage } from "../../api/endpoints/production";
+import { TreasurySelect } from "../../components/treasury/TreasurySelect";
 import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { CoaAccountSelector } from "../../components/accounting/CoaAccountSelector";
@@ -35,6 +36,8 @@ export const FixedAssetsPage: React.FC = () => {
   const [scheduleFor, setScheduleFor] = useState<FixedAsset | null>(null);
   const [disposing, setDisposing] = useState<FixedAsset | null>(null);
   const [proceeds, setProceeds] = useState("");
+  const [assetTreasuryId, setAssetTreasuryId] = useState("");
+  const [disposeTreasuryId, setDisposeTreasuryId] = useState("");
   const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7));
 
   const [form, setForm] = useState({
@@ -80,8 +83,7 @@ export const FixedAssetsPage: React.FC = () => {
   const disposeMutation = useDisposeAsset();
   const transitionMutation = useTransitionAsset();
 
-  const fail = (err: unknown, fallback: string) =>
-    setError(apiErrorPayload(err)?.message ?? fallback);
+  const fail = (err: unknown, fallback: string) => setError(apiErrorMessage(err, fallback));
 
   const submitAsset = (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,6 +118,7 @@ export const FixedAssetsPage: React.FC = () => {
         useful_life_years: num(form.useful_life_years),
         salvage_value: num(form.salvage_value),
         payment_source: form.payment_source,
+        cash_account_id: form.payment_source === "cash" ? assetTreasuryId : undefined,
         is_company_wide: form.scope === "company",
         operating_unit_id: form.scope === "unit" ? form.operating_unit_id : undefined,
         coa_action: coaAction,
@@ -145,9 +148,13 @@ export const FixedAssetsPage: React.FC = () => {
     if (!disposing) return;
     setError(null);
     disposeMutation.mutate(
-      { id: disposing.id, proceeds: num(proceeds) },
       {
-        onSuccess: () => { setDisposing(null); setProceeds(""); },
+        id: disposing.id,
+        proceeds: num(proceeds),
+        cashAccountId: num(proceeds) > 0 ? disposeTreasuryId : undefined,
+      },
+      {
+        onSuccess: () => { setDisposing(null); setProceeds(""); setDisposeTreasuryId(""); },
         onError: (err) => fail(err, "تعذر استبعاد الأصل."),
       },
     );
@@ -366,6 +373,10 @@ export const FixedAssetsPage: React.FC = () => {
                 </div>
               </div>
 
+              {form.payment_source === "cash" && (
+                <TreasurySelect value={assetTreasuryId} onChange={setAssetTreasuryId} label="الخزينة التي دُفع منها" />
+              )}
+
               <div className="flex gap-2 items-end">
                 <div className="flex-1">
                   <label className="block text-xs font-semibold text-app-label-secondary mb-1">النطاق</label>
@@ -424,7 +435,12 @@ export const FixedAssetsPage: React.FC = () => {
             <button
               type="submit"
               form="fixed-asset-form"
-              disabled={createMutation.isPending || num(form.acquisition_cost) <= 0 || (form.scope === "unit" && !form.operating_unit_id)}
+              disabled={
+                createMutation.isPending ||
+                num(form.acquisition_cost) <= 0 ||
+                (form.scope === "unit" && !form.operating_unit_id) ||
+                (form.payment_source === "cash" && !assetTreasuryId)
+              }
               className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
             >
               {createMutation.isPending ? "جارٍ التسجيل…" : "تسجيل ورسملة"}
@@ -467,6 +483,9 @@ export const FixedAssetsPage: React.FC = () => {
                   className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
                 />
               </div>
+              {num(proceeds) > 0 && (
+                <TreasurySelect value={disposeTreasuryId} onChange={setDisposeTreasuryId} label="الخزينة التي استلمت المتحصلات" />
+              )}
             </form>
           </DialogBody>
           <DialogFooter>
@@ -479,7 +498,7 @@ export const FixedAssetsPage: React.FC = () => {
             <button
               type="submit"
               form="dispose-asset-form"
-              disabled={disposeMutation.isPending}
+              disabled={disposeMutation.isPending || (num(proceeds) > 0 && !disposeTreasuryId)}
               className="px-4 py-2 text-xs font-bold text-white bg-app-status-danger hover:opacity-90 rounded-xl disabled:opacity-50"
             >
               {disposeMutation.isPending ? "جارٍ الاستبعاد…" : "استبعاد وقيد"}

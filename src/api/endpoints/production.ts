@@ -106,6 +106,21 @@ export interface ApiErrorPayload {
 export const apiErrorPayload = (err: unknown): ApiErrorPayload | undefined =>
   (err as { response?: { data?: ApiErrorPayload } } | undefined)?.response?.data;
 
+/** Ledger refusals any posting screen can hit, in the user's language. */
+export const LEDGER_ERROR_MESSAGE: Record<string, string> = {
+  TREASURY_REQUIRED: "اختر الخزينة أو الحساب المصرفي الذي تخرج منه الأموال أو تدخل إليه.",
+  TREASURY_NOT_LINKED: "هذه الخزينة غير مربوطة بحساب في دليل الحسابات — اربطها من صفحة الخزينة أولاً.",
+  UNIT_REVENUE_NOT_LINKED: "هذه الوحدة ليس لها حساب إيرادات مبيعات — حدّده من صفحة الوحدة التشغيلية قبل البيع.",
+  HEADER_ACCOUNT_POSTING: "لا يمكن الترحيل إلى حساب رئيسي له حسابات فرعية — اختر الحساب الفرعي المناسب.",
+  CLIENT_REQUIRED: "البيع الآجل يتطلب عميلاً.",
+};
+
+/** The Arabic message for a known refusal code, else the server's message, else the fallback. */
+export const apiErrorMessage = (err: unknown, fallback: string): string => {
+  const payload = apiErrorPayload(err);
+  return (payload?.code && LEDGER_ERROR_MESSAGE[payload.code]) || payload?.message || fallback;
+};
+
 /** Blocks are keyed in from the completed sheet, so only these states accept them. */
 export const BLOCK_ENTRY_STATES: ProductionBatchStatus[] = ["ready_for_grading", "graded"];
 

@@ -7,7 +7,8 @@ import {
   type PayableOutstanding,
   type PayableSettlement,
 } from "../../api/endpoints/procurement";
-import { apiErrorPayload } from "../../api/endpoints/production";
+import { apiErrorMessage } from "../../api/endpoints/production";
+import { TreasurySelect } from "../../components/treasury/TreasurySelect";
 import { formatNumber } from "../../lib/utils/format";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
@@ -15,14 +16,15 @@ import { usePayablesSettlementsColumns } from "../../components/table-columns/pa
 
 const ACCOUNT_LABEL: Record<string, string> = {
   "21": "الذمم الدائنة (مشتريات آجلة)",
-  "221": "استقطاعات الرواتب المستحقة",
+  "221": "الموردين",
+  "225": "استقطاعات الرواتب المستحقة",
   "23": "تكاليف الاستيراد المعلقة (جمارك وشحن)",
 };
 
 /**
- * "What do we owe" — the three payables the operational flows accumulate,
- * each settleable against the cash account. The backend caps every payment
- * at the ledger's live outstanding balance.
+ * "What do we owe" — the payables the operational flows accumulate, each
+ * settled from the treasury the money actually leaves. The backend caps every
+ * payment at the ledger's live outstanding balance.
  */
 export const PayablesPanel: React.FC = () => {
   const [outstanding, setOutstanding] = useState<PayableOutstanding[]>([]);
@@ -30,6 +32,7 @@ export const PayablesPanel: React.FC = () => {
   const [settling, setSettling] = useState<PayableOutstanding | null>(null);
   const [amount, setAmount] = useState("");
   const [reference, setReference] = useState("");
+  const [treasuryId, setTreasuryId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -71,6 +74,7 @@ export const PayablesPanel: React.FC = () => {
       await settlePayable({
         account_code: settling.account_code,
         amount: Number(amount),
+        cash_account_id: treasuryId,
         reference: reference || undefined,
       });
       setSettling(null);
@@ -78,7 +82,7 @@ export const PayablesPanel: React.FC = () => {
       setReference("");
       await refresh();
     } catch (err) {
-      setError(apiErrorPayload(err)?.message ?? "تعذر تنفيذ السداد.");
+      setError(apiErrorMessage(err, "تعذر تنفيذ السداد."));
     } finally {
       setIsSubmitting(false);
     }
@@ -140,7 +144,7 @@ export const PayablesPanel: React.FC = () => {
                   <DialogTitle>سداد {ACCOUNT_LABEL[settling.account_code]}</DialogTitle>
                   <DialogDescription>
                     الرصيد المستحق حالياً <span className="font-mono font-bold">{formatNumber(settling.outstanding)}</span> د.ل —
-                    يُقيد السداد مديناً على الحساب ودائناً على النقدية، ولا يمكن تجاوز المستحق.
+                    يُقيد السداد مديناً على الحساب ودائناً على الخزينة المختارة، ولا يمكن تجاوز المستحق.
                   </DialogDescription>
                 </>
               )}
@@ -157,6 +161,7 @@ export const PayablesPanel: React.FC = () => {
 
             {settling && (
             <form id="settle-payable-form" onSubmit={submit} className="space-y-3">
+              <TreasurySelect value={treasuryId} onChange={setTreasuryId} label="الخزينة التي يُدفع منها" />
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary mb-1">المبلغ المراد سداده (LYD)</label>
                 <input
@@ -189,7 +194,7 @@ export const PayablesPanel: React.FC = () => {
             <button
               type="submit"
               form="settle-payable-form"
-              disabled={isSubmitting || Number(amount) <= 0}
+              disabled={isSubmitting || Number(amount) <= 0 || !treasuryId}
               className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
             >
               {isSubmitting ? "جارٍ السداد…" : "سداد وقيد"}

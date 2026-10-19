@@ -153,8 +153,12 @@ export const hrApi = {
 
   openPayrollRun: (period: string) => apiClient.post<PayrollRun>("/payroll-runs", { period }),
 
-  payrollAction: (id: string, action: "calculate" | "submit" | "approve" | "mark-paid" | "post") =>
-    apiClient.post<PayrollRun>(`/payroll-runs/${id}/${action}`),
+  /** `post` needs the treasury net pay leaves from (`cash_account_id`). */
+  payrollAction: (
+    id: string,
+    action: "calculate" | "submit" | "approve" | "mark-paid" | "post",
+    body?: { cash_account_id: string },
+  ) => apiClient.post<PayrollRun>(`/payroll-runs/${id}/${action}`, body),
 
   getPayslips: (runId: string) =>
     apiClient.get<{ data: Payslip[] }>(`/payroll-runs/${runId}/payslips`),

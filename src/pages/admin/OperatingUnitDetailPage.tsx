@@ -244,7 +244,7 @@ export const OperatingUnitDetailPage: React.FC = () => {
                   getOptionId={(a) => a.id}
                   getOptionLabel={(a) => `${a.account_code} — ${a.name}`}
                   getOptionSearchText={(a) => `${a.account_code} ${a.name}`}
-                  placeholder="41 — إيرادات المبيعات (افتراضي)"
+                  placeholder="غير محدد — لا تستطيع الوحدة البيع قبل تحديده"
                   disabled={isDeleted || updateUnitMutation.isPending}
                   size="sm"
                 />

@@ -42,6 +42,9 @@ import { useTreasuryBankHoldsColumns } from "../../components/table-columns/trea
 import { useBlackMarketColumns } from "../../components/table-columns/blackMarketColumns";
 import { FxPreviewCard } from "../../components/treasury/FxPreviewCard";
 import { CashAccountDialog } from "../../components/treasury/CashAccountDialog";
+import { useAccounts } from "../../hooks/useAccounting";
+import { filterPaymentSourceAccounts } from "../../lib/utils/coa";
+import { type Account } from "../../api/endpoints/accounting";
 
 const FX_TOLERANCE_LYD_DEFAULT = 0.01;
 const FX_HARD_CAP_PERCENT_DEFAULT = 5.0;
@@ -88,6 +91,10 @@ export const TreasuryPage: React.FC = () => {
   const [fxRateUsed, setFxRateUsed] = useState<number>(0);
   const [exactAmountUsedLyd, setExactAmountUsedLyd] = useState<number>(0);
   const [bankReference, setBankReference] = useState<string>("");
+  // The cash/bank leaf the payment leaves from — the API refuses a payment without one.
+  const { data: accounts = [] } = useAccounts();
+  const paymentSourceAccounts = useMemo(() => filterPaymentSourceAccounts(accounts), [accounts]);
+  const [paymentSourceAccountId, setPaymentSourceAccountId] = useState<string | null>(null);
   const [extraAllocationNote, setExtraAllocationNote] = useState<string>("");
   const [extraAllocationTouched, setExtraAllocationTouched] = useState(false);
   const [hardCapAcknowledged, setHardCapAcknowledged] = useState(false);
@@ -160,6 +167,7 @@ export const TreasuryPage: React.FC = () => {
   const closeExecuteModal = () => {
     setSelectedPayment(null);
     setBankReference("");
+    setPaymentSourceAccountId(null);
     setExtraAllocationNote("");
     setExtraAllocationTouched(false);
     setHardCapAcknowledged(false);
@@ -209,11 +217,17 @@ export const TreasuryPage: React.FC = () => {
       return;
     }
 
+    if (!paymentSourceAccountId) {
+      toast.error("اختر حساب الخزينة أو المصرف الذي يُدفع منه.");
+      return;
+    }
+
     const payload: ExecutePaymentPayload = {
       fx_rate_used: fxRateUsed > 0 ? fxRateUsed : null,
       exact_amount_used_lyd: exactAmountUsedLyd > 0 ? exactAmountUsedLyd : null,
       bank_reference: bankReference.trim() || undefined,
       extra_allocation_note: requiresNote ? extraAllocationNote.trim() : undefined,
+      payment_source_account_id: paymentSourceAccountId,
     };
 
     executePaymentMutation.mutate(
@@ -593,6 +607,21 @@ export const TreasuryPage: React.FC = () => {
               onAcknowledgeHardCap={setHardCapAcknowledged}
             />
 
+            <div>
+              <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                حساب مصدر الدفع <span className="text-app-status-danger">*</span>
+              </label>
+              <SearchableSelect<Account>
+                options={paymentSourceAccounts}
+                value={paymentSourceAccounts.find((a) => a.id === paymentSourceAccountId) ?? null}
+                onChange={(a) => setPaymentSourceAccountId(a ? a.id : null)}
+                getOptionId={(a) => a.id}
+                getOptionLabel={(a) => `${a.account_code} - ${a.name}`}
+                placeholder="اختر حساب الخزينة أو المصرف…"
+                size="sm"
+              />
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary mb-1">
@@ -695,6 +724,7 @@ export const TreasuryPage: React.FC = () => {
               form="execute-payment-form"
               disabled={
                 executePaymentMutation.isPending
+                || !paymentSourceAccountId
                 || !hasAtLeastOneInput
                 || noteMissing
                 || (varianceExceedsHardCap && !hardCapAcknowledged)

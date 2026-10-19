@@ -58,6 +58,8 @@ export interface CreateAssetPayload {
   useful_life_years: number;
   salvage_value?: number;
   payment_source: "cash" | "payable";
+  /** The treasury paid from — required when payment_source is cash. */
+  cash_account_id?: string;
   is_company_wide?: boolean;
   operating_unit_id?: string | null;
   /** COA link — mirrors the client/supplier pattern. Omit to fall back to the
@@ -81,8 +83,12 @@ export const fixedAssetsApi = {
       period ? { period } : {},
     ),
 
-  dispose: (id: string, proceeds: number) =>
-    apiClient.post<{ message: string; data: FixedAsset }>(`/fixed-assets/${id}/dispose`, { proceeds }),
+  /** Proceeds go into `cashAccountId`, required whenever proceeds > 0. */
+  dispose: (id: string, proceeds: number, cashAccountId?: string) =>
+    apiClient.post<{ message: string; data: FixedAsset }>(`/fixed-assets/${id}/dispose`, {
+      proceeds,
+      cash_account_id: cashAccountId,
+    }),
 
   transition: (id: string, status: "active" | "under_maintenance") =>
     apiClient.post<{ message: string; data: FixedAsset }>(`/fixed-assets/${id}/transition`, { status }),

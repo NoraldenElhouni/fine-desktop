@@ -237,6 +237,16 @@ export interface FxRate {
 
 export type CashAccountKind = "cash" | "bank";
 
+/** A treasury the pickers offer: linked to a ledger leaf, no balance. */
+export interface TreasuryOption {
+  id: string;
+  name: string;
+  kind: CashAccountKind;
+  currency: string;
+  operating_unit_id: string;
+  account_code: string;
+}
+
 export interface CashAccount {
   id: string;
   operating_unit_id: string;
@@ -335,7 +345,8 @@ export interface ExecutePaymentPayload {
   exact_amount_used_lyd?: number | null;
   bank_reference?: string;
   extra_allocation_note?: string;
-  payment_source_account_id?: string;
+  /** The 121xx cash/bank leaf the money leaves from — required by the API. */
+  payment_source_account_id: string;
 }
 
 export interface CreateLandedCostLinePayload {

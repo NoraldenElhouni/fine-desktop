@@ -52,6 +52,7 @@ export function useSettlePayable() {
     mutationFn: (payload: {
       account_code: string;
       amount: number;
+      cash_account_id: string;
       reference?: string;
     }) => settlePayable(payload),
     onSuccess: () => {

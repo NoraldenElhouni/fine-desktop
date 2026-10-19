@@ -76,6 +76,8 @@ export interface CreateOverheadPayload {
   amount: number;
   expense_date: string;
   payment_source: "cash" | "payable";
+  /** The treasury paid from — required when payment_source is cash. */
+  cash_account_id?: string;
   is_company_wide?: boolean;
   operating_unit_id?: string | null;
 }

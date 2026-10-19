@@ -18,6 +18,7 @@ import {
   createLandedCostLine,
   approveLandedCostLine,
   markLandedCostLinePaid,
+  getTreasuryOptions,
 } from "../api/endpoints/procurement";
 import {
   CreateSupplierPayload,
@@ -30,6 +31,7 @@ import {
   ExecutePaymentPayload,
   CreateLandedCostLinePayload,
   GetPaymentRequestsParams,
+  CashAccountKind,
 } from "../types/procurement";
 
 export function useSuppliers(operatingUnitId?: string) {
@@ -260,5 +262,14 @@ export function useMarkLandedCostLinePaid() {
       qc.invalidateQueries({ queryKey: ["importOrder", vars.orderId] });
       qc.invalidateQueries({ queryKey: ["myAllocationApprovals"] });
     },
+  });
+}
+
+/** Linked treasuries for the cash pickers (payroll, settlements, overhead, assets, intake). */
+export function useTreasuryOptions(kind?: CashAccountKind) {
+  return useQuery({
+    queryKey: ["treasuryOptions", kind ?? "all"],
+    queryFn: () => getTreasuryOptions(kind),
+    staleTime: 60_000,
   });
 }

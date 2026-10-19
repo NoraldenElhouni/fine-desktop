@@ -102,8 +102,15 @@ export function useOpenPayrollRun() {
 
 export function usePayrollAction() {
   return usePayrollMutation(
-    ({ id, action }: { id: string; action: "calculate" | "submit" | "approve" | "mark-paid" | "post" }) =>
-      hrApi.payrollAction(id, action),
+    ({
+      id,
+      action,
+      cashAccountId,
+    }: {
+      id: string;
+      action: "calculate" | "submit" | "approve" | "mark-paid" | "post";
+      cashAccountId?: string;
+    }) => hrApi.payrollAction(id, action, cashAccountId ? { cash_account_id: cashAccountId } : undefined),
   );
 }
 

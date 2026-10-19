@@ -4,7 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useStockIntake } from "../../hooks/useInventory";
 import { useWarehouses } from "../../hooks/useWarehouses";
 import { getPurchaseOrders } from "../../api/endpoints/procurement";
-import { apiErrorPayload } from "../../api/endpoints/production";
+import { apiErrorMessage } from "../../api/endpoints/production";
+import { TreasurySelect } from "../../components/treasury/TreasurySelect";
 import type { InventoryItem } from "../../api/endpoints/inventory";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import {
@@ -64,6 +65,7 @@ export const StockIntakeModal: React.FC<{
   const [showUomCustomizer, setShowUomCustomizer] = useState(false);
   const [unitCost, setUnitCost] = useState("");
   const [source, setSource] = useState<IntakeSource>("purchase_credit");
+  const [treasuryId, setTreasuryId] = useState("");
   const [importOrderId, setPurchaseOrderId] = useState("");
 
   const { data: warehouses } = useWarehouses();
@@ -209,10 +211,11 @@ export const StockIntakeModal: React.FC<{
         source,
         purchase_order_id: source === "import_receipt" ? importOrderId : undefined,
         import_order_id: source === "import_receipt" ? importOrderId : undefined,
+        cash_account_id: source === "purchase_cash" ? treasuryId : undefined,
       },
       {
         onSuccess: onClose,
-        onError: (err) => setError(apiErrorPayload(err)?.message ?? "تعذر استلام المخزون."),
+        onError: (err) => setError(apiErrorMessage(err, "تعذر استلام المخزون.")),
       },
     );
   };
@@ -468,6 +471,10 @@ export const StockIntakeModal: React.FC<{
               </select>
             </div>
 
+            {source === "purchase_cash" && (
+              <TreasurySelect value={treasuryId} onChange={setTreasuryId} label="الخزينة التي دُفع منها" />
+            )}
+
             {source === "import_receipt" && (
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary mb-1">
@@ -504,7 +511,7 @@ export const StockIntakeModal: React.FC<{
           <button
             type="submit"
             form="stock-intake-form"
-            disabled={intakeMutation.isPending}
+            disabled={intakeMutation.isPending || (source === "purchase_cash" && !treasuryId)}
             className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
           >
             {intakeMutation.isPending ? "جارٍ الاستلام…" : "استلام وقيد"}

@@ -11,7 +11,8 @@ import {
   useMarkOverheadAllocationPaid,
 } from "../../hooks/useOverhead";
 import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
-import { apiErrorPayload } from "../../api/endpoints/production";
+import { apiErrorMessage, apiErrorPayload } from "../../api/endpoints/production";
+import { TreasurySelect } from "../../components/treasury/TreasurySelect";
 import {
   OVERHEAD_CATEGORY_LABEL,
   ALLOCATION_METHOD_LABEL,
@@ -52,6 +53,7 @@ export const OverheadExpensesPage: React.FC = () => {
   const [amount, setAmount] = useState("");
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().slice(0, 10));
   const [paymentSource, setPaymentSource] = useState<"cash" | "payable">("cash");
+  const [treasuryId, setTreasuryId] = useState("");
   const [scope, setScope] = useState<"company" | "unit">("company");
   const [unitId, setUnitId] = useState("");
 
@@ -70,8 +72,7 @@ export const OverheadExpensesPage: React.FC = () => {
   const [allocationError, setAllocationError] = useState<Record<string, string>>({});
 
   const activeRule = rules?.find((r) => r.is_active);
-  const fail = (err: unknown, fallback: string) =>
-    setError(apiErrorPayload(err)?.message ?? fallback);
+  const fail = (err: unknown, fallback: string) => setError(apiErrorMessage(err, fallback));
 
   const submitExpense = (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,6 +84,7 @@ export const OverheadExpensesPage: React.FC = () => {
         amount: num(amount),
         expense_date: expenseDate,
         payment_source: paymentSource,
+        cash_account_id: paymentSource === "cash" ? treasuryId : undefined,
         is_company_wide: scope === "company",
         operating_unit_id: scope === "unit" ? unitId : undefined,
       },
@@ -357,6 +359,10 @@ export const OverheadExpensesPage: React.FC = () => {
                 </select>
               </div>
 
+              {paymentSource === "cash" && (
+                <TreasurySelect value={treasuryId} onChange={setTreasuryId} label="الخزينة التي دُفع منها" />
+              )}
+
               {scope === "unit" && (
                 <SearchableSelect<{ id: string; name: string }>
                   options={units ?? []}
@@ -383,7 +389,12 @@ export const OverheadExpensesPage: React.FC = () => {
             <button
               type="submit"
               form="overhead-expense-form"
-              disabled={createMutation.isPending || num(amount) <= 0 || (scope === "unit" && !unitId)}
+              disabled={
+                createMutation.isPending ||
+                num(amount) <= 0 ||
+                (scope === "unit" && !unitId) ||
+                (paymentSource === "cash" && !treasuryId)
+              }
               className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
             >
               {createMutation.isPending ? "جارٍ التسجيل…" : "تسجيل وقيد"}

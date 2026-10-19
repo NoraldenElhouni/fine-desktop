@@ -43,8 +43,9 @@ export function useDepreciateAsset() {
 }
 
 export function useDisposeAsset() {
-  return useAssetMutation(({ id, proceeds }: { id: string; proceeds: number }) =>
-    fixedAssetsApi.dispose(id, proceeds),
+  return useAssetMutation(
+    ({ id, proceeds, cashAccountId }: { id: string; proceeds: number; cashAccountId?: string }) =>
+      fixedAssetsApi.dispose(id, proceeds, cashAccountId),
   );
 }
 

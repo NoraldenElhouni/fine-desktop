@@ -1,6 +1,8 @@
 import apiClient from "../client";
 import {
   Supplier,
+  TreasuryOption,
+  CashAccountKind,
   CreateSupplierPayload,
   UpdateSupplierPayload,
   PurchaseOrder,
@@ -241,10 +243,19 @@ export const getPayableSettlements = async (): Promise<PayableSettlement[]> => {
 export const settlePayable = async (payload: {
   account_code: string;
   amount: number;
+  cash_account_id: string;
   reference?: string;
 }): Promise<PayableSettlement> => {
   const response = await apiClient.post<PayableSettlement>("/payable-settlements", payload);
   return response.data;
+};
+
+/** Treasuries money can move through, readable by every signed-in role. */
+export const getTreasuryOptions = async (kind?: CashAccountKind): Promise<TreasuryOption[]> => {
+  const response = await apiClient.get<{ data: TreasuryOption[] }>("/cash-accounts/options", {
+    params: { kind },
+  });
+  return response.data.data;
 };
 
 export const getCashAccounts = async (operating_unit_id?: string): Promise<CashAccount[]> => {

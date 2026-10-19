@@ -1,5 +1,6 @@
 import apiClient from "../client";
 import type { CashAccount } from "../../types/procurement";
+import { LEDGER_ERROR_MESSAGE } from "./production";
 
 /*
  * The POS is the one place every sale happens — to a registered client or to
@@ -36,6 +37,7 @@ export type FulfillmentStatus = "awaiting_definition" | "in_progress" | "ready" 
 
 /** Arabic text for sales guard codes whose backend message is English. */
 export const SALES_ERROR_MESSAGE: Record<string, string> = {
+  ...LEDGER_ERROR_MESSAGE,
   POS_DAY_ALREADY_CLOSED: "تم إقفال يومية الصندوق لهذا اليوم — لا يمكن تسجيل مبيعات أو تحصيلات جديدة حتى الغد.",
 };
 

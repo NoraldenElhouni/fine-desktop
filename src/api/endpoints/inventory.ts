@@ -249,6 +249,8 @@ export const inventoryApi = {
     source: "opening_balance" | "purchase_cash" | "purchase_credit" | "import_receipt";
     purchase_order_id?: string;
     import_order_id?: string;
+    /** The treasury paid from — required for a cash purchase. */
+    cash_account_id?: string;
   }) =>
     apiClient.post<StockLot>("/stock-lots/intake", {
       ...data,
