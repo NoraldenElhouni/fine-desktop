@@ -1,10 +1,17 @@
 import React, { useMemo, useState } from "react";
-import { BookOpenText, Plus, AlertTriangle, Trash2, ChevronDown, ChevronUp, PencilLine } from "lucide-react";
+import { BookOpenText, Plus, AlertTriangle, Trash2, ChevronDown, ChevronUp, PencilLine, Undo2, Search } from "lucide-react";
 import { useClients } from "../../hooks/useClients";
 import type { Client } from "../../types/entities";
-import { useJournalEntries, useCreateManualEntry, useAccounts } from "../../hooks/useAccounting";
-import { apiErrorPayload } from "../../api/endpoints/production";
-import type { JournalEntry, JournalLine } from "../../api/endpoints/accounting";
+import { useJournalEntries, useCreateManualEntry, useAccounts, useReverseEntry } from "../../hooks/useAccounting";
+import { usePermissions } from "../../hooks/usePermissions";
+import { apiErrorMessage, apiErrorPayload } from "../../api/endpoints/production";
+import {
+  JOURNAL_ENTRY_TYPE_LABEL,
+  MANUAL_ENTRY_TYPES,
+  type JournalEntry,
+  type JournalEntryType,
+  type JournalLine,
+} from "../../api/endpoints/accounting";
 import { formatDate, formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
@@ -18,6 +25,23 @@ const num = (v: string): number => {
 };
 
 const RECEIVABLE_ROOT_CODE = "122";
+
+const TYPE_BADGE: Record<JournalEntryType, string> = {
+  automatic: "bg-app-accent-subtle text-app-accent",
+  manual: "bg-app-status-yellow/15 text-app-status-yellow",
+  adjustment: "bg-app-status-yellow/15 text-app-status-yellow",
+  opening: "bg-app-status-info/15 text-app-status-info",
+  closing: "bg-app-status-info/15 text-app-status-info",
+  reversal: "bg-app-status-danger/10 text-app-status-danger",
+};
+
+const FILTER_TYPES: JournalEntryType[] = ["automatic", "manual", "adjustment", "opening", "closing", "reversal"];
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+/** An entry can be reversed once, and never if it is a closing entry or a reversal itself (ACC-13). */
+const isReversible = (entry: JournalEntry) =>
+  !entry.reversal && entry.entry_type !== "closing" && entry.entry_type !== "reversal";
 
 const PARTY_ERROR_MESSAGES: Record<string, string> = {
   PARTY_ON_NON_RECEIVABLE: "لا يمكن ربط عميل إلا بحساب ذمم مدينة",
@@ -65,7 +89,14 @@ const JournalLinesTable: React.FC<{ lines: JournalLine[] }> = ({ lines }) => {
 export const JournalEntriesPage: React.FC = () => {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [manualOnly, setManualOnly] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<JournalEntryType | "">("");
+  const [search, setSearch] = useState("");
+  const [accountFilterId, setAccountFilterId] = useState("");
+  const [reversing, setReversing] = useState<JournalEntry | null>(null);
+  const [reverseDate, setReverseDate] = useState("");
+  const [reverseReason, setReverseReason] = useState("");
+  const [reverseError, setReverseError] = useState<string | null>(null);
+  const [entryType, setEntryType] = useState<JournalEntryType>("manual");
   const [page, setPage] = useState(1);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -78,9 +109,14 @@ export const JournalEntriesPage: React.FC = () => {
   const { data: entries, isLoading } = useJournalEntries({
     from: from || undefined,
     to: to || undefined,
-    manual_only: manualOnly || undefined,
+    entry_type: typeFilter ? [typeFilter] : undefined,
+    search: search.trim() || undefined,
+    account_id: accountFilterId || undefined,
     page,
   });
+  const reverseMutation = useReverseEntry();
+  const { hasRole } = usePermissions();
+  const canReverse = hasRole(["owner", "accounting-manager"]);
   const { data: accounts } = useAccounts();
   const { data: clients = [] } = useClients();
   const createMutation = useCreateManualEntry();
@@ -117,6 +153,7 @@ export const JournalEntriesPage: React.FC = () => {
     setError(null);
     createMutation.mutate(
       {
+        entry_type: entryType,
         description,
         entry_date: entryDate || undefined,
         lines: lines.map((l) => ({
@@ -131,22 +168,38 @@ export const JournalEntriesPage: React.FC = () => {
           setShowForm(false);
           setDescription("");
           setEntryDate("");
+          setEntryType("manual");
           setLines([emptyLine("debit"), emptyLine("credit")]);
         },
         onError: (err) => {
           const payload = apiErrorPayload(err);
           setError(
-            (payload?.code && PARTY_ERROR_MESSAGES[payload.code]) ||
-              payload?.message ||
-              "تعذر ترحيل القيد.",
+            (payload?.code && PARTY_ERROR_MESSAGES[payload.code]) || apiErrorMessage(err, "تعذر ترحيل القيد."),
           );
         },
       },
     );
   };
 
-  const sourceLabel = (entry: JournalEntry) =>
-    entry.is_manual ? "قيد يدوي" : entry.source_document_type ?? "—";
+  const openReverse = (entry: JournalEntry) => {
+    setReversing(entry);
+    setReverseDate(today());
+    setReverseReason("");
+    setReverseError(null);
+  };
+
+  const submitReverse = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reversing) return;
+    setReverseError(null);
+    reverseMutation.mutate(
+      { id: reversing.id, entry_date: reverseDate || undefined, reason: reverseReason.trim() },
+      {
+        onSuccess: () => setReversing(null),
+        onError: (err) => setReverseError(apiErrorMessage(err, "تعذر عكس القيد.")),
+      },
+    );
+  };
 
   return (
     <div className="space-y-6 p-6">
@@ -192,14 +245,44 @@ export const JournalEntriesPage: React.FC = () => {
             className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
           />
         </label>
-        <label className="flex items-center gap-1.5 text-xs font-semibold text-app-label-secondary">
+        <label className="flex items-center gap-2 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs text-app-label-secondary focus-within:border-app-accent">
+          <Search className="w-3.5 h-3.5" />
           <input
-            type="checkbox" checked={manualOnly}
-            onChange={(e) => { setManualOnly(e.target.checked); setPage(1); }}
-            className="accent-app-accent"
+            type="search" value={search} placeholder="رقم القيد أو الوصف"
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            className="w-40 bg-transparent text-app-label-primary focus:outline-none"
           />
-          القيود اليدوية فقط
         </label>
+        <div className="w-56">
+          <SearchableSelect<{ id: string; account_code: string; name: string }>
+            options={accounts ?? []}
+            value={accounts?.find((a) => a.id === accountFilterId) ?? null}
+            onChange={(a) => { setAccountFilterId(a ? a.id : ""); setPage(1); }}
+            getOptionId={(a) => a.id}
+            getOptionLabel={(a) => `${a.account_code} · ${a.name}`}
+            getOptionSearchText={(a) => `${a.account_code} ${a.name}`}
+            placeholder="كل الحسابات"
+            size="sm"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="نوع القيد">
+        {(["", ...FILTER_TYPES] as (JournalEntryType | "")[]).map((t) => (
+          <button
+            key={t || "all"}
+            type="button"
+            aria-pressed={typeFilter === t}
+            onClick={() => { setTypeFilter(t); setPage(1); }}
+            className={`rounded-full px-3 py-1 text-[11px] font-semibold border transition-colors ${
+              typeFilter === t
+                ? "border-app-accent bg-app-accent text-white"
+                : "border-app-separator bg-app-bg-secondary text-app-label-secondary hover:bg-app-fill-f1"
+            }`}
+          >
+            {t ? JOURNAL_ENTRY_TYPE_LABEL[t] : "الكل"}
+          </button>
+        ))}
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm">
@@ -216,17 +299,36 @@ export const JournalEntriesPage: React.FC = () => {
                   <span className="font-mono font-bold text-app-accent text-sm">{entry.reference}</span>
                   <span className="text-xs font-mono text-app-label-secondary">{entry.entry_date ? formatDate(entry.entry_date) : ""}</span>
                   <span className="text-xs text-app-label-primary">{entry.description}</span>
-                  <span className={`px-2 py-1 text-[10px] font-bold rounded-full ${entry.is_manual ? "bg-app-status-yellow/15 text-app-status-yellow" : "bg-app-accent-subtle text-app-accent"}`}>
-                    {sourceLabel(entry)}
+                  <span className={`px-2 py-1 text-[10px] font-bold rounded-full ${TYPE_BADGE[entry.entry_type] ?? TYPE_BADGE.automatic}`}>
+                    {JOURNAL_ENTRY_TYPE_LABEL[entry.entry_type] ?? entry.entry_type}
                   </span>
+                  {entry.reversal && (
+                    <span className="text-[10px] font-semibold text-app-status-danger">عُكس بالقيد {entry.reversal.reference}</span>
+                  )}
+                  {entry.reversal_of && (
+                    <span className="text-[10px] font-semibold text-app-label-secondary">عكس للقيد {entry.reversal_of.reference}</span>
+                  )}
                   <span className="ms-auto text-app-label-tertiary">
                     {expanded === entry.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </span>
                 </button>
 
                 {expanded === entry.id && (
-                  <div className="px-4 pb-4">
+                  <div className="px-4 pb-4 space-y-3">
                     <JournalLinesTable lines={entry.lines ?? []} />
+                    <div className="flex flex-wrap items-center gap-3 text-[11px] text-app-label-secondary">
+                      {entry.source_document_type && <span>المصدر: {entry.source_document_type}</span>}
+                      {entry.reversal_reason && <span>سبب العكس: {entry.reversal_reason}</span>}
+                      {canReverse && isReversible(entry) && (
+                        <button
+                          type="button"
+                          onClick={() => openReverse(entry)}
+                          className="ms-auto flex items-center gap-1.5 rounded-xl border border-app-separator px-3 py-1.5 font-semibold text-app-label-primary hover:bg-app-fill-f1"
+                        >
+                          <Undo2 className="w-3.5 h-3.5" /> عكس القيد
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -287,6 +389,18 @@ export const JournalEntriesPage: React.FC = () => {
                   className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs border-app-separator focus:border-app-accent focus:outline-none"
                 />
               </div>
+              <label className="flex items-center gap-2 text-xs text-app-label-secondary">
+                نوع القيد
+                <select
+                  value={entryType}
+                  onChange={(e) => setEntryType(e.target.value as JournalEntryType)}
+                  className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
+                >
+                  {MANUAL_ENTRY_TYPES.map((t) => (
+                    <option key={t} value={t}>{JOURNAL_ENTRY_TYPE_LABEL[t]}</option>
+                  ))}
+                </select>
+              </label>
               <label className="flex items-center gap-2 text-xs text-app-label-secondary">
                 تاريخ القيد (اختياري — اليوم افتراضيًا)
                 <input
@@ -416,6 +530,71 @@ export const JournalEntriesPage: React.FC = () => {
               className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
             >
               {createMutation.isPending ? "جارٍ الترحيل…" : "ترحيل القيد"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reversing !== null} onOpenChange={(open) => { if (!open) setReversing(null); }}>
+        <DialogContent size="md">
+          <DialogHeader>
+            <div>
+              <DialogTitle>عكس القيد {reversing?.reference}</DialogTitle>
+              <DialogDescription>
+                يُرحّل قيد معاكس مرتبط بالقيد الأصلي، ويبقى القيد الأصلي كما هو. لا يمكن عكس القيد إلا مرة واحدة.
+              </DialogDescription>
+            </div>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody className="space-y-3">
+            {reversing?.entry_type === "automatic" && (
+              <div className="flex items-start gap-2 rounded-xl border border-app-status-yellow/30 bg-app-status-yellow/10 p-3 text-xs text-app-status-yellow">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>هذا قيد تلقائي. عكسه يصحّح الدفاتر فقط ولا يلغي المستند المصدر (البيع أو حركة المخزون أو الرواتب).</span>
+              </div>
+            )}
+            {reverseError && (
+              <div className="flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{reverseError}</span>
+              </div>
+            )}
+            <form id="reverse-entry-form" onSubmit={submitReverse} className="space-y-3">
+              <label className="flex flex-col gap-1 text-xs text-app-label-secondary">
+                تاريخ القيد العكسي
+                <input
+                  type="date" required value={reverseDate}
+                  min={reversing?.entry_date?.slice(0, 10)} max={today()}
+                  onChange={(e) => setReverseDate(e.target.value)}
+                  className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-app-label-secondary">
+                سبب العكس
+                <textarea
+                  required maxLength={500} rows={3} value={reverseReason}
+                  onChange={(e) => setReverseReason(e.target.value)}
+                  placeholder="مثال: رُحّل إلى حساب خاطئ"
+                  className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
+                />
+              </label>
+            </form>
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setReversing(null)}
+              className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              form="reverse-entry-form"
+              disabled={reverseMutation.isPending || !reverseReason.trim()}
+              className="px-4 py-2 text-xs font-bold text-white bg-app-status-danger hover:opacity-90 rounded-xl disabled:opacity-50"
+            >
+              {reverseMutation.isPending ? "جارٍ العكس…" : "عكس القيد"}
             </button>
           </DialogFooter>
         </DialogContent>

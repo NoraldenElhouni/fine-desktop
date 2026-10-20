@@ -67,6 +67,21 @@ export interface JournalLine {
   };
 }
 
+/** What produced an entry (ACC-13): business events, accountants, the year-end close, or a reversal. */
+export type JournalEntryType = "automatic" | "manual" | "adjustment" | "opening" | "closing" | "reversal";
+
+export const JOURNAL_ENTRY_TYPE_LABEL: Record<JournalEntryType, string> = {
+  automatic: "تلقائي",
+  manual: "يدوي",
+  adjustment: "تسوية",
+  opening: "افتتاحي",
+  closing: "إقفال",
+  reversal: "عكسي",
+};
+
+/** Types an accountant may post by hand. */
+export const MANUAL_ENTRY_TYPES: JournalEntryType[] = ["manual", "adjustment", "opening"];
+
 export interface JournalEntry {
   id: string;
   reference: string;
@@ -75,9 +90,25 @@ export interface JournalEntry {
   source_document_type: string | null;
   source_document_id: string | null;
   is_manual: boolean;
+  entry_type: JournalEntryType;
+  reversal_of_id: string | null;
+  reversal_reason: string | null;
+  /** The entry that reversed this one. */
+  reversal?: { id: string; reference: string } | null;
+  /** The entry this one reverses. */
+  reversal_of?: { id: string; reference: string } | null;
   created_by?: { id: string; name: string } | null;
   lines?: JournalLine[];
   created_at: string;
+}
+
+export interface JournalEntryFilters {
+  from?: string;
+  to?: string;
+  manual_only?: boolean;
+  entry_type?: JournalEntryType[];
+  account_id?: string;
+  search?: string;
 }
 
 export interface Paginated<T> {
@@ -141,6 +172,7 @@ export interface UnitProfitability {
 }
 
 export interface ManualJournalPayload {
+  entry_type?: JournalEntryType;
   description: string;
   entry_date?: string;
   lines: {
@@ -216,13 +248,12 @@ export const accountingApi = {
       },
     }),
 
-  getJournalEntries: (params?: {
-    from?: string;
-    to?: string;
-    manual_only?: boolean;
-    page?: number;
-    company_wide?: boolean;
-  }) => apiClient.get<Paginated<JournalEntry>>("/journal-entries", { params }),
+  getJournalEntries: (params?: JournalEntryFilters & { page?: number; company_wide?: boolean }) =>
+    apiClient.get<Paginated<JournalEntry>>("/journal-entries", { params }),
+
+  /** ACC-13: post the linked mirror of a posted entry. */
+  reverseEntry: (id: string, payload: { entry_date?: string; reason: string }) =>
+    apiClient.post<JournalEntry>(`/journal-entries/${id}/reverse`, payload),
 
   getJournalEntry: (id: string) => apiClient.get<JournalEntry>(`/journal-entries/${id}`),
 

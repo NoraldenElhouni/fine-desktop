@@ -113,6 +113,14 @@ export const LEDGER_ERROR_MESSAGE: Record<string, string> = {
   UNIT_REVENUE_NOT_LINKED: "هذه الوحدة ليس لها حساب إيرادات مبيعات — حدّده من صفحة الوحدة التشغيلية قبل البيع.",
   HEADER_ACCOUNT_POSTING: "لا يمكن الترحيل إلى حساب رئيسي له حسابات فرعية — اختر الحساب الفرعي المناسب.",
   CLIENT_REQUIRED: "البيع الآجل يتطلب عميلاً.",
+  LEDGER_IMMUTABLE: "القيود المرحّلة لا تُعدّل ولا تُحذف — استخدم عكس القيد.",
+  ALREADY_REVERSED: "تم عكس هذا القيد مسبقاً.",
+  REVERSAL_NOT_REVERSIBLE: "القيد العكسي لا يُعكس — رحّل قيداً جديداً بدلاً من ذلك.",
+  CLOSING_NOT_REVERSIBLE: "قيد الإقفال لا يُعكس مباشرة — أعد فتح السنة المالية.",
+  REVERSAL_DATE_BEFORE_ORIGINAL: "لا يمكن أن يسبق تاريخ القيد العكسي تاريخ القيد الأصلي.",
+  ACCOUNT_IN_USE: "الحساب مرتبط بسجلات أخرى (خزينة أو عميل أو مورد…) ولا يمكن حذفه.",
+  ACCOUNT_CODE_LOCKED: "لا يمكن تغيير رمز حساب عليه حركات.",
+  ACCOUNT_HAS_TRANSACTIONS: "الحساب عليه حركات مرحّلة ولا يمكن حذفه.",
 };
 
 /** The Arabic message for a known refusal code, else the server's message, else the fallback. */

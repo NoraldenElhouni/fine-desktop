@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   accountingApi,
+  type JournalEntryFilters,
 } from "../api/endpoints/accounting";
 import { useAuthStore } from "../stores/authStore";
 
@@ -145,12 +146,7 @@ export function useAccountLedger(
   });
 }
 
-export function useJournalEntries(params?: {
-  from?: string;
-  to?: string;
-  manual_only?: boolean;
-  page?: number;
-}) {
+export function useJournalEntries(params?: JournalEntryFilters & { page?: number }) {
   const companyWide = useIsCompanyWide();
   return useQuery({
     queryKey: ["journalEntries", params, companyWide],
@@ -176,6 +172,20 @@ export function useCreateManualEntry() {
       qc.invalidateQueries({ queryKey: ["accounts"] });
       qc.invalidateQueries({ queryKey: ["trialBalance"] });
       qc.invalidateQueries({ queryKey: ["accountLedger"] });
+    },
+  });
+}
+
+/** Reverse a posted entry; every balance that read the original changes. */
+export function useReverseEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: string; entry_date?: string; reason: string }) =>
+      accountingApi.reverseEntry(id, payload),
+    onSuccess: () => {
+      for (const key of ["journalEntries", "journalEntry", "accounts", "account", "trialBalance", "accountLedger", "incomeStatement", "balanceSheet", "unitProfitability"]) {
+        qc.invalidateQueries({ queryKey: [key] });
+      }
     },
   });
 }
