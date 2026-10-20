@@ -123,16 +123,54 @@ export interface Paginated<T> {
 }
 
 export interface TrialBalanceRow {
+  account_id: string;
   account_code: string;
   name: string;
   type: AccountType;
+  level: number;
+  parent_account_id: string | null;
+  is_leaf: boolean;
+  has_direct_lines: boolean;
+  opening_debit: number;
+  opening_credit: number;
+  opening_balance: number;
+  period_debit: number;
+  period_credit: number;
+  closing_debit: number;
+  closing_credit: number;
+  closing_balance: number;
+  /** Legacy: movement debit/credit and closing balance. */
   debit: number;
   credit: number;
   balance: number;
 }
 
+export type TrialBalanceView = "leaf" | "level" | "tree";
+
+export interface TrialBalanceParams {
+  from?: string;
+  to?: string;
+  include_zero?: boolean;
+  view?: TrialBalanceView;
+  level?: number;
+  exclude_closing?: boolean;
+  operating_unit_id?: string;
+}
+
 export interface TrialBalance {
+  from: string | null;
+  to: string | null;
+  view: TrialBalanceView;
+  level: number | null;
   rows: TrialBalanceRow[];
+  totals: {
+    opening_debit: number;
+    opening_credit: number;
+    period_debit: number;
+    period_credit: number;
+    closing_debit: number;
+    closing_credit: number;
+  };
   total_debit: number;
   total_credit: number;
   balanced: boolean;
@@ -268,7 +306,7 @@ export const accountingApi = {
   createManualEntry: (payload: ManualJournalPayload) =>
     apiClient.post<JournalEntry>("/journal-entries", payload),
 
-  getTrialBalance: (params?: { operating_unit_id?: string; company_wide?: boolean }) =>
+  getTrialBalance: (params?: TrialBalanceParams & { company_wide?: boolean }) =>
     apiClient.get<TrialBalance>("/reports/trial-balance", { params }),
 
   getIncomeStatement: (params?: { from?: string; to?: string; company_wide?: boolean }) =>

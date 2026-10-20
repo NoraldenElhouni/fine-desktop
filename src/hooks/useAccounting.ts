@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   accountingApi,
   type JournalEntryFilters,
+  type TrialBalanceParams,
 } from "../api/endpoints/accounting";
 import { useAuthStore } from "../stores/authStore";
 
@@ -202,14 +203,16 @@ export function useReverseEntry() {
   });
 }
 
-export function useTrialBalance(operatingUnitId?: string) {
+export function useTrialBalance(params: TrialBalanceParams = {}) {
   const companyWide = useIsCompanyWide();
   return useQuery({
-    queryKey: ["trialBalance", operatingUnitId, companyWide],
+    queryKey: ["trialBalance", params, companyWide],
     queryFn: async () =>
       (await accountingApi.getTrialBalance({
-        operating_unit_id: operatingUnitId,
-        company_wide: (!operatingUnitId && companyWide) || undefined,
+        ...params,
+        include_zero: params.include_zero || undefined,
+        exclude_closing: params.exclude_closing || undefined,
+        company_wide: (!params.operating_unit_id && companyWide) || undefined,
       })).data,
   });
 }
