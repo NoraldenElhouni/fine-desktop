@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Wallet,
   FileSpreadsheet,
+  Printer,
 } from "lucide-react";
 import {
   useIncomeStatement,
@@ -26,6 +27,17 @@ import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useUnitProfitabilityColumns } from "../../components/table-columns/financialReportsColumns";
 import { usePartnerBalancesColumns } from "../../components/table-columns/partnerBalancesColumns";
 import { PartnerStatementDialog } from "../../components/accounting/PartnerStatementDialog";
+import { toCsv, downloadCsv } from "../../lib/utils/csv";
+import { PrintDialog, PrintDocument, PrintTable, Cell } from "../../components/print/PrintDocument";
+
+/** One printable / exportable line of whichever report is open. */
+interface ExportRow {
+  section: string;
+  code: string;
+  name: string;
+  amount: number;
+  bold?: boolean;
+}
 
 type Tab = "income" | "balance" | "units" | "clients_ar" | "suppliers_ap";
 
@@ -126,6 +138,63 @@ export const FinancialReportsPage: React.FC = () => {
     getRowId: (r) => r.id,
   });
 
+  const [printing, setPrinting] = useState(false);
+
+  // The open report as flat lines, shared by print and CSV (FR-RPT-017/018).
+  const exportRows = useMemo<ExportRow[]>(() => {
+    const section = (name: string, rows: ReportRow[], total: number): ExportRow[] => [
+      ...rows.map((r) => ({ section: name, code: r.account_code, name: r.name, amount: r.balance })),
+      { section: name, code: "", name: `إجمالي ${name}`, amount: total, bold: true },
+    ];
+    if (tab === "income" && income.data) {
+      return [
+        ...section("الإيرادات", income.data.revenue.rows, income.data.revenue.total),
+        ...section("المصروفات", income.data.expenses.rows, income.data.expenses.total),
+        { section: "", code: "", name: "صافي الدخل", amount: income.data.net_income, bold: true },
+      ];
+    }
+    if (tab === "balance" && balance.data) {
+      return [
+        ...section("الأصول", balance.data.assets.rows, balance.data.assets.total),
+        ...section("الالتزامات", balance.data.liabilities.rows, balance.data.liabilities.total),
+        ...balance.data.equity.rows.map((r) => ({ section: "حقوق الملكية", code: r.account_code, name: r.name, amount: r.balance })),
+        { section: "حقوق الملكية", code: "", name: "أرباح الفترات غير المقفلة", amount: balance.data.equity.retained_current_period },
+        { section: "حقوق الملكية", code: "", name: "إجمالي حقوق الملكية", amount: balance.data.equity.total, bold: true },
+      ];
+    }
+    if (tab === "units" && units.data) {
+      return [
+        ...units.data.rows.map((u) => ({ section: "ربحية الوحدات", code: "", name: u.unit_name, amount: u.net })),
+        { section: "", code: "", name: "صافي الشركة", amount: units.data.total_net, bold: true },
+      ];
+    }
+    if ((tab === "clients_ar" || tab === "suppliers_ap") && partnerBalances.data) {
+      return partnerBalances.data.rows.map((p) => ({
+        section: p.operating_unit_name,
+        code: "",
+        name: p.name,
+        amount: p.net_balance,
+      }));
+    }
+    return [];
+  }, [tab, income.data, balance.data, units.data, partnerBalances.data]);
+
+  const tabLabel = TABS.find((t) => t.id === tab)?.label ?? "";
+  const rangeLabel =
+    tab === "income" || tab === "units"
+      ? `${from || "بدون تحديد تاريخ"} — ${to || "اليوم"}`
+      : `حتى ${asOf || "اليوم"}`;
+
+  const exportCsv = () => {
+    const csv = toCsv<ExportRow>(exportRows, [
+      { header: "القسم", value: (r) => r.section },
+      { header: "الرمز", value: (r) => r.code },
+      { header: "البند", value: (r) => r.name },
+      { header: "المبلغ", value: (r) => r.amount },
+    ]);
+    downloadCsv(`${tab}-${from || asOf || "all"}-${to || ""}.csv`.replace(/-\.csv$/, ".csv"), csv);
+  };
+
   const isPeriodTab = tab === "income" || tab === "units";
   const isDateOnlyTab = tab === "balance" || tab === "clients_ar" || tab === "suppliers_ap";
 
@@ -178,8 +247,36 @@ export const FinancialReportsPage: React.FC = () => {
                 className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
               />
             </label>
+            {(from || to) && (
+              <button
+                type="button"
+                onClick={() => { setFrom(""); setTo(""); }}
+                className="text-xs font-semibold text-app-accent hover:opacity-80"
+              >
+                بدون تحديد تاريخ
+              </button>
+            )}
           </>
         )}
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={exportCsv}
+            disabled={exportRows.length === 0}
+            className="flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1 disabled:opacity-40"
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5" /> CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => setPrinting(true)}
+            disabled={exportRows.length === 0}
+            className="flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-primary px-3 py-1.5 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1 disabled:opacity-40"
+          >
+            <Printer className="h-3.5 w-3.5" /> طباعة
+          </button>
+        </div>
 
         {isDateOnlyTab && (
           <label className="flex items-center gap-2 text-xs text-app-label-secondary">
@@ -240,7 +337,7 @@ export const FinancialReportsPage: React.FC = () => {
               <div className="space-y-4">
                 <ReportSection title="حقوق الملكية" rows={balance.data.equity.rows} total={balance.data.equity.total} />
                 <div className="rounded-2xl border border-app-separator bg-app-bg-primary p-4 text-xs flex items-center justify-between">
-                  <span className="text-app-label-secondary">أرباح الفترة غير المرحّلة</span>
+                  <span className="text-app-label-secondary">أرباح الفترات غير المقفلة</span>
                   <span className="font-mono font-bold">{formatNumber(balance.data.equity.retained_current_period)}</span>
                 </div>
               </div>
@@ -378,6 +475,21 @@ export const FinancialReportsPage: React.FC = () => {
           </DataTable>
         </div>
       )}
+
+      <PrintDialog open={printing} onClose={() => setPrinting(false)} title={`طباعة ${tabLabel}`}>
+        <PrintDocument title={tabLabel} number={rangeLabel} signatures={["المحاسب", "المدير المالي"]}>
+          <PrintTable head={["القسم", "الرمز", "البند", "المبلغ"]}>
+            {exportRows.map((row, i) => (
+              <tr key={`${row.section}-${row.code}-${i}`} className={row.bold ? "font-bold" : ""}>
+                <Cell>{row.section}</Cell>
+                <Cell className="font-mono">{row.code}</Cell>
+                <Cell>{row.name}</Cell>
+                <Cell className="text-end font-mono">{formatNumber(row.amount)}</Cell>
+              </tr>
+            ))}
+          </PrintTable>
+        </PrintDocument>
+      </PrintDialog>
 
       {/* Statement of Account Modal */}
       {selectedParty && (

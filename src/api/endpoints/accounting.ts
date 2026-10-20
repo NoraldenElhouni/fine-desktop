@@ -322,7 +322,7 @@ export const accountingApi = {
       },
     }),
 
-  getJournalEntries: (params?: JournalEntryFilters & { page?: number; company_wide?: boolean }) =>
+  getJournalEntries: (params?: JournalEntryFilters & { page?: number; company_wide?: boolean; all?: boolean }) =>
     apiClient.get<Paginated<JournalEntry>>("/journal-entries", { params }),
 
   /** ACC-14: freeze or reactivate an account. */
