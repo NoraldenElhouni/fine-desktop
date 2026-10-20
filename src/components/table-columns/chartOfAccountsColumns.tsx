@@ -1,7 +1,20 @@
 import { useMemo } from "react";
 import { ColumnDef } from "../ui/DataTable";
-import type { JournalLine } from "../../api/endpoints/accounting";
+import { JOURNAL_ENTRY_TYPE_LABEL, type JournalLine } from "../../api/endpoints/accounting";
 import { formatDate, formatNumber } from "../../lib/utils/format";
+
+/** A signed debit-minus-credit balance shown as an amount with its side. */
+export function BalanceWithSide({ value }: { value: number }) {
+  if (Math.abs(value) < 0.00005) {
+    return <span className="font-mono text-xs text-app-label-tertiary">0.00</span>;
+  }
+  return (
+    <span className="font-mono text-xs font-bold text-app-label-primary">
+      {formatNumber(Math.abs(value))}
+      <span className="ms-1 text-[10px] font-semibold text-app-label-tertiary">{value > 0 ? "مدين" : "دائن"}</span>
+    </span>
+  );
+}
 
 export function useChartOfAccountsLedgerColumns(): ColumnDef<JournalLine, unknown>[] {
   return useMemo<ColumnDef<JournalLine, unknown>[]>(
@@ -14,11 +27,15 @@ export function useChartOfAccountsLedgerColumns(): ColumnDef<JournalLine, unknow
             <span className="font-mono font-bold text-app-accent">
               {row.original.journal_entry?.reference ?? "—"}
             </span>
-            {row.original.journal_entry?.is_manual && (
+            {row.original.journal_entry?.entry_type && row.original.journal_entry.entry_type !== "automatic" ? (
+              <span className="rounded bg-app-fill-f1 px-1.5 py-0.5 text-[10px] font-semibold text-app-label-secondary">
+                {JOURNAL_ENTRY_TYPE_LABEL[row.original.journal_entry.entry_type]}
+              </span>
+            ) : row.original.journal_entry?.is_manual ? (
               <span className="rounded bg-app-fill-f1 px-1.5 py-0.5 text-[10px] font-semibold text-app-label-secondary">
                 يدوي
               </span>
-            )}
+            ) : null}
           </div>
         ),
       },
@@ -85,6 +102,14 @@ export function useChartOfAccountsLedgerColumns(): ColumnDef<JournalLine, unknow
             </span>
           );
         },
+      },
+      {
+        id: "running_balance",
+        header: "الرصيد",
+        enableSorting: false,
+        meta: { align: "end" },
+        cell: ({ row }) =>
+          row.original.running_balance === undefined ? null : <BalanceWithSide value={row.original.running_balance} />,
       },
     ],
     [],

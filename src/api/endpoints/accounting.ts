@@ -40,16 +40,42 @@ export interface AccountDetails extends Account {
   } | null;
   direct_transaction_count?: number;
   transaction_count?: number;
+  /** FR-GL-007: balance brought into the current year, on the account's normal side. */
+  fiscal_year_opening_balance?: number;
+  current_balance?: number;
   created_at?: string;
 }
 
 export interface AccountLedgerParams {
   page?: number;
+  per_page?: number;
   from?: string;
   to?: string;
   search?: string;
   company_wide?: boolean;
   include_children?: boolean;
+  /** Oldest first (default) or newest first. */
+  order?: "asc" | "desc";
+  /** Every line, for print and CSV. */
+  all?: boolean;
+}
+
+/** FR-FREP-004: balances are signed debit-minus-credit; normal_side says how to show them. */
+export interface AccountStatementSummary {
+  opening_balance: number;
+  period_debit: number;
+  period_credit: number;
+  closing_balance: number;
+  normal_side: "debit" | "credit";
+}
+
+export interface AccountStatement {
+  data: JournalLine[];
+  summary: AccountStatementSummary;
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
 }
 
 export interface JournalLine {
@@ -60,6 +86,8 @@ export interface JournalLine {
   debit: string;
   credit: string;
   memo: string | null;
+  /** Statement only: balance after this line, signed debit-minus-credit. */
+  running_balance?: number;
   account?: { id: string; account_code: string; name: string; type: AccountType };
   operating_unit?: { id: string; name: string } | null;
   journal_entry?: {
@@ -68,6 +96,7 @@ export interface JournalLine {
     entry_date: string;
     description: string;
     is_manual: boolean;
+    entry_type?: JournalEntryType;
   };
 }
 
@@ -279,9 +308,12 @@ export const accountingApi = {
     accountId: string,
     params?: AccountLedgerParams
   ) =>
-    apiClient.get<Paginated<JournalLine>>(`/accounts/${accountId}/ledger`, {
+    apiClient.get<AccountStatement>(`/accounts/${accountId}/ledger`, {
       params: {
         page: params?.page ?? 1,
+        per_page: params?.per_page,
+        order: params?.order,
+        all: params?.all ? 1 : undefined,
         from: params?.from || undefined,
         to: params?.to || undefined,
         search: params?.search || undefined,

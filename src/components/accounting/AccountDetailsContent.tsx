@@ -1,9 +1,14 @@
 import React, { useState, useMemo } from "react";
-import { Search, RotateCcw, Layers, ArrowUpRight, ArrowDownLeft, Calendar, Coins } from "lucide-react";
-import { useAccount, useAccountLedger } from "../../hooks/useAccounting";
-import { formatNumber } from "../../lib/utils/format";
+import { useSearchParams } from "react-router-dom";
+import { Search, RotateCcw, Layers, ArrowUpRight, ArrowDownLeft, Calendar, Coins, Printer, FileSpreadsheet } from "lucide-react";
+import { useAccount, useAccountLedger, useIsCompanyWide } from "../../hooks/useAccounting";
+import { accountingApi, type JournalLine } from "../../api/endpoints/accounting";
+import { apiErrorMessage } from "../../api/endpoints/production";
+import { formatDate, formatNumber } from "../../lib/utils/format";
+import { toCsv, downloadCsv } from "../../lib/utils/csv";
 import { DataTable, useDataTable } from "../ui/DataTable";
-import { useChartOfAccountsLedgerColumns } from "../table-columns/chartOfAccountsColumns";
+import { BalanceWithSide, useChartOfAccountsLedgerColumns } from "../table-columns/chartOfAccountsColumns";
+import { PrintDialog, PrintDocument, PrintTable, Cell } from "../print/PrintDocument";
 
 export interface AccountDetailsContentProps {
   accountId: string;
@@ -17,8 +22,14 @@ export interface AccountDetailsContentProps {
 export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ accountId }) => {
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  // The trial balance drills down with ?from=&to= so the statement opens on the same period.
+  const [searchParams] = useSearchParams();
+  const [from, setFrom] = useState(searchParams.get("from") ?? "");
+  const [to, setTo] = useState(searchParams.get("to") ?? "");
+  const [printRows, setPrintRows] = useState<JournalLine[] | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const companyWide = useIsCompanyWide();
   const [includeChildren, setIncludeChildren] = useState(false);
 
   const { data: account, isLoading: accountLoading } = useAccount(accountId);
@@ -52,6 +63,50 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
   };
 
   const currency = account?.currency ?? "LYD";
+  const summary = ledger?.summary;
+
+  /** Every line in the current filters, for print and CSV. */
+  const fetchAll = async (): Promise<JournalLine[] | null> => {
+    setExportError(null);
+    setExporting(true);
+    try {
+      const res = await accountingApi.getAccountLedger(accountId, {
+        from: from.trim() || undefined,
+        to: to.trim() || undefined,
+        search: searchTerm.trim() || undefined,
+        include_children: includeChildren,
+        company_wide: companyWide,
+        all: true,
+      });
+      return res.data.data;
+    } catch (err) {
+      setExportError(apiErrorMessage(err, "تعذر تجهيز كشف الحساب."));
+      return null;
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const exportCsv = async () => {
+    const rows = await fetchAll();
+    if (!rows || !account) return;
+    const csv = toCsv<JournalLine>(rows, [
+      { header: "التاريخ", value: (r) => r.journal_entry?.entry_date?.slice(0, 10) ?? "" },
+      { header: "المرجع", value: (r) => r.journal_entry?.reference ?? "" },
+      { header: "الوصف", value: (r) => r.journal_entry?.description ?? "" },
+      { header: "البيان", value: (r) => r.memo ?? "" },
+      { header: "الوحدة", value: (r) => r.operating_unit?.name ?? "" },
+      { header: "مدين", value: (r) => Number(r.debit) },
+      { header: "دائن", value: (r) => Number(r.credit) },
+      { header: "الرصيد", value: (r) => r.running_balance ?? null },
+    ]);
+    downloadCsv(`statement-${account.account_code}-${from || "start"}-${to || "today"}.csv`, csv);
+  };
+
+  const openPrint = async () => {
+    const rows = await fetchAll();
+    if (rows) setPrintRows(rows);
+  };
 
   if (accountLoading && !account) {
     return (
@@ -83,6 +138,11 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
           {account.has_children && account.direct_balance !== undefined && (
             <div className="mt-1 text-[11px] text-app-label-tertiary">
               المباشر: <span className="font-mono font-semibold">{formatNumber(account.direct_balance)}</span> {currency}
+            </div>
+          )}
+          {account.fiscal_year_opening_balance !== undefined && (
+            <div className="mt-1 text-[11px] text-app-label-tertiary">
+              الرصيد الافتتاحي للسنة: <span className="font-mono font-semibold">{formatNumber(account.fiscal_year_opening_balance)}</span> {currency}
             </div>
           )}
         </div>
@@ -193,6 +253,23 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
             </label>
           )}
 
+          <button
+            type="button"
+            onClick={exportCsv}
+            disabled={exporting}
+            className="flex items-center gap-1 rounded-lg border border-app-separator bg-app-bg-primary px-2.5 py-1.5 text-xs text-app-label-secondary hover:bg-app-fill-f1 disabled:opacity-50"
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5" /> CSV
+          </button>
+          <button
+            type="button"
+            onClick={openPrint}
+            disabled={exporting}
+            className="flex items-center gap-1 rounded-lg border border-app-separator bg-app-bg-primary px-2.5 py-1.5 text-xs text-app-label-secondary hover:bg-app-fill-f1 disabled:opacity-50"
+          >
+            <Printer className="h-3.5 w-3.5" /> كشف حساب
+          </button>
+
           {(searchTerm || from || to || includeChildren) && (
             <button
               type="button"
@@ -205,6 +282,19 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
           )}
         </div>
       </div>
+
+      {exportError && <p className="text-xs text-app-status-danger">{exportError}</p>}
+
+      {summary && (
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl border border-app-separator bg-app-bg-secondary px-4 py-2.5 text-xs text-app-label-secondary">
+          <span className="flex items-center gap-2">رصيد أول المدة <BalanceWithSide value={summary.opening_balance} /></span>
+          <span>
+            حركة الفترة: مدين <span className="font-mono font-semibold text-app-label-primary">{formatNumber(summary.period_debit)}</span>
+            {" · "}دائن <span className="font-mono font-semibold text-app-label-primary">{formatNumber(summary.period_credit)}</span>
+          </span>
+          <span className="ms-auto flex items-center gap-2 font-semibold text-app-label-primary">الرصيد الختامي <BalanceWithSide value={summary.closing_balance} /></span>
+        </div>
+      )}
 
       {/* Transactions Ledger Table */}
       <div className="overflow-hidden rounded-xl border border-app-separator bg-app-bg-primary">
@@ -253,6 +343,45 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
           </>
         )}
       </div>
+
+      <PrintDialog open={printRows !== null} onClose={() => setPrintRows(null)} title="طباعة كشف الحساب">
+        {printRows && summary && (
+          <PrintDocument
+            title="كشف حساب"
+            number={`${account.account_code} — ${account.name}`}
+            meta={[
+              { label: "الفترة", value: `${from || "بداية الدفاتر"} — ${to || "اليوم"}` },
+              { label: "العملة", value: currency },
+              { label: "رصيد أول المدة", value: formatNumber(summary.opening_balance) },
+              { label: "الرصيد الختامي", value: formatNumber(summary.closing_balance) },
+            ]}
+            signatures={["المحاسب", "المدير المالي"]}
+          >
+            <PrintTable head={["التاريخ", "المرجع", "البيان", "مدين", "دائن", "الرصيد"]}>
+              <tr className="font-semibold">
+                <Cell colSpan={5}>رصيد أول المدة</Cell>
+                <Cell className="text-end font-mono">{formatNumber(summary.opening_balance)}</Cell>
+              </tr>
+              {printRows.map((line) => (
+                <tr key={line.id}>
+                  <Cell className="font-mono">{line.journal_entry?.entry_date ? formatDate(line.journal_entry.entry_date) : ""}</Cell>
+                  <Cell className="font-mono">{line.journal_entry?.reference}</Cell>
+                  <Cell>{line.memo || line.journal_entry?.description}</Cell>
+                  <Cell className="text-end font-mono">{Number(line.debit) > 0 ? formatNumber(Number(line.debit)) : ""}</Cell>
+                  <Cell className="text-end font-mono">{Number(line.credit) > 0 ? formatNumber(Number(line.credit)) : ""}</Cell>
+                  <Cell className="text-end font-mono">{formatNumber(line.running_balance ?? 0)}</Cell>
+                </tr>
+              ))}
+              <tr className="font-bold">
+                <Cell colSpan={3}>الإجمالي والرصيد الختامي</Cell>
+                <Cell className="text-end font-mono">{formatNumber(summary.period_debit)}</Cell>
+                <Cell className="text-end font-mono">{formatNumber(summary.period_credit)}</Cell>
+                <Cell className="text-end font-mono">{formatNumber(summary.closing_balance)}</Cell>
+              </tr>
+            </PrintTable>
+          </PrintDocument>
+        )}
+      </PrintDialog>
     </>
   );
 };

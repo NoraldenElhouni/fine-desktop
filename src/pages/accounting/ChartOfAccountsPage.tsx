@@ -332,6 +332,8 @@ export const ChartOfAccountsPage: React.FC = () => {
       page: ledgerPage,
       search: sideSearch.trim() || undefined,
       include_children: includeChildren,
+      // The side panel is a quick look: latest movements first.
+      order: "desc",
     }
   );
 

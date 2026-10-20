@@ -3,6 +3,7 @@ import {
   accountingApi,
   type JournalEntryFilters,
   type TrialBalanceParams,
+  type AccountLedgerParams,
 } from "../api/endpoints/accounting";
 import { useAuthStore } from "../stores/authStore";
 
@@ -125,13 +126,7 @@ export function useAccount(accountId?: string) {
 
 export function useAccountLedger(
   accountId?: string,
-  params?: {
-    page?: number;
-    from?: string;
-    to?: string;
-    search?: string;
-    include_children?: boolean;
-  }
+  params?: Omit<AccountLedgerParams, "company_wide" | "all">
 ) {
   const companyWide = useIsCompanyWide();
   return useQuery({
