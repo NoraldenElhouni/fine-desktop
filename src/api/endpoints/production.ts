@@ -122,6 +122,14 @@ export const LEDGER_ERROR_MESSAGE: Record<string, string> = {
   ACCOUNT_CODE_LOCKED: "لا يمكن تغيير رمز حساب عليه حركات.",
   ACCOUNT_HAS_TRANSACTIONS: "الحساب عليه حركات مرحّلة ولا يمكن حذفه.",
   ACCOUNT_FROZEN: "هذا الحساب مجمّد ولا يقبل قيوداً جديدة.",
+  PERIOD_LOCKED: "الشهر المحاسبي لهذا التاريخ مقفل — لا يمكن الترحيل إليه. اختر تاريخاً في فترة مفتوحة أو اطلب من المالك إعادة فتح الشهر.",
+  YEAR_CLOSED: "السنة المالية لهذا التاريخ مقفلة.",
+  PERIOD_NOT_ENDED: "لا يمكن إقفال شهر لم ينتهِ بعد.",
+  PERIOD_ALREADY_LOCKED: "هذا الشهر مقفل بالفعل.",
+  PERIOD_NOT_LOCKED: "هذا الشهر غير مقفل.",
+  PERIOD_LOCK_OUT_OF_ORDER: "يجب إقفال الأشهر السابقة أولاً.",
+  FISCAL_CALENDAR_IN_USE: "لا يمكن تغيير بداية السنة المالية بعد إقفال أي شهر.",
+  ENTRY_DATE_OUT_OF_RANGE: "التاريخ بعيد جداً في المستقبل — تحقق منه.",
   ACCOUNT_NAME_DUPLICATE: "يوجد حساب آخر بنفس الاسم تحت الحساب الأب نفسه.",
 };
 

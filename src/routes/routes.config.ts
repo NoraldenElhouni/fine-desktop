@@ -31,6 +31,7 @@ import {
   Users,
   Truck,
   Wallet,
+  CalendarClock,
 } from "lucide-react";
 
 export interface AppNavItem {
@@ -152,6 +153,7 @@ export const navItems: AppNavItem[] = [
   { id: "journal", path: "/accounting/journal", label: "دفتر اليومية", icon: BookOpenText, allowedRoles: ["owner", "admin", "accounting-manager"], permission: "view-accounting" },
   { id: "accounts", path: "/accounting/accounts", label: "شجرة الحسابات", icon: ListTree, allowedRoles: ["owner", "admin", "accounting-manager"], permission: "view-accounting" },
   { id: "trial-balance", path: "/accounting/trial-balance", label: "ميزان المراجعة", icon: Scale, allowedRoles: ["owner", "admin", "accounting-manager"], permission: "view-accounting" },
+  { id: "fiscal-periods", path: "/accounting/periods", label: "الفترات المحاسبية", icon: CalendarClock, allowedRoles: ["owner", "admin", "accounting-manager"], permission: "view-accounting" },
   { id: "overhead", path: "/accounting/overhead", label: "المصاريف العمومية", icon: Droplets, allowedRoles: ["owner", "admin", "accounting-manager"], permission: "view-accounting" },
   { id: "fixed-assets", path: "/accounting/assets", label: "الأصول الثابتة", icon: Building, allowedRoles: ["owner", "admin", "accounting-manager"], permission: "view-accounting" },
   { id: "reports", path: "/reports", label: "التقارير المالية", icon: BarChart3, allowedRoles: ["owner", "admin", "accounting-manager", "treasury-officer", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"], permission: "view-accounting" },

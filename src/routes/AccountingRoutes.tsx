@@ -7,6 +7,7 @@ import { TrialBalancePage } from "../pages/accounting/TrialBalancePage";
 import { FinancialReportsPage } from "../pages/accounting/FinancialReportsPage";
 import { OverheadExpensesPage } from "../pages/accounting/OverheadExpensesPage";
 import { FixedAssetsPage } from "../pages/accounting/FixedAssetsPage";
+import { FiscalPeriodsPage } from "../pages/accounting/FiscalPeriodsPage";
 
 import { AuthorizedRoute } from "../components/AuthorizedRoute";
 
@@ -35,6 +36,14 @@ export const AccountingRoutes: React.FC = () => {
         element={
           <AuthorizedRoute allowedRoles={["owner", "admin", "accounting-manager"]}>
             <AccountDetailPage />
+          </AuthorizedRoute>
+        }
+      />
+      <Route
+        path="periods"
+        element={
+          <AuthorizedRoute allowedRoles={["owner", "admin", "accounting-manager"]}>
+            <FiscalPeriodsPage />
           </AuthorizedRoute>
         }
       />
