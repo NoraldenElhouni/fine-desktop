@@ -100,6 +100,9 @@ export const AccountEditDialog: React.FC<AccountEditDialogProps> = ({
   }
 
   const isMain = account.is_main;
+  // The server locks the code of an account with postings (ACCOUNT_CODE_LOCKED).
+  const hasPostings = (account.direct_debit ?? 0) + (account.direct_credit ?? 0) > 0;
+  const codeLocked = isMain || hasPostings;
   const currentParentAccount = parentAccountId
     ? accounts.find((a) => a.id === parentAccountId) ?? null
     : null;
@@ -110,7 +113,7 @@ export const AccountEditDialog: React.FC<AccountEditDialogProps> = ({
       name: trimmedName,
       currency: currency.trim().toUpperCase() || account.currency,
     };
-    if (!isMain && accountCode.trim() && accountCode.trim() !== account.account_code) {
+    if (!codeLocked && accountCode.trim() && accountCode.trim() !== account.account_code) {
       payload.account_code = accountCode.trim();
     }
     return payload;
@@ -192,6 +195,10 @@ export const AccountEditDialog: React.FC<AccountEditDialogProps> = ({
                     <span className="text-app-label-tertiary text-[10px] ms-1">
                       (الحساب الرئيسي — ثابت)
                     </span>
+                  ) : hasPostings ? (
+                    <span className="text-app-label-tertiary text-[10px] ms-1">
+                      (لا يمكن تغيير رمز حساب عليه حركات)
+                    </span>
                   ) : null}
                 </label>
                 <div className="relative">
@@ -199,13 +206,13 @@ export const AccountEditDialog: React.FC<AccountEditDialogProps> = ({
                     type="text"
                     value={accountCode}
                     onChange={(e) => setAccountCode(e.target.value)}
-                    disabled={isMain}
+                    disabled={codeLocked}
                     dir="ltr"
                     className={`w-full font-mono rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none ${
-                      isMain ? "opacity-60 cursor-not-allowed" : ""
+                      codeLocked ? "opacity-60 cursor-not-allowed" : ""
                     }`}
                   />
-                  {isMain ? (
+                  {codeLocked ? (
                     <Lock className="absolute end-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-app-label-tertiary" />
                   ) : null}
                 </div>

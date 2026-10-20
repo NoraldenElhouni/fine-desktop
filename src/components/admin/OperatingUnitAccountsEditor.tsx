@@ -132,7 +132,7 @@ export const OperatingUnitAccountsEditor: React.FC<OperatingUnitAccountsEditorPr
                 </div>
                 <div className="w-72">
                   <SearchableSelect<{ id: string; account_code: string; name: string; type: string }>
-                    options={leafAccounts(accounts)}
+                    options={leafAccounts(accounts, [], [selected?.id])}
                     value={selected}
                     onChange={(acc) =>
                       upsertMutation.mutate({

@@ -10,12 +10,16 @@ export const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
   expense: "مصروفات",
 };
 
+export type AccountStatus = "active" | "frozen";
+
 export interface Account {
   id: string;
   account_code: string;
   name: string;
   type: AccountType;
   currency: string;
+  /** ACC-14: a frozen account keeps its history but takes no new postings or links. */
+  status?: AccountStatus;
   parent_account_id: string | null;
   is_main: boolean;
   total_debit: number;
@@ -250,6 +254,10 @@ export const accountingApi = {
 
   getJournalEntries: (params?: JournalEntryFilters & { page?: number; company_wide?: boolean }) =>
     apiClient.get<Paginated<JournalEntry>>("/journal-entries", { params }),
+
+  /** ACC-14: freeze or reactivate an account. */
+  updateAccountStatus: (id: string, status: AccountStatus) =>
+    apiClient.patch<{ data: { id: string; status: AccountStatus } }>(`/accounts/${id}/status`, { status }),
 
   /** ACC-13: post the linked mirror of a posted entry. */
   reverseEntry: (id: string, payload: { entry_date?: string; reason: string }) =>

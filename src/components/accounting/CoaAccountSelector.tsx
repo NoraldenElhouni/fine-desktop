@@ -211,7 +211,7 @@ export const CoaAccountSelector: React.FC<CoaAccountSelectorProps> = ({
             اختر الحساب من دليل الحسابات <span className="text-app-status-danger">*</span>
           </label>
           <SearchableSelect<Account>
-            options={leafAccounts(accounts)}
+            options={leafAccounts(accounts, [], [selectedAccountId])}
             value={selectedExistingAccount}
             onChange={(acc) => onSelectedAccountIdChange(acc ? acc.id : null)}
             getOptionId={(acc) => acc.id}

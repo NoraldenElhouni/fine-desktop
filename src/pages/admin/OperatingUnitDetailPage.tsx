@@ -75,8 +75,11 @@ export const OperatingUnitDetailPage: React.FC = () => {
   const updateUnitMutation = useUpdateOperatingUnit();
   const { data: accounts = [] } = useAccounts();
   const revenueAccounts = useMemo(
-    () => leafAccounts(accounts).filter((a) => a.type === "revenue" && a.account_code.startsWith("4")),
-    [accounts],
+    () =>
+      leafAccounts(accounts, [], [unitQuery.data?.revenue_account_id]).filter(
+        (a) => a.type === "revenue" && a.account_code.startsWith("4"),
+      ),
+    [accounts, unitQuery.data?.revenue_account_id],
   );
   const createWarehouseMutation = useCreateOperatingUnitWarehouse(id);
   const updateWarehouseMutation = useUpdateWarehouse(id);

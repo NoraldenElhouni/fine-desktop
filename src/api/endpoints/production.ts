@@ -121,6 +121,8 @@ export const LEDGER_ERROR_MESSAGE: Record<string, string> = {
   ACCOUNT_IN_USE: "الحساب مرتبط بسجلات أخرى (خزينة أو عميل أو مورد…) ولا يمكن حذفه.",
   ACCOUNT_CODE_LOCKED: "لا يمكن تغيير رمز حساب عليه حركات.",
   ACCOUNT_HAS_TRANSACTIONS: "الحساب عليه حركات مرحّلة ولا يمكن حذفه.",
+  ACCOUNT_FROZEN: "هذا الحساب مجمّد ولا يقبل قيوداً جديدة.",
+  ACCOUNT_NAME_DUPLICATE: "يوجد حساب آخر بنفس الاسم تحت الحساب الأب نفسه.",
 };
 
 /** The Arabic message for a known refusal code, else the server's message, else the fallback. */

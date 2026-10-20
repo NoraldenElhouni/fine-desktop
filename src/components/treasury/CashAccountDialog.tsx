@@ -40,7 +40,7 @@ export const CashAccountDialog: React.FC<CashAccountDialogProps> = ({ open, onCl
     setError(null);
   }, [open, cashAccount]);
 
-  const treasuryAccounts = leafAccounts(accounts).filter(
+  const treasuryAccounts = leafAccounts(accounts, [], [cashAccount?.account_id]).filter(
     (a) => a.account_code.startsWith(TREASURY_PARENT_PREFIX) && a.account_code !== TREASURY_PARENT_PREFIX,
   );
   const selectedAccount = treasuryAccounts.find((a) => a.id === accountId) ?? null;

@@ -176,6 +176,18 @@ export function useCreateManualEntry() {
   });
 }
 
+/** Freeze or reactivate an account (ACC-14). */
+export function useUpdateAccountStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: "active" | "frozen" }) => accountingApi.updateAccountStatus(id, status),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+      qc.invalidateQueries({ queryKey: ["account"] });
+    },
+  });
+}
+
 /** Reverse a posted entry; every balance that read the original changes. */
 export function useReverseEntry() {
   const qc = useQueryClient();

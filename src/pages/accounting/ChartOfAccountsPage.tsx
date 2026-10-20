@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from "react";
-import { ListTree, Plus, X, Eye, Maximize2, Search, RotateCcw, ExternalLink, ChevronDown } from "lucide-react";
+import { ListTree, Plus, X, Eye, Maximize2, Search, RotateCcw, ExternalLink, ChevronDown, Snowflake } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { isAxiosError } from "axios";
-import { useAccounts, useAccountLedger, useCreateAccount } from "../../hooks/useAccounting";
+import { useAccounts, useAccountLedger, useCreateAccount, useUpdateAccountStatus } from "../../hooks/useAccounting";
+import { apiErrorMessage } from "../../api/endpoints/production";
 import { usePermissions } from "../../hooks/usePermissions";
 import { ACCOUNT_TYPE_LABEL, type Account, type AccountType } from "../../api/endpoints/accounting";
 import { formatNumber } from "../../lib/utils/format";
@@ -308,6 +309,22 @@ export const ChartOfAccountsPage: React.FC = () => {
 
   const { hasRole } = usePermissions();
   const canCreate = hasRole(["owner", "admin", "accounting-manager"]);
+  const canManageStatus = hasRole(["owner", "accounting-manager"]);
+  const statusMutation = useUpdateAccountStatus();
+
+  const toggleFrozen = (account: Account) => {
+    const status = account.status === "frozen" ? "active" : "frozen";
+    statusMutation.mutate(
+      { id: account.id, status },
+      {
+        onSuccess: () => {
+          toast.success(status === "frozen" ? "تم تجميد الحساب" : "تم تنشيط الحساب");
+          setSelected({ ...account, status });
+        },
+        onError: (err) => toast.error(apiErrorMessage(err, "تعذر تغيير حالة الحساب")),
+      },
+    );
+  };
 
   const { data: ledger, isLoading: ledgerLoading } = useAccountLedger(
     selected?.id,
@@ -494,6 +511,11 @@ export const ChartOfAccountsPage: React.FC = () => {
             >
               {searchTerm ? highlightMatch(node.account.name, searchTerm) : node.account.name}
             </span>
+            {node.account.status === "frozen" && (
+              <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-app-status-info/15 text-app-status-info">
+                <Snowflake className="w-3 h-3" /> مجمّد
+              </span>
+            )}
             <span
               className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
                 TYPE_STYLE[node.account.type]
@@ -667,9 +689,26 @@ export const ChartOfAccountsPage: React.FC = () => {
                 >
                   {ACCOUNT_TYPE_LABEL[selected.type]}
                 </span>
+                {selected.status === "frozen" && (
+                  <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-app-status-info/15 text-app-status-info">
+                    <Snowflake className="w-3 h-3" /> مجمّد
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-1.5">
+                {canManageStatus && !selected.is_main && (
+                  <button
+                    type="button"
+                    onClick={() => toggleFrozen(selected)}
+                    disabled={statusMutation.isPending}
+                    className="flex items-center gap-1 rounded-lg border border-app-separator bg-app-bg-secondary px-2.5 py-1 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 hover:text-app-accent disabled:opacity-50"
+                    title={selected.status === "frozen" ? "السماح بالترحيل إلى الحساب مجدداً" : "إيقاف أي ترحيل جديد إلى الحساب وحساباته الفرعية"}
+                  >
+                    <Snowflake className="w-3.5 h-3.5" />
+                    {selected.status === "frozen" ? "تنشيط الحساب" : "تجميد الحساب"}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setDetailsAccountId(selected.id)}
