@@ -26,6 +26,7 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
   const [searchParams] = useSearchParams();
   const [from, setFrom] = useState(searchParams.get("from") ?? "");
   const [to, setTo] = useState(searchParams.get("to") ?? "");
+  const [selectedCurrency, setSelectedCurrency] = useState("");
   const [printRows, setPrintRows] = useState<JournalLine[] | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -40,10 +41,19 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
     to: to.trim() || undefined,
     search: searchTerm.trim() || undefined,
     include_children: includeChildren,
+    currency: selectedCurrency || undefined,
   });
 
-  const columns = useChartOfAccountsLedgerColumns();
   const ledgerData = useMemo(() => ledger?.data ?? [], [ledger]);
+  const hasForeignCurrency = useMemo(
+    () => Boolean(selectedCurrency) || ledgerData.some((row) => Boolean(row.currency)),
+    [selectedCurrency, ledgerData],
+  );
+
+  const columns = useChartOfAccountsLedgerColumns({
+    hasForeignCurrency,
+    currency: selectedCurrency || undefined,
+  });
 
   const table = useDataTable({
     columns,
@@ -58,12 +68,21 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
     setSearchTerm("");
     setFrom("");
     setTo("");
+    setSelectedCurrency("");
     setPage(1);
     setIncludeChildren(false);
   };
 
   const currency = account?.currency ?? "LYD";
   const summary = ledger?.summary;
+
+  const currencyOptions = useMemo(() => {
+    const list = (account?.currency_balances ?? []).map((cb) => cb.currency);
+    if (account?.currency && account.currency !== "LYD" && !list.includes(account.currency)) {
+      list.push(account.currency);
+    }
+    return list;
+  }, [account?.currency_balances, account?.currency]);
 
   /** Every line in the current filters, for print and CSV. */
   const fetchAll = async (): Promise<JournalLine[] | null> => {
@@ -77,6 +96,7 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
         include_children: includeChildren,
         company_wide: companyWide,
         all: true,
+        currency: selectedCurrency || undefined,
       });
       return res.data.data;
     } catch (err) {
@@ -90,17 +110,25 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
   const exportCsv = async () => {
     const rows = await fetchAll();
     if (!rows || !account) return;
+    const hasForeign = Boolean(selectedCurrency) || rows.some((r) => Boolean(r.currency));
     const csv = toCsv<JournalLine>(rows, [
       { header: "التاريخ", value: (r) => r.journal_entry?.entry_date?.slice(0, 10) ?? "" },
       { header: "المرجع", value: (r) => r.journal_entry?.reference ?? "" },
       { header: "الوصف", value: (r) => r.journal_entry?.description ?? "" },
       { header: "البيان", value: (r) => r.memo ?? "" },
       { header: "الوحدة", value: (r) => r.operating_unit?.name ?? "" },
+      ...(hasForeign
+        ? [
+            { header: "العملة", value: (r: JournalLine) => r.currency ?? "" },
+            { header: "المبلغ الأصلي", value: (r: JournalLine) => (r.original_amount ? Number(r.original_amount) : "") },
+            { header: "سعر الصرف", value: (r: JournalLine) => (r.fx_rate ? Number(r.fx_rate) : "") },
+          ]
+        : []),
       { header: "مدين", value: (r) => Number(r.debit) },
       { header: "دائن", value: (r) => Number(r.credit) },
-      { header: "الرصيد", value: (r) => r.running_balance ?? null },
+      { header: selectedCurrency ? `الرصيد (${selectedCurrency})` : "الرصيد", value: (r) => r.running_balance ?? null },
     ]);
-    downloadCsv(`statement-${account.account_code}-${from || "start"}-${to || "today"}.csv`, csv);
+    downloadCsv(`statement-${account.account_code}-${selectedCurrency ? `${selectedCurrency}-` : ""}${from || "start"}-${to || "today"}.csv`, csv);
   };
 
   const openPrint = async () => {
@@ -122,6 +150,26 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
 
   return (
     <>
+      {/* Currency balances chips in card header */}
+      {account.currency_balances && account.currency_balances.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {account.currency_balances.map((cb) => (
+            <div
+              key={cb.currency}
+              className="inline-flex items-center gap-1.5 rounded-full border border-app-separator bg-app-bg-secondary px-3 py-1 text-xs text-app-label-secondary"
+            >
+              <span>رصيد {cb.currency}:</span>
+              <span className="font-mono font-bold text-app-label-primary">
+                {formatNumber(cb.original_balance)}
+              </span>
+              <span className="text-[11px] text-app-label-tertiary">
+                (≈ {formatNumber(cb.lyd_balance)} د.ل)
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-3">
@@ -238,6 +286,25 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
             />
           </div>
 
+          <div className="flex items-center gap-1.5">
+            <Coins className="h-3.5 w-3.5 text-app-label-tertiary" />
+            <select
+              value={selectedCurrency}
+              onChange={(e) => {
+                setSelectedCurrency(e.target.value);
+                setPage(1);
+              }}
+              className="rounded-lg border border-app-separator bg-app-bg-primary px-2.5 py-1.5 text-xs text-app-label-primary focus:outline-none focus:ring-1 focus:ring-app-accent"
+            >
+              <option value="">كل العملات (دينار)</option>
+              {currencyOptions.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {account.has_children && (
             <label className="flex items-center gap-2 cursor-pointer text-xs text-app-label-secondary hover:text-app-label-primary px-1">
               <input
@@ -270,7 +337,7 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
             <Printer className="h-3.5 w-3.5" /> كشف حساب
           </button>
 
-          {(searchTerm || from || to || includeChildren) && (
+          {(searchTerm || from || to || includeChildren || selectedCurrency) && (
             <button
               type="button"
               onClick={handleResetFilters}
@@ -287,12 +354,31 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
 
       {summary && (
         <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl border border-app-separator bg-app-bg-secondary px-4 py-2.5 text-xs text-app-label-secondary">
-          <span className="flex items-center gap-2">رصيد أول المدة <BalanceWithSide value={summary.opening_balance} /></span>
+          <span className="flex items-center gap-2">
+            رصيد أول المدة <BalanceWithSide value={summary.opening_balance} />
+            {(summary.currency || selectedCurrency) && (
+              <span className="font-mono text-[11px] text-app-label-tertiary">
+                {summary.currency || selectedCurrency}
+              </span>
+            )}
+          </span>
           <span>
             حركة الفترة: مدين <span className="font-mono font-semibold text-app-label-primary">{formatNumber(summary.period_debit)}</span>
             {" · "}دائن <span className="font-mono font-semibold text-app-label-primary">{formatNumber(summary.period_credit)}</span>
+            {(summary.currency || selectedCurrency) && (
+              <span className="font-mono text-[11px] text-app-label-tertiary ms-1">
+                {summary.currency || selectedCurrency}
+              </span>
+            )}
           </span>
-          <span className="ms-auto flex items-center gap-2 font-semibold text-app-label-primary">الرصيد الختامي <BalanceWithSide value={summary.closing_balance} /></span>
+          <span className="ms-auto flex items-center gap-2 font-semibold text-app-label-primary">
+            الرصيد الختامي <BalanceWithSide value={summary.closing_balance} />
+            {(summary.currency || selectedCurrency) && (
+              <span className="font-mono text-[11px] text-app-label-tertiary">
+                {summary.currency || selectedCurrency}
+              </span>
+            )}
+          </span>
         </div>
       )}
 
@@ -351,34 +437,60 @@ export const AccountDetailsContent: React.FC<AccountDetailsContentProps> = ({ ac
             number={`${account.account_code} — ${account.name}`}
             meta={[
               { label: "الفترة", value: `${from || "بداية الدفاتر"} — ${to || "اليوم"}` },
-              { label: "العملة", value: currency },
+              { label: "العملة", value: selectedCurrency || summary.currency || currency },
               { label: "رصيد أول المدة", value: formatNumber(summary.opening_balance) },
               { label: "الرصيد الختامي", value: formatNumber(summary.closing_balance) },
             ]}
             signatures={["المحاسب", "المدير المالي"]}
           >
-            <PrintTable head={["التاريخ", "المرجع", "البيان", "مدين", "دائن", "الرصيد"]}>
-              <tr className="font-semibold">
-                <Cell colSpan={5}>رصيد أول المدة</Cell>
-                <Cell className="text-end font-mono">{formatNumber(summary.opening_balance)}</Cell>
-              </tr>
-              {printRows.map((line) => (
-                <tr key={line.id}>
-                  <Cell className="font-mono">{line.journal_entry?.entry_date ? formatDate(line.journal_entry.entry_date) : ""}</Cell>
-                  <Cell className="font-mono">{line.journal_entry?.reference}</Cell>
-                  <Cell>{line.memo || line.journal_entry?.description}</Cell>
-                  <Cell className="text-end font-mono">{Number(line.debit) > 0 ? formatNumber(Number(line.debit)) : ""}</Cell>
-                  <Cell className="text-end font-mono">{Number(line.credit) > 0 ? formatNumber(Number(line.credit)) : ""}</Cell>
-                  <Cell className="text-end font-mono">{formatNumber(line.running_balance ?? 0)}</Cell>
-                </tr>
-              ))}
-              <tr className="font-bold">
-                <Cell colSpan={3}>الإجمالي والرصيد الختامي</Cell>
-                <Cell className="text-end font-mono">{formatNumber(summary.period_debit)}</Cell>
-                <Cell className="text-end font-mono">{formatNumber(summary.period_credit)}</Cell>
-                <Cell className="text-end font-mono">{formatNumber(summary.closing_balance)}</Cell>
-              </tr>
-            </PrintTable>
+            {(() => {
+              const printHasForeign = Boolean(selectedCurrency) || printRows.some((r) => Boolean(r.currency));
+              return (
+                <PrintTable
+                  head={[
+                    "التاريخ",
+                    "المرجع",
+                    "البيان",
+                    ...(printHasForeign ? ["العملة", "المبلغ الأصلي", "سعر الصرف"] : []),
+                    "مدين",
+                    "دائن",
+                    selectedCurrency ? `الرصيد (${selectedCurrency})` : "الرصيد",
+                  ]}
+                >
+                  <tr className="font-semibold">
+                    <Cell colSpan={printHasForeign ? 8 : 5}>رصيد أول المدة</Cell>
+                    <Cell className="text-end font-mono">{formatNumber(summary.opening_balance)}</Cell>
+                  </tr>
+                  {printRows.map((line) => (
+                    <tr key={line.id}>
+                      <Cell className="font-mono">{line.journal_entry?.entry_date ? formatDate(line.journal_entry.entry_date) : ""}</Cell>
+                      <Cell className="font-mono">{line.journal_entry?.reference}</Cell>
+                      <Cell>{line.memo || line.journal_entry?.description}</Cell>
+                      {printHasForeign && (
+                        <>
+                          <Cell className="font-mono">{line.currency ?? "—"}</Cell>
+                          <Cell className="text-end font-mono">
+                            {line.original_amount ? formatNumber(Number(line.original_amount)) : "—"}
+                          </Cell>
+                          <Cell className="text-end font-mono">
+                            {line.fx_rate ? Number(line.fx_rate).toString() : "—"}
+                          </Cell>
+                        </>
+                      )}
+                      <Cell className="text-end font-mono">{Number(line.debit) > 0 ? formatNumber(Number(line.debit)) : ""}</Cell>
+                      <Cell className="text-end font-mono">{Number(line.credit) > 0 ? formatNumber(Number(line.credit)) : ""}</Cell>
+                      <Cell className="text-end font-mono">{formatNumber(line.running_balance ?? 0)}</Cell>
+                    </tr>
+                  ))}
+                  <tr className="font-bold">
+                    <Cell colSpan={printHasForeign ? 6 : 3}>الإجمالي والرصيد الختامي</Cell>
+                    <Cell className="text-end font-mono">{formatNumber(summary.period_debit)}</Cell>
+                    <Cell className="text-end font-mono">{formatNumber(summary.period_credit)}</Cell>
+                    <Cell className="text-end font-mono">{formatNumber(summary.closing_balance)}</Cell>
+                  </tr>
+                </PrintTable>
+              );
+            })()}
           </PrintDocument>
         )}
       </PrintDialog>

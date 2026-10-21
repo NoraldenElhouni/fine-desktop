@@ -18,6 +18,7 @@ export interface Account {
   name: string;
   type: AccountType;
   currency: string;
+  currency_balances?: { currency: string; original_balance: number; lyd_balance: number }[];
   /** ACC-14: a frozen account keeps its history but takes no new postings or links. */
   status?: AccountStatus;
   parent_account_id: string | null;
@@ -32,6 +33,7 @@ export interface Account {
 }
 
 export interface AccountDetails extends Account {
+  currency_balances?: { currency: string; original_balance: number; lyd_balance: number }[];
   parent?: {
     id: string;
     account_code: string;
@@ -52,6 +54,7 @@ export interface AccountLedgerParams {
   from?: string;
   to?: string;
   search?: string;
+  currency?: string;
   company_wide?: boolean;
   include_children?: boolean;
   /** Oldest first (default) or newest first. */
@@ -67,6 +70,7 @@ export interface AccountStatementSummary {
   period_credit: number;
   closing_balance: number;
   normal_side: "debit" | "credit";
+  currency?: string;
 }
 
 export interface AccountStatement {
@@ -85,6 +89,9 @@ export interface JournalLine {
   operating_unit_id: string | null;
   debit: string;
   credit: string;
+  currency?: string | null;
+  original_amount?: string | null;
+  fx_rate?: string | null;
   memo: string | null;
   /** Statement only: balance after this line, signed debit-minus-credit. */
   running_balance?: number;
@@ -250,6 +257,9 @@ export interface ManualJournalPayload {
     account_code: string;
     debit?: number;
     credit?: number;
+    currency?: string | null;
+    original_amount?: number | null;
+    fx_rate?: number | null;
     operating_unit_id?: string | null;
     client_id?: string | null;
     memo?: string | null;
@@ -319,6 +329,7 @@ export const accountingApi = {
         search: params?.search || undefined,
         company_wide: params?.company_wide || undefined,
         include_children: params?.include_children ? 1 : undefined,
+        currency: params?.currency || undefined,
       },
     }),
 

@@ -37,8 +37,32 @@ const EntryPrintTable: React.FC<{ entry: JournalEntry }> = ({ entry }) => (
         <Cell><span className="font-mono">{line.account?.account_code}</span> {line.account?.name}</Cell>
         <Cell>{line.operating_unit?.name ?? ""}</Cell>
         <Cell>{line.memo ?? ""}</Cell>
-        <Cell className="text-end font-mono">{Number(line.debit) > 0 ? formatNumber(Number(line.debit)) : ""}</Cell>
-        <Cell className="text-end font-mono">{Number(line.credit) > 0 ? formatNumber(Number(line.credit)) : ""}</Cell>
+        <Cell className="text-end font-mono">
+          {Number(line.debit) > 0 ? (
+            <div className="flex flex-col items-end">
+              <span>{formatNumber(Number(line.debit))}</span>
+              {line.currency && line.original_amount && (
+                <span className="text-[10px] text-gray-500">
+                  {formatNumber(Number(line.original_amount))} {line.currency}
+                  {line.fx_rate ? ` × ${Number(line.fx_rate)}` : ""}
+                </span>
+              )}
+            </div>
+          ) : ""}
+        </Cell>
+        <Cell className="text-end font-mono">
+          {Number(line.credit) > 0 ? (
+            <div className="flex flex-col items-end">
+              <span>{formatNumber(Number(line.credit))}</span>
+              {line.currency && line.original_amount && (
+                <span className="text-[10px] text-gray-500">
+                  {formatNumber(Number(line.original_amount))} {line.currency}
+                  {line.fx_rate ? ` × ${Number(line.fx_rate)}` : ""}
+                </span>
+              )}
+            </div>
+          ) : ""}
+        </Cell>
       </tr>
     ))}
     <tr className="font-bold">
@@ -78,6 +102,10 @@ interface FormLine {
   side: "debit" | "credit";
   amount: string;
   memo: string;
+  is_foreign: boolean;
+  currency: string;
+  original_amount: string;
+  fx_rate: string;
 }
 
 const emptyLine = (side: "debit" | "credit"): FormLine => ({
@@ -87,7 +115,21 @@ const emptyLine = (side: "debit" | "credit"): FormLine => ({
   side,
   amount: "",
   memo: "",
+  is_foreign: false,
+  currency: "USD",
+  original_amount: "",
+  fx_rate: "",
 });
+
+const calcLydAmount = (original: string, rate: string): string => {
+  const o = Number(original);
+  const r = Number(rate);
+  if (!Number.isFinite(o) || !Number.isFinite(r) || o <= 0 || r <= 0) {
+    return "";
+  }
+  const val = Math.round(o * r * 10000) / 10000;
+  return val.toString();
+};
 
 /** The debit/credit breakdown shown inside an expanded journal entry row. */
 const JournalLinesTable: React.FC<{ lines: JournalLine[] }> = ({ lines }) => {
@@ -188,6 +230,13 @@ export const JournalEntriesPage: React.FC = () => {
           [l.side]: num(l.amount),
           memo: l.memo || undefined,
           ...(l.client_id && receivableCodes.has(l.account_code) ? { client_id: l.client_id } : {}),
+          ...(l.is_foreign && l.currency.trim()
+            ? {
+                currency: l.currency.trim().toUpperCase(),
+                original_amount: num(l.original_amount),
+                fx_rate: l.fx_rate ? num(l.fx_rate) : undefined,
+              }
+            : {}),
         })),
       },
       {
@@ -243,6 +292,9 @@ export const JournalEntriesPage: React.FC = () => {
       { header: "الحساب", value: (r) => r.line.account?.name ?? "" },
       { header: "الوحدة", value: (r) => r.line.operating_unit?.name ?? "" },
       { header: "البيان", value: (r) => r.line.memo ?? "" },
+      { header: "العملة", value: (r) => r.line.currency ?? "" },
+      { header: "المبلغ الأصلي", value: (r) => (r.line.original_amount ? Number(r.line.original_amount) : "") },
+      { header: "سعر الصرف", value: (r) => (r.line.fx_rate ? Number(r.line.fx_rate) : "") },
       { header: "مدين", value: (r) => Number(r.line.debit) },
       { header: "دائن", value: (r) => Number(r.line.credit) },
     ]);
@@ -509,92 +561,188 @@ export const JournalEntriesPage: React.FC = () => {
               </label>
 
               {lines.map((l) => (
-                <div key={l.key} className="flex gap-2 items-end">
-                  <div className="flex flex-col flex-1">
-                    <label className="block text-[10px] font-semibold text-app-label-secondary mb-0.5">الحساب</label>
-                    <SearchableSelect<{ id: string; account_code: string; name: string; type?: string }>
-                      options={leafAccounts(accounts ?? [], ["122"])}
-                      value={
-                        accounts?.find((a) => a.account_code === l.account_code) ??
-                        null
-                      }
-                      onChange={(a) =>
-                        patchLine(l.key, {
-                          account_code: a ? a.account_code : "",
-                          client_id:
-                            a &&
-                            receivableCodes.has(a.account_code) &&
-                            clients.some((c) => c.id === l.client_id && clientFitsAccount(c, a.id))
-                              ? l.client_id
-                              : "",
-                        })
-                      }
-                      getOptionId={(a) => a.id}
-                      getOptionLabel={(a) => a.name}
-                      getOptionSubLabel={(a) => `${a.account_code} · ${a.type ?? ""}`}
-                      getOptionSearchText={(a) =>
-                        `${a.account_code} ${a.name}`
-                      }
-                      placeholder="الحساب…"
-                      size="sm"
-                      required
-                    />
-                  </div>
-                  {receivableCodes.has(l.account_code) && (
-                    <div className="flex flex-col w-44">
-                      <label className="block text-[10px] font-semibold text-app-label-secondary mb-0.5">العميل (اختياري)</label>
-                      <SearchableSelect<Client>
-                        options={clients.filter((c) =>
-                          clientFitsAccount(c, accounts?.find((a) => a.account_code === l.account_code)?.id),
-                        )}
-                        value={clients.find((c) => c.id === l.client_id) ?? null}
-                        onChange={(c) => patchLine(l.key, { client_id: c ? c.id : "" })}
-                        getOptionId={(c) => c.id}
-                        getOptionLabel={(c) => c.entity?.name ?? c.id}
-                        getOptionSearchText={(c) => c.entity?.name ?? c.id}
-                        placeholder="العميل…"
+                <div key={l.key} className="rounded-xl border border-app-separator bg-app-bg-secondary/40 p-2.5 space-y-2">
+                  <div className="flex gap-2 items-end">
+                    <div className="flex flex-col flex-1">
+                      <label className="block text-[10px] font-semibold text-app-label-secondary mb-0.5">الحساب</label>
+                      <SearchableSelect<{ id: string; account_code: string; name: string; type?: string }>
+                        options={leafAccounts(accounts ?? [], ["122"])}
+                        value={
+                          accounts?.find((a) => a.account_code === l.account_code) ??
+                          null
+                        }
+                        onChange={(a) =>
+                          patchLine(l.key, {
+                            account_code: a ? a.account_code : "",
+                            client_id:
+                              a &&
+                              receivableCodes.has(a.account_code) &&
+                              clients.some((c) => c.id === l.client_id && clientFitsAccount(c, a.id))
+                                ? l.client_id
+                                : "",
+                          })
+                        }
+                        getOptionId={(a) => a.id}
+                        getOptionLabel={(a) => a.name}
+                        getOptionSubLabel={(a) => `${a.account_code} · ${a.type ?? ""}`}
+                        getOptionSearchText={(a) =>
+                          `${a.account_code} ${a.name}`
+                        }
+                        placeholder="الحساب…"
                         size="sm"
+                        required
                       />
                     </div>
-                  )}
-                  <div className="flex flex-col">
-                    <label className="block text-[10px] font-semibold text-app-label-secondary mb-0.5">الطرف</label>
-                    <select
-                      value={l.side}
-                      onChange={(e) => patchLine(l.key, { side: e.target.value as FormLine["side"] })}
-                      className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
-                    >
-                      <option value="debit">مدين</option>
-                      <option value="credit">دائن</option>
-                    </select>
+                    {receivableCodes.has(l.account_code) && (
+                      <div className="flex flex-col w-44">
+                        <label className="block text-[10px] font-semibold text-app-label-secondary mb-0.5">العميل (اختياري)</label>
+                        <SearchableSelect<Client>
+                          options={clients.filter((c) =>
+                            clientFitsAccount(c, accounts?.find((a) => a.account_code === l.account_code)?.id),
+                          )}
+                          value={clients.find((c) => c.id === l.client_id) ?? null}
+                          onChange={(c) => patchLine(l.key, { client_id: c ? c.id : "" })}
+                          getOptionId={(c) => c.id}
+                          getOptionLabel={(c) => c.entity?.name ?? c.id}
+                          getOptionSearchText={(c) => c.entity?.name ?? c.id}
+                          placeholder="العميل…"
+                          size="sm"
+                        />
+                      </div>
+                    )}
+                    <div className="flex flex-col">
+                      <label className="block text-[10px] font-semibold text-app-label-secondary mb-0.5">الطرف</label>
+                      <select
+                        value={l.side}
+                        onChange={(e) => patchLine(l.key, { side: e.target.value as FormLine["side"] })}
+                        className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
+                      >
+                        <option value="debit">مدين</option>
+                        <option value="credit">دائن</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col">
+                      <label className="block text-[10px] font-semibold text-app-label-secondary mb-0.5">المبلغ (LYD)</label>
+                      <input
+                        type="number"
+                        step="0.0001"
+                        min="0.0001"
+                        required
+                        placeholder="المبلغ"
+                        value={l.amount}
+                        readOnly={l.is_foreign}
+                        onChange={(e) => patchLine(l.key, { amount: e.target.value })}
+                        className={`w-28 px-2 py-1.5 border border-app-separator rounded-lg text-xs font-mono focus:border-app-accent focus:outline-none ${
+                          l.is_foreign
+                            ? "bg-app-fill-f1 text-app-label-secondary cursor-not-allowed"
+                            : "bg-app-bg-secondary text-app-label-primary"
+                        }`}
+                      />
+                    </div>
+                    <div className="flex flex-col">
+                      <label className="block text-[10px] font-semibold text-app-label-secondary mb-0.5">البيان</label>
+                      <input
+                        type="text"
+                        placeholder="بيان"
+                        value={l.memo}
+                        onChange={(e) => patchLine(l.key, { memo: e.target.value })}
+                        className="w-32 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
+                      />
+                    </div>
+                    {lines.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => setLines(lines.filter((x) => x.key !== l.key))}
+                        className="p-1 text-app-label-tertiary hover:text-app-status-danger"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
-                  <div className="flex flex-col">
-                    <label className="block text-[10px] font-semibold text-app-label-secondary mb-0.5">المبلغ (LYD)</label>
-                    <input
-                      type="number" step="0.0001" min="0.0001" required placeholder="المبلغ"
-                      value={l.amount}
-                      onChange={(e) => patchLine(l.key, { amount: e.target.value })}
-                      className="w-28 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
-                    />
+
+                  <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-app-separator/40 text-xs">
+                    <label className="flex items-center gap-1.5 cursor-pointer text-app-label-secondary hover:text-app-label-primary">
+                      <input
+                        type="checkbox"
+                        checked={l.is_foreign}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          if (checked) {
+                            const cur = l.currency || "USD";
+                            const orig = l.original_amount || "";
+                            const rate = l.fx_rate || "";
+                            const computed = calcLydAmount(orig, rate);
+                            patchLine(l.key, {
+                              is_foreign: true,
+                              currency: cur,
+                              original_amount: orig,
+                              fx_rate: rate,
+                              amount: computed || l.amount,
+                            });
+                          } else {
+                            patchLine(l.key, {
+                              is_foreign: false,
+                            });
+                          }
+                        }}
+                        className="rounded border-app-separator text-app-accent focus:ring-app-accent h-3.5 w-3.5"
+                      />
+                      <span className="text-[11px] font-medium">عملة أجنبية</span>
+                    </label>
+
+                    {l.is_foreign && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-app-label-secondary">العملة:</span>
+                          <input
+                            type="text"
+                            maxLength={3}
+                            value={l.currency}
+                            onChange={(e) => patchLine(l.key, { currency: e.target.value.toUpperCase() })}
+                            placeholder="USD"
+                            className="w-14 px-2 py-1 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono uppercase text-center focus:border-app-accent focus:outline-none"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-app-label-secondary">المبلغ الأصلي:</span>
+                          <input
+                            type="number"
+                            step="0.0001"
+                            min="0.0001"
+                            value={l.original_amount}
+                            onChange={(e) => {
+                              const orig = e.target.value;
+                              const amount = calcLydAmount(orig, l.fx_rate);
+                              patchLine(l.key, { original_amount: orig, amount });
+                            }}
+                            placeholder="المبلغ الأصلي"
+                            className="w-24 px-2 py-1 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-app-label-secondary">سعر الصرف:</span>
+                          <input
+                            type="number"
+                            step="0.0001"
+                            min="0.0001"
+                            value={l.fx_rate}
+                            onChange={(e) => {
+                              const rate = e.target.value;
+                              const amount = calcLydAmount(l.original_amount, rate);
+                              patchLine(l.key, { fx_rate: rate, amount });
+                            }}
+                            placeholder="سعر الصرف"
+                            className="w-20 px-2 py-1 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
+                          />
+                        </div>
+                        {l.amount && (
+                          <span className="font-mono text-[11px] text-app-label-tertiary">
+                            (≈ {formatNumber(num(l.amount))} د.ل)
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex flex-col">
-                    <label className="block text-[10px] font-semibold text-app-label-secondary mb-0.5">البيان</label>
-                    <input
-                      type="text" placeholder="بيان"
-                      value={l.memo}
-                      onChange={(e) => patchLine(l.key, { memo: e.target.value })}
-                      className="w-32 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
-                    />
-                  </div>
-                  {lines.length > 2 && (
-                    <button
-                      type="button"
-                      onClick={() => setLines(lines.filter((x) => x.key !== l.key))}
-                      className="p-1 text-app-label-tertiary hover:text-app-status-danger"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
                 </div>
               ))}
               <button
@@ -624,7 +772,16 @@ export const JournalEntriesPage: React.FC = () => {
             <button
               type="submit"
               form="journal-entry-form"
-              disabled={createMutation.isPending || !isBalanced || lines.some((l) => !l.account_code)}
+              disabled={
+                createMutation.isPending ||
+                !isBalanced ||
+                lines.some((l) => !l.account_code) ||
+                lines.some(
+                  (l) =>
+                    l.is_foreign &&
+                    (!l.currency || l.currency.trim().length !== 3 || num(l.original_amount) <= 0 || num(l.fx_rate) <= 0),
+                )
+              }
               className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
             >
               {createMutation.isPending ? "جارٍ الترحيل…" : "ترحيل القيد"}

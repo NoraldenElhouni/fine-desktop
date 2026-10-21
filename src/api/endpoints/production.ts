@@ -108,6 +108,7 @@ export const apiErrorPayload = (err: unknown): ApiErrorPayload | undefined =>
 
 /** Ledger refusals any posting screen can hit, in the user's language. */
 export const LEDGER_ERROR_MESSAGE: Record<string, string> = {
+  FX_AMOUNT_MISMATCH: "المبلغ بالدينار لا يساوي المبلغ الأصلي × سعر الصرف.",
   TREASURY_REQUIRED: "اختر الخزينة أو الحساب المصرفي الذي تخرج منه الأموال أو تدخل إليه.",
   TREASURY_NOT_LINKED: "هذه الخزينة غير مربوطة بحساب في دليل الحسابات — اربطها من صفحة الخزينة أولاً.",
   UNIT_REVENUE_NOT_LINKED: "هذه الوحدة ليس لها حساب إيرادات مبيعات — حدّده من صفحة الوحدة التشغيلية قبل البيع.",

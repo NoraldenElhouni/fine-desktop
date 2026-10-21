@@ -16,7 +16,13 @@ export function BalanceWithSide({ value }: { value: number }) {
   );
 }
 
-export function useChartOfAccountsLedgerColumns(): ColumnDef<JournalLine, unknown>[] {
+export function useChartOfAccountsLedgerColumns(options?: {
+  hasForeignCurrency?: boolean;
+  currency?: string;
+}): ColumnDef<JournalLine, unknown>[] {
+  const hasForeignCurrency = options?.hasForeignCurrency;
+  const currency = options?.currency;
+
   return useMemo<ColumnDef<JournalLine, unknown>[]>(
     () => [
       {
@@ -75,6 +81,48 @@ export function useChartOfAccountsLedgerColumns(): ColumnDef<JournalLine, unknow
           );
         },
       },
+      ...(hasForeignCurrency
+        ? [
+            {
+              id: "currency",
+              header: "العملة",
+              enableSorting: false,
+              cell: ({ row }: { row: { original: JournalLine } }) => (
+                <span className="font-mono text-xs text-app-label-secondary">
+                  {row.original.currency ?? "—"}
+                </span>
+              ),
+            },
+            {
+              id: "original_amount",
+              header: "المبلغ الأصلي",
+              enableSorting: false,
+              meta: { align: "end" as const },
+              cell: ({ row }: { row: { original: JournalLine } }) => {
+                const amount = row.original.original_amount ? Number(row.original.original_amount) : 0;
+                return (
+                  <span className={`font-mono text-xs ${amount > 0 ? "font-semibold text-app-label-primary" : "text-app-label-tertiary"}`}>
+                    {amount > 0 ? formatNumber(amount) : "—"}
+                  </span>
+                );
+              },
+            },
+            {
+              id: "fx_rate",
+              header: "سعر الصرف",
+              enableSorting: false,
+              meta: { align: "end" as const },
+              cell: ({ row }: { row: { original: JournalLine } }) => {
+                const rate = row.original.fx_rate ? Number(row.original.fx_rate) : 0;
+                return (
+                  <span className="font-mono text-xs text-app-label-secondary">
+                    {rate > 0 ? Number(row.original.fx_rate) : "—"}
+                  </span>
+                );
+              },
+            },
+          ]
+        : []),
       {
         id: "debit",
         header: "مدين",
@@ -105,13 +153,13 @@ export function useChartOfAccountsLedgerColumns(): ColumnDef<JournalLine, unknow
       },
       {
         id: "running_balance",
-        header: "الرصيد",
+        header: currency ? `الرصيد (${currency})` : "الرصيد",
         enableSorting: false,
         meta: { align: "end" },
         cell: ({ row }) =>
           row.original.running_balance === undefined ? null : <BalanceWithSide value={row.original.running_balance} />,
       },
     ],
-    [],
+    [hasForeignCurrency, currency],
   );
 }

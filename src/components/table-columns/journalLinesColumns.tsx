@@ -28,22 +28,42 @@ export function useJournalLinesColumns(): ColumnDef<JournalLine, unknown>[] {
         header: "مدين",
         enableSorting: false,
         meta: { align: "end" },
-        cell: ({ row }) => (
-          <span className="font-mono">
-            {Number(row.original.debit) > 0 ? formatNumber(row.original.debit) : ""}
-          </span>
-        ),
+        cell: ({ row }) => {
+          const debit = Number(row.original.debit);
+          if (debit <= 0) return null;
+          return (
+            <div className="flex flex-col items-end">
+              <span className="font-mono">{formatNumber(debit)}</span>
+              {row.original.currency && row.original.original_amount && (
+                <span className="font-mono text-[10px] text-app-label-tertiary">
+                  {formatNumber(Number(row.original.original_amount))} {row.original.currency}
+                  {row.original.fx_rate ? ` × ${Number(row.original.fx_rate)}` : ""}
+                </span>
+              )}
+            </div>
+          );
+        },
       },
       {
         id: "credit",
         header: "دائن",
         enableSorting: false,
         meta: { align: "end" },
-        cell: ({ row }) => (
-          <span className="font-mono">
-            {Number(row.original.credit) > 0 ? formatNumber(row.original.credit) : ""}
-          </span>
-        ),
+        cell: ({ row }) => {
+          const credit = Number(row.original.credit);
+          if (credit <= 0) return null;
+          return (
+            <div className="flex flex-col items-end">
+              <span className="font-mono">{formatNumber(credit)}</span>
+              {row.original.currency && row.original.original_amount && (
+                <span className="font-mono text-[10px] text-app-label-tertiary">
+                  {formatNumber(Number(row.original.original_amount))} {row.original.currency}
+                  {row.original.fx_rate ? ` × ${Number(row.original.fx_rate)}` : ""}
+                </span>
+              )}
+            </div>
+          );
+        },
       },
     ],
     [],
