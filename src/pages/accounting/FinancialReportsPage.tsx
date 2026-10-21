@@ -7,7 +7,6 @@ import {
   Landmark,
   Users,
   Truck,
-  ArrowUpRight,
   ArrowDownLeft,
   AlertCircle,
   Wallet,
@@ -158,7 +157,7 @@ export const FinancialReportsPage: React.FC = () => {
         ...section("الأصول", balance.data.assets.rows, balance.data.assets.total),
         ...section("الالتزامات", balance.data.liabilities.rows, balance.data.liabilities.total),
         ...balance.data.equity.rows.map((r) => ({ section: "حقوق الملكية", code: r.account_code, name: r.name, amount: r.balance })),
-        { section: "حقوق الملكية", code: "", name: "أرباح الفترات غير المقفلة", amount: balance.data.equity.retained_current_period },
+        { section: "حقوق الملكية", code: "", name: balance.data.equity.retained_current_period_label || "أرباح الفترات غير المقفلة", amount: balance.data.equity.retained_current_period },
         { section: "حقوق الملكية", code: "", name: "إجمالي حقوق الملكية", amount: balance.data.equity.total, bold: true },
       ];
     }
@@ -337,7 +336,7 @@ export const FinancialReportsPage: React.FC = () => {
               <div className="space-y-4">
                 <ReportSection title="حقوق الملكية" rows={balance.data.equity.rows} total={balance.data.equity.total} />
                 <div className="rounded-2xl border border-app-separator bg-app-bg-primary p-4 text-xs flex items-center justify-between">
-                  <span className="text-app-label-secondary">أرباح الفترات غير المقفلة</span>
+                  <span className="text-app-label-secondary">{balance.data.equity.retained_current_period_label || "أرباح الفترات غير المقفلة"}</span>
                   <span className="font-mono font-bold">{formatNumber(balance.data.equity.retained_current_period)}</span>
                 </div>
               </div>

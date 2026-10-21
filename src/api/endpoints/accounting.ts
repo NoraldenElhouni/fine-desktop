@@ -230,7 +230,7 @@ export interface BalanceSheet {
   as_of: string;
   assets: { rows: ReportRow[]; total: number };
   liabilities: { rows: ReportRow[]; total: number };
-  equity: { rows: ReportRow[]; retained_current_period: number; total: number };
+  equity: { rows: ReportRow[]; retained_current_period: number; retained_current_period_label?: string; total: number };
   balanced: boolean;
 }
 

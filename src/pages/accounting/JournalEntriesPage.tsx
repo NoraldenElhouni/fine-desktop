@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { BookOpenText, Plus, AlertTriangle, Trash2, ChevronDown, ChevronUp, PencilLine, Undo2, Search, Printer, FileSpreadsheet } from "lucide-react";
 import { useClients } from "../../hooks/useClients";
 import type { Client } from "../../types/entities";
@@ -152,10 +153,11 @@ const JournalLinesTable: React.FC<{ lines: JournalLine[] }> = ({ lines }) => {
 };
 
 export const JournalEntriesPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [typeFilter, setTypeFilter] = useState<JournalEntryType | "">("");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [accountFilterId, setAccountFilterId] = useState("");
   const [reversing, setReversing] = useState<JournalEntry | null>(null);
   const [reverseDate, setReverseDate] = useState("");
@@ -167,6 +169,14 @@ export const JournalEntriesPage: React.FC = () => {
   const [exporting, setExporting] = useState(false);
   const companyWide = useIsCompanyWide();
   const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    const q = searchParams.get("search");
+    if (q !== null) {
+      setSearch(q);
+      setPage(1);
+    }
+  }, [searchParams]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState<string | null>(null);

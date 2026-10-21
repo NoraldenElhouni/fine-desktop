@@ -132,6 +132,13 @@ export const LEDGER_ERROR_MESSAGE: Record<string, string> = {
   FISCAL_CALENDAR_IN_USE: "لا يمكن تغيير بداية السنة المالية بعد إقفال أي شهر.",
   ENTRY_DATE_OUT_OF_RANGE: "التاريخ بعيد جداً في المستقبل — تحقق منه.",
   ACCOUNT_NAME_DUPLICATE: "يوجد حساب آخر بنفس الاسم تحت الحساب الأب نفسه.",
+  YEAR_ALREADY_CLOSED: "السنة المالية مقفلة بالفعل.",
+  YEAR_NOT_ENDED: "لا يمكن إقفال السنة قبل انتهائها.",
+  PREVIOUS_YEAR_OPEN: "يجب إقفال السنة المالية السابقة أولاً.",
+  YEAR_PERIODS_NOT_LOCKED: "يجب إقفال جميع أشهر السنة أولاً.",
+  RETAINED_EARNINGS_NOT_POSTABLE: "حساب الأرباح والخسائر المرحلة (33) غير متاح للترحيل.",
+  YEAR_NOT_CLOSED: "السنة المالية مفتوحة.",
+  LATER_YEAR_CLOSED: "لا يمكن إعادة فتح السنة لأن سنة لاحقة مقفلة.",
 };
 
 /** The Arabic message for a known refusal code, else the server's message, else the fallback. */

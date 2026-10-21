@@ -33,3 +33,51 @@ export function useCreateFiscalYear() {
 export function useUpdateFiscalSettings() {
   return useFiscalMutation((startMonth: number) => fiscalApi.updateSettings(startMonth));
 }
+
+export function useClosingPreview(id: string | null) {
+  return useQuery({
+    queryKey: ["closingPreview", id],
+    queryFn: async () => {
+      if (!id) return null;
+      return (await fiscalApi.closingPreview(id)).data;
+    },
+    enabled: Boolean(id),
+  });
+}
+
+const ACCOUNTING_INVALIDATION_KEYS = [
+  "fiscalCalendar",
+  "journalEntries",
+  "journalEntry",
+  "accounts",
+  "account",
+  "trialBalance",
+  "accountLedger",
+  "incomeStatement",
+  "balanceSheet",
+  "unitProfitability",
+];
+
+export function useCloseYear() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => fiscalApi.closeYear(id),
+    onSuccess: () => {
+      for (const key of ACCOUNTING_INVALIDATION_KEYS) {
+        qc.invalidateQueries({ queryKey: [key] });
+      }
+    },
+  });
+}
+
+export function useReopenYear() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => fiscalApi.reopenYear(id, reason),
+    onSuccess: () => {
+      for (const key of ACCOUNTING_INVALIDATION_KEYS) {
+        qc.invalidateQueries({ queryKey: [key] });
+      }
+    },
+  });
+}
