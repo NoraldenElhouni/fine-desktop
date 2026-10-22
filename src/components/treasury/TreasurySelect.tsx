@@ -1,6 +1,7 @@
 import React from "react";
 import { useTreasuryOptions } from "../../hooks/useProcurement";
 import type { CashAccountKind } from "../../types/procurement";
+import { formatNumber } from "../../lib/utils/format";
 
 interface TreasurySelectProps {
   value: string;
@@ -40,11 +41,15 @@ export const TreasurySelect: React.FC<TreasurySelectProps> = ({
         className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-sm focus:border-app-accent focus:outline-none"
       >
         <option value="">{isLoading ? "جارٍ التحميل…" : "اختر…"}</option>
-        {treasuries.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.name} — {t.account_code}
-          </option>
-        ))}
+        {treasuries.map((t) => {
+          const isLyd = !t.currency || t.currency === "LYD" || t.currency === "د.ل";
+          const label = isLyd ? `${t.name} — ${formatNumber(t.ledger_balance)}` : `${t.name} — ${t.account_code}`;
+          return (
+            <option key={t.id} value={t.id}>
+              {label}
+            </option>
+          );
+        })}
       </select>
       {!isLoading && treasuries.length === 0 && (
         <p className="text-[11px] text-app-status-yellow">

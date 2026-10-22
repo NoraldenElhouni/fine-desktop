@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   Landmark,
   Pencil,
+  FileText,
 } from "lucide-react";
 import { isAxiosError } from "axios";
 import {
@@ -42,6 +43,7 @@ import { useTreasuryBankHoldsColumns } from "../../components/table-columns/trea
 import { useBlackMarketColumns } from "../../components/table-columns/blackMarketColumns";
 import { FxPreviewCard } from "../../components/treasury/FxPreviewCard";
 import { CashAccountDialog } from "../../components/treasury/CashAccountDialog";
+import { CashAccountStatementDialog } from "../../components/treasury/CashAccountStatementDialog";
 import { useAccounts } from "../../hooks/useAccounting";
 import { filterPaymentSourceAccounts } from "../../lib/utils/coa";
 import { type Account } from "../../api/endpoints/accounting";
@@ -70,6 +72,7 @@ export const TreasuryPage: React.FC = () => {
     open: false,
     account: null,
   });
+  const [statementAccount, setStatementAccount] = useState<CashAccount | null>(null);
 
   const handleRefreshAll = () => {
     refetchCash();
@@ -317,41 +320,66 @@ export const TreasuryPage: React.FC = () => {
             لا توجد حسابات خزينة مسجلة حتى الآن.
           </div>
         ) : (
-          cashAccounts.map((acc) => (
-            <div key={acc.id} className="rounded-2xl border border-app-separator bg-app-bg-primary p-4 shadow-sm space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="flex items-center gap-1.5 text-xs font-bold text-app-label-secondary">
-                  {acc.kind === "bank" ? <Landmark className="h-3.5 w-3.5" /> : <Wallet className="h-3.5 w-3.5" />}
-                  {acc.name}
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <span className="rounded-md bg-app-bg-secondary px-2 py-0.5 text-[10px] font-bold text-app-label-primary">
-                    {acc.currency}
+          cashAccounts.map((acc) => {
+            const isLyd = !acc.currency || acc.currency === "LYD" || acc.currency === "د.ل";
+            const matchingCur = acc.currency_balances?.find((cb) => cb.currency === acc.currency);
+            const originalBalance = matchingCur ? matchingCur.original_balance : 0;
+            const mainBalance = isLyd ? acc.ledger_balance : originalBalance;
+            const isNegative = mainBalance < 0;
+
+            return (
+              <div key={acc.id} className="rounded-2xl border border-app-separator bg-app-bg-primary p-4 shadow-sm space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-app-label-secondary">
+                    {acc.kind === "bank" ? <Landmark className="h-3.5 w-3.5" /> : <Wallet className="h-3.5 w-3.5" />}
+                    {acc.name}
                   </span>
-                  <button
-                    onClick={() => setCashAccountDialog({ open: true, account: acc })}
-                    className="rounded-md p-1 text-app-label-tertiary hover:bg-app-fill-f1 hover:text-app-accent"
-                    title="تعديل"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <span className="rounded-md bg-app-bg-secondary px-2 py-0.5 text-[10px] font-bold text-app-label-primary">
+                      {acc.currency}
+                    </span>
+                    <button
+                      onClick={() => setCashAccountDialog({ open: true, account: acc })}
+                      className="rounded-md p-1 text-app-label-tertiary hover:bg-app-fill-f1 hover:text-app-accent"
+                      title="تعديل"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
+                <div>
+                  <p className={`text-lg font-extrabold font-mono ${isNegative ? "text-app-status-danger" : "text-app-status-positive"}`}>
+                    {formatNumber(mainBalance)} {acc.currency}
+                  </p>
+                  {!isLyd && (
+                    <p className="text-[11px] font-mono text-app-label-tertiary">
+                      يعادل {formatNumber(acc.ledger_balance)} د.ل
+                    </p>
+                  )}
+                </div>
+                {acc.account ? (
+                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-app-separator/50">
+                    <p className="text-[11px] font-mono text-app-label-tertiary truncate" title={`${acc.account.account_code} — ${acc.account.name}`}>
+                      {acc.account.account_code} — {acc.account.name}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setStatementAccount(acc)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-app-separator bg-app-bg-secondary px-2 py-0.5 text-[11px] font-semibold text-app-label-secondary hover:bg-app-fill-f1 hover:text-app-accent shrink-0 transition-colors"
+                    >
+                      <FileText className="h-3 w-3" />
+                      <span>كشف الخزينة</span>
+                    </button>
+                  </div>
+                ) : (
+                  <p className="flex items-center gap-1 text-[11px] font-semibold text-app-status-warning">
+                    <AlertTriangle className="h-3 w-3" />
+                    غير مربوطة بحساب محاسبي — لا تستقبل مبيعات
+                  </p>
+                )}
               </div>
-              <p className="text-lg font-extrabold text-app-status-positive font-mono">
-                {formatNumber(acc.balance)} {acc.currency}
-              </p>
-              {acc.account ? (
-                <p className="text-[11px] font-mono text-app-label-tertiary">
-                  {acc.account.account_code} — {acc.account.name}
-                </p>
-              ) : (
-                <p className="flex items-center gap-1 text-[11px] font-semibold text-app-status-warning">
-                  <AlertTriangle className="h-3 w-3" />
-                  غير مربوطة بحساب محاسبي — لا تستقبل مبيعات
-                </p>
-              )}
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -359,6 +387,12 @@ export const TreasuryPage: React.FC = () => {
         open={cashAccountDialog.open}
         cashAccount={cashAccountDialog.account}
         onClose={() => setCashAccountDialog({ open: false, account: null })}
+      />
+
+      <CashAccountStatementDialog
+        open={statementAccount !== null}
+        cashAccount={statementAccount}
+        onClose={() => setStatementAccount(null)}
       />
 
       {/* Two Column Layout: Pending Payments & FX Rates */}

@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { AccountLedgerParams, AccountStatement } from "../api/endpoints/accounting";
 import {
   getFxRates,
   createFxRate,
@@ -8,6 +9,7 @@ import {
   getCashAccounts,
   createCashAccount,
   updateCashAccount,
+  getCashAccountStatement,
 } from "../api/endpoints/procurement";
 import {
   CreateFxRatePayload,
@@ -88,5 +90,16 @@ export function useCreateCashAccount() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["cashAccounts"] });
     },
+  });
+}
+
+export function useCashAccountStatement(
+  id: string | null,
+  params?: AccountLedgerParams,
+) {
+  return useQuery<AccountStatement>({
+    queryKey: ["cashAccountStatement", id, params],
+    queryFn: () => getCashAccountStatement(id as string, params),
+    enabled: Boolean(id),
   });
 }

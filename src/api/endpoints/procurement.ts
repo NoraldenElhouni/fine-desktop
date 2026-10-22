@@ -1,4 +1,5 @@
 import apiClient from "../client";
+import type { AccountLedgerParams, AccountStatement } from "./accounting";
 import {
   Supplier,
   TreasuryOption,
@@ -273,4 +274,23 @@ export const updateCashAccount = async (id: string, payload: UpdateCashAccountPa
 export const createCashAccount = async (payload: CreateCashAccountPayload): Promise<CashAccount> => {
   const response = await apiClient.post<{ data: CashAccount }>("/cash-accounts", payload);
   return response.data.data;
+};
+
+export const getCashAccountStatement = async (
+  id: string,
+  params?: AccountLedgerParams,
+): Promise<AccountStatement> => {
+  const response = await apiClient.get<AccountStatement>(`/cash-accounts/${id}/statement`, {
+    params: {
+      page: params?.page ?? 1,
+      per_page: params?.per_page,
+      order: params?.order,
+      all: params?.all ? 1 : undefined,
+      from: params?.from || undefined,
+      to: params?.to || undefined,
+      search: params?.search || undefined,
+      currency: params?.currency || undefined,
+    },
+  });
+  return response.data;
 };

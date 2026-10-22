@@ -237,7 +237,7 @@ export interface FxRate {
 
 export type CashAccountKind = "cash" | "bank";
 
-/** A treasury the pickers offer: linked to a ledger leaf, no balance. */
+/** A treasury the pickers offer: linked to a ledger leaf. */
 export interface TreasuryOption {
   id: string;
   name: string;
@@ -245,6 +245,7 @@ export interface TreasuryOption {
   currency: string;
   operating_unit_id: string;
   account_code: string;
+  ledger_balance: number;
 }
 
 export interface CashAccount {
@@ -257,7 +258,10 @@ export interface CashAccount {
   account_id: string | null;
   account?: { id: string; account_code: string; name: string } | null;
   currency: string;
+  /** creation-time opening figure; not the balance */
   balance: number;
+  ledger_balance: number;
+  currency_balances?: Array<{ currency: string; original_balance: number; lyd_balance: number }>;
   created_at?: string;
 }
 
