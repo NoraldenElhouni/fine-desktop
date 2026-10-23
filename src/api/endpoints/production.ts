@@ -142,6 +142,13 @@ export const LEDGER_ERROR_MESSAGE: Record<string, string> = {
   VOUCHER_COUNTER_IS_TREASURY: "لا يمكن استخدام حساب خزينة كطرف مقابل — استخدم التحويل بين الخزائن.",
   VOUCHER_ALREADY_CANCELLED: "السند ملغى بالفعل.",
   INVALID_AMOUNT: "المبلغ يجب أن يكون أكبر من صفر.",
+  TRANSFER_SAME_TREASURY: "لا يمكن التحويل إلى نفس الخزينة.",
+  TRANSFER_CURRENCY_MISMATCH: "عملة الخزينتين مختلفة — تحويل العملات يتم عبر المشتريات.",
+  TRANSFER_INSUFFICIENT_BALANCE: "رصيد الخزينة المحوَّل منها لا يكفي.",
+  TRANSFER_SELF_APPROVAL: "لا يمكنك اعتماد تحويل أنشأته بنفسك.",
+  TRANSFER_NOT_PENDING: "التحويل ليس بانتظار الاعتماد.",
+  TRANSFER_APPROVAL_FORBIDDEN: "ليست لديك صلاحية اعتماد التحويلات.",
+  FX_RATE_REQUIRED: "سعر الصرف مطلوب للعملات الأجنبية.",
 };
 
 /** The Arabic message for a known refusal code, else the server's message, else the fallback. */
