@@ -1,0 +1,465 @@
+import React, { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+  DialogBody,
+  DialogFooter,
+} from "../ui/Dialog";
+import { TreasurySelect } from "./TreasurySelect";
+import { useTreasuryOptions } from "../../hooks/useProcurement";
+import { CoaAccountSelector } from "../accounting/CoaAccountSelector";
+import { useAccounts, useIsCompanyWide } from "../../hooks/useAccounting";
+import { SearchableSelect } from "../ui/SearchableSelect";
+import { useClients } from "../../hooks/useClients";
+import { useOperatingUnits } from "../../hooks/usePartners";
+import { formatNumber, localDateIso } from "../../lib/utils/format";
+import { apiErrorMessage } from "../../api/endpoints/production";
+import { useCreateTreasuryVoucher } from "../../hooks/useTreasuryVouchers";
+import type {
+  TreasuryVoucher,
+  TreasuryVoucherKind,
+  CreateTreasuryVoucherPayload,
+} from "../../api/endpoints/treasuryVouchers";
+import type { Client } from "../../types/entities";
+
+export interface TreasuryVoucherDialogProps {
+  open: boolean;
+  onClose: () => void;
+  defaultKind?: TreasuryVoucherKind;
+  onSuccessPrint?: (voucher: TreasuryVoucher) => void;
+}
+
+export const TreasuryVoucherDialog: React.FC<TreasuryVoucherDialogProps> = ({
+  open,
+  onClose,
+  defaultKind = "receipt",
+  onSuccessPrint,
+}) => {
+  const [kind, setKind] = useState<TreasuryVoucherKind>(defaultKind);
+  const [cashAccountId, setCashAccountId] = useState("");
+  const [counterMode, setCounterMode] = useState<"client" | "account">("account");
+  const [clientId, setClientId] = useState<string | null>(null);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [amount, setAmount] = useState("");
+  const [fxRate, setFxRate] = useState("1");
+  const today = localDateIso();
+  const [voucherDate, setVoucherDate] = useState(today);
+  const [payee, setPayee] = useState("");
+  const [description, setDescription] = useState("");
+  const [operatingUnitId, setOperatingUnitId] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const isCompanyWide = useIsCompanyWide();
+  const { data: treasuries = [] } = useTreasuryOptions();
+  const { data: accounts = [] } = useAccounts();
+  const { data: clients = [] } = useClients();
+  const { data: units = [] } = useOperatingUnits();
+
+  const createMutation = useCreateTreasuryVoucher();
+
+  // Reset or initialize when opened
+  useEffect(() => {
+    if (open) {
+      setKind(defaultKind);
+      setCashAccountId("");
+      setCounterMode("account");
+      setClientId(null);
+      setSelectedAccountId(null);
+      setAmount("");
+      setFxRate("1");
+      setVoucherDate(localDateIso());
+      setPayee("");
+      setDescription("");
+      setOperatingUnitId("");
+      setError(null);
+    }
+  }, [open, defaultKind]);
+
+  const selectedTreasury = treasuries.find((t) => t.id === cashAccountId);
+  const isLyd =
+    !selectedTreasury?.currency ||
+    selectedTreasury.currency === "LYD" ||
+    selectedTreasury.currency === "د.ل";
+
+  const client = clients.find((c) => c.id === clientId) ?? null;
+  const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
+
+  const numAmount = Number(amount);
+  const numFxRate = Number(fxRate);
+  const computedLyd = (numAmount || 0) * (numFxRate || 1);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!cashAccountId) {
+      setError("يرجى اختيار الخزينة.");
+      return;
+    }
+
+    if (counterMode === "client" && !clientId) {
+      setError("يرجى اختيار العميل.");
+      return;
+    }
+
+    if (counterMode === "account" && !selectedAccount?.account_code) {
+      setError("يرجى اختيار الحساب المقابل.");
+      return;
+    }
+
+    if (!numAmount || numAmount <= 0) {
+      setError("المبلغ يجب أن يكون أكبر من صفر.");
+      return;
+    }
+
+    if (!isLyd && (!numFxRate || numFxRate <= 0)) {
+      setError("سعر الصرف مطلوب ويجب أن يكون أكبر من صفر.");
+      return;
+    }
+
+    if (!description.trim()) {
+      setError("البيان مطلوب.");
+      return;
+    }
+
+    const payload: CreateTreasuryVoucherPayload = {
+      kind,
+      cash_account_id: cashAccountId,
+      amount: numAmount,
+      voucher_date: voucherDate || undefined,
+      payee: payee.trim() || undefined,
+      description: description.trim(),
+      operating_unit_id:
+        isCompanyWide && operatingUnitId ? operatingUnitId : undefined,
+    };
+
+    if (counterMode === "client") {
+      if (!clientId) {
+        setError("يرجى اختيار العميل.");
+        return;
+      }
+      payload.client_id = clientId;
+    } else {
+      if (!selectedAccount?.account_code) {
+        setError("يرجى اختيار الحساب المقابل.");
+        return;
+      }
+      payload.counter_account_code = selectedAccount.account_code;
+    }
+
+    if (!isLyd) {
+      payload.fx_rate = numFxRate;
+    }
+
+    createMutation.mutate(payload, {
+      onSuccess: (newVoucher) => {
+        onClose();
+        if (onSuccessPrint) {
+          onSuccessPrint(newVoucher);
+        }
+      },
+      onError: (err) => {
+        setError(apiErrorMessage(err, "تعذر تسجيل السند."));
+      },
+    });
+  };
+
+  const isReceipt = kind === "receipt";
+  const title = isReceipt ? "سند قبض جديد" : "سند صرف جديد";
+  const clientToggleLabel = isReceipt ? "من عميل" : "إلى عميل";
+  const payeeFieldLabel = isReceipt ? "اسم الدافع (المستلم منه)" : "اسم المستلم (المصروف له)";
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent size="2xl">
+        <DialogHeader>
+          <div className="flex items-center justify-between w-full">
+            <DialogTitle>{title}</DialogTitle>
+            <div className="flex items-center gap-1 bg-app-bg-secondary p-1 rounded-xl border border-app-separator text-xs ms-4">
+              <button
+                type="button"
+                onClick={() => setKind("receipt")}
+                className={`px-3 py-1 rounded-lg font-bold transition-colors ${
+                  isReceipt
+                    ? "bg-app-status-positive/20 text-app-status-positive shadow-sm"
+                    : "text-app-label-secondary hover:text-app-label-primary"
+                }`}
+              >
+                سند قبض
+              </button>
+              <button
+                type="button"
+                onClick={() => setKind("payment")}
+                className={`px-3 py-1 rounded-lg font-bold transition-colors ${
+                  !isReceipt
+                    ? "bg-app-status-danger/20 text-app-status-danger shadow-sm"
+                    : "text-app-label-secondary hover:text-app-label-primary"
+                }`}
+              >
+                سند صرف
+              </button>
+            </div>
+          </div>
+          <DialogClose />
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit}>
+          <DialogBody className="space-y-4">
+            {error && (
+              <div className="rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs font-semibold text-app-status-danger">
+                {error}
+              </div>
+            )}
+
+            {/* Treasury Select */}
+            <div className="space-y-1.5">
+              <TreasurySelect
+                value={cashAccountId}
+                onChange={setCashAccountId}
+                label={isReceipt ? "الخزينة المودع فيها" : "الخزينة المصروف منها"}
+              />
+              {selectedTreasury && (
+                <div className="flex items-center justify-between rounded-lg border border-app-separator bg-app-bg-secondary/60 px-3 py-1.5 text-[11px] font-mono text-app-label-secondary">
+                  <span>الرصيد الدفتري الحالي:</span>
+                  <span className="font-bold text-app-label-primary">
+                    {formatNumber(selectedTreasury.ledger_balance)} {selectedTreasury.currency || "LYD"}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Counter Party Mode Toggle (Client vs Account) */}
+            <div className="space-y-2 rounded-xl border border-app-separator bg-app-bg-secondary/40 p-3">
+              <label className="block text-xs font-semibold text-app-label-secondary">
+                الطرف المقابل <span className="text-app-status-danger">*</span>
+              </label>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setCounterMode("account")}
+                  className={`rounded-lg border py-2 px-3 font-bold transition-colors ${
+                    counterMode === "account"
+                      ? "border-app-accent bg-app-accent/10 text-app-accent"
+                      : "border-app-separator bg-app-bg-primary text-app-label-secondary hover:text-app-label-primary"
+                  }`}
+                >
+                  حساب مالي من دليل الحسابات
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCounterMode("client")}
+                  className={`rounded-lg border py-2 px-3 font-bold transition-colors ${
+                    counterMode === "client"
+                      ? "border-app-accent bg-app-accent/10 text-app-accent"
+                      : "border-app-separator bg-app-bg-primary text-app-label-secondary hover:text-app-label-primary"
+                  }`}
+                >
+                  {clientToggleLabel}
+                </button>
+              </div>
+
+              {counterMode === "client" ? (
+                <div className="space-y-2 pt-1">
+                  <SearchableSelect<Client>
+                    options={clients}
+                    value={client}
+                    onChange={(c) => {
+                      setClientId(c ? c.id : null);
+                      if (c?.entity?.name && !payee.trim()) {
+                        setPayee(c.entity.name);
+                      }
+                    }}
+                    getOptionId={(c) => c.id}
+                    getOptionLabel={(c) => c.entity?.name ?? c.id}
+                    getOptionSubLabel={(c) => c.entity?.primary_contact?.phone ?? undefined}
+                    getOptionSearchText={(c) =>
+                      `${c.entity?.name ?? ""} ${c.entity?.primary_contact?.phone ?? ""}`
+                    }
+                    placeholder="ابحث عن العميل بالاسم أو الهاتف…"
+                    size="sm"
+                  />
+                  {client && (
+                    <div className="flex flex-wrap gap-3 rounded-lg border border-app-separator bg-app-bg-primary px-3 py-1.5 text-[11px] font-mono text-app-label-secondary">
+                      <span>
+                        الرصيد المستحق:{" "}
+                        <strong className="text-app-label-primary">
+                          {formatNumber(Number(client.current_balance ?? 0))} د.ل
+                        </strong>
+                      </span>
+                      {client.account && (
+                        <span>
+                          حساب الأستاذ: {client.account.account_code} — {client.account.name}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="pt-1">
+                  <CoaAccountSelector
+                    entityTypeLabel="الحساب المقابل"
+                    selectedAccountId={selectedAccountId}
+                    onSelectedAccountIdChange={(id) => {
+                      setSelectedAccountId(id);
+                      const acc = accounts.find((a) => a.id === id);
+                      if (acc?.name && !payee.trim()) {
+                        setPayee(acc.name);
+                      }
+                    }}
+                    filter={(a) => !a.account_code.startsWith("121")}
+                    hideActionToggle
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Amount and FX Rate */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                  المبلغ ({selectedTreasury?.currency || "LYD"}) <span className="text-app-status-danger">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  min="0.0001"
+                  required
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-sm font-mono focus:border-app-accent focus:outline-none"
+                />
+              </div>
+
+              {!isLyd ? (
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                    سعر الصرف مقابل الدينار <span className="text-app-status-danger">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0.0001"
+                    required
+                    value={fxRate}
+                    onChange={(e) => setFxRate(e.target.value)}
+                    placeholder="1.0000"
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-sm font-mono focus:border-app-accent focus:outline-none"
+                  />
+                  <div className="mt-1 text-[11px] font-mono text-app-label-secondary">
+                    المعادل بالدينار:{" "}
+                    <span className="font-bold text-app-label-primary">
+                      {formatNumber(computedLyd)} د.ل
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                    التاريخ <span className="text-app-status-danger">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    max={today}
+                    value={voucherDate}
+                    onChange={(e) => setVoucherDate(e.target.value)}
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
+                  />
+                </div>
+              )}
+            </div>
+
+            {!isLyd && (
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                  التاريخ <span className="text-app-status-danger">*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  max={today}
+                  value={voucherDate}
+                  onChange={(e) => setVoucherDate(e.target.value)}
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
+                />
+              </div>
+            )}
+
+            {/* Payee / Receiver */}
+            <div>
+              <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                {payeeFieldLabel}
+              </label>
+              <input
+                type="text"
+                value={payee}
+                onChange={(e) => setPayee(e.target.value)}
+                placeholder="مثال: الاسم الشخصي أو الجهة المستلمة/الدافعة…"
+                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
+              />
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                البيان <span className="text-app-status-danger">*</span>
+              </label>
+              <textarea
+                required
+                rows={2}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="اكتب بياناً تفصيلياً لسبب القبض أو الصرف…"
+                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
+              />
+            </div>
+
+            {/* Operating Unit for Company-Wide Users */}
+            {isCompanyWide && (
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                  الوحدة التشغيلية
+                </label>
+                <select
+                  value={operatingUnitId}
+                  onChange={(e) => setOperatingUnitId(e.target.value)}
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
+                >
+                  <option value="">على مستوى الشركة / تلقائي</option>
+                  {units.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </DialogBody>
+
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={createMutation.isPending}
+              className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              disabled={createMutation.isPending}
+              className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
+            >
+              {createMutation.isPending ? "جارٍ الحفظ…" : "حفظ وترحيل السند"}
+            </button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};

@@ -40,3 +40,7 @@ export const formatDateTime = (iso: string | Date): string =>
     minute: "2-digit",
     hour12: false,
   });
+
+/** Today's date (YYYY-MM-DD) on this machine's clock — not UTC, which is a day behind in Tripoli before 02:00. */
+export const localDateIso = (date: Date = new Date()): string =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;

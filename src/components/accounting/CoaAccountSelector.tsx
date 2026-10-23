@@ -7,37 +7,57 @@ import { SearchableSelect } from "../ui/SearchableSelect";
 import { leafAccounts } from "../../lib/utils/coa";
 
 export interface CoaAccountSelectorProps {
-  entityTypeLabel: string; // e.g. "العميل" or "المورد"
+  entityTypeLabel?: string; // e.g. "العميل" or "المورد"
   defaultEntityName?: string;
   currency?: string;
-  action: CoaAction;
-  onActionChange: (action: CoaAction) => void;
+  action?: CoaAction;
+  onActionChange?: (action: CoaAction) => void;
   selectedAccountId: string | null;
   onSelectedAccountIdChange: (id: string | null) => void;
-  newAccount: NewCoaAccountPayload;
-  onNewAccountChange: (payload: NewCoaAccountPayload) => void;
+  newAccount?: NewCoaAccountPayload;
+  onNewAccountChange?: (payload: NewCoaAccountPayload) => void;
   preferredParentCode?: string;
   /** When true, the auto-prefilled account name is the entity name verbatim
    *  (e.g. "Acme Co"). When false (default), it is
    *  `حساب ${entityTypeLabel} - ${defaultEntityName}` (e.g. "حساب المورد - Acme Co").
    *  Clients and suppliers typically want plain; fixed assets keep the prefix. */
   useEntityNameDirectly?: boolean;
+  filter?: (account: Account) => boolean;
+  hideActionToggle?: boolean;
 }
 
+const defaultNewAccount: NewCoaAccountPayload = {
+  parent_account_id: "",
+  account_code: "",
+  name: "",
+  currency: "LYD",
+};
+
+const noop = (): void => {
+  // Default no-op callback
+};
+
 export const CoaAccountSelector: React.FC<CoaAccountSelectorProps> = ({
-  entityTypeLabel,
+  entityTypeLabel = "الجهة",
   defaultEntityName = "",
   currency = "LYD",
-  action,
-  onActionChange,
+  action = "link_existing",
+  onActionChange = noop,
   selectedAccountId,
   onSelectedAccountIdChange,
-  newAccount,
-  onNewAccountChange,
+  newAccount = defaultNewAccount,
+  onNewAccountChange = noop,
   preferredParentCode,
   useEntityNameDirectly = false,
+  filter,
+  hideActionToggle = false,
 }) => {
   const { data: accounts = [], isLoading } = useAccounts();
+
+  const availableAccounts = useMemo(() => {
+    const leaves = leafAccounts(accounts, [], [selectedAccountId]);
+    return filter ? leaves.filter(filter) : leaves;
+  }, [accounts, selectedAccountId, filter]);
 
   // Helper to suggest next sequential code under chosen parent
   const suggestNextCode = (parent: Account): string => {
@@ -140,6 +160,30 @@ export const CoaAccountSelector: React.FC<CoaAccountSelectorProps> = ({
     }
   };
 
+  if (hideActionToggle) {
+    return (
+      <div className="space-y-1.5">
+        <label className="block text-[11px] font-semibold text-app-label-secondary">
+          اختر الحساب من دليل الحسابات <span className="text-app-status-danger">*</span>
+        </label>
+        <SearchableSelect<Account>
+          options={availableAccounts}
+          value={selectedExistingAccount}
+          onChange={(acc) => onSelectedAccountIdChange(acc ? acc.id : null)}
+          getOptionId={(acc) => acc.id}
+          getOptionLabel={(acc) => `${acc.account_code} - ${acc.name} (${acc.type})`}
+          placeholder={isLoading ? "جاري تحميل الحسابات..." : "-- اختر الحساب المالي --"}
+          required
+        />
+        {selectedExistingAccount && (
+          <p className="text-[10px] text-app-label-secondary">
+            النوع: {selectedExistingAccount.type} | العملة: {selectedExistingAccount.currency} | الرصيد الحالي: {selectedExistingAccount.balance}
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-3.5 space-y-3">
       {/* Title */}
@@ -211,7 +255,7 @@ export const CoaAccountSelector: React.FC<CoaAccountSelectorProps> = ({
             اختر الحساب من دليل الحسابات <span className="text-app-status-danger">*</span>
           </label>
           <SearchableSelect<Account>
-            options={leafAccounts(accounts, [], [selectedAccountId])}
+            options={availableAccounts}
             value={selectedExistingAccount}
             onChange={(acc) => onSelectedAccountIdChange(acc ? acc.id : null)}
             getOptionId={(acc) => acc.id}

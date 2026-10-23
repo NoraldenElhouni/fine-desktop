@@ -139,6 +139,9 @@ export const LEDGER_ERROR_MESSAGE: Record<string, string> = {
   RETAINED_EARNINGS_NOT_POSTABLE: "حساب الأرباح والخسائر المرحلة (33) غير متاح للترحيل.",
   YEAR_NOT_CLOSED: "السنة المالية مفتوحة.",
   LATER_YEAR_CLOSED: "لا يمكن إعادة فتح السنة لأن سنة لاحقة مقفلة.",
+  VOUCHER_COUNTER_IS_TREASURY: "لا يمكن استخدام حساب خزينة كطرف مقابل — استخدم التحويل بين الخزائن.",
+  VOUCHER_ALREADY_CANCELLED: "السند ملغى بالفعل.",
+  INVALID_AMOUNT: "المبلغ يجب أن يكون أكبر من صفر.",
 };
 
 /** The Arabic message for a known refusal code, else the server's message, else the fallback. */
