@@ -157,6 +157,12 @@ export const LEDGER_ERROR_MESSAGE: Record<string, string> = {
   LINE_NOT_RECONCILABLE: "هذا القيد لا يخص حساب المصرف أو تاريخه بعد تاريخ الكشف.",
   LINE_ALREADY_RECONCILED: "هذا القيد مُسوّى في تسوية أخرى.",
   RECONCILIATION_FORBIDDEN: "ليست لديك صلاحية التسوية المصرفية.",
+  CHEQUE_CURRENCY_UNSUPPORTED: "الشيكات بالدينار الليبي فقط حالياً.",
+  CHEQUE_DEPOSIT_NOT_BANK: "يجب إيداع الشيك في حساب مصرفي.",
+  CHEQUE_NOT_CERTIFIED: "التحصيل المباشر من الحافظة للشيكات المصدقة فقط.",
+  INVALID_CHEQUE_TRANSITION: "هذا الإجراء غير متاح لحالة الشيك الحالية.",
+  CHEQUE_DATE_BEFORE_LAST_EVENT: "تاريخ الإجراء يسبق آخر حركة على الشيك.",
+  CHEQUE_FORBIDDEN: "ليست لديك صلاحية إدارة الشيكات.",
 };
 
 /** The Arabic message for a known refusal code, else the server's message, else the fallback. */

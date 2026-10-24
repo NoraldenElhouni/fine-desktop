@@ -45,6 +45,7 @@ import { TreasuryPage } from "./treasury/TreasuryPage";
 import { TreasuryVouchersPage } from "./treasury/TreasuryVouchersPage";
 import { TreasuryTransfersPage } from "./treasury/TreasuryTransfersPage";
 import { BankReconciliationPage } from "./treasury/BankReconciliationPage";
+import { ChequesPage } from "./treasury/ChequesPage";
 import { Dashboard } from "./Dashboard";
 
 /**
@@ -199,6 +200,14 @@ const App = () => {
               element={
                 <AuthorizedRoute allowedRoles={ALL_MANAGER_ROLES}>
                   <BankReconciliationPage />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="treasury/cheques"
+              element={
+                <AuthorizedRoute allowedRoles={ALL_MANAGER_ROLES}>
+                  <ChequesPage />
                 </AuthorizedRoute>
               }
             />
