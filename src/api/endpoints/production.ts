@@ -173,6 +173,7 @@ export const LEDGER_ERROR_MESSAGE: Record<string, string> = {
   SPLIT_MULTIPLE_CASH: "يُسمح بدفعة نقدية واحدة فقط.",
   SPLIT_NOT_ALLOWED: "لا يمكن تجزئة الدفع في التحويل الداخلي.",
   CASH_ACCOUNT_REQUIRED: "اختر خزينة الدرج التي تُغلق يومها.",
+  OPERATING_UNIT_REQUIRED: "يرجى اختيار الوحدة التشغيلية.",
 };
 
 /** The Arabic message for a known refusal code, else the server's message, else the fallback. */

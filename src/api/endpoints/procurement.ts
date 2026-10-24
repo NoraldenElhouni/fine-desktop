@@ -221,14 +221,42 @@ export interface PayableOutstanding {
   outstanding: number;
 }
 
+export interface PayableSettlementCheque {
+  id: string;
+  number?: string;
+  cheque_no: string;
+  status: string;
+  status_label?: string;
+}
+
 export interface PayableSettlement {
   id: string;
   account_code: string;
   amount: string;
+  method?: "cash" | "cheque";
   reference: string | null;
   settled_at: string;
   settled_by?: { id: string; name: string } | null;
   operating_unit?: { id: string; name: string } | null;
+  cheque?: PayableSettlementCheque | null;
+}
+
+export interface SettlePayableChequeInput {
+  cash_account_id: string;
+  cheque_no: string;
+  due_date: string;
+  issue_date?: string;
+  payee_name?: string;
+}
+
+export interface SettlePayablePayload {
+  account_code: string;
+  amount: number;
+  method?: "cash" | "cheque";
+  cash_account_id?: string;
+  reference?: string;
+  operating_unit_id?: string;
+  cheque?: SettlePayableChequeInput;
 }
 
 export const getPayableOutstanding = async (): Promise<PayableOutstanding[]> => {
@@ -241,12 +269,7 @@ export const getPayableSettlements = async (): Promise<PayableSettlement[]> => {
   return response.data.data;
 };
 
-export const settlePayable = async (payload: {
-  account_code: string;
-  amount: number;
-  cash_account_id: string;
-  reference?: string;
-}): Promise<PayableSettlement> => {
+export const settlePayable = async (payload: SettlePayablePayload): Promise<PayableSettlement> => {
   const response = await apiClient.post<PayableSettlement>("/payable-settlements", payload);
   return response.data;
 };

@@ -6,6 +6,7 @@ import {
   getPayableOutstanding,
   getPayableSettlements,
   settlePayable,
+  type SettlePayablePayload,
   getCashAccounts,
   createCashAccount,
   updateCashAccount,
@@ -51,16 +52,15 @@ export function usePayableSettlements() {
 export function useSettlePayable() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: {
-      account_code: string;
-      amount: number;
-      cash_account_id: string;
-      reference?: string;
-    }) => settlePayable(payload),
-    onSuccess: () => {
+    mutationFn: (payload: SettlePayablePayload) => settlePayable(payload),
+    onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: ["payableOutstanding"] });
       qc.invalidateQueries({ queryKey: ["payableSettlements"] });
       qc.invalidateQueries({ queryKey: ["trialBalance"] });
+      if (variables?.method === "cheque") {
+        qc.invalidateQueries({ queryKey: ["cheques"] });
+        qc.invalidateQueries({ queryKey: ["chequeSummary"] });
+      }
     },
   });
 }
