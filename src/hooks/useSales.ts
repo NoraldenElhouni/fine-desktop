@@ -5,6 +5,7 @@ import {
   bundleFulfillmentApi,
   quotationsApi,
   creditApprovalsApi,
+  Sale,
   SaleFilters,
 } from "../api/endpoints/sales";
 
@@ -16,7 +17,7 @@ function useSaleMutation<TArgs, TResult>(fn: (args: TArgs) => Promise<TResult>, 
   const qc = useQueryClient();
   return useMutation({
     mutationFn: fn,
-    onSuccess: () => {
+    onSuccess: (data) => {
       extraKeys.forEach((queryKey) => qc.invalidateQueries({ queryKey }));
       qc.invalidateQueries({ queryKey: ["sale"] });
       qc.invalidateQueries({ queryKey: ["sales"] });
@@ -26,6 +27,12 @@ function useSaleMutation<TArgs, TResult>(fn: (args: TArgs) => Promise<TResult>, 
       qc.invalidateQueries({ queryKey: ["availableFoamBlocks"] });
       qc.invalidateQueries({ queryKey: ["inventoryValuation"] });
       qc.invalidateQueries({ queryKey: ["clients"] });
+
+      const sale = data as unknown as Partial<Sale> | undefined;
+      if (sale?.payments?.some((p) => p.method === "cheque" || Boolean(p.cheque))) {
+        qc.invalidateQueries({ queryKey: ["cheques"] });
+        qc.invalidateQueries({ queryKey: ["chequeSummary"] });
+      }
     },
   });
 }
@@ -47,8 +54,16 @@ export function useSale(id?: string) {
 }
 
 export function useCheckout() {
-  return useSaleMutation((input: Parameters<typeof salesApi.checkout>[0]) =>
-    salesApi.checkout(input).then((r) => r.data));
+  const qc = useQueryClient();
+  return useSaleMutation(async (input: Parameters<typeof salesApi.checkout>[0]) => {
+    const res = await salesApi.checkout(input);
+    const sale = res.data;
+    if (input.payments?.some((p) => p.method === "cheque")) {
+      qc.invalidateQueries({ queryKey: ["cheques"] });
+      qc.invalidateQueries({ queryKey: ["chequeSummary"] });
+    }
+    return sale;
+  });
 }
 
 export function useCollectPayment() {
@@ -194,9 +209,17 @@ export function useCancelQuotation() {
 }
 
 export function useConvertQuotation() {
+  const qc = useQueryClient();
   return useSaleMutation(
-    ({ id, ...data }: { id: string } & Parameters<typeof quotationsApi.convert>[1]) =>
-      quotationsApi.convert(id, data).then((r) => r.data),
+    async ({ id, ...data }: { id: string } & Parameters<typeof quotationsApi.convert>[1]) => {
+      const res = await quotationsApi.convert(id, data);
+      const sale = res.data;
+      if (data.payments?.some((p) => p.method === "cheque")) {
+        qc.invalidateQueries({ queryKey: ["cheques"] });
+        qc.invalidateQueries({ queryKey: ["chequeSummary"] });
+      }
+      return sale;
+    },
     [["quotations"], ["quotation"]],
   );
 }

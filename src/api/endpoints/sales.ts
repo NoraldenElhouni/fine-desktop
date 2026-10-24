@@ -48,12 +48,13 @@ export const FULFILLMENT_LABEL: Record<FulfillmentStatus, string> = {
   delivered: "تم التسليم",
 };
 
-export type PaymentMethod = "cash" | "bank" | "receivable";
+export type PaymentMethod = "cash" | "bank" | "receivable" | "split";
 
 export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
   cash: "نقدي",
   bank: "مصرف",
   receivable: "ذمم (آجل)",
+  split: "دفع مجزأ",
 };
 
 export type ComponentStatus = "pending" | "at_cutter" | "ready" | "delivered";
@@ -125,14 +126,15 @@ export interface SaleLine {
 }
 
 export interface SalePayment {
-  id: string;
+  id?: string;
   amount: Money;
   method: "cash" | "bank" | "cheque";
-  received_at: string;
+  received_at?: string;
   cash_account?: { id: string; name: string } | null;
   received_by?: { id: string; name: string } | null;
   tendered_amount?: Money | null;
   change_given?: Money | null;
+  cheque?: { id?: string; number?: string; cheque_no?: string } | null;
 }
 
 export interface CreditApproval {
@@ -192,6 +194,22 @@ export interface CartLineInput {
   height_m?: number | null;
 }
 
+export interface SplitPaymentChequeInput {
+  cheque_no: string;
+  bank_name: string;
+  drawer_name?: string;
+  due_date: string;
+  is_certified?: boolean;
+}
+
+export interface SplitPaymentPortionInput {
+  method: "cash" | "bank" | "cheque";
+  amount: number;
+  cash_account_id?: string;
+  tendered_amount?: number;
+  cheque?: SplitPaymentChequeInput;
+}
+
 export interface CheckoutInput {
   client_request_id: string;
   client_id?: string | null;
@@ -201,6 +219,7 @@ export interface CheckoutInput {
   notes?: string | null;
   lines: CartLineInput[];
   tendered_amount?: number | null;
+  payments?: SplitPaymentPortionInput[];
 }
 
 export interface InvoiceLine {

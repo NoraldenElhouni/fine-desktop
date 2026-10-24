@@ -10,6 +10,7 @@ import {
   Plus,
   Receipt,
   ShoppingCart,
+  Split,
   Trash2,
   UserPlus,
   UserRound,
@@ -27,6 +28,7 @@ import {
   Quotation,
   SALES_ERROR_MESSAGE,
   Sale,
+  SplitPaymentPortionInput,
   formatSizeCm,
 } from "../../api/endpoints/sales";
 import { InventoryItem, suggestedPrice } from "../../api/endpoints/inventory";
@@ -41,6 +43,7 @@ import { BundlePickerDialog } from "../sales/BundlePickerDialog";
 import { BlockPicker, PickedBlock } from "./BlockPicker";
 import { SaleCompletedDialog } from "./SaleCompletedDialog";
 import { CashTenderModal } from "./CashTenderModal";
+import { SplitPaymentModal } from "./SplitPaymentModal";
 import { QuotationPrintDialog } from "../print/SalesDocuments";
 import { formatNumber } from "../../lib/utils/format";
 
@@ -91,6 +94,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   const [isBundlePickerOpen, setIsBundlePickerOpen] = useState(false);
   const [isQuickClientOpen, setIsQuickClientOpen] = useState(false);
   const [isCashTenderOpen, setIsCashTenderOpen] = useState(false);
+  const [isSplitPaymentOpen, setIsSplitPaymentOpen] = useState(false);
   const [blockPicker, setBlockPicker] = useState<{ item: InventoryItem; editingKey: string | null } | null>(null);
   const [completedSale, setCompletedSale] = useState<Sale | null>(null);
   const [printQuotationId, setPrintQuotationId] = useState<string | null>(null);
@@ -134,12 +138,19 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
 
   // One linked treasury of the chosen kind is picked for the cashier.
   useEffect(() => {
-    if (method === "receivable") {
+    if (method === "receivable" || method === "split") {
       setCashAccountId(null);
     } else if (!linkedTreasuries.some((a) => a.id === cashAccountId)) {
       setCashAccountId(linkedTreasuries.length === 1 ? linkedTreasuries[0].id : null);
     }
   }, [method, linkedTreasuries, cashAccountId]);
+
+  // Reset method if split is selected without client or in internal mode
+  useEffect(() => {
+    if ((isInternal || !clientId) && method === "split") {
+      setMethod("cash");
+    }
+  }, [isInternal, clientId, method]);
 
   const total = useMemo(() => cart.reduce((s, l) => s + num(l.qty) * num(l.price), 0), [cart]);
   const creditLimit = Number(client?.credit_limit ?? 0);
@@ -323,10 +334,63 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     );
   };
 
+  const executeSplitCheckout = (portions: SplitPaymentPortionInput[]) => {
+    setError(null);
+    const lines = cartLines();
+
+    if (loadedQuotation) {
+      convert.mutate(
+        {
+          id: loadedQuotation.id,
+          client_request_id: requestId,
+          payment_method: "split",
+          lines,
+          payments: portions,
+        },
+        {
+          onSuccess: (sale) => {
+            setIsSplitPaymentOpen(false);
+            onSold(sale);
+          },
+          onError: (err) => {
+            setIsSplitPaymentOpen(false);
+            fail(err);
+          },
+        },
+      );
+      return;
+    }
+
+    checkout.mutate(
+      {
+        client_request_id: requestId,
+        client_id: isInternal ? null : clientId,
+        buyer_unit_id: isInternal ? buyerUnitId : null,
+        payment_method: "split",
+        lines,
+        payments: portions,
+      },
+      {
+        onSuccess: (sale) => {
+          setIsSplitPaymentOpen(false);
+          onSold(sale);
+        },
+        onError: (err) => {
+          setIsSplitPaymentOpen(false);
+          fail(err);
+        },
+      },
+    );
+  };
+
   const submit = () => {
     setError(null);
     if (!isInternal && method === "cash") {
       setIsCashTenderOpen(true);
+      return;
+    }
+    if (!isInternal && method === "split") {
+      setIsSplitPaymentOpen(true);
       return;
     }
     executeCheckout();
@@ -352,7 +416,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     cart.length > 0 &&
     cart.every((l) => num(l.qty) > 0 && l.price.trim() !== "" && num(l.price) >= 0 && (l.lineType === "item" || num(l.price) > 0));
   const buyerValid = isInternal ? Boolean(buyerUnitId) : Boolean(clientId);
-  const paymentValid = isInternal || method === "receivable" || Boolean(cashAccountId);
+  const paymentValid = isInternal || method === "receivable" || method === "split" || Boolean(cashAccountId);
   const canCheckout = linesValid && buyerValid && paymentValid && (isInternal || total > 0);
   const isBusy = checkout.isPending || convert.isPending;
 
@@ -472,29 +536,50 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
             <Wallet className="h-4 w-4 text-app-accent" />
             طريقة الدفع
           </h3>
-          <div className="grid grid-cols-3 gap-2">
-            {([
-              { value: "cash", icon: Wallet },
-              { value: "bank", icon: Landmark },
-              { value: "receivable", icon: FileText },
-            ] as const).map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setMethod(opt.value)}
-                className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold ${
-                  method === opt.value
-                    ? "border-app-accent bg-app-accent text-white"
-                    : "border-app-separator bg-app-bg-secondary text-app-label-secondary"
-                }`}
-              >
-                <opt.icon className="h-4 w-4" />
-                {PAYMENT_METHOD_LABEL[opt.value]}
-              </button>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {(
+              [
+                { value: "cash", icon: Wallet, label: PAYMENT_METHOD_LABEL.cash },
+                { value: "bank", icon: Landmark, label: PAYMENT_METHOD_LABEL.bank },
+                { value: "receivable", icon: FileText, label: PAYMENT_METHOD_LABEL.receivable },
+                {
+                  value: "split",
+                  icon: Split,
+                  label: PAYMENT_METHOD_LABEL.split,
+                  disabled: !clientId || isInternal,
+                  tooltip: !clientId && !isInternal ? "يتطلب اختيار عميل" : undefined,
+                },
+              ] as {
+                value: PaymentMethod;
+                icon: typeof Wallet;
+                label: string;
+                disabled?: boolean;
+                tooltip?: string;
+              }[]
+            ).map((opt) => (
+              <div key={opt.value} title={opt.tooltip} className="w-full">
+                <button
+                  type="button"
+                  disabled={opt.disabled}
+                  onClick={() => setMethod(opt.value)}
+                  className={`w-full flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition-colors ${
+                    method === opt.value
+                      ? "border-app-accent bg-app-accent text-white"
+                      : "border-app-separator bg-app-bg-secondary text-app-label-secondary hover:text-app-label-primary"
+                  } ${opt.disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+                >
+                  <opt.icon className="h-4 w-4" />
+                  {opt.label}
+                </button>
+              </div>
             ))}
           </div>
 
-          {method !== "receivable" ? (
+          {method === "split" ? (
+            <p className="text-[11px] text-app-label-secondary">
+              يتم تحديد طرق الدفع (نقداً / مصرف / شيك) والخزائن والمبالغ لكل دفعة عند إتمام البيع.
+            </p>
+          ) : method !== "receivable" ? (
             <div className="space-y-1">
               <label className="block text-[11px] font-semibold text-app-label-secondary">
                 {method === "cash" ? "الخزينة المستلمة" : "الحساب المصرفي المستلم"}
@@ -729,6 +814,14 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
         isBusy={isBusy}
         onClose={() => setIsCashTenderOpen(false)}
         onConfirm={(tendered) => executeCheckout(tendered)}
+      />
+      <SplitPaymentModal
+        isOpen={isSplitPaymentOpen}
+        total={total}
+        clientName={client?.entity?.name}
+        isBusy={isBusy}
+        onClose={() => setIsSplitPaymentOpen(false)}
+        onConfirm={executeSplitCheckout}
       />
       <QuotationPrintDialog quotationId={printQuotationId} onClose={() => setPrintQuotationId(null)} />
     </div>

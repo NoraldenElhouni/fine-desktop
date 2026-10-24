@@ -141,6 +141,63 @@ export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({ isOpen, sale, 
                   <span>{formatNumber(totalAmount)} د.ل</span>
                 </div>
               )}
+              {sale.payment_method === "split" && sale.payments && sale.payments.length > 0 && (
+                <div className="space-y-1.5 pt-2 border-t border-dashed border-gray-200">
+                  <div className="font-bold text-[11px] text-gray-800">تفاصيل الدفع المجزأ:</div>
+                  {sale.payments.map((p, idx) => {
+                    const methodLabel =
+                      p.method === "cash"
+                        ? "نقداً"
+                        : p.method === "bank"
+                          ? "مصرف"
+                          : "شيك";
+                    const accountOrCheque =
+                      p.method === "cheque"
+                        ? (p.cheque?.number || p.cheque?.cheque_no ? `شيك رقم ${p.cheque.number || p.cheque.cheque_no}` : "شيك")
+                        : p.cash_account?.name;
+
+                    const pTendered =
+                      p.tendered_amount !== undefined &&
+                      p.tendered_amount !== null &&
+                      !isNaN(Number(p.tendered_amount))
+                        ? Number(p.tendered_amount)
+                        : null;
+
+                    const pChange =
+                      p.change_given !== undefined && p.change_given !== null && !isNaN(Number(p.change_given))
+                        ? Number(p.change_given)
+                        : pTendered !== null
+                          ? Math.max(0, pTendered - Number(p.amount))
+                          : null;
+
+                    return (
+                      <div key={p.id || idx} className="text-[11px] text-gray-700 space-y-0.5 border-b border-gray-100 pb-1.5 last:border-0 last:pb-0">
+                        <div className="flex justify-between">
+                          <span>
+                            {methodLabel}
+                            {accountOrCheque ? ` (${accountOrCheque})` : ""}
+                          </span>
+                          <span className="font-bold text-gray-900">{formatNumber(Number(p.amount))} د.ل</span>
+                        </div>
+                        {p.method === "cash" && pTendered !== null && (
+                          <div className="ps-2 text-[10px] text-gray-600 space-y-0.5">
+                            <div className="flex justify-between">
+                              <span>المبلغ المستلم:</span>
+                              <span>{formatNumber(pTendered)} د.ل</span>
+                            </div>
+                            {pChange !== null && (
+                              <div className="flex justify-between">
+                                <span>الباقي:</span>
+                                <span>{formatNumber(pChange)} د.ل</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="text-center text-[10px] text-gray-500 pt-1 space-y-0.5 font-sans">
