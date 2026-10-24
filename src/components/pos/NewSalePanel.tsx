@@ -40,6 +40,7 @@ import { ProductPickerDialog } from "./ProductPickerDialog";
 import { BundlePickerDialog } from "../sales/BundlePickerDialog";
 import { BlockPicker, PickedBlock } from "./BlockPicker";
 import { SaleCompletedDialog } from "./SaleCompletedDialog";
+import { CashTenderModal } from "./CashTenderModal";
 import { QuotationPrintDialog } from "../print/SalesDocuments";
 import { formatNumber } from "../../lib/utils/format";
 
@@ -89,6 +90,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   const [isProductPickerOpen, setIsProductPickerOpen] = useState(false);
   const [isBundlePickerOpen, setIsBundlePickerOpen] = useState(false);
   const [isQuickClientOpen, setIsQuickClientOpen] = useState(false);
+  const [isCashTenderOpen, setIsCashTenderOpen] = useState(false);
   const [blockPicker, setBlockPicker] = useState<{ item: InventoryItem; editingKey: string | null } | null>(null);
   const [completedSale, setCompletedSale] = useState<Sale | null>(null);
   const [printQuotationId, setPrintQuotationId] = useState<string | null>(null);
@@ -270,14 +272,30 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     );
   };
 
-  const submit = () => {
+  const executeCheckout = (tenderedAmount?: number) => {
     setError(null);
     const lines = cartLines();
 
     if (loadedQuotation) {
       convert.mutate(
-        { id: loadedQuotation.id, client_request_id: requestId, payment_method: method, cash_account_id: cashAccountId, lines },
-        { onSuccess: onSold, onError: fail },
+        {
+          id: loadedQuotation.id,
+          client_request_id: requestId,
+          payment_method: method,
+          cash_account_id: cashAccountId,
+          lines,
+          tendered_amount: tenderedAmount,
+        },
+        {
+          onSuccess: (sale) => {
+            setIsCashTenderOpen(false);
+            onSold(sale);
+          },
+          onError: (err) => {
+            setIsCashTenderOpen(false);
+            fail(err);
+          },
+        },
       );
       return;
     }
@@ -290,9 +308,28 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
         payment_method: isInternal ? null : method,
         cash_account_id: isInternal ? null : cashAccountId,
         lines,
+        tendered_amount: tenderedAmount,
       },
-      { onSuccess: onSold, onError: fail },
+      {
+        onSuccess: (sale) => {
+          setIsCashTenderOpen(false);
+          onSold(sale);
+        },
+        onError: (err) => {
+          setIsCashTenderOpen(false);
+          fail(err);
+        },
+      },
     );
+  };
+
+  const submit = () => {
+    setError(null);
+    if (!isInternal && method === "cash") {
+      setIsCashTenderOpen(true);
+      return;
+    }
+    executeCheckout();
   };
 
   const saveQuotation = () => {
@@ -686,6 +723,13 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
         />
       )}
       <SaleCompletedDialog sale={completedSale} onClose={() => setCompletedSale(null)} />
+      <CashTenderModal
+        isOpen={isCashTenderOpen}
+        total={total}
+        isBusy={isBusy}
+        onClose={() => setIsCashTenderOpen(false)}
+        onConfirm={(tendered) => executeCheckout(tendered)}
+      />
       <QuotationPrintDialog quotationId={printQuotationId} onClose={() => setPrintQuotationId(null)} />
     </div>
   );

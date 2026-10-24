@@ -20,8 +20,24 @@ export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({ isOpen, sale, 
 
   const totalAmount = Number(sale.total_amount || 0);
   const isCash = sale.payment_method === "cash";
-  const tendered = isCash && tenderedInput.trim() !== "" ? Number(tenderedInput) : totalAmount;
-  const change = isCash ? Math.max(0, tendered - totalAmount) : 0;
+  const cashPayment = sale.payments?.find((p) => p.method === "cash");
+  const hasSavedTender =
+    cashPayment?.tendered_amount !== undefined &&
+    cashPayment?.tendered_amount !== null &&
+    !isNaN(Number(cashPayment.tendered_amount));
+
+  const tendered = hasSavedTender
+    ? Number(cashPayment.tendered_amount)
+    : isCash && tenderedInput.trim() !== ""
+      ? Number(tenderedInput)
+      : totalAmount;
+
+  const change =
+    hasSavedTender && cashPayment?.change_given !== undefined && cashPayment?.change_given !== null
+      ? Number(cashPayment.change_given)
+      : isCash
+        ? Math.max(0, tendered - totalAmount)
+        : 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={(next) => !next && onClose()}>
@@ -34,7 +50,7 @@ export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({ isOpen, sale, 
           <DialogClose />
         </DialogHeader>
 
-        {isCash && (
+        {isCash && !hasSavedTender && (
           <div className="px-5 pt-3 print:hidden">
             <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
               المبلغ المستلم من العميل (للفكة فقط — لا يغيّر مبلغ البيع)
@@ -114,7 +130,7 @@ export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({ isOpen, sale, 
                     <span>{formatNumber(tendered)} د.ل</span>
                   </div>
                   <div className="flex justify-between text-gray-700 text-[11px]">
-                    <span>الفكة:</span>
+                    <span>الباقي:</span>
                     <span>{formatNumber(change)} د.ل</span>
                   </div>
                 </>

@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { DollarSign, Printer, CheckCircle2, AlertCircle, TrendingUp, Landmark, Banknote, FileText, Save } from "lucide-react";
 import { PAYMENT_METHOD_LABEL, PosDailyReport } from "../../api/endpoints/sales";
 import { usePosDailyClose, useSavePosDailyClose } from "../../hooks/useSales";
-import { apiErrorPayload } from "../../api/endpoints/production";
+import { apiErrorMessage } from "../../api/endpoints/production";
 import { toast } from "../../stores/toastStore";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../ui/Dialog";
 import { formatNumber } from "../../lib/utils/format";
@@ -23,9 +23,21 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
   onClose,
 }) => {
   const [countedCash, setCountedCash] = useState<string>("");
+  const [selectedCashAccountId, setSelectedCashAccountId] = useState<string>("");
 
   const { data: savedClose } = usePosDailyClose(undefined, isOpen);
   const saveClose = useSavePosDailyClose();
+
+  const cashAccounts = report?.expected_cash_by_account ?? [];
+  const hasMultipleCashAccounts = cashAccounts.length > 1;
+
+  useEffect(() => {
+    if (cashAccounts.length === 1 && !selectedCashAccountId) {
+      setSelectedCashAccountId(cashAccounts[0].cash_account_id);
+    } else if (savedClose?.cash_account_id && !selectedCashAccountId) {
+      setSelectedCashAccountId(savedClose.cash_account_id);
+    }
+  }, [cashAccounts, selectedCashAccountId, savedClose?.cash_account_id]);
 
   if (!isOpen) {
     return null;
@@ -35,24 +47,36 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
     window.print();
   };
 
-  const expectedCash = savedClose ? Number(savedClose.expected_cash) : Number(report?.expected_cash ?? 0);
+  const selectedAccount = cashAccounts.find((a) => a.cash_account_id === selectedCashAccountId);
+  const expectedCash = savedClose
+    ? Number(savedClose.expected_cash)
+    : selectedAccount
+      ? Number(selectedAccount.expected)
+      : Number(report?.expected_cash ?? 0);
+
   const counted = savedClose
     ? Number(savedClose.counted_cash)
     : countedCash.trim() !== "" ? Number(countedCash) : null;
   const difference = counted !== null ? counted - expectedCash : null;
 
+  const isTreasuryRequired = hasMultipleCashAccounts && !savedClose;
+  const isTreasuryMissing = isTreasuryRequired && !selectedCashAccountId;
+
   const handleSave = () => {
-    if (counted === null || savedClose || saveClose.isPending) {
+    if (counted === null || savedClose || saveClose.isPending || isTreasuryMissing) {
       return;
     }
     saveClose.mutate(
-      { counted_cash: counted },
+      {
+        counted_cash: counted,
+        cash_account_id: selectedCashAccountId || undefined,
+      },
       { onSuccess: () => toast.success("تم حفظ إغلاق الصندوق اليومي") },
     );
   };
 
   const saveError = saveClose.isError
-    ? apiErrorPayload(saveClose.error)?.message || "تعذّر حفظ إغلاق الصندوق"
+    ? apiErrorMessage(saveClose.error, "تعذّر حفظ إغلاق الصندوق")
     : null;
 
   return (
@@ -147,11 +171,69 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
                 </div>
               )}
 
+              {/* Cash per drawer treasury from expected_cash_by_account */}
+              {cashAccounts.length > 0 && (
+                <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-4 space-y-2">
+                  <div className="text-xs font-bold text-app-label-primary">
+                    النقد المتوقع حسب خزائن الدرج
+                  </div>
+                  <div className="space-y-1.5">
+                    {cashAccounts.map((acc) => (
+                      <div
+                        key={acc.cash_account_id}
+                        className="flex items-center justify-between text-xs"
+                      >
+                        <span className="text-app-label-secondary">{acc.name}</span>
+                        <span className="font-mono font-bold text-app-label-primary">
+                          {formatNumber(acc.expected)} د.ل
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Cash Drawer Reconciliation Section */}
               <div className="rounded-xl border border-app-separator bg-app-bg-secondary p-4 space-y-3">
                 <div className="text-xs font-bold text-app-label-primary">
                   مطابقة النقد في الصندوق (Cash Drawer Reconciliation)
                 </div>
+
+                {/* Treasury select when multiple cash treasuries, or treasury label */}
+                {hasMultipleCashAccounts && !savedClose ? (
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-semibold text-app-label-secondary">
+                      خزينة الدرج <span className="text-app-status-danger">*</span>
+                    </label>
+                    <select
+                      value={selectedCashAccountId}
+                      onChange={(e) => setSelectedCashAccountId(e.target.value)}
+                      className="w-full rounded-xl border border-app-separator bg-app-bg-primary px-3 py-2 text-xs font-semibold text-app-label-primary focus:border-app-accent focus:outline-none"
+                      required
+                    >
+                      <option value="">اختر خزينة الدرج التي تُغلق اليوم…</option>
+                      {cashAccounts.map((acc) => (
+                        <option key={acc.cash_account_id} value={acc.cash_account_id}>
+                          {acc.name} ({formatNumber(acc.expected)} د.ل متوقع)
+                        </option>
+                      ))}
+                    </select>
+                    {isTreasuryMissing && (
+                      <p className="text-[11px] text-app-status-danger">
+                        اختر خزينة الدرج التي تُغلق يومها.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  (savedClose?.cash_account?.name || (cashAccounts.length === 1 && cashAccounts[0]?.name)) && (
+                    <div className="text-xs text-app-label-secondary">
+                      خزينة الدرج:{" "}
+                      <span className="font-bold text-app-label-primary">
+                        {savedClose?.cash_account?.name ?? cashAccounts[0]?.name}
+                      </span>
+                    </div>
+                  )
+                )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -187,12 +269,22 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
 
                 {/* Saved-close confirmation / save error */}
                 {savedClose && (
-                  <div className="flex items-center gap-2 rounded-xl bg-app-status-info/15 border border-app-status-info/30 p-3 text-xs font-bold text-app-status-info print:hidden">
-                    <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    <span>
-                      تم إغلاق صندوق اليوم وحفظه
-                      {savedClose.closed_by?.name ? ` بواسطة ${savedClose.closed_by.name}` : ""}.
-                    </span>
+                  <div className="flex flex-col gap-1.5 rounded-xl bg-app-status-info/15 border border-app-status-info/30 p-3 text-xs font-bold text-app-status-info">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                      <span>
+                        تم إغلاق صندوق اليوم وحفظه
+                        {savedClose.closed_by?.name ? ` بواسطة ${savedClose.closed_by.name}` : ""}.
+                      </span>
+                    </div>
+                    {(savedClose.journal_entry?.reference || savedClose.journal_entry_id) && (
+                      <div className="text-[11px] font-normal text-app-label-primary ps-6">
+                        رقم القيد المحاسبي المرحّل:{" "}
+                        <span className="font-mono font-bold">
+                          {savedClose.journal_entry?.reference ?? savedClose.journal_entry_id}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
                 {saveError && (
@@ -204,29 +296,38 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
 
                 {/* Difference Status */}
                 {difference !== null && (
-                  <div className={`flex items-center gap-2 rounded-xl p-3 text-xs font-bold ${
-                    Math.abs(difference) < 0.001
-                      ? "bg-app-status-positive/15 text-app-status-positive border border-app-status-positive/30"
-                      : difference > 0
-                      ? "bg-app-status-warning/15 text-app-status-warning border border-app-status-warning/30"
-                      : "bg-app-status-danger/15 text-app-status-danger border border-app-status-danger/30"
-                  }`}>
-                    {Math.abs(difference) < 0.001 ? (
-                      <>
-                        <CheckCircle2 className="h-4 w-4 shrink-0" />
-                        <span>الصندوق متطابق تماماً مع النقد المستلم فعلياً.</span>
-                      </>
-                    ) : difference > 0 ? (
-                      <>
-                        <AlertCircle className="h-4 w-4 shrink-0" />
-                        <span>يوجد زيادة في الصندوق بمقدار +{formatNumber(difference)} د.ل</span>
-                      </>
-                    ) : (
-                      <>
-                        <AlertCircle className="h-4 w-4 shrink-0" />
-                        <span>يوجد عجز في الصندوق بمقدار {formatNumber(difference)} د.ل</span>
-                      </>
-                    )}
+                  <div className="space-y-1.5">
+                    <div className={`flex items-center gap-2 rounded-xl p-3 text-xs font-bold ${
+                      Math.abs(difference) < 0.001
+                        ? "bg-app-status-positive/15 text-app-status-positive border border-app-status-positive/30"
+                        : difference > 0
+                        ? "bg-app-status-warning/15 text-app-status-warning border border-app-status-warning/30"
+                        : "bg-app-status-danger/15 text-app-status-danger border border-app-status-danger/30"
+                    }`}>
+                      {Math.abs(difference) < 0.001 ? (
+                        <>
+                          <CheckCircle2 className="h-4 w-4 shrink-0" />
+                          <span>الصندوق متطابق تماماً مع النقد المستلم فعلياً.</span>
+                        </>
+                      ) : difference > 0 ? (
+                        <>
+                          <AlertCircle className="h-4 w-4 shrink-0" />
+                          <span>يوجد زيادة في الصندوق بمقدار +{formatNumber(difference)} د.ل</span>
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle className="h-4 w-4 shrink-0" />
+                          <span>يوجد عجز في الصندوق بمقدار {formatNumber(difference)} د.ل</span>
+                        </>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-app-label-secondary ps-1 font-medium">
+                      {Math.abs(difference) < 0.001
+                        ? "لا يوجد فرق."
+                        : difference < 0
+                        ? "سيُسجَّل العجز تلقائياً على حساب عجز الخزائن (625)."
+                        : "ستُسجَّل الزيادة تلقائياً على حساب زيادة الخزائن (44)."}
+                    </p>
                   </div>
                 )}
               </div>
@@ -247,7 +348,7 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
             <button
               type="button"
               onClick={handleSave}
-              disabled={counted === null || saveClose.isPending}
+              disabled={counted === null || saveClose.isPending || isTreasuryMissing}
               className="flex items-center gap-2 rounded-xl bg-app-status-positive px-5 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Save className="h-4 w-4" />

@@ -52,8 +52,11 @@ export function useCheckout() {
 }
 
 export function useCollectPayment() {
-  return useSaleMutation(({ id, ...data }: { id: string; amount: number; method: "cash" | "bank"; cash_account_id: string }) =>
-    salesApi.collectPayment(id, data).then((r) => r.data));
+  return useSaleMutation(
+    ({ id, ...data }: { id: string } & Parameters<typeof salesApi.collectPayment>[1]) =>
+      salesApi.collectPayment(id, data).then((r) => r.data),
+    [["cheques"], ["chequeSummary"]],
+  );
 }
 
 export function useInvoice(id?: string, enabled = true) {

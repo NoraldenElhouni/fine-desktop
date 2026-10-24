@@ -127,10 +127,12 @@ export interface SaleLine {
 export interface SalePayment {
   id: string;
   amount: Money;
-  method: "cash" | "bank";
+  method: "cash" | "bank" | "cheque";
   received_at: string;
   cash_account?: { id: string; name: string } | null;
   received_by?: { id: string; name: string } | null;
+  tendered_amount?: Money | null;
+  change_given?: Money | null;
 }
 
 export interface CreditApproval {
@@ -198,6 +200,7 @@ export interface CheckoutInput {
   cash_account_id?: string | null;
   notes?: string | null;
   lines: CartLineInput[];
+  tendered_amount?: number | null;
 }
 
 export interface InvoiceLine {
@@ -296,6 +299,7 @@ export interface PosDailyReport {
   collected: Partial<Record<"cash" | "bank", { count: number; total: number }>>;
   by_cash_account: { cash_account_id: string | null; name?: string | null; kind?: "cash" | "bank" | null; total: number }[];
   expected_cash: number;
+  expected_cash_by_account?: { cash_account_id: string; name: string; expected: number }[];
 }
 
 export interface PosDailyClose {
@@ -308,6 +312,10 @@ export interface PosDailyClose {
   total_sales: Money;
   notes?: string | null;
   closed_by?: { id: string; name: string } | null;
+  cash_account_id?: string | null;
+  cash_account?: { id: string; name: string } | null;
+  journal_entry_id?: string | null;
+  journal_entry?: { id: string; reference?: string } | null;
   created_at: string;
 }
 
@@ -375,11 +383,27 @@ export interface SaleFilters {
   per_page?: number;
 }
 
+export interface CollectPaymentChequeInput {
+  cheque_no: string;
+  bank_name: string;
+  drawer_name?: string;
+  due_date: string;
+  is_certified?: boolean;
+}
+
+export interface CollectPaymentInput {
+  amount: number;
+  method: "cash" | "bank" | "cheque";
+  cash_account_id?: string | null;
+  tendered_amount?: number | null;
+  cheque?: CollectPaymentChequeInput;
+}
+
 export const salesApi = {
   list: (params?: SaleFilters) => apiClient.get<Paginated<Sale>>("/sales", { params }),
   get: (id: string) => apiClient.get<Sale>(`/sales/${id}`),
   checkout: (data: CheckoutInput) => apiClient.post<Sale>("/sales", data),
-  collectPayment: (id: string, data: { amount: number; method: "cash" | "bank"; cash_account_id: string }) =>
+  collectPayment: (id: string, data: CollectPaymentInput) =>
     apiClient.post<Sale>(`/sales/${id}/payments`, data),
   invoice: (id: string) => apiClient.get<Invoice>(`/sales/${id}/invoice`),
   deliveryNote: (id: string) => apiClient.get<DeliveryNote>(`/sales/${id}/delivery-note`),
@@ -388,7 +412,7 @@ export const salesApi = {
 
   dailyReport: (date?: string) => apiClient.get<PosDailyReport>("/pos/daily-report", { params: { date } }),
   dailyClose: (date?: string) => apiClient.get<{ data: PosDailyClose | null }>("/pos/daily-close", { params: { date } }),
-  saveDailyClose: (data: { counted_cash: number; date?: string; notes?: string }) =>
+  saveDailyClose: (data: { counted_cash: number; date?: string; notes?: string; cash_account_id?: string | null }) =>
     apiClient.post<PosDailyClose>("/pos/daily-close", data),
 };
 

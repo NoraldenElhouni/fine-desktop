@@ -167,6 +167,8 @@ export const LEDGER_ERROR_MESSAGE: Record<string, string> = {
   INVALID_CHEQUE_TRANSITION: "هذا الإجراء غير متاح لحالة الشيك الحالية.",
   CHEQUE_DATE_BEFORE_LAST_EVENT: "تاريخ الإجراء يسبق آخر حركة على الشيك.",
   CHEQUE_FORBIDDEN: "ليست لديك صلاحية إدارة الشيكات.",
+  TENDER_BELOW_TOTAL: "المبلغ المستلم أقل من إجمالي الفاتورة.",
+  CASH_ACCOUNT_REQUIRED: "اختر خزينة الدرج التي تُغلق يومها.",
 };
 
 /** The Arabic message for a known refusal code, else the server's message, else the fallback. */

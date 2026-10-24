@@ -4,9 +4,9 @@ import {
   ArrowRight, Banknote, Boxes, Building2, FileText, Package, ShoppingCart, Truck, UserRound,
 } from "lucide-react";
 import { useCollectPayment, useSale, usePaymentAccounts } from "../../hooks/useSales";
-import { FULFILLMENT_LABEL, PAYMENT_METHOD_LABEL, SALES_ERROR_MESSAGE, SALE_STATUS_LABEL, formatSizeCm } from "../../api/endpoints/sales";
-import { apiErrorPayload } from "../../api/endpoints/production";
-import { formatDateTime, formatNumber } from "../../lib/utils/format";
+import { FULFILLMENT_LABEL, PAYMENT_METHOD_LABEL, SALE_STATUS_LABEL, PaymentMethod, formatSizeCm } from "../../api/endpoints/sales";
+import { apiErrorMessage } from "../../api/endpoints/production";
+import { formatDateTime, formatNumber, localDateIso } from "../../lib/utils/format";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { toast } from "../../stores/toastStore";
 import { SaleInvoiceDialog, DeliveryNoteDialog } from "../../components/print/SalesDocuments";
@@ -21,8 +21,14 @@ export const SaleDetailPage: React.FC = () => {
 
   const [error, setError] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
-  const [method, setMethod] = useState<"cash" | "bank">("cash");
+  const [method, setMethod] = useState<"cash" | "bank" | "cheque">("cash");
   const [cashAccountId, setCashAccountId] = useState("");
+  const [tenderedAmount, setTenderedAmount] = useState("");
+  const [chequeNo, setChequeNo] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [drawerName, setDrawerName] = useState("");
+  const [dueDate, setDueDate] = useState(localDateIso());
+  const [isCertified, setIsCertified] = useState(false);
   const [showInvoice, setShowInvoice] = useState(false);
   const [showDeliveryNote, setShowDeliveryNote] = useState(false);
 
@@ -37,18 +43,83 @@ export const SaleDetailPage: React.FC = () => {
   const outstanding = Number(sale.total_amount) - Number(sale.amount_paid);
   const isReceivable = sale.payment_method === "receivable";
   const bundleLines = (sale.lines ?? []).filter((l) => l.line_type === "bundle");
-  const availableTreasuries = treasuries.filter((a) => a.kind === method && a.account_id);
+  const availableTreasuries = method === "cheque" ? [] : treasuries.filter((a) => a.kind === method && a.account_id);
+
+  const numericAmount = Number(amount);
+  const isAmountValid = !isNaN(numericAmount) && numericAmount > 0 && numericAmount <= outstanding + 0.0001;
+  const isCashTenderValid =
+    method !== "cash" ||
+    tenderedAmount.trim() === "" ||
+    (!isNaN(Number(tenderedAmount)) && Number(tenderedAmount) >= numericAmount);
+
+  const canCollect =
+    isAmountValid &&
+    !collectPayment.isPending &&
+    (method === "cheque"
+      ? chequeNo.trim() !== "" && bankName.trim() !== "" && dueDate.trim() !== ""
+      : Boolean(cashAccountId) && isCashTenderValid);
+
+  const handleMethodChange = (m: "cash" | "bank" | "cheque") => {
+    setMethod(m);
+    setCashAccountId("");
+    setTenderedAmount("");
+    if (m === "cheque" && !dueDate) {
+      setDueDate(localDateIso());
+    }
+  };
 
   const collect = () => {
     setError(null);
-    if (!cashAccountId) return;
+    if (!canCollect) return;
+
+    if (method === "cheque") {
+      collectPayment.mutate(
+        {
+          id: sale.id,
+          amount: numericAmount,
+          method: "cheque",
+          cheque: {
+            cheque_no: chequeNo.trim(),
+            bank_name: bankName.trim(),
+            drawer_name: drawerName.trim() || undefined,
+            due_date: dueDate,
+            is_certified: isCertified,
+          },
+        },
+        {
+          onSuccess: () => {
+            setAmount("");
+            setChequeNo("");
+            setBankName("");
+            setDrawerName("");
+            setIsCertified(false);
+            toast.success("تم تسجيل التحصيل بالشيك بنجاح");
+          },
+          onError: (err) => {
+            setError(apiErrorMessage(err, "تعذّر تسجيل التحصيل."));
+          },
+        },
+      );
+      return;
+    }
+
     collectPayment.mutate(
-      { id: sale.id, amount: Number(amount), method, cash_account_id: cashAccountId },
       {
-        onSuccess: () => { setAmount(""); toast.success("تم تسجيل التحصيل"); },
+        id: sale.id,
+        amount: numericAmount,
+        method,
+        cash_account_id: cashAccountId,
+        tendered_amount:
+          method === "cash" && tenderedAmount.trim() !== "" ? Number(tenderedAmount) : undefined,
+      },
+      {
+        onSuccess: () => {
+          setAmount("");
+          setTenderedAmount("");
+          toast.success("تم تسجيل التحصيل");
+        },
         onError: (err) => {
-          const payload = apiErrorPayload(err);
-          setError((payload?.code && SALES_ERROR_MESSAGE[payload.code]) || payload?.message || "تعذّر تسجيل التحصيل.");
+          setError(apiErrorMessage(err, "تعذّر تسجيل التحصيل."));
         },
       },
     );
@@ -131,50 +202,153 @@ export const SaleDetailPage: React.FC = () => {
           <h2 className="flex items-center gap-2 text-sm font-bold text-app-label-primary">
             <Banknote className="w-4 h-4 text-app-accent" /> تحصيل دفعة
           </h2>
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="flex gap-1.5">
-              {(["cash", "bank"] as const).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => { setMethod(m); setCashAccountId(""); }}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold border ${method === m ? "border-app-accent bg-app-accent text-white" : "border-app-separator bg-app-bg-secondary text-app-label-secondary"}`}
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-end gap-2.5">
+              <div className="flex gap-1.5">
+                {(
+                  [
+                    { id: "cash", label: "نقداً" },
+                    { id: "bank", label: "مصرف" },
+                    { id: "cheque", label: "شيك" },
+                  ] as const
+                ).map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => handleMethodChange(m.id)}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                      method === m.id
+                        ? "border-app-accent bg-app-accent text-white"
+                        : "border-app-separator bg-app-bg-secondary text-app-label-secondary hover:bg-app-fill-f1"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+
+              {method !== "cheque" && (
+                <select
+                  value={cashAccountId}
+                  onChange={(e) => setCashAccountId(e.target.value)}
+                  className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
                 >
-                  {PAYMENT_METHOD_LABEL[m]}
-                </button>
-              ))}
+                  <option value="">اختر الخزينة/الحساب…</option>
+                  {availableTreasuries.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              <input
+                type="number"
+                min="0.01"
+                max={outstanding}
+                step="0.01"
+                placeholder={`المبلغ المحصل (المتبقي ${formatNumber(outstanding)})`}
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="w-44 px-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
+                dir="ltr"
+              />
+
+              {method === "cash" && (
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="المبلغ المستلم (اختياري)"
+                  value={tenderedAmount}
+                  onChange={(e) => setTenderedAmount(e.target.value)}
+                  className="w-40 px-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
+                  dir="ltr"
+                />
+              )}
+
+              {method === "cheque" && (
+                <>
+                  <input
+                    type="text"
+                    placeholder="رقم الشيك *"
+                    value={chequeNo}
+                    onChange={(e) => setChequeNo(e.target.value)}
+                    className="w-28 px-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
+                  />
+                  <input
+                    type="text"
+                    placeholder="المصرف *"
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                    className="w-32 px-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
+                  />
+                  <input
+                    type="text"
+                    placeholder="اسم الساحب (اختياري)"
+                    value={drawerName}
+                    onChange={(e) => setDrawerName(e.target.value)}
+                    className="w-36 px-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
+                  />
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="px-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
+                    title="تاريخ الاستحقاق *"
+                    required
+                  />
+                  <label className="flex items-center gap-1.5 px-2 py-2 text-xs font-semibold text-app-label-primary cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={isCertified}
+                      onChange={(e) => setIsCertified(e.target.checked)}
+                      className="rounded border-app-separator text-app-accent focus:ring-app-accent h-4 w-4"
+                    />
+                    شيك مصدق
+                  </label>
+                </>
+              )}
+
+              <button
+                type="button"
+                onClick={collect}
+                disabled={!canCollect}
+                className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
+              >
+                {collectPayment.isPending ? "جارٍ التسجيل…" : "تسجيل التحصيل"}
+              </button>
             </div>
-            <select
-              value={cashAccountId}
-              onChange={(e) => setCashAccountId(e.target.value)}
-              className="rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs"
-            >
-              <option value="">اختر الخزينة/الحساب…</option>
-              {availableTreasuries.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
-            <input
-              type="number" min="0.01" max={outstanding} step="0.01"
-              placeholder={`المتبقي ${formatNumber(outstanding)}`}
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-40 px-3 py-2 border border-app-separator rounded-xl bg-app-bg-secondary text-xs font-mono"
-            />
-            <button
-              onClick={collect}
-              disabled={collectPayment.isPending || !cashAccountId || Number(amount) <= 0}
-              className="rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
-            >
-              {collectPayment.isPending ? "جارٍ التسجيل…" : "تسجيل التحصيل"}
-            </button>
+
+            {method === "cash" && tenderedAmount.trim() !== "" && isAmountValid && (
+              <div className="text-xs">
+                {Number(tenderedAmount) >= numericAmount ? (
+                  <span className="text-app-status-positive font-semibold">
+                    الباقي للعميل:{" "}
+                    <span className="font-mono font-bold">
+                      {formatNumber(Number(tenderedAmount) - numericAmount)}
+                    </span>{" "}
+                    د.ل
+                  </span>
+                ) : (
+                  <span className="text-app-status-danger font-semibold">
+                    المبلغ المستلم أقل من الدفعة المراد تحصيلها
+                  </span>
+                )}
+              </div>
+            )}
           </div>
+
           {sale.payments && sale.payments.length > 0 && (
             <ul className="text-[11px] text-app-label-secondary space-y-1">
-              {sale.payments.map((p) => (
-                <li key={p.id} className="font-mono">
-                  {formatDateTime(p.received_at)} — {formatNumber(p.amount)} ({p.cash_account?.name ?? p.method})
-                </li>
-              ))}
+              {sale.payments.map((p) => {
+                const methodLabel = p.method === "cheque" ? "شيك" : PAYMENT_METHOD_LABEL[p.method as PaymentMethod] ?? p.method;
+                return (
+                  <li key={p.id} className="font-mono">
+                    {formatDateTime(p.received_at)} — {formatNumber(p.amount)} ({p.cash_account?.name ?? methodLabel})
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
