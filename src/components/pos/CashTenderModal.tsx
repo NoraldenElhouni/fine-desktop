@@ -42,13 +42,14 @@ export const CashTenderModal: React.FC<CashTenderModalProps> = ({
   const isConfirmDisabled = !isReceivedEntered || isBelowTotal || isBusy;
   const change = !isBelowTotal && isReceivedEntered ? received - total : 0;
 
-  // Round-ups to the next 5, 10, 50, and 100 above total, plus fixed 20/50/100/200 chips, deduplicated.
+  // Round-ups to the next 5, 10, 50, and 100 above total, plus fixed 20/50/100/200 chips,
+  // deduplicated. A chip below the total could never be accepted, so it isn't offered.
   const roundUpSteps = [5, 10, 50, 100];
   const roundUps = roundUpSteps.map((step) => Math.ceil((total + 0.001) / step) * step);
   const fixedChips = [20, 50, 100, 200];
-  const numericChips = Array.from(
-    new Set([...roundUps.filter((v) => v > total), ...fixedChips])
-  ).sort((a, b) => a - b);
+  const numericChips = Array.from(new Set([...roundUps, ...fixedChips]))
+    .filter((v) => v > total)
+    .sort((a, b) => a - b);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
