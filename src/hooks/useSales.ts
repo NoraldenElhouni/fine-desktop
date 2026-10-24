@@ -5,6 +5,8 @@ import {
   bundleFulfillmentApi,
   quotationsApi,
   creditApprovalsApi,
+  heldCartsApi,
+  HoldCartInput,
   Sale,
   SaleFilters,
 } from "../api/endpoints/sales";
@@ -269,3 +271,34 @@ export function useRestockAction() {
     },
   });
 }
+
+// ── Held carts ───────────────────────────────────────────────────────────────
+
+export function useHeldCarts() {
+  return useQuery({
+    queryKey: ["heldCarts"],
+    queryFn: async () => (await heldCartsApi.list()).data.data,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export function useHoldCart() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: HoldCartInput) => (await heldCartsApi.create(data)).data.data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["heldCarts"] });
+    },
+  });
+}
+
+export function useDeleteHeldCart() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => heldCartsApi.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["heldCarts"] });
+    },
+  });
+}
+

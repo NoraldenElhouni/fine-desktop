@@ -39,6 +39,8 @@ export type FulfillmentStatus = "awaiting_definition" | "in_progress" | "ready" 
 export const SALES_ERROR_MESSAGE: Record<string, string> = {
   ...LEDGER_ERROR_MESSAGE,
   POS_DAY_ALREADY_CLOSED: "تم إقفال يومية الصندوق لهذا اليوم — لا يمكن تسجيل مبيعات أو تحصيلات جديدة حتى الغد.",
+  HELD_CART_LIMIT: "وصلت إلى الحد الأقصى للفواتير المعلقة (30).",
+  HELD_CART_TOO_LARGE: "الفاتورة أكبر من أن تُعلّق.",
 };
 
 export const FULFILLMENT_LABEL: Record<FulfillmentStatus, string> = {
@@ -433,6 +435,10 @@ export const salesApi = {
   dailyClose: (date?: string) => apiClient.get<{ data: PosDailyClose | null }>("/pos/daily-close", { params: { date } }),
   saveDailyClose: (data: { counted_cash: number; date?: string; notes?: string; cash_account_id?: string | null }) =>
     apiClient.post<PosDailyClose>("/pos/daily-close", data),
+
+  heldCarts: () => apiClient.get<{ data: HeldCart[] }>("/held-carts"),
+  holdCart: (data: HoldCartInput) => apiClient.post<{ data: HeldCart }>("/held-carts", data),
+  deleteHeldCart: (id: string) => apiClient.delete(`/held-carts/${id}`),
 };
 
 export const bundleFulfillmentApi = {
@@ -514,3 +520,55 @@ export const restockApi = {
   reject: (id: string) => apiClient.put<RestockRequest>(`/internal-restock-requests/${id}/reject`),
   fulfill: (id: string) => apiClient.post<RestockRequest>(`/internal-restock-requests/${id}/fulfill`),
 };
+
+export interface CartLine {
+  key: string;
+  lineType: "item" | "bundle";
+  itemId?: string;
+  bundleId?: string;
+  name: string;
+  code?: string;
+  qty: string;
+  /** Unit price — editable; starts from the item's own price or the bundle's template. */
+  price: string;
+  stockLotId?: string | null;
+  stockLotLabel?: string | null;
+  size?: { length_m: number; width_m: number; height_m: number } | null;
+}
+
+export interface HeldCartPayload {
+  version: 1;
+  cart: CartLine[];
+  client_id?: string | null;
+  buyer_mode?: "client" | "internal";
+  buyer_unit_id?: string | null;
+  payment_method?: PaymentMethod | null;
+  cash_account_id?: string | null;
+  notes?: string | null;
+}
+
+export interface HeldCart {
+  id: string;
+  label?: string | null;
+  client: { id: string; name: string } | null;
+  total: Money;
+  line_count: number;
+  payload: HeldCartPayload;
+  user: { id: string; name: string };
+  created_at: string;
+}
+
+export interface HoldCartInput {
+  label?: string | null;
+  client_id?: string | null;
+  payload: HeldCartPayload;
+  total: number;
+  line_count: number;
+}
+
+export const heldCartsApi = {
+  list: () => apiClient.get<{ data: HeldCart[] }>("/held-carts"),
+  create: (data: HoldCartInput) => apiClient.post<{ data: HeldCart }>("/held-carts", data),
+  delete: (id: string) => apiClient.delete(`/held-carts/${id}`),
+};
+

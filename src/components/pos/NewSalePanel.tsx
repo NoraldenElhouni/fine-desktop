@@ -4,9 +4,11 @@ import {
   AlertTriangle,
   Boxes,
   Building2,
+  Clock,
   FileText,
   Landmark,
   Package,
+  Play,
   Plus,
   Receipt,
   ShoppingCart,
@@ -17,12 +19,23 @@ import {
   Wallet,
   X,
 } from "lucide-react";
-import { useCheckout, useConvertQuotation, useCreateQuotation, usePaymentAccounts } from "../../hooks/useSales";
+import {
+  useCheckout,
+  useConvertQuotation,
+  useCreateQuotation,
+  useDeleteHeldCart,
+  useHeldCarts,
+  useHoldCart,
+  usePaymentAccounts,
+} from "../../hooks/useSales";
 import { useClients } from "../../hooks/useClients";
 import { useOperatingUnits } from "../../hooks/useOperatingUnits";
 import { useServerConfigStore } from "../../stores/serverConfigStore";
 import {
+  CartLine,
   CartLineInput,
+  HeldCart,
+  HeldCartPayload,
   PAYMENT_METHOD_LABEL,
   PaymentMethod,
   Quotation,
@@ -33,7 +46,7 @@ import {
 } from "../../api/endpoints/sales";
 import { InventoryItem, suggestedPrice } from "../../api/endpoints/inventory";
 import { Bundle } from "../../api/endpoints/bundles";
-import { apiErrorPayload } from "../../api/endpoints/production";
+import { apiErrorMessage, apiErrorPayload } from "../../api/endpoints/production";
 import type { Client, OperatingUnit } from "../../types/entities";
 import { toast } from "../../stores/toastStore";
 import { SearchableSelect } from "../ui/SearchableSelect";
@@ -46,6 +59,16 @@ import { CashTenderModal } from "./CashTenderModal";
 import { SplitPaymentModal } from "./SplitPaymentModal";
 import { QuotationPrintDialog } from "../print/SalesDocuments";
 import { formatNumber } from "../../lib/utils/format";
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/Dialog";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -54,19 +77,39 @@ const num = (v: string): number => {
 
 const newRequestId = () => crypto.randomUUID();
 
-interface CartLine {
-  key: string;
-  lineType: "item" | "bundle";
-  itemId?: string;
-  bundleId?: string;
-  name: string;
-  code?: string;
-  qty: string;
-  /** Unit price — editable; starts from the item's own price or the bundle's template. */
-  price: string;
-  stockLotId?: string | null;
-  stockLotLabel?: string | null;
-  size?: { length_m: number; width_m: number; height_m: number } | null;
+function parseHeldCartPayload(raw: unknown): HeldCartPayload | null {
+  try {
+    let parsed = raw;
+    if (typeof raw === "string") {
+      parsed = JSON.parse(raw);
+    }
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      (parsed as Record<string, unknown>).version === 1 &&
+      Array.isArray((parsed as Record<string, unknown>).cart)
+    ) {
+      return parsed as HeldCartPayload;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function formatTimeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const diffSec = Math.max(0, Math.floor(diffMs / 1000));
+  if (diffSec < 60) return "منذ لحظات";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `منذ ${diffMin} دقيقة`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `منذ ${diffHours} ساعة`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return "منذ يوم";
+  if (diffDays === 2) return "منذ يومين";
+  if (diffDays <= 10) return `منذ ${diffDays} أيام`;
+  return `منذ ${diffDays} يوماً`;
 }
 
 type BuyerMode = "client" | "internal";
@@ -89,6 +132,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   const [cart, setCart] = useState<CartLine[]>([]);
   const [requestId, setRequestId] = useState(newRequestId);
   const [error, setError] = useState<string | null>(null);
+  const [notes, setNotes] = useState<string | null>(null);
 
   const [isProductPickerOpen, setIsProductPickerOpen] = useState(false);
   const [isBundlePickerOpen, setIsBundlePickerOpen] = useState(false);
@@ -99,12 +143,23 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   const [completedSale, setCompletedSale] = useState<Sale | null>(null);
   const [printQuotationId, setPrintQuotationId] = useState<string | null>(null);
 
+  const [isHoldDialogOpen, setIsHoldDialogOpen] = useState(false);
+  const [holdCartLabel, setHoldCartLabel] = useState("");
+  const [holdCartError, setHoldCartError] = useState<string | null>(null);
+
+  const [isHeldCartsDialogOpen, setIsHeldCartsDialogOpen] = useState(false);
+  const [resumeConfirmCart, setResumeConfirmCart] = useState<HeldCart | null>(null);
+  const [deletingCartId, setDeletingCartId] = useState<string | null>(null);
+
   const { data: clients = [] } = useClients();
   const { data: units = [] } = useOperatingUnits();
   const { data: paymentAccounts = [] } = usePaymentAccounts();
   const checkout = useCheckout();
   const convert = useConvertQuotation();
   const createQuotation = useCreateQuotation();
+  const { data: heldCarts = [] } = useHeldCarts();
+  const holdCart = useHoldCart();
+  const deleteHeldCart = useDeleteHeldCart();
 
   const client = clients.find((c) => c.id === clientId) ?? null;
   const otherUnits = units.filter((u) => u.id !== currentUnitId);
@@ -117,6 +172,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     if (!loadedQuotation) return;
     setBuyerMode("client");
     setClientId(loadedQuotation.client_id);
+    setNotes(loadedQuotation.notes ?? null);
     setCart(
       (loadedQuotation.lines ?? []).map((l) => ({
         key: crypto.randomUUID(),
@@ -163,6 +219,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     setCart([]);
     setRequestId(newRequestId());
     setError(null);
+    setNotes(null);
     if (loadedQuotation) onQuotationDone();
   };
 
@@ -294,6 +351,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
           client_request_id: requestId,
           payment_method: method,
           cash_account_id: cashAccountId,
+          notes: notes ?? undefined,
           lines,
           tendered_amount: tenderedAmount,
         },
@@ -318,6 +376,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
         buyer_unit_id: isInternal ? buyerUnitId : null,
         payment_method: isInternal ? null : method,
         cash_account_id: isInternal ? null : cashAccountId,
+        notes: notes ?? undefined,
         lines,
         tendered_amount: tenderedAmount,
       },
@@ -344,6 +403,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
           id: loadedQuotation.id,
           client_request_id: requestId,
           payment_method: "split",
+          notes: notes ?? undefined,
           lines,
           payments: portions,
         },
@@ -367,6 +427,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
         client_id: isInternal ? null : clientId,
         buyer_unit_id: isInternal ? buyerUnitId : null,
         payment_method: "split",
+        notes: notes ?? undefined,
         lines,
         payments: portions,
       },
@@ -400,7 +461,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     if (!clientId) return;
     setError(null);
     createQuotation.mutate(
-      { client_id: clientId, lines: cartLines() },
+      { client_id: clientId, notes: notes ?? undefined, lines: cartLines() },
       {
         onSuccess: (quotation) => {
           toast.success(`تم حفظ عرض السعر ${quotation.quotation_number}`);
@@ -410,6 +471,103 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
         onError: fail,
       },
     );
+  };
+
+  const handleHoldCart = () => {
+    setHoldCartError(null);
+    const payload: HeldCartPayload = {
+      version: 1,
+      cart,
+      client_id: isInternal ? null : clientId,
+      buyer_mode: buyerMode,
+      buyer_unit_id: isInternal ? buyerUnitId : null,
+      payment_method: isInternal ? null : method,
+      cash_account_id: isInternal ? null : cashAccountId,
+      notes: notes ?? null,
+    };
+
+    holdCart.mutate(
+      {
+        label: holdCartLabel.trim() || null,
+        client_id: isInternal ? null : clientId,
+        payload,
+        total,
+        line_count: cart.length,
+      },
+      {
+        onSuccess: () => {
+          setIsHoldDialogOpen(false);
+          setHoldCartLabel("");
+          resetCart();
+          if (!isInternal) setClientId(null);
+          if (isInternal) setBuyerUnitId(null);
+          toast.success("تم تعليق الفاتورة بنجاح");
+        },
+        onError: (err) => {
+          const p = apiErrorPayload(err);
+          const msg =
+            (p?.code && SALES_ERROR_MESSAGE[p.code]) || apiErrorMessage(err, "تعذر تعليق الفاتورة.");
+          setHoldCartError(msg);
+        },
+      },
+    );
+  };
+
+  const executeResume = (hc: HeldCart, payload: HeldCartPayload) => {
+    setCart(
+      payload.cart.map((l) => ({
+        ...l,
+        key: l.key || crypto.randomUUID(),
+      })),
+    );
+    setBuyerMode(payload.buyer_mode ?? (payload.buyer_unit_id ? "internal" : "client"));
+    setClientId(payload.client_id ?? null);
+    setBuyerUnitId(payload.buyer_unit_id ?? null);
+    setMethod(payload.payment_method ?? "cash");
+    setCashAccountId(payload.cash_account_id ?? null);
+    setNotes(payload.notes ?? null);
+    setRequestId(newRequestId());
+    setError(null);
+    if (loadedQuotation) {
+      onQuotationDone();
+    }
+
+    deleteHeldCart.mutate(hc.id, {
+      onError: (err) => {
+        toast.warning(apiErrorMessage(err, "تعذر حذف الفاتورة المعلقة من الخادم بعد استئنافها."));
+      },
+    });
+
+    setIsHeldCartsDialogOpen(false);
+    setResumeConfirmCart(null);
+    toast.success("تم استئناف الفاتورة بنجاح");
+  };
+
+  const handleResumeClick = (hc: HeldCart) => {
+    const parsed = parseHeldCartPayload(hc.payload);
+    if (!parsed || parsed.version !== 1) {
+      toast.error("تعذر استئناف هذه الفاتورة");
+      return;
+    }
+
+    if (cart.length > 0) {
+      setResumeConfirmCart(hc);
+    } else {
+      executeResume(hc, parsed);
+    }
+  };
+
+  const handleDeleteHeldCart = () => {
+    if (!deletingCartId) return;
+    deleteHeldCart.mutate(deletingCartId, {
+      onSuccess: () => {
+        setDeletingCartId(null);
+        toast.success("تم حذف الفاتورة المعلقة");
+      },
+      onError: (err) => {
+        toast.error(apiErrorMessage(err, "تعذر حذف الفاتورة المعلقة."));
+      },
+    });
   };
 
   const linesValid =
@@ -422,6 +580,25 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
 
   return (
     <div className="space-y-5">
+      <div className="flex items-center justify-between pb-1">
+        <h2 className="text-sm font-bold text-app-label-primary">فاتورة نقطة البيع</h2>
+        <button
+          type="button"
+          onClick={() => setIsHeldCartsDialogOpen(true)}
+          className="flex items-center gap-2 rounded-xl border border-app-separator bg-app-bg-primary px-3.5 py-1.5 text-xs font-bold text-app-label-primary hover:bg-app-fill-f1 transition-colors shadow-sm"
+        >
+          <Clock className="h-4 w-4 text-app-accent" />
+          <span>الفواتير المعلقة</span>
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-mono font-bold ${
+              heldCarts.length > 0 ? "bg-app-accent text-white" : "bg-app-bg-secondary text-app-label-secondary"
+            }`}
+          >
+            {heldCarts.length}
+          </span>
+        </button>
+      </div>
+
       {loadedQuotation && (
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-app-accent/40 bg-app-accent/10 p-3 text-xs">
           <span className="flex items-center gap-2 font-semibold text-app-accent">
@@ -785,6 +962,21 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
               {createQuotation.isPending ? "جارٍ الحفظ…" : "حفظ كعرض سعر"}
             </button>
           )}
+          {!loadedQuotation && (
+            <button
+              type="button"
+              onClick={() => {
+                setHoldCartError(null);
+                setHoldCartLabel("");
+                setIsHoldDialogOpen(true);
+              }}
+              disabled={cart.length === 0 || isBusy || holdCart.isPending}
+              className="flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-primary px-4 py-3 text-xs font-bold text-app-label-primary hover:bg-app-fill-f1 disabled:opacity-40"
+            >
+              <Clock className="h-4 w-4 text-app-accent" />
+              <span>تعليق الفاتورة</span>
+            </button>
+          )}
         </div>
       </section>
 
@@ -824,6 +1016,199 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
         onConfirm={executeSplitCheckout}
       />
       <QuotationPrintDialog quotationId={printQuotationId} onClose={() => setPrintQuotationId(null)} />
+
+      {/* Hold Cart Dialog */}
+      <Dialog open={isHoldDialogOpen} onOpenChange={setIsHoldDialogOpen}>
+        <DialogContent size="sm">
+          <DialogHeader>
+            <DialogTitle>تعليق الفاتورة</DialogTitle>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody>
+            <div className="space-y-3">
+              <p className="text-xs text-app-label-secondary">
+                حفظ هذه الفاتورة لاستئنافها لاحقاً وتفريغ الشاشة لمعاملة أخرى.
+              </p>
+              {holdCartError && (
+                <div className="flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{holdCartError}</span>
+                </div>
+              )}
+              <div className="space-y-1">
+                <label htmlFor="held-cart-label-input" className="block text-xs font-semibold text-app-label-primary">
+                  تسمية الفاتورة (اختياري)
+                </label>
+                <input
+                  id="held-cart-label-input"
+                  type="text"
+                  value={holdCartLabel}
+                  onChange={(e) => setHoldCartLabel(e.target.value)}
+                  placeholder="مثال: زبون المعرض — أريكة زرقاء"
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleHoldCart();
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setIsHoldDialogOpen(false)}
+              disabled={holdCart.isPending}
+              className="rounded-xl border border-app-separator bg-app-bg-primary px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
+            >
+              إلغاء
+            </button>
+            <button
+              type="button"
+              onClick={handleHoldCart}
+              disabled={holdCart.isPending}
+              className="flex items-center gap-1.5 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+            >
+              {holdCart.isPending ? "جارٍ الحفظ…" : "تعليق"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Held Carts Listing Dialog */}
+      <Dialog open={isHeldCartsDialogOpen} onOpenChange={setIsHeldCartsDialogOpen}>
+        <DialogContent size="2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-app-accent" />
+              <DialogTitle>الفواتير المعلقة</DialogTitle>
+              <span className="rounded-full bg-app-accent/15 px-2 py-0.5 text-xs font-mono font-bold text-app-accent">
+                {heldCarts.length}
+              </span>
+            </div>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody className="p-0">
+            {heldCarts.length === 0 ? (
+              <div className="py-12 text-center text-xs text-app-label-secondary space-y-1">
+                <Clock className="w-8 h-8 text-app-label-secondary/40 mx-auto mb-2" />
+                <p className="font-semibold text-app-label-primary">لا توجد فواتير معلقة</p>
+                <p className="text-[11px]">يمكنك تعليق أي فاتورة مفتوحة للرجوع إليها لاحقاً.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-app-separator max-h-[60vh] overflow-y-auto">
+                {heldCarts.map((hc) => {
+                  const parsed = parseHeldCartPayload(hc.payload);
+                  const isValid = parsed !== null;
+                  const labelText = hc.label?.trim() ? hc.label : "بدون اسم";
+                  const clientName =
+                    hc.client?.name ?? (parsed?.buyer_mode === "internal" ? "تحويل داخلي" : "زبون عام");
+                  const timeAgo = formatTimeAgo(hc.created_at);
+
+                  return (
+                    <div
+                      key={hc.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 hover:bg-app-fill-f1/50 transition-colors"
+                    >
+                      <div className="space-y-1 flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-app-label-primary truncate">{labelText}</span>
+                          {!isValid && (
+                            <span className="rounded-md bg-app-status-danger/10 px-1.5 py-0.5 text-[10px] font-semibold text-app-status-danger">
+                              تعذر استئناف هذه الفاتورة
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-app-label-secondary">
+                          <span>{clientName}</span>
+                          <span>·</span>
+                          <span>
+                            {hc.line_count} {hc.line_count === 1 ? "بند" : "بنود"}
+                          </span>
+                          <span>·</span>
+                          <span className="font-mono font-bold text-app-label-primary">
+                            {formatNumber(hc.total)} د.ل
+                          </span>
+                          <span>·</span>
+                          <span>عُلّقت بواسطة: {hc.user?.name || "—"}</span>
+                          <span>·</span>
+                          <span className="text-app-label-tertiary">{timeAgo}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleResumeClick(hc)}
+                          disabled={deleteHeldCart.isPending}
+                          className="flex items-center gap-1 rounded-xl bg-app-accent px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-40"
+                        >
+                          <Play className="h-3.5 w-3.5" />
+                          <span>استئناف</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeletingCartId(hc.id)}
+                          disabled={deleteHeldCart.isPending}
+                          className="p-1.5 rounded-xl border border-app-separator text-app-label-secondary hover:text-app-status-danger hover:bg-app-status-danger/10 transition-colors"
+                          title="حذف"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setIsHeldCartsDialogOpen(false)}
+              className="rounded-xl border border-app-separator bg-app-bg-primary px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1"
+            >
+              إلغاء
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm Resume Dialog */}
+      <ConfirmDialog
+        isOpen={resumeConfirmCart !== null}
+        onClose={() => setResumeConfirmCart(null)}
+        onConfirm={() => {
+          if (resumeConfirmCart) {
+            const parsed = parseHeldCartPayload(resumeConfirmCart.payload);
+            if (parsed) {
+              executeResume(resumeConfirmCart, parsed);
+            }
+          }
+        }}
+        title="استئناف الفاتورة المعلقة"
+        message="سيتم استبدال الفاتورة الحالية."
+        confirmText="استئناف واستبدال"
+        cancelText="إلغاء"
+        variant="warning"
+        isLoading={deleteHeldCart.isPending}
+      />
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        isOpen={deletingCartId !== null}
+        onClose={() => setDeletingCartId(null)}
+        onConfirm={handleDeleteHeldCart}
+        title="حذف الفاتورة المعلقة"
+        message="هل أنت متأكد من حذف هذه الفاتورة المعلقة؟"
+        confirmText="حذف"
+        cancelText="إلغاء"
+        variant="danger"
+        isLoading={deleteHeldCart.isPending}
+      />
     </div>
   );
 };

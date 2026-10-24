@@ -169,6 +169,7 @@ export const LEDGER_ERROR_MESSAGE: Record<string, string> = {
   CHEQUE_FORBIDDEN: "ليست لديك صلاحية إدارة الشيكات.",
   TENDER_BELOW_TOTAL: "المبلغ المستلم أقل من إجمالي الفاتورة.",
   SPLIT_TOTAL_MISMATCH: "مجموع الدفعات لا يساوي إجمالي الفاتورة.",
+  SPLIT_PORTIONS_INVALID: "الدفع المجزأ يتطلب من دفعتين إلى أربع دفعات.",
   SPLIT_MULTIPLE_CASH: "يُسمح بدفعة نقدية واحدة فقط.",
   SPLIT_NOT_ALLOWED: "لا يمكن تجزئة الدفع في التحويل الداخلي.",
   CASH_ACCOUNT_REQUIRED: "اختر خزينة الدرج التي تُغلق يومها.",
