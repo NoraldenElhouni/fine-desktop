@@ -5,7 +5,9 @@ export type ChequeStatus =
   | "deposited"
   | "cleared"
   | "bounced"
-  | "returned";
+  | "returned"
+  | "issued"
+  | "cancelled";
 
 export interface ChequeEvent {
   id: string;
@@ -35,6 +37,15 @@ export interface Cheque {
     id: string;
     name: string;
   } | null;
+  supplier?: {
+    id: string;
+    name: string;
+  } | null;
+  payee_name?: string | null;
+  counter_account?: {
+    code: string;
+    name: string;
+  } | null;
   amount: number;
   currency: string;
   issue_date?: string | null;
@@ -49,6 +60,7 @@ export interface Cheque {
   } | null;
   notes?: string | null;
   bounce_reason?: string | null;
+  cancel_reason?: string | null;
   days_to_due: number;
   created_by: {
     id: string;
@@ -88,6 +100,7 @@ export interface ChequeFilters {
   direction?: "incoming" | "outgoing";
   status?: ChequeStatus | "";
   client_id?: string;
+  supplier_id?: string;
   due_from?: string;
   due_to?: string;
   search?: string;
@@ -105,6 +118,19 @@ export interface ReceiveChequePayload {
   issue_date?: string;
   received_date?: string;
   is_certified?: boolean;
+  notes?: string;
+  operating_unit_id?: string;
+}
+
+export interface IssueChequePayload {
+  cash_account_id: string;
+  cheque_no: string;
+  amount: number;
+  due_date: string;
+  issue_date?: string;
+  supplier_id?: string;
+  counter_account_code?: string;
+  payee_name?: string;
   notes?: string;
   operating_unit_id?: string;
 }
@@ -129,6 +155,10 @@ export interface ReturnChequePayload {
   note?: string;
 }
 
+export interface CancelChequePayload {
+  reason: string;
+}
+
 export const chequesApi = {
   getCheques: async (params?: ChequeFilters): Promise<PaginatedCheques> => {
     const res = await apiClient.get<PaginatedCheques>("/cheques", {
@@ -136,8 +166,10 @@ export const chequesApi = {
     });
     return res.data;
   },
-  getSummary: async (): Promise<ChequeSummary> => {
-    const res = await apiClient.get<{ data: ChequeSummary }>("/cheques/summary");
+  getSummary: async (direction: "incoming" | "outgoing" = "incoming"): Promise<ChequeSummary> => {
+    const res = await apiClient.get<{ data: ChequeSummary }>("/cheques/summary", {
+      params: { direction },
+    });
     return res.data.data;
   },
   getCheque: async (id: string): Promise<Cheque> => {
@@ -148,12 +180,16 @@ export const chequesApi = {
     const res = await apiClient.post<{ data: Cheque }>("/cheques", payload);
     return res.data.data;
   },
+  issueCheque: async (payload: IssueChequePayload): Promise<Cheque> => {
+    const res = await apiClient.post<{ data: Cheque }>("/cheques/issue", payload);
+    return res.data.data;
+  },
   depositCheque: async (id: string, payload: DepositChequePayload): Promise<Cheque> => {
     const res = await apiClient.post<{ data: Cheque }>(`/cheques/${id}/deposit`, payload);
     return res.data.data;
   },
-  clearCheque: async (id: string, payload: ClearChequePayload): Promise<Cheque> => {
-    const res = await apiClient.post<{ data: Cheque }>(`/cheques/${id}/clear`, payload);
+  clearCheque: async (id: string, payload?: ClearChequePayload): Promise<Cheque> => {
+    const res = await apiClient.post<{ data: Cheque }>(`/cheques/${id}/clear`, payload ?? {});
     return res.data.data;
   },
   bounceCheque: async (id: string, payload: BounceChequePayload): Promise<Cheque> => {
@@ -164,13 +200,19 @@ export const chequesApi = {
     const res = await apiClient.post<{ data: Cheque }>(`/cheques/${id}/return`, payload);
     return res.data.data;
   },
+  cancelCheque: async (id: string, payload: CancelChequePayload): Promise<Cheque> => {
+    const res = await apiClient.post<{ data: Cheque }>(`/cheques/${id}/cancel`, payload);
+    return res.data.data;
+  },
 };
 
 export const getCheques = chequesApi.getCheques;
 export const getChequeSummary = chequesApi.getSummary;
 export const getCheque = chequesApi.getCheque;
 export const receiveCheque = chequesApi.receiveCheque;
+export const issueCheque = chequesApi.issueCheque;
 export const depositCheque = chequesApi.depositCheque;
 export const clearCheque = chequesApi.clearCheque;
 export const bounceCheque = chequesApi.bounceCheque;
 export const returnCheque = chequesApi.returnCheque;
+export const cancelCheque = chequesApi.cancelCheque;

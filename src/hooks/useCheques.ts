@@ -4,16 +4,20 @@ import {
   getChequeSummary,
   getCheque,
   receiveCheque,
+  issueCheque,
   depositCheque,
   clearCheque,
   bounceCheque,
   returnCheque,
+  cancelCheque,
   type ChequeFilters,
   type ReceiveChequePayload,
+  type IssueChequePayload,
   type DepositChequePayload,
   type ClearChequePayload,
   type BounceChequePayload,
   type ReturnChequePayload,
+  type CancelChequePayload,
 } from "../api/endpoints/cheques";
 
 const ACCOUNTING_QUERY_KEYS = [
@@ -41,6 +45,7 @@ function invalidateChequeQueries(qc: ReturnType<typeof useQueryClient>, chequeId
     qc.invalidateQueries({ queryKey: [key] });
   }
   qc.invalidateQueries({ queryKey: ["clients"] });
+  qc.invalidateQueries({ queryKey: ["suppliers"] });
 }
 
 export function useCheques(filters?: ChequeFilters) {
@@ -50,10 +55,10 @@ export function useCheques(filters?: ChequeFilters) {
   });
 }
 
-export function useChequeSummary() {
+export function useChequeSummary(direction: "incoming" | "outgoing" = "incoming") {
   return useQuery({
-    queryKey: ["chequeSummary"],
-    queryFn: () => getChequeSummary(),
+    queryKey: ["chequeSummary", direction],
+    queryFn: () => getChequeSummary(direction),
   });
 }
 
@@ -75,6 +80,16 @@ export function useReceiveCheque() {
   });
 }
 
+export function useIssueCheque() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: IssueChequePayload) => issueCheque(payload),
+    onSuccess: (data) => {
+      invalidateChequeQueries(qc, data.id);
+    },
+  });
+}
+
 export function useDepositCheque() {
   const qc = useQueryClient();
   return useMutation({
@@ -89,7 +104,7 @@ export function useDepositCheque() {
 export function useClearCheque() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: ClearChequePayload }) =>
+    mutationFn: ({ id, payload }: { id: string; payload?: ClearChequePayload }) =>
       clearCheque(id, payload),
     onSuccess: (data, vars) => {
       invalidateChequeQueries(qc, vars.id);
@@ -113,6 +128,17 @@ export function useReturnCheque() {
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: ReturnChequePayload }) =>
       returnCheque(id, payload),
+    onSuccess: (data, vars) => {
+      invalidateChequeQueries(qc, vars.id);
+    },
+  });
+}
+
+export function useCancelCheque() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: CancelChequePayload }) =>
+      cancelCheque(id, payload),
     onSuccess: (data, vars) => {
       invalidateChequeQueries(qc, vars.id);
     },

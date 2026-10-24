@@ -14,12 +14,13 @@ import {
   useClearCheque,
   useBounceCheque,
   useReturnCheque,
+  useCancelCheque,
 } from "../../hooks/useCheques";
 import { formatNumber, localDateIso } from "../../lib/utils/format";
 import { apiErrorMessage } from "../../api/endpoints/production";
 import type { Cheque } from "../../api/endpoints/cheques";
 
-export type ChequeActionType = "deposit" | "clear" | "bounce" | "return";
+export type ChequeActionType = "deposit" | "clear" | "bounce" | "return" | "cancel";
 
 export interface ChequeActionDialogProps {
   open: boolean;
@@ -47,6 +48,7 @@ export const ChequeActionDialog: React.FC<ChequeActionDialogProps> = ({
   const clearMutation = useClearCheque();
   const bounceMutation = useBounceCheque();
   const returnMutation = useReturnCheque();
+  const cancelMutation = useCancelCheque();
 
   useEffect(() => {
     if (open) {
@@ -60,10 +62,11 @@ export const ChequeActionDialog: React.FC<ChequeActionDialogProps> = ({
 
   if (!cheque || !action) return null;
 
+  const isOutgoing = cheque.direction === "outgoing";
   const isBounced = cheque.status === "bounced";
   const isInPortfolio = cheque.status === "in_portfolio";
-  const isDirectClear = action === "clear" && isInPortfolio;
-  const needsBankSelect = action === "deposit" || isDirectClear;
+  const isDirectClear = !isOutgoing && action === "clear" && isInPortfolio;
+  const needsBankSelect = !isOutgoing && (action === "deposit" || isDirectClear);
 
   let title = "";
   let explanation = "";
@@ -79,11 +82,17 @@ export const ChequeActionDialog: React.FC<ChequeActionDialogProps> = ({
       submitLabel = isBounced ? "تأكيد إعادة الإيداع" : "تأكيد الإيداع";
       break;
     case "clear":
-      title = isDirectClear ? "تحصيل مباشر للشيك المصدق" : "تحصيل الشيك";
-      explanation = isDirectClear
-        ? "يُحصّل الشيك المصدق مباشرة من الحافظة ويودع في الحساب المصرفي."
-        : "يُحصّل الشيك ويودع المبلغ في الحساب المصرفي مع تسوية الشيكات برسم التحصيل.";
-      submitLabel = "تأكيد التحصيل";
+      if (isOutgoing) {
+        title = "صرف الشيك من المصرف";
+        explanation = "يُصرف الشيك من المصرف المسحوب عليه.";
+        submitLabel = "تأكيد الصرف";
+      } else {
+        title = isDirectClear ? "تحصيل مباشر للشيك المصدق" : "تحصيل الشيك";
+        explanation = isDirectClear
+          ? "يُحصّل الشيك المصدق مباشرة من الحافظة ويودع في الحساب المصرفي."
+          : "يُحصّل الشيك ويودع المبلغ في الحساب المصرفي مع تسوية الشيكات برسم التحصيل.";
+        submitLabel = "تأكيد التحصيل";
+      }
       break;
     case "bounce":
       title = "تسجيل ارتداد الشيك";
@@ -99,13 +108,20 @@ export const ChequeActionDialog: React.FC<ChequeActionDialogProps> = ({
       submitLabel = "تأكيد الإعادة";
       isDanger = true;
       break;
+    case "cancel":
+      title = "إلغاء الشيك الصادر";
+      explanation = "سيُعكس قيد إصدار الشيك.";
+      submitLabel = "تأكيد الإلغاء";
+      isDanger = true;
+      break;
   }
 
   const isSubmitting =
     depositMutation.isPending ||
     clearMutation.isPending ||
     bounceMutation.isPending ||
-    returnMutation.isPending;
+    returnMutation.isPending ||
+    cancelMutation.isPending;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,6 +134,11 @@ export const ChequeActionDialog: React.FC<ChequeActionDialogProps> = ({
 
     if (action === "bounce" && !reason.trim()) {
       setError("يرجى كتابة سبب ارتداد الشيك.");
+      return;
+    }
+
+    if (action === "cancel" && !reason.trim()) {
+      setError("يرجى كتابة سبب إلغاء الشيك.");
       return;
     }
 
@@ -149,7 +170,12 @@ export const ChequeActionDialog: React.FC<ChequeActionDialogProps> = ({
             onSuccess?.(updated);
           },
           onError: (err) => {
-            setError(apiErrorMessage(err, "تعذر تحصيل الشيك."));
+            setError(
+              apiErrorMessage(
+                err,
+                isOutgoing ? "تعذر صرف الشيك." : "تعذر تحصيل الشيك.",
+              ),
+            );
           },
         },
       );
@@ -176,6 +202,19 @@ export const ChequeActionDialog: React.FC<ChequeActionDialogProps> = ({
           },
           onError: (err) => {
             setError(apiErrorMessage(err, "تعذر إعادة الشيك."));
+          },
+        },
+      );
+    } else if (action === "cancel") {
+      cancelMutation.mutate(
+        { id: cheque.id, payload: { reason: reason.trim() } },
+        {
+          onSuccess: (updated) => {
+            onClose();
+            onSuccess?.(updated);
+          },
+          onError: (err) => {
+            setError(apiErrorMessage(err, "تعذر إلغاء الشيك."));
           },
         },
       );
@@ -207,21 +246,40 @@ export const ChequeActionDialog: React.FC<ChequeActionDialogProps> = ({
                   {cheque.number} ({cheque.cheque_no})
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-app-label-secondary">العميل:</span>
-                <span className="font-semibold text-app-label-primary">
-                  {cheque.client?.name ?? "—"}
-                </span>
-              </div>
+              {isOutgoing ? (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-app-label-secondary">المستفيد:</span>
+                    <span className="font-semibold text-app-label-primary">
+                      {cheque.supplier?.name || cheque.payee_name || "—"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-app-label-secondary">المصرف المسحوب عليه:</span>
+                    <span className="text-app-label-primary">
+                      {cheque.deposit_cash_account?.name || cheque.bank_name || "—"}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-app-label-secondary">العميل:</span>
+                    <span className="font-semibold text-app-label-primary">
+                      {cheque.client?.name ?? "—"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-app-label-secondary">المصرف:</span>
+                    <span className="text-app-label-secondary">{cheque.bank_name}</span>
+                  </div>
+                </>
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-app-label-secondary">المبلغ:</span>
-                <span className="font-mono font-bold text-app-label-primary">
+                <span className="font-mono font-bold text-app-label-primary whitespace-nowrap">
                   {formatNumber(cheque.amount)} {cheque.currency}
                 </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-app-label-secondary">المصرف:</span>
-                <span className="text-app-label-secondary">{cheque.bank_name}</span>
               </div>
             </div>
 
@@ -236,22 +294,24 @@ export const ChequeActionDialog: React.FC<ChequeActionDialogProps> = ({
               </div>
             )}
 
-            {/* Date Input */}
-            <div>
-              <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                تاريخ الإجراء <span className="text-app-status-danger">*</span>
-              </label>
-              <input
-                type="date"
-                required
-                max={today}
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
-              />
-            </div>
+            {/* Date Input (for non-cancel actions) */}
+            {action !== "cancel" && (
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                  تاريخ الإجراء <span className="text-app-status-danger">*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  max={today}
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
+                />
+              </div>
+            )}
 
-            {/* Bank Select (Bank Treasuries Only) */}
+            {/* Bank Select (Bank Treasuries Only - for incoming deposit / direct clear) */}
             {needsBankSelect && (
               <TreasurySelect
                 value={cashAccountId}
@@ -274,6 +334,23 @@ export const ChequeActionDialog: React.FC<ChequeActionDialogProps> = ({
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   placeholder="سبب ارتداد الشيك (مثال: عدم كفاية الرصيد، توقيع غير مطابق…)"
+                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
+                />
+              </div>
+            )}
+
+            {/* Reason for Cancel */}
+            {action === "cancel" && (
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                  سبب الإلغاء <span className="text-app-status-danger">*</span>
+                </label>
+                <textarea
+                  required
+                  rows={2}
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="سبب إلغاء الشيك الصادر (مطلوب)…"
                   className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
                 />
               </div>
