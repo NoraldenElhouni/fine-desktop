@@ -125,6 +125,11 @@ export const TreasuryVoucherDialog: React.FC<TreasuryVoucherDialogProps> = ({
       return;
     }
 
+    if (isCompanyWide && !operatingUnitId) {
+      setError("يرجى اختيار الوحدة التشغيلية.");
+      return;
+    }
+
     const payload: CreateTreasuryVoucherPayload = {
       kind,
       cash_account_id: cashAccountId,
@@ -423,14 +428,14 @@ export const TreasuryVoucherDialog: React.FC<TreasuryVoucherDialogProps> = ({
             {isCompanyWide && (
               <div>
                 <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                  الوحدة التشغيلية
+                  الوحدة التشغيلية <span className="text-app-status-danger">*</span>
                 </label>
                 <select
                   value={operatingUnitId}
                   onChange={(e) => setOperatingUnitId(e.target.value)}
                   className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
                 >
-                  <option value="">على مستوى الشركة / تلقائي</option>
+                  <option value="">اختر الوحدة…</option>
                   {units.map((u) => (
                     <option key={u.id} value={u.id}>
                       {u.name}

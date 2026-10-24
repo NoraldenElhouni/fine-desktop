@@ -127,7 +127,7 @@ export const TreasuryVouchersPage: React.FC = () => {
         header: "الرقم",
         accessorKey: "voucher_number",
         cell: ({ row }) => (
-          <span className="font-mono font-bold text-app-label-primary">
+          <span className="whitespace-nowrap font-mono font-bold text-app-label-primary">
             {row.original.voucher_number}
           </span>
         ),
@@ -261,7 +261,7 @@ export const TreasuryVouchersPage: React.FC = () => {
           const v = row.original;
           return (
             <div className="font-mono text-xs">
-              <span className="text-app-label-secondary">
+              <span className="whitespace-nowrap text-app-label-secondary">
                 {v.journal_entry?.reference ?? "—"}
               </span>
               {v.cancel_entry && (

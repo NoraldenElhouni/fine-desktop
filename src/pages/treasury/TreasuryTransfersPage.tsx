@@ -250,7 +250,7 @@ export const TreasuryTransfersPage: React.FC = () => {
         header: "الرقم",
         accessorKey: "transfer_number",
         cell: ({ row }) => (
-          <span className="font-mono font-bold text-app-label-primary">
+          <span className="whitespace-nowrap font-mono font-bold text-app-label-primary">
             {row.original.transfer_number}
           </span>
         ),
@@ -367,7 +367,7 @@ export const TreasuryTransfersPage: React.FC = () => {
         id: "journal_entry",
         header: "القيد",
         cell: ({ row }) => (
-          <span className="font-mono text-xs text-app-label-secondary">
+          <span className="whitespace-nowrap font-mono text-xs text-app-label-secondary">
             {row.original.journal_entry?.reference ?? "—"}
           </span>
         ),
