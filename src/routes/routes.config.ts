@@ -34,6 +34,7 @@ import {
   Wallet,
   CalendarClock,
   ArrowLeftRight,
+  ListChecks,
 } from "lucide-react";
 
 export interface AppNavItem {
@@ -135,6 +136,7 @@ export const navItems: AppNavItem[] = [
   { id: "treasury", path: "/treasury", label: "الخزينة وسعر الصرف", icon: Wallet, allowedRoles: ALL_MANAGER_ROLES, permission: "view-treasury" },
   { id: "treasury-vouchers", path: "/treasury/vouchers", label: "سندات القبض والصرف", icon: Receipt, allowedRoles: ALL_MANAGER_ROLES, permission: "view-treasury" },
   { id: "treasury-transfers", path: "/treasury/transfers", label: "التحويلات بين الخزائن", icon: ArrowLeftRight, allowedRoles: ALL_MANAGER_ROLES, permission: "view-treasury" },
+  { id: "bank-reconciliation", path: "/treasury/reconciliation", label: "التسوية المصرفية", icon: ListChecks, allowedRoles: ALL_MANAGER_ROLES, permission: "view-treasury" },
   { id: "employees", path: "/employees", label: "الموظفون والعمالة", icon: UserCheck, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"], permission: "view-hr" },
   { id: "clients", path: "/clients", label: "العملاء", icon: Users, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "accounting-manager", "unit_manager", "manager"], permission: "view-clients" },
   { id: "inventory", path: "/inventory/ledger", label: "المخزون والقطع", icon: Boxes, allowedRoles: ["owner", "admin", "inventory-manager", "foam-manager", "foam-operator", "cutter-manager", "cutter-operator", "furniture-manager", "assembler", "store-manager", "unit_manager", "manager"], permission: "view-inventory" },

@@ -44,6 +44,7 @@ import { PurchaseOrdersPage } from "./procurement/PurchaseOrdersPage";
 import { TreasuryPage } from "./treasury/TreasuryPage";
 import { TreasuryVouchersPage } from "./treasury/TreasuryVouchersPage";
 import { TreasuryTransfersPage } from "./treasury/TreasuryTransfersPage";
+import { BankReconciliationPage } from "./treasury/BankReconciliationPage";
 import { Dashboard } from "./Dashboard";
 
 /**
@@ -190,6 +191,14 @@ const App = () => {
               element={
                 <AuthorizedRoute allowedRoles={ALL_MANAGER_ROLES}>
                   <TreasuryTransfersPage />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="treasury/reconciliation"
+              element={
+                <AuthorizedRoute allowedRoles={ALL_MANAGER_ROLES}>
+                  <BankReconciliationPage />
                 </AuthorizedRoute>
               }
             />

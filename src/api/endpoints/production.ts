@@ -149,6 +149,14 @@ export const LEDGER_ERROR_MESSAGE: Record<string, string> = {
   TRANSFER_NOT_PENDING: "التحويل ليس بانتظار الاعتماد.",
   TRANSFER_APPROVAL_FORBIDDEN: "ليست لديك صلاحية اعتماد التحويلات.",
   FX_RATE_REQUIRED: "سعر الصرف مطلوب للعملات الأجنبية.",
+  RECONCILIATION_NOT_BANK: "التسوية المصرفية متاحة لحسابات المصارف فقط.",
+  RECONCILIATION_DRAFT_EXISTS: "توجد تسوية مفتوحة لهذا الحساب — أكملها أو احذفها أولاً.",
+  RECONCILIATION_DATE_BEFORE_LAST: "تاريخ الكشف يجب أن يكون بعد آخر تسوية منتهية.",
+  RECONCILIATION_FINISHED: "التسوية منتهية ولا يمكن تعديلها.",
+  RECONCILIATION_NOT_BALANCED: "لا يمكن إنهاء التسوية قبل أن يصبح الفرق صفراً.",
+  LINE_NOT_RECONCILABLE: "هذا القيد لا يخص حساب المصرف أو تاريخه بعد تاريخ الكشف.",
+  LINE_ALREADY_RECONCILED: "هذا القيد مُسوّى في تسوية أخرى.",
+  RECONCILIATION_FORBIDDEN: "ليست لديك صلاحية التسوية المصرفية.",
 };
 
 /** The Arabic message for a known refusal code, else the server's message, else the fallback. */
