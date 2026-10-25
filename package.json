@@ -15,12 +15,12 @@
   },
   "keywords": [],
   "author": {
-    "name": "NoraldenElhouni",
-    "email": "noralden.honi@gmail.com"
+    "name": "engroup-dev",
+    "email": "it@engroup.ly"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/NoraldenElhouni/fine-desktop.git"
+    "url": "https://github.com/engroup-dev/fine-erp.git"
   },
   "license": "MIT",
   "devDependencies": {

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Electron 43 + React 19 + TypeScript desktop client ("fine-desktop") for **Fine** — a five-unit foam-to-furniture manufacturer (Procurement/Treasury, Foam, Cutter, Furniture, Store/Showroom). UI copy is Arabic, RTL-first. All ten implementation phases are built (see `../HANDOFF.md` for the authoritative status; the backend lives in the sibling `fine_backend` repo, on a **different GitHub account** — engroup-dev org vs NoraldenElhouni).
+Electron 43 + React 19 + TypeScript desktop client ("fine-desktop") for **Fine** — a five-unit foam-to-furniture manufacturer (Procurement/Treasury, Foam, Cutter, Furniture, Store/Showroom). UI copy is Arabic, RTL-first. All ten implementation phases are built (see `../HANDOFF.md` for the authoritative status; the backend lives in the sibling `fine_backend` repo, `engroup-dev/fine_backend`; both repos are in the engroup-dev GitHub org).
 
 **Architecture is online-only.** The offline-first local SQLite / outbox / sync design was removed on 2026-08-04. There is no local database, no sync loop, and no `/api/sync/*` anything. Every read and write goes to the Laravel API at `/api/v1` over HTTPS. If you find documentation or a branch describing Drizzle, outbox tables, or a 3-tier sync guide, it is dead history.
 
