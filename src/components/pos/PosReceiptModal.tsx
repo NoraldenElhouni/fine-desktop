@@ -19,6 +19,16 @@ export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({ isOpen, sale, 
   }
 
   const totalAmount = Number(sale.total_amount || 0);
+  const saleLines = sale.lines ?? [];
+  const hasLineDiscount = saleLines.some((l) => Number(l.discount_amount || 0) > 0);
+  const lineDiscountsSum = saleLines.reduce((s, l) => s + Number(l.discount_amount || 0), 0);
+  const invoiceDiscount = Number(sale.invoice_discount || 0);
+  const totalDiscount = lineDiscountsSum + invoiceDiscount;
+  const grossAmount =
+    sale.gross_amount !== undefined && sale.gross_amount !== null
+      ? Number(sale.gross_amount)
+      : totalAmount + totalDiscount;
+  const hasAnyDiscount = totalDiscount > 0;
   const isCash = sale.payment_method === "cash";
   const cashPayment = sale.payments?.find((p) => p.method === "cash");
   const hasSavedTender =
@@ -103,13 +113,16 @@ export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({ isOpen, sale, 
 
             <div className="space-y-2 border-b border-dashed border-gray-300 pb-3">
               <div className="flex justify-between font-bold text-[11px] border-b border-gray-200 pb-1">
-                <span>الصنف</span>
-                <span className="text-end">الكمية × السعر</span>
+                <span className="flex-1">الصنف</span>
+                <span className="text-end pe-3">الكمية × السعر</span>
+                {hasLineDiscount && <span className="text-end pe-3">الخصم</span>}
                 <span className="text-end">الإجمالي</span>
               </div>
-              {sale.lines?.map((line) => {
+              {saleLines.map((line) => {
                 const qty = Number(line.quantity || 1);
                 const price = Number(line.unit_price || 0);
+                const lineDiscount = Number(line.discount_amount || 0);
+                const lineNet = qty * price - lineDiscount;
                 const size = formatSizeCm(line.length_m, line.width_m, line.height_m);
                 return (
                   <div key={line.id} className="flex justify-between items-center text-[11px]">
@@ -125,8 +138,13 @@ export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({ isOpen, sale, 
                     <div className="text-end pe-3 text-gray-700 whitespace-nowrap">
                       {formatNumber(qty)} × {formatNumber(price)}
                     </div>
+                    {hasLineDiscount && (
+                      <div className="text-end pe-3 text-gray-700 whitespace-nowrap">
+                        {lineDiscount > 0 ? `-${formatNumber(lineDiscount)}` : "—"}
+                      </div>
+                    )}
                     <div className="text-end font-bold text-gray-900 whitespace-nowrap">
-                      {formatNumber(qty * price)} د.ل
+                      {formatNumber(lineNet)} د.ل
                     </div>
                   </div>
                 );
@@ -134,10 +152,27 @@ export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({ isOpen, sale, 
             </div>
 
             <div className="space-y-1.5 text-xs border-b border-dashed border-gray-300 pb-3">
-              <div className="flex justify-between font-bold text-sm">
-                <span>المجموع الإجمالي:</span>
-                <span>{formatNumber(totalAmount)} د.ل</span>
-              </div>
+              {hasAnyDiscount ? (
+                <>
+                  <div className="flex justify-between text-gray-700 text-[11px]">
+                    <span>المجموع:</span>
+                    <span>{formatNumber(grossAmount)} د.ل</span>
+                  </div>
+                  <div className="flex justify-between text-gray-700 text-[11px]">
+                    <span>الخصم:</span>
+                    <span>-{formatNumber(totalDiscount)} د.ل</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-sm">
+                    <span>الصافي:</span>
+                    <span>{formatNumber(totalAmount)} د.ل</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between font-bold text-sm">
+                  <span>المجموع الإجمالي:</span>
+                  <span>{formatNumber(totalAmount)} د.ل</span>
+                </div>
+              )}
               {isCash && (
                 <>
                   <div className="flex justify-between text-gray-700 text-[11px]">

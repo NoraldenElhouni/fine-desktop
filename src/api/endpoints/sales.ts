@@ -42,6 +42,8 @@ export const SALES_ERROR_MESSAGE: Record<string, string> = {
   POS_DAY_ALREADY_CLOSED: "تم إقفال يومية الصندوق لهذا اليوم — لا يمكن تسجيل مبيعات أو تحصيلات جديدة حتى الغد.",
   HELD_CART_LIMIT: "وصلت إلى الحد الأقصى للفواتير المعلقة (30).",
   HELD_CART_TOO_LARGE: "الفاتورة أكبر من أن تُعلّق.",
+  DISCOUNT_INVALID: "قيمة الخصم غير صحيحة: لا يمكن أن يتجاوز الخصم قيمة البند أو مجموع الفاتورة.",
+  UNIT_DISCOUNT_NOT_LINKED: "لم يُربط حساب الخصم المسموح به لهذه الوحدة. راجع الحسابات.",
 };
 
 export const FULFILLMENT_LABEL: Record<FulfillmentStatus, string> = {
@@ -121,6 +123,7 @@ export interface SaleLine {
   width_m?: Money | null;
   height_m?: Money | null;
   unit_price: Money;
+  discount_amount?: number;
   unit_cost_actual: Money;
   inventory_item?: { id: string; name: string; code: string } | null;
   stock_lot?: { id: string; lot_number: string } | null;
@@ -166,6 +169,8 @@ export interface Sale {
   fulfillment_status?: FulfillmentStatus | null;
   payment_method?: PaymentMethod | "card" | null;
   cash_account_id?: string | null;
+  gross_amount?: Money;
+  invoice_discount?: Money;
   total_amount: Money;
   total_cost: Money;
   amount_paid: Money;
@@ -194,6 +199,7 @@ export interface CartLineInput {
   description?: string | null;
   quantity: number;
   unit_price: number;
+  discount_amount?: number;
   length_m?: number | null;
   width_m?: number | null;
   height_m?: number | null;
@@ -224,6 +230,7 @@ export interface CheckoutInput {
   payment_method?: PaymentMethod | null;
   cash_account_id?: string | null;
   notes?: string | null;
+  invoice_discount?: number;
   lines: CartLineInput[];
   tendered_amount?: number | null;
   payments?: SplitPaymentPortionInput[];
@@ -238,6 +245,7 @@ export interface InvoiceLine {
   width_m?: number | null;
   height_m?: number | null;
   unit_price: number;
+  discount_amount?: number;
   line_total: number;
   lot_number?: string | null;
 }
@@ -256,6 +264,8 @@ export interface Invoice {
   payment_method?: PaymentMethod | null;
   cash_account?: string | null;
   lines: InvoiceLine[];
+  gross_amount?: number;
+  invoice_discount?: number;
   total_amount: number;
   amount_paid: number;
   outstanding: number;
@@ -368,6 +378,7 @@ export interface QuotationLine {
   width_m?: Money | null;
   height_m?: Money | null;
   unit_price: Money;
+  discount_amount?: number;
   inventory_item?: { id: string; name: string; code: string } | null;
   bundle?: { id: string; name: string } | null;
 }
@@ -379,6 +390,8 @@ export interface Quotation {
   valid_until: string;
   status: Exclude<QuotationStatus, "expired">;
   effective_status: QuotationStatus;
+  gross_amount?: Money;
+  invoice_discount?: Money;
   total_amount: Money;
   converted_sales_order_id?: string | null;
   converted_sale?: { id: string; order_number: string } | null;
@@ -476,7 +489,7 @@ export const quotationsApi = {
   list: (params?: { status?: string; client_id?: string; search?: string; page?: number; per_page?: number }) =>
     apiClient.get<Paginated<Quotation>>("/quotations", { params }),
   get: (id: string) => apiClient.get<Quotation>(`/quotations/${id}`),
-  create: (data: { client_id: string; valid_until?: string | null; notes?: string | null; lines: CartLineInput[] }) =>
+  create: (data: { client_id: string; valid_until?: string | null; notes?: string | null; invoice_discount?: number; lines: CartLineInput[] }) =>
     apiClient.post<Quotation>("/quotations", data),
   cancel: (id: string) => apiClient.post<Quotation>(`/quotations/${id}/cancel`),
   convert: (id: string, data: Omit<CheckoutInput, "client_id" | "buyer_unit_id">) =>
@@ -538,6 +551,8 @@ export interface CartLine {
   qty: string;
   /** Unit price — editable; starts from the item's own price or the bundle's template. */
   price: string;
+  /** Line discount amount (whole-line money discount, empty = 0). */
+  discount: string;
   stockLotId?: string | null;
   stockLotLabel?: string | null;
   size?: { length_m: number; width_m: number; height_m: number } | null;
@@ -546,6 +561,7 @@ export interface CartLine {
 export interface HeldCartPayload {
   version: 1;
   cart: CartLine[];
+  invoiceDiscount?: string | null;
   client_id?: string | null;
   buyer_mode?: "client" | "internal" | "walk_in";
   buyer_unit_id?: string | null;

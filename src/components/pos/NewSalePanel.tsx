@@ -133,6 +133,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [cashAccountId, setCashAccountId] = useState<string | null>(null);
   const [cart, setCart] = useState<CartLine[]>([]);
+  const [invoiceDiscount, setInvoiceDiscount] = useState("");
   const [requestId, setRequestId] = useState(newRequestId);
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState<string | null>(null);
@@ -179,20 +180,26 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     setWalkInName("");
     setWalkInPhone("");
     setNotes(loadedQuotation.notes ?? null);
+    const qInvDiscount = Number(loadedQuotation.invoice_discount ?? 0);
+    setInvoiceDiscount(qInvDiscount > 0 ? String(qInvDiscount) : "");
     setCart(
-      (loadedQuotation.lines ?? []).map((l) => ({
-        key: crypto.randomUUID(),
-        lineType: l.line_type,
-        itemId: l.inventory_item_id ?? undefined,
-        bundleId: l.bundle_id ?? undefined,
-        name: l.description ?? l.bundle?.name ?? l.inventory_item?.name ?? "",
-        code: l.inventory_item?.code,
-        qty: String(Number(l.quantity)),
-        price: String(Number(l.unit_price)),
-        size: l.length_m && l.width_m && l.height_m
-          ? { length_m: Number(l.length_m), width_m: Number(l.width_m), height_m: Number(l.height_m) }
-          : null,
-      })),
+      (loadedQuotation.lines ?? []).map((l) => {
+        const lineDisc = Number(l.discount_amount ?? 0);
+        return {
+          key: crypto.randomUUID(),
+          lineType: l.line_type,
+          itemId: l.inventory_item_id ?? undefined,
+          bundleId: l.bundle_id ?? undefined,
+          name: l.description ?? l.bundle?.name ?? l.inventory_item?.name ?? "",
+          code: l.inventory_item?.code,
+          qty: String(Number(l.quantity)),
+          price: String(Number(l.unit_price)),
+          discount: lineDisc > 0 ? String(lineDisc) : "",
+          size: l.length_m && l.width_m && l.height_m
+            ? { length_m: Number(l.length_m), width_m: Number(l.width_m), height_m: Number(l.height_m) }
+            : null,
+        };
+      }),
     );
     setRequestId(newRequestId());
     setError(null);
@@ -216,7 +223,16 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     }
   }, [isInternal, isWalkIn, buyerMode, clientId, method]);
 
-  const total = useMemo(() => cart.reduce((s, l) => s + num(l.qty) * num(l.price), 0), [cart]);
+  const grossTotal = useMemo(() => cart.reduce((s, l) => s + num(l.qty) * num(l.price), 0), [cart]);
+  const lineDiscountsTotal = useMemo(
+    () => (isInternal ? 0 : cart.reduce((s, l) => s + Math.max(0, num(l.discount)), 0)),
+    [cart, isInternal],
+  );
+  const subtotal = grossTotal - lineDiscountsTotal;
+  const invDiscount = isInternal ? 0 : num(invoiceDiscount);
+  const invoiceDiscountInvalid = !isInternal && (invDiscount < 0 || invDiscount > subtotal);
+  const totalDiscount = lineDiscountsTotal + Math.max(0, invDiscount);
+  const total = Math.max(0, subtotal - Math.max(0, invDiscount));
   const creditLimit = Number(client?.credit_limit ?? 0);
   const balance = Number(client?.current_balance ?? 0);
   const available = creditLimit - balance;
@@ -225,6 +241,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
 
   const resetCart = () => {
     setCart([]);
+    setInvoiceDiscount("");
     setRequestId(newRequestId());
     setError(null);
     setNotes(null);
@@ -256,6 +273,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
         code: item.code,
         qty: "1",
         price: unitPrice !== null ? String(unitPrice) : "",
+        discount: "",
       },
     ]);
   };
@@ -271,6 +289,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
         name: bundle.name,
         qty: "1",
         price: suggestedTotal !== null ? String(suggestedTotal) : "",
+        discount: "",
       },
     ]);
   };
@@ -302,6 +321,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
         code: item.code,
         qty: "1",
         price: unitPrice !== null ? String(unitPrice) : "",
+        discount: "",
         stockLotId: block.id,
         stockLotLabel: block.lot_number,
         size,
@@ -310,17 +330,21 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   };
 
   const cartLines = (): CartLineInput[] =>
-    cart.map((l) => ({
-      line_type: l.lineType,
-      inventory_item_id: l.itemId ?? null,
-      bundle_id: l.bundleId ?? null,
-      stock_lot_id: l.stockLotId ?? null,
-      quantity: num(l.qty),
-      unit_price: num(l.price),
-      length_m: l.size?.length_m ?? null,
-      width_m: l.size?.width_m ?? null,
-      height_m: l.size?.height_m ?? null,
-    }));
+    cart.map((l) => {
+      const disc = isInternal ? 0 : num(l.discount);
+      return {
+        line_type: l.lineType,
+        inventory_item_id: l.itemId ?? null,
+        bundle_id: l.bundleId ?? null,
+        stock_lot_id: l.stockLotId ?? null,
+        quantity: num(l.qty),
+        unit_price: num(l.price),
+        ...(isInternal ? {} : { discount_amount: disc }),
+        length_m: l.size?.length_m ?? null,
+        width_m: l.size?.width_m ?? null,
+        height_m: l.size?.height_m ?? null,
+      };
+    });
 
   const buyerPayload = (): Pick<CheckoutInput, "client_id" | "buyer_unit_id" | "walk_in_name" | "walk_in_phone"> => {
     if (isInternal) {
@@ -377,6 +401,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
           payment_method: method,
           cash_account_id: cashAccountId,
           notes: notes ?? undefined,
+          invoice_discount: invDiscount,
           lines,
           tendered_amount: tenderedAmount,
         },
@@ -401,6 +426,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
         payment_method: isInternal ? null : method,
         cash_account_id: isInternal ? null : cashAccountId,
         notes: notes ?? undefined,
+        ...(isInternal ? {} : { invoice_discount: invDiscount }),
         lines,
         tendered_amount: tenderedAmount,
       },
@@ -428,6 +454,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
           client_request_id: requestId,
           payment_method: "split",
           notes: notes ?? undefined,
+          invoice_discount: invDiscount,
           lines,
           payments: portions,
         },
@@ -451,6 +478,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
         ...buyerPayload(),
         payment_method: "split",
         notes: notes ?? undefined,
+        invoice_discount: invDiscount,
         lines,
         payments: portions,
       },
@@ -484,7 +512,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     if (buyerMode !== "client" || !clientId) return;
     setError(null);
     createQuotation.mutate(
-      { client_id: clientId, notes: notes ?? undefined, lines: cartLines() },
+      { client_id: clientId, notes: notes ?? undefined, invoice_discount: invDiscount, lines: cartLines() },
       {
         onSuccess: (quotation) => {
           toast.success(`تم حفظ عرض السعر ${quotation.quotation_number}`);
@@ -500,9 +528,11 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     setHoldCartError(null);
     const trimmedWalkInName = walkInName.trim();
     const trimmedWalkInPhone = walkInPhone.trim();
+    const trimmedInvDisc = invoiceDiscount.trim();
     const payload: HeldCartPayload = {
       version: 1,
       cart,
+      ...(!isInternal && trimmedInvDisc ? { invoiceDiscount: trimmedInvDisc } : {}),
       client_id: buyerMode === "client" ? clientId : null,
       buyer_mode: buyerMode,
       buyer_unit_id: isInternal ? buyerUnitId : null,
@@ -547,6 +577,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
       payload.cart.map((l) => ({
         ...l,
         key: l.key || crypto.randomUUID(),
+        discount: l.discount ?? "",
       })),
     );
     const resumedMode: BuyerMode =
@@ -558,6 +589,9 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
             ? "client"
             : "walk_in";
     setBuyerMode(resumedMode);
+    setInvoiceDiscount(
+      resumedMode === "internal" || !payload.invoiceDiscount ? "" : String(payload.invoiceDiscount),
+    );
     setClientId(resumedMode === "client" ? (payload.client_id ?? null) : null);
     setBuyerUnitId(resumedMode === "internal" ? (payload.buyer_unit_id ?? null) : null);
     setWalkInName(resumedMode === "walk_in" ? (payload.walkInName ?? "") : "");
@@ -612,10 +646,23 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
 
   const linesValid =
     cart.length > 0 &&
-    cart.every((l) => num(l.qty) > 0 && l.price.trim() !== "" && num(l.price) >= 0 && (l.lineType === "item" || num(l.price) > 0));
+    cart.every((l) => {
+      const qtyVal = num(l.qty);
+      const priceVal = num(l.price);
+      const lineGross = qtyVal * priceVal;
+      const discVal = isInternal ? 0 : num(l.discount);
+      return (
+        qtyVal > 0 &&
+        l.price.trim() !== "" &&
+        priceVal >= 0 &&
+        (l.lineType === "item" || priceVal > 0) &&
+        discVal >= 0 &&
+        discVal <= lineGross
+      );
+    });
   const buyerValid = isInternal ? Boolean(buyerUnitId) : isWalkIn ? true : Boolean(clientId);
   const paymentValid = isInternal || method === "receivable" || method === "split" || Boolean(cashAccountId);
-  const canCheckout = linesValid && buyerValid && paymentValid && (isInternal || total > 0);
+  const canCheckout = linesValid && !invoiceDiscountInvalid && buyerValid && paymentValid && (isInternal || total > 0);
   const isBusy = checkout.isPending || convert.isPending;
 
   return (
@@ -677,7 +724,10 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
                   type="button"
                   onClick={() => {
                     setBuyerMode(opt.value);
-                    if (opt.value === "internal") setCart((prev) => prev.filter((l) => l.lineType === "item"));
+                    if (opt.value === "internal") {
+                      setCart((prev) => prev.filter((l) => l.lineType === "item").map((l) => ({ ...l, discount: "" })));
+                      setInvoiceDiscount("");
+                    }
                     if (opt.value === "walk_in" && method === "receivable") setMethod("cash");
                   }}
                   className={`flex items-center gap-1.5 rounded-lg px-3 py-1 text-[11px] font-bold ${
@@ -910,6 +960,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
                 <th className="px-4 py-2.5 text-start font-semibold">البيان</th>
                 <th className="px-3 py-2.5 text-center font-semibold w-24">الكمية</th>
                 <th className="px-3 py-2.5 text-center font-semibold w-32">{isInternal ? "بالتكلفة" : "سعر الوحدة"}</th>
+                {!isInternal && <th className="px-3 py-2.5 text-center font-semibold w-28">خصم</th>}
                 <th className="px-4 py-2.5 text-end font-semibold w-28">الإجمالي</th>
                 <th className="px-3 py-2.5 w-10" />
               </tr>
@@ -917,6 +968,10 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
             <tbody className="divide-y divide-app-separator">
               {cart.map((l) => {
                 const size = l.size ? formatSizeCm(l.size.length_m, l.size.width_m, l.size.height_m) : null;
+                const lineGross = num(l.qty) * num(l.price);
+                const lineDisc = isInternal ? 0 : num(l.discount);
+                const lineDiscInvalid = !isInternal && (lineDisc < 0 || lineDisc > lineGross);
+                const lineNet = lineGross - lineDisc;
                 return (
                   <tr key={l.key} className="hover:bg-app-fill-f1/50">
                     <td className="px-4 py-2.5">
@@ -973,8 +1028,29 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
                         />
                       )}
                     </td>
-                    <td className="px-4 py-2.5 text-end font-mono font-bold text-app-label-primary">
-                      {isInternal ? "—" : formatNumber(num(l.qty) * num(l.price))}
+                    {!isInternal && (
+                      <td className="px-3 py-2.5">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.5"
+                          placeholder="خصم"
+                          value={l.discount}
+                          onChange={(e) => updateLine(l.key, { discount: e.target.value })}
+                          className={`w-full px-2 py-1 border rounded-lg bg-app-bg-secondary text-xs font-mono text-center focus:outline-none ${
+                            lineDiscInvalid
+                              ? "border-app-status-danger text-app-status-danger focus:border-app-status-danger"
+                              : "border-app-separator focus:border-app-accent"
+                          }`}
+                        />
+                      </td>
+                    )}
+                    <td
+                      className={`px-4 py-2.5 text-end font-mono font-bold ${
+                        lineDiscInvalid ? "text-app-status-danger" : "text-app-label-primary"
+                      }`}
+                    >
+                      {isInternal ? "—" : formatNumber(lineNet)}
                     </td>
                     <td className="px-3 py-2.5">
                       <button
@@ -997,11 +1073,47 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
       {/* Checkout */}
       <section className="rounded-2xl border border-app-separator bg-app-bg-secondary shadow-sm p-5 space-y-4">
         {!isInternal && (
-          <div className="flex items-center justify-between border-b border-app-separator pb-3">
-            <span className="text-sm font-bold text-app-label-primary">المجموع المطلوب</span>
-            <span className="text-2xl font-bold font-mono text-app-accent">
-              {formatNumber(total)} <span className="text-sm font-sans">د.ل</span>
-            </span>
+          <div className="space-y-2.5 border-b border-app-separator pb-3">
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor="pos-invoice-discount" className="text-xs font-semibold text-app-label-secondary">
+                خصم على الفاتورة
+              </label>
+              <input
+                id="pos-invoice-discount"
+                type="number"
+                min="0"
+                step="0.5"
+                placeholder="0"
+                value={invoiceDiscount}
+                onChange={(e) => setInvoiceDiscount(e.target.value)}
+                className={`w-36 px-2.5 py-1 border rounded-lg bg-app-bg-primary text-xs font-mono text-end focus:outline-none ${
+                  invoiceDiscountInvalid
+                    ? "border-app-status-danger text-app-status-danger focus:border-app-status-danger"
+                    : "border-app-separator focus:border-app-accent"
+                }`}
+              />
+            </div>
+            {invoiceDiscountInvalid && (
+              <p className="text-[11px] text-app-status-danger font-semibold">
+                لا يمكن أن يتجاوز خصم الفاتورة المجموع بعد خصم البنود ({formatNumber(subtotal)} د.ل).
+              </p>
+            )}
+            <div className="flex items-center justify-between text-xs text-app-label-secondary">
+              <span>المجموع</span>
+              <span className="font-mono">{formatNumber(grossTotal)} د.ل</span>
+            </div>
+            {totalDiscount > 0 && (
+              <div className="flex items-center justify-between text-xs text-app-status-warning font-semibold">
+                <span>الخصم</span>
+                <span className="font-mono">-{formatNumber(totalDiscount)} د.ل</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-sm font-bold text-app-label-primary">الصافي</span>
+              <span className="text-2xl font-bold font-mono text-app-accent">
+                {formatNumber(total)} <span className="text-sm font-sans">د.ل</span>
+              </span>
+            </div>
           </div>
         )}
         {hasBundle && (
@@ -1028,7 +1140,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
             <button
               type="button"
               onClick={saveQuotation}
-              disabled={!linesValid || buyerMode !== "client" || !clientId || createQuotation.isPending}
+              disabled={!linesValid || invoiceDiscountInvalid || buyerMode !== "client" || !clientId || createQuotation.isPending}
               className="flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-primary px-4 py-3 text-xs font-bold text-app-label-primary hover:bg-app-fill-f1 disabled:opacity-40"
             >
               <FileText className="h-4 w-4 text-app-accent" />

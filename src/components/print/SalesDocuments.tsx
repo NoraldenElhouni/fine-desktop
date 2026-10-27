@@ -23,6 +23,16 @@ export const SaleInvoiceDocument: React.FC<{ invoice: Invoice }> = ({ invoice })
     invoice.buyer_phone?.trim() ||
     invoice.walk_in_phone?.trim() ||
     "—";
+  const hasLineDiscount = invoice.lines.some((l) => Number(l.discount_amount || 0) > 0);
+  const lineDiscountsSum = invoice.lines.reduce((s, l) => s + Number(l.discount_amount || 0), 0);
+  const invoiceDiscount = Number(invoice.invoice_discount || 0);
+  const totalDiscount = lineDiscountsSum + invoiceDiscount;
+  const grossAmount =
+    invoice.gross_amount !== undefined && invoice.gross_amount !== null
+      ? Number(invoice.gross_amount)
+      : Number(invoice.total_amount) + totalDiscount;
+  const hasAnyDiscount = totalDiscount > 0;
+  const labelColSpan = hasLineDiscount ? 5 : 4;
 
   return (
     <PrintDocument
@@ -44,9 +54,20 @@ export const SaleInvoiceDocument: React.FC<{ invoice: Invoice }> = ({ invoice })
       signatures={["توقيع البائع", "توقيع العميل"]}
       footerNote="شكراً لتعاملكم معنا — البضاعة المباعة تخضع لسياسة الاستبدال والضمان"
     >
-      <PrintTable head={["#", "البيان", "الكمية", "سعر الوحدة", "الإجمالي"]}>
+      <PrintTable
+        head={
+          hasLineDiscount
+            ? ["#", "البيان", "الكمية", "سعر الوحدة", "الخصم", "الإجمالي"]
+            : ["#", "البيان", "الكمية", "سعر الوحدة", "الإجمالي"]
+        }
+      >
         {invoice.lines.map((line, i) => {
           const size = formatSizeCm(line.length_m, line.width_m, line.height_m);
+          const lineDiscount = Number(line.discount_amount || 0);
+          const lineNet =
+            line.line_total !== undefined && line.line_total !== null
+              ? Number(line.line_total)
+              : Number(line.quantity) * Number(line.unit_price) - lineDiscount;
           return (
             <tr key={i}>
               <Cell className="w-8 text-center">{i + 1}</Cell>
@@ -58,21 +79,41 @@ export const SaleInvoiceDocument: React.FC<{ invoice: Invoice }> = ({ invoice })
               </Cell>
               <Cell className="w-16 text-center font-mono">{qty(line.quantity)}</Cell>
               <Cell className="w-28 text-end font-mono">{money(line.unit_price)}</Cell>
-              <Cell className="w-28 text-end font-mono font-bold">{money(line.line_total)}</Cell>
+              {hasLineDiscount && (
+                <Cell className="w-24 text-end font-mono">{lineDiscount > 0 ? money(lineDiscount) : "—"}</Cell>
+              )}
+              <Cell className="w-28 text-end font-mono font-bold">{money(lineNet)}</Cell>
             </tr>
           );
         })}
+        {hasAnyDiscount ? (
+          <>
+            <tr>
+              <Cell colSpan={labelColSpan} className="text-end">المجموع</Cell>
+              <Cell className="text-end font-mono">{money(grossAmount)}</Cell>
+            </tr>
+            <tr>
+              <Cell colSpan={labelColSpan} className="text-end">الخصم</Cell>
+              <Cell className="text-end font-mono">{money(totalDiscount)}</Cell>
+            </tr>
+            <tr>
+              <Cell colSpan={labelColSpan} className="text-end font-bold">الصافي</Cell>
+              <Cell className="text-end font-mono font-bold">{money(invoice.total_amount)}</Cell>
+            </tr>
+          </>
+        ) : (
+          <tr>
+            <Cell colSpan={labelColSpan} className="text-end font-bold">الإجمالي</Cell>
+            <Cell className="text-end font-mono font-bold">{money(invoice.total_amount)}</Cell>
+          </tr>
+        )}
         <tr>
-          <Cell colSpan={4} className="text-end font-bold">الإجمالي</Cell>
-          <Cell className="text-end font-mono font-bold">{money(invoice.total_amount)}</Cell>
-        </tr>
-        <tr>
-          <Cell colSpan={4} className="text-end">المدفوع</Cell>
+          <Cell colSpan={labelColSpan} className="text-end">المدفوع</Cell>
           <Cell className="text-end font-mono">{money(invoice.amount_paid)}</Cell>
         </tr>
         {invoice.outstanding > 0 && (
           <tr>
-            <Cell colSpan={4} className="text-end font-bold">المتبقي على العميل</Cell>
+            <Cell colSpan={labelColSpan} className="text-end font-bold">المتبقي على العميل</Cell>
             <Cell className="text-end font-mono font-bold">{money(invoice.outstanding)}</Cell>
           </tr>
         )}
@@ -82,44 +123,86 @@ export const SaleInvoiceDocument: React.FC<{ invoice: Invoice }> = ({ invoice })
 };
 
 /** A priced preview the client takes home. */
-export const QuotationDocument: React.FC<{ quotation: Quotation }> = ({ quotation }) => (
-  <PrintDocument
-    title="عرض سعر"
-    number={quotation.quotation_number}
-    date={quotation.created_at}
-    issuer={quotation.operating_unit?.name}
-    meta={[
-      { label: "العميل", value: quotation.client?.entity?.name ?? "—" },
-      { label: "الهاتف", value: quotation.client?.entity?.primary_contact?.phone ?? "—" },
-      { label: "صالح حتى", value: formatDate(quotation.valid_until) },
-      { label: "أعدّه", value: quotation.created_by?.name ?? "—" },
-    ]}
-    footerNote="هذا عرض سعر وليس فاتورة — الأسعار سارية حتى التاريخ المذكور أعلاه"
-  >
-    <PrintTable head={["#", "البيان", "الكمية", "سعر الوحدة", "الإجمالي"]}>
-      {(quotation.lines ?? []).map((line, i) => {
-        const size = formatSizeCm(line.length_m, line.width_m, line.height_m);
-        return (
-          <tr key={line.id}>
-            <Cell className="w-8 text-center">{i + 1}</Cell>
-            <Cell>
-              <div className="font-semibold">{line.description ?? line.bundle?.name ?? line.inventory_item?.name}</div>
-              {size && <div className="text-[10px] text-gray-600">{size}</div>}
-            </Cell>
-            <Cell className="w-16 text-center font-mono">{qty(line.quantity)}</Cell>
-            <Cell className="w-28 text-end font-mono">{money(line.unit_price)}</Cell>
-            <Cell className="w-28 text-end font-mono font-bold">{money(Number(line.quantity) * Number(line.unit_price))}</Cell>
+export const QuotationDocument: React.FC<{ quotation: Quotation }> = ({ quotation }) => {
+  const lines = quotation.lines ?? [];
+  const hasLineDiscount = lines.some((l) => Number(l.discount_amount || 0) > 0);
+  const lineDiscountsSum = lines.reduce((s, l) => s + Number(l.discount_amount || 0), 0);
+  const invoiceDiscount = Number(quotation.invoice_discount || 0);
+  const totalDiscount = lineDiscountsSum + invoiceDiscount;
+  const grossAmount =
+    quotation.gross_amount !== undefined && quotation.gross_amount !== null
+      ? Number(quotation.gross_amount)
+      : Number(quotation.total_amount) + totalDiscount;
+  const hasAnyDiscount = totalDiscount > 0;
+  const labelColSpan = hasLineDiscount ? 5 : 4;
+
+  return (
+    <PrintDocument
+      title="عرض سعر"
+      number={quotation.quotation_number}
+      date={quotation.created_at}
+      issuer={quotation.operating_unit?.name}
+      meta={[
+        { label: "العميل", value: quotation.client?.entity?.name ?? "—" },
+        { label: "الهاتف", value: quotation.client?.entity?.primary_contact?.phone ?? "—" },
+        { label: "صالح حتى", value: formatDate(quotation.valid_until) },
+        { label: "أعدّه", value: quotation.created_by?.name ?? "—" },
+      ]}
+      footerNote="هذا عرض سعر وليس فاتورة — الأسعار سارية حتى التاريخ المذكور أعلاه"
+    >
+      <PrintTable
+        head={
+          hasLineDiscount
+            ? ["#", "البيان", "الكمية", "سعر الوحدة", "الخصم", "الإجمالي"]
+            : ["#", "البيان", "الكمية", "سعر الوحدة", "الإجمالي"]
+        }
+      >
+        {lines.map((line, i) => {
+          const size = formatSizeCm(line.length_m, line.width_m, line.height_m);
+          const lineDiscount = Number(line.discount_amount || 0);
+          const lineNet = Number(line.quantity) * Number(line.unit_price) - lineDiscount;
+          return (
+            <tr key={line.id}>
+              <Cell className="w-8 text-center">{i + 1}</Cell>
+              <Cell>
+                <div className="font-semibold">{line.description ?? line.bundle?.name ?? line.inventory_item?.name}</div>
+                {size && <div className="text-[10px] text-gray-600">{size}</div>}
+              </Cell>
+              <Cell className="w-16 text-center font-mono">{qty(line.quantity)}</Cell>
+              <Cell className="w-28 text-end font-mono">{money(line.unit_price)}</Cell>
+              {hasLineDiscount && (
+                <Cell className="w-24 text-end font-mono">{lineDiscount > 0 ? money(lineDiscount) : "—"}</Cell>
+              )}
+              <Cell className="w-28 text-end font-mono font-bold">{money(lineNet)}</Cell>
+            </tr>
+          );
+        })}
+        {hasAnyDiscount ? (
+          <>
+            <tr>
+              <Cell colSpan={labelColSpan} className="text-end">المجموع</Cell>
+              <Cell className="text-end font-mono">{money(grossAmount)}</Cell>
+            </tr>
+            <tr>
+              <Cell colSpan={labelColSpan} className="text-end">الخصم</Cell>
+              <Cell className="text-end font-mono">{money(totalDiscount)}</Cell>
+            </tr>
+            <tr>
+              <Cell colSpan={labelColSpan} className="text-end font-bold">الصافي</Cell>
+              <Cell className="text-end font-mono font-bold">{money(quotation.total_amount)}</Cell>
+            </tr>
+          </>
+        ) : (
+          <tr>
+            <Cell colSpan={labelColSpan} className="text-end font-bold">الإجمالي</Cell>
+            <Cell className="text-end font-mono font-bold">{money(quotation.total_amount)}</Cell>
           </tr>
-        );
-      })}
-      <tr>
-        <Cell colSpan={4} className="text-end font-bold">الإجمالي</Cell>
-        <Cell className="text-end font-mono font-bold">{money(quotation.total_amount)}</Cell>
-      </tr>
-    </PrintTable>
-    {quotation.notes && <p className="text-[11px]">ملاحظات: {quotation.notes}</p>}
-  </PrintDocument>
-);
+        )}
+      </PrintTable>
+      {quotation.notes && <p className="text-[11px]">ملاحظات: {quotation.notes}</p>}
+    </PrintDocument>
+  );
+};
 
 /**
  * Receiving note — no prices. Each bundle is opened into its pieces with their

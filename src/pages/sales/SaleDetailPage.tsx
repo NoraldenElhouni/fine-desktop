@@ -42,7 +42,17 @@ export const SaleDetailPage: React.FC = () => {
 
   const outstanding = Number(sale.total_amount) - Number(sale.amount_paid);
   const isReceivable = sale.payment_method === "receivable";
-  const bundleLines = (sale.lines ?? []).filter((l) => l.line_type === "bundle");
+  const saleLines = sale.lines ?? [];
+  const hasLineDiscount = saleLines.some((l) => Number(l.discount_amount || 0) > 0);
+  const lineDiscountsSum = saleLines.reduce((s, l) => s + Number(l.discount_amount || 0), 0);
+  const invoiceDiscount = Number(sale.invoice_discount || 0);
+  const totalDiscount = lineDiscountsSum + invoiceDiscount;
+  const grossAmount =
+    sale.gross_amount !== undefined && sale.gross_amount !== null
+      ? Number(sale.gross_amount)
+      : Number(sale.total_amount) + totalDiscount;
+  const hasAnyDiscount = totalDiscount > 0;
+  const bundleLines = saleLines.filter((l) => l.line_type === "bundle");
   const availableTreasuries = method === "cheque" ? [] : treasuries.filter((a) => a.kind === method && a.account_id);
 
   const numericAmount = Number(amount);
@@ -172,7 +182,17 @@ export const SaleDetailPage: React.FC = () => {
 
       <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm p-4 flex flex-wrap items-center gap-3">
         <div className="text-xs text-app-label-secondary">
-          الإجمالي <span className="font-mono font-bold text-app-label-primary">{formatNumber(sale.total_amount)}</span>
+          {hasAnyDiscount ? (
+            <>
+              المجموع <span className="font-mono">{formatNumber(grossAmount)}</span>
+              {" · "}الخصم <span className="font-mono text-app-status-warning">{formatNumber(totalDiscount)}</span>
+              {" · "}الصافي <span className="font-mono font-bold text-app-label-primary">{formatNumber(sale.total_amount)}</span>
+            </>
+          ) : (
+            <>
+              الإجمالي <span className="font-mono font-bold text-app-label-primary">{formatNumber(sale.total_amount)}</span>
+            </>
+          )}
           {" · "}المدفوع <span className="font-mono">{formatNumber(sale.amount_paid)}</span>
           {outstanding > 0.001 && (
             <> · المتبقي <span className="font-mono font-bold text-app-status-danger">{formatNumber(outstanding)}</span></>
@@ -370,13 +390,16 @@ export const SaleDetailPage: React.FC = () => {
               <th className="px-4 py-2 text-start font-semibold">البيان</th>
               <th className="px-3 py-2 text-center font-semibold">الكمية</th>
               <th className="px-3 py-2 text-end font-semibold">السعر</th>
+              {hasLineDiscount && <th className="px-3 py-2 text-end font-semibold">الخصم</th>}
               <th className="px-3 py-2 text-end font-semibold">الإجمالي</th>
               <th className="px-3 py-2 text-end font-semibold">التكلفة الفعلية</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-app-separator">
-            {(sale.lines ?? []).map((line) => {
+            {saleLines.map((line) => {
               const size = formatSizeCm(line.length_m, line.width_m, line.height_m);
+              const lineDiscount = Number(line.discount_amount || 0);
+              const lineNet = Number(line.quantity) * Number(line.unit_price) - lineDiscount;
               return (
                 <tr key={line.id}>
                   <td className="px-4 py-2.5">
@@ -390,22 +413,46 @@ export const SaleDetailPage: React.FC = () => {
                   </td>
                   <td className="px-3 py-2.5 text-center font-mono">{formatNumber(line.quantity)}</td>
                   <td className="px-3 py-2.5 text-end font-mono">{formatNumber(line.unit_price)}</td>
-                  <td className="px-3 py-2.5 text-end font-mono font-bold">{formatNumber(Number(line.quantity) * Number(line.unit_price))}</td>
+                  {hasLineDiscount && (
+                    <td className="px-3 py-2.5 text-end font-mono text-app-label-secondary">
+                      {lineDiscount > 0 ? formatNumber(lineDiscount) : "—"}
+                    </td>
+                  )}
+                  <td className="px-3 py-2.5 text-end font-mono font-bold">{formatNumber(lineNet)}</td>
                   <td className="px-3 py-2.5 text-end font-mono text-app-label-secondary">
                     {Number(line.unit_cost_actual) > 0 ? formatNumber(line.unit_cost_actual) : "—"}
                   </td>
                 </tr>
               );
             })}
-            {(!sale.lines || sale.lines.length === 0) && (
+            {saleLines.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-app-label-secondary">
+                <td colSpan={hasLineDiscount ? 6 : 5} className="px-4 py-10 text-center text-app-label-secondary">
                   <Package className="mx-auto mb-2 h-6 w-6 text-app-label-tertiary" />
                   لا توجد بنود.
                 </td>
               </tr>
             )}
           </tbody>
+          {hasAnyDiscount && (
+            <tfoot className="border-t border-app-separator bg-app-bg-secondary/40 text-xs">
+              <tr>
+                <td colSpan={hasLineDiscount ? 4 : 3} className="px-4 py-2 text-end text-app-label-secondary">المجموع</td>
+                <td className="px-3 py-2 text-end font-mono">{formatNumber(grossAmount)}</td>
+                <td />
+              </tr>
+              <tr>
+                <td colSpan={hasLineDiscount ? 4 : 3} className="px-4 py-2 text-end text-app-label-secondary">الخصم</td>
+                <td className="px-3 py-2 text-end font-mono text-app-status-warning">-{formatNumber(totalDiscount)}</td>
+                <td />
+              </tr>
+              <tr>
+                <td colSpan={hasLineDiscount ? 4 : 3} className="px-4 py-2 text-end font-bold text-app-label-primary">الصافي</td>
+                <td className="px-3 py-2 text-end font-mono font-bold text-app-label-primary">{formatNumber(sale.total_amount)}</td>
+                <td />
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 
