@@ -1,6 +1,8 @@
 import apiClient from "../client";
 import type { CashAccount } from "../../types/procurement";
 import { LEDGER_ERROR_MESSAGE } from "./production";
+import type { ApiErrorPayload } from "./production";
+import type { InventoryItem } from "./inventory";
 
 /*
  * The POS is the one place every sale happens — to a registered client or to
@@ -44,6 +46,10 @@ export const SALES_ERROR_MESSAGE: Record<string, string> = {
   HELD_CART_TOO_LARGE: "الفاتورة أكبر من أن تُعلّق.",
   DISCOUNT_INVALID: "قيمة الخصم غير صحيحة: لا يمكن أن يتجاوز الخصم قيمة البند أو مجموع الفاتورة.",
   UNIT_DISCOUNT_NOT_LINKED: "لم يُربط حساب الخصم المسموح به لهذه الوحدة. راجع الحسابات.",
+  PRICE_BELOW_FLOOR: "سعر بعض البنود أقل من الحد الأدنى أو من التكلفة ويحتاج موافقة المدير.",
+  PRICE_OVERRIDE_INVALID: "بيانات المدير غير صحيحة.",
+  PRICE_OVERRIDE_NOT_ALLOWED: "هذا المستخدم لا يملك صلاحية الموافقة على البيع تحت الحد الأدنى، أو هو نفسه البائع.",
+  PRICE_OVERRIDE_THROTTLED: "محاولات كثيرة خاطئة. حاول بعد قليل.",
 };
 
 export const FULFILLMENT_LABEL: Record<FulfillmentStatus, string> = {
@@ -122,6 +128,7 @@ export interface SaleLine {
   length_m?: Money | null;
   width_m?: Money | null;
   height_m?: Money | null;
+  list_price?: Money | null;
   unit_price: Money;
   discount_amount?: number;
   unit_cost_actual: Money;
@@ -165,10 +172,13 @@ export interface Sale {
   walk_in_name?: string | null;
   walk_in_phone?: string | null;
   channel: "pos" | "standard";
+  price_tier?: "retail" | "wholesale";
   status: SaleStatus;
   fulfillment_status?: FulfillmentStatus | null;
   payment_method?: PaymentMethod | "card" | null;
   cash_account_id?: string | null;
+  price_override_by?: { id: string; name: string } | null;
+  price_override_reason?: string | null;
   gross_amount?: Money;
   invoice_discount?: Money;
   total_amount: Money;
@@ -189,6 +199,27 @@ export interface Sale {
   sold_by?: { id: string; name: string } | null;
   credit_approval_request?: CreditApproval | null;
   created_at: string;
+}
+
+export interface PriceOverrideInput {
+  login: string;
+  password: string;
+  reason: string;
+}
+
+export interface PriceFloorViolationLine {
+  position: number;
+  item_id: string;
+  item_name: string;
+  net_price: number;
+  floor: number;
+  reason: "min_price" | "cost";
+}
+
+/** A sale refusal body: PRICE_BELOW_FLOOR carries the offending lines, PRICE_OVERRIDE_THROTTLED the wait in seconds. */
+export interface SaleErrorPayload extends ApiErrorPayload {
+  lines?: PriceFloorViolationLine[];
+  retry_after?: number;
 }
 
 export interface CartLineInput {
@@ -230,6 +261,8 @@ export interface CheckoutInput {
   payment_method?: PaymentMethod | null;
   cash_account_id?: string | null;
   notes?: string | null;
+  price_tier?: "retail" | "wholesale";
+  price_override?: PriceOverrideInput;
   invoice_discount?: number;
   lines: CartLineInput[];
   tendered_amount?: number | null;
@@ -388,6 +421,7 @@ export interface Quotation {
   quotation_number: string;
   client_id: string;
   valid_until: string;
+  price_tier?: "retail" | "wholesale";
   status: Exclude<QuotationStatus, "expired">;
   effective_status: QuotationStatus;
   gross_amount?: Money;
@@ -489,8 +523,14 @@ export const quotationsApi = {
   list: (params?: { status?: string; client_id?: string; search?: string; page?: number; per_page?: number }) =>
     apiClient.get<Paginated<Quotation>>("/quotations", { params }),
   get: (id: string) => apiClient.get<Quotation>(`/quotations/${id}`),
-  create: (data: { client_id: string; valid_until?: string | null; notes?: string | null; invoice_discount?: number; lines: CartLineInput[] }) =>
-    apiClient.post<Quotation>("/quotations", data),
+  create: (data: {
+    client_id: string;
+    valid_until?: string | null;
+    notes?: string | null;
+    price_tier?: "retail" | "wholesale";
+    invoice_discount?: number;
+    lines: CartLineInput[];
+  }) => apiClient.post<Quotation>("/quotations", data),
   cancel: (id: string) => apiClient.post<Quotation>(`/quotations/${id}/cancel`),
   convert: (id: string, data: Omit<CheckoutInput, "client_id" | "buyer_unit_id">) =>
     apiClient.post<Sale>(`/quotations/${id}/convert`, data),
@@ -556,11 +596,14 @@ export interface CartLine {
   stockLotId?: string | null;
   stockLotLabel?: string | null;
   size?: { length_m: number; width_m: number; height_m: number } | null;
+  priceEdited?: boolean;
+  item?: InventoryItem | null;
 }
 
 export interface HeldCartPayload {
   version: 1;
   cart: CartLine[];
+  priceTier?: "retail" | "wholesale";
   invoiceDiscount?: string | null;
   client_id?: string | null;
   buyer_mode?: "client" | "internal" | "walk_in";

@@ -15,9 +15,14 @@ import {
  * Every sale-changing action refreshes the sale, the lists, and the stock it
  * moved — plus any extra query keys the action touches.
  */
-function useSaleMutation<TArgs, TResult>(fn: (args: TArgs) => Promise<TResult>, extraKeys: string[][] = []) {
+function useSaleMutation<TArgs, TResult>(
+  fn: (args: TArgs) => Promise<TResult>,
+  extraKeys: string[][] = [],
+  options: { gcTime?: number } = {},
+) {
   const qc = useQueryClient();
   return useMutation({
+    ...options,
     mutationFn: fn,
     onSuccess: (data) => {
       extraKeys.forEach((queryKey) => qc.invalidateQueries({ queryKey }));
@@ -65,7 +70,7 @@ export function useCheckout() {
       qc.invalidateQueries({ queryKey: ["chequeSummary"] });
     }
     return sale;
-  });
+  }, [], { gcTime: 0 }); // variables may carry a manager price-override password — never keep them cached
 }
 
 export function useCollectPayment() {
@@ -223,6 +228,7 @@ export function useConvertQuotation() {
       return sale;
     },
     [["quotations"], ["quotation"]],
+    { gcTime: 0 }, // variables may carry a manager price-override password — never keep them cached
   );
 }
 

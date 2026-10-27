@@ -39,13 +39,23 @@ import {
   HeldCartPayload,
   PAYMENT_METHOD_LABEL,
   PaymentMethod,
+  PriceFloorViolationLine,
+  PriceOverrideInput,
   Quotation,
   SALES_ERROR_MESSAGE,
   Sale,
+  SaleErrorPayload,
   SplitPaymentPortionInput,
   formatSizeCm,
 } from "../../api/endpoints/sales";
-import { InventoryItem, suggestedPrice } from "../../api/endpoints/inventory";
+import {
+  InventoryItem,
+  inventoryApi,
+  suggestedCostPrice,
+  suggestedMinPrice,
+  suggestedPrice,
+  suggestedWholesalePrice,
+} from "../../api/endpoints/inventory";
 import { Bundle } from "../../api/endpoints/bundles";
 import { apiErrorMessage, apiErrorPayload } from "../../api/endpoints/production";
 import type { Client, OperatingUnit } from "../../types/entities";
@@ -58,6 +68,7 @@ import { BlockPicker, PickedBlock } from "./BlockPicker";
 import { SaleCompletedDialog } from "./SaleCompletedDialog";
 import { CashTenderModal } from "./CashTenderModal";
 import { SplitPaymentModal } from "./SplitPaymentModal";
+import { PriceOverrideDialog } from "./PriceOverrideDialog";
 import { QuotationPrintDialog } from "../print/SalesDocuments";
 import { formatNumber } from "../../lib/utils/format";
 import {
@@ -115,6 +126,11 @@ function formatTimeAgo(iso: string): string {
 
 type BuyerMode = "client" | "walk_in" | "internal";
 
+/** A checkout or quotation conversion as it was sent, kept so a manager price override can resend it unchanged. */
+type PendingSaleRequest =
+  | { kind: "checkout"; input: CheckoutInput }
+  | { kind: "convert"; input: { id: string } & Omit<CheckoutInput, "client_id" | "buyer_unit_id"> };
+
 interface NewSalePanelProps {
   /** A quotation the client came back with — its lines load into the cart. */
   loadedQuotation: Quotation | null;
@@ -132,6 +148,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   const [walkInPhone, setWalkInPhone] = useState("");
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [cashAccountId, setCashAccountId] = useState<string | null>(null);
+  const [priceTier, setPriceTier] = useState<"retail" | "wholesale">("retail");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [invoiceDiscount, setInvoiceDiscount] = useState("");
   const [requestId, setRequestId] = useState(newRequestId);
@@ -143,6 +160,10 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   const [isQuickClientOpen, setIsQuickClientOpen] = useState(false);
   const [isCashTenderOpen, setIsCashTenderOpen] = useState(false);
   const [isSplitPaymentOpen, setIsSplitPaymentOpen] = useState(false);
+  const [isOverrideDialogOpen, setIsOverrideDialogOpen] = useState(false);
+  const [priceFloorViolations, setPriceFloorViolations] = useState<PriceFloorViolationLine[] | null>(null);
+  const [pendingSale, setPendingSale] = useState<PendingSaleRequest | null>(null);
+  const [overrideError, setOverrideError] = useState<string | null>(null);
   const [blockPicker, setBlockPicker] = useState<{ item: InventoryItem; editingKey: string | null } | null>(null);
   const [completedSale, setCompletedSale] = useState<Sale | null>(null);
   const [printQuotationId, setPrintQuotationId] = useState<string | null>(null);
@@ -180,29 +201,48 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     setWalkInName("");
     setWalkInPhone("");
     setNotes(loadedQuotation.notes ?? null);
+    setPriceTier(loadedQuotation.price_tier ?? "retail");
     const qInvDiscount = Number(loadedQuotation.invoice_discount ?? 0);
     setInvoiceDiscount(qInvDiscount > 0 ? String(qInvDiscount) : "");
-    setCart(
-      (loadedQuotation.lines ?? []).map((l) => {
-        const lineDisc = Number(l.discount_amount ?? 0);
-        return {
-          key: crypto.randomUUID(),
-          lineType: l.line_type,
-          itemId: l.inventory_item_id ?? undefined,
-          bundleId: l.bundle_id ?? undefined,
-          name: l.description ?? l.bundle?.name ?? l.inventory_item?.name ?? "",
-          code: l.inventory_item?.code,
-          qty: String(Number(l.quantity)),
-          price: String(Number(l.unit_price)),
-          discount: lineDisc > 0 ? String(lineDisc) : "",
-          size: l.length_m && l.width_m && l.height_m
-            ? { length_m: Number(l.length_m), width_m: Number(l.width_m), height_m: Number(l.height_m) }
-            : null,
-        };
-      }),
-    );
+    const lines: CartLine[] = (loadedQuotation.lines ?? []).map((l) => {
+      const lineDisc = Number(l.discount_amount ?? 0);
+      return {
+        key: crypto.randomUUID(),
+        lineType: l.line_type,
+        itemId: l.inventory_item_id ?? undefined,
+        bundleId: l.bundle_id ?? undefined,
+        name: l.description ?? l.bundle?.name ?? l.inventory_item?.name ?? "",
+        code: l.inventory_item?.code,
+        qty: String(Number(l.quantity)),
+        price: String(Number(l.unit_price)),
+        discount: lineDisc > 0 ? String(lineDisc) : "",
+        priceEdited: true,
+        size: l.length_m && l.width_m && l.height_m
+          ? { length_m: Number(l.length_m), width_m: Number(l.width_m), height_m: Number(l.height_m) }
+          : null,
+      };
+    });
+    setCart(lines);
     setRequestId(newRequestId());
     setError(null);
+
+    const missingIds = Array.from(
+      new Set(
+        lines
+          .filter((l) => l.lineType === "item" && l.itemId)
+          .map((l) => l.itemId as string),
+      ),
+    );
+    if (missingIds.length > 0) {
+      Promise.all(missingIds.map((id) => inventoryApi.getItem(id).catch((): null => null))).then((responses) => {
+        setCart((prev) =>
+          prev.map((line) => {
+            const res = responses.find((r) => r?.data?.id === line.itemId);
+            return res?.data ? { ...line, item: res.data } : line;
+          }),
+        );
+      });
+    }
   }, [loadedQuotation]);
 
   // One linked treasury of the chosen kind is picked for the cashier.
@@ -245,8 +285,73 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     setRequestId(newRequestId());
     setError(null);
     setNotes(null);
+    setPriceTier("retail");
+    setPendingSale(null);
+    setPriceFloorViolations(null);
+    setOverrideError(null);
+    setIsOverrideDialogOpen(false);
     if (loadedQuotation) onQuotationDone();
   };
+
+  const handleTierChange = (newTier: "retail" | "wholesale") => {
+    if (newTier === priceTier) return;
+    setPriceTier(newTier);
+    setCart((prev) =>
+      prev.map((l) => {
+        if (l.lineType !== "item" || l.priceEdited || !l.item) return l;
+        let unitPrice: number | null = null;
+        if (newTier === "wholesale") {
+          unitPrice = suggestedWholesalePrice(l.item, 1, l.size ?? undefined);
+          if (unitPrice === null) {
+            unitPrice = suggestedPrice(l.item, 1, l.size ?? undefined);
+          }
+        } else {
+          unitPrice = suggestedPrice(l.item, 1, l.size ?? undefined);
+        }
+        if (unitPrice === null) return l;
+        return {
+          ...l,
+          price: String(unitPrice),
+        };
+      }),
+    );
+  };
+
+  const lineFloorStatuses = useMemo(() => {
+    if (isInternal) return {};
+    const statuses: Record<string, { isBelow: boolean; floor: number; reason: "min_price" | "cost"; netUnitPrice: number }> = {};
+    for (const l of cart) {
+      if (l.lineType !== "item" || !l.item) continue;
+      const qty = num(l.qty);
+      if (qty <= 0) continue;
+
+      const minPrice = suggestedMinPrice(l.item, 1, l.size ?? undefined) ?? 0;
+      const costPrice = suggestedCostPrice(l.item, 1, l.size ?? undefined) ?? 0;
+      const floor = Math.max(minPrice, costPrice);
+      if (floor <= 0) continue;
+
+      const lineGross = qty * num(l.price);
+      const lineDisc = Math.max(0, num(l.discount));
+      const lineNet = lineGross - lineDisc;
+
+      const invoiceShare =
+        invDiscount > 0 && subtotal > 0 && lineNet > 0
+          ? invDiscount * (lineNet / subtotal)
+          : 0;
+
+      const netUnitPrice = (lineNet - invoiceShare) / qty;
+
+      if (netUnitPrice < floor - 0.0001) {
+        statuses[l.key] = {
+          isBelow: true,
+          floor,
+          reason: costPrice > minPrice ? "cost" : "min_price",
+          netUnitPrice,
+        };
+      }
+    }
+    return statuses;
+  }, [cart, isInternal, invDiscount, subtotal]);
 
   const updateLine = (key: string, patch: Partial<CartLine>) =>
     setCart((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
@@ -259,10 +364,15 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     }
     const existing = cart.find((l) => l.lineType === "item" && l.itemId === item.id && !l.stockLotId);
     if (existing) {
-      updateLine(existing.key, { qty: String(num(existing.qty) + 1) });
+      updateLine(existing.key, { qty: String(num(existing.qty) + 1), item: existing.item ?? item });
       return;
     }
-    const unitPrice = suggestedPrice(item, 1);
+    let unitPrice: number | null = null;
+    if (priceTier === "wholesale") {
+      unitPrice = suggestedWholesalePrice(item, 1) ?? suggestedPrice(item, 1);
+    } else {
+      unitPrice = suggestedPrice(item, 1);
+    }
     setCart((prev) => [
       ...prev,
       {
@@ -274,6 +384,8 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
         qty: "1",
         price: unitPrice !== null ? String(unitPrice) : "",
         discount: "",
+        priceEdited: false,
+        item,
       },
     ]);
   };
@@ -298,7 +410,14 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     if (!blockPicker) return;
     const { item, editingKey } = blockPicker;
     const size = block.id ? { length_m: block.length_m, width_m: block.width_m, height_m: block.height_m } : null;
-    const unitPrice = size ? suggestedPrice(item, 1, size) : null;
+    let unitPrice: number | null = null;
+    if (size) {
+      if (priceTier === "wholesale") {
+        unitPrice = suggestedWholesalePrice(item, 1, size) ?? suggestedPrice(item, 1, size);
+      } else {
+        unitPrice = suggestedPrice(item, 1, size);
+      }
+    }
 
     if (editingKey) {
       updateLine(editingKey, {
@@ -306,7 +425,9 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
         stockLotLabel: block.lot_number || null,
         size,
         qty: "1",
-        ...(unitPrice !== null ? { price: String(unitPrice) } : {}),
+        ...(unitPrice !== null ? { price: String(unitPrice), priceEdited: false } : {}),
+        // The re-pick button passes a stub when the line's full item has not loaded yet; keep what the line has.
+        ...(item.item_type ? { item } : {}),
       });
       return;
     }
@@ -325,6 +446,8 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
         stockLotId: block.id,
         stockLotLabel: block.lot_number,
         size,
+        priceEdited: false,
+        item,
       },
     ]);
   };
@@ -389,56 +512,69 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     );
   };
 
+  const handleCheckoutError = (err: unknown, request: PendingSaleRequest) => {
+    const payload = apiErrorPayload(err) as SaleErrorPayload | undefined;
+    const violations = payload?.lines;
+    if (payload?.code === "PRICE_BELOW_FLOOR" && Array.isArray(violations) && violations.length > 0) {
+      setPendingSale(request);
+      setPriceFloorViolations(violations);
+      setOverrideError(null);
+      setIsOverrideDialogOpen(true);
+      return;
+    }
+    fail(err);
+  };
+
+  /** Sends a checkout or quotation conversion; the request is kept so a manager override can resend it verbatim. */
+  const sendSale = (request: PendingSaleRequest, onSuccess: (sale: Sale) => void, onError: (err: unknown) => void) => {
+    if (request.kind === "convert") {
+      convert.mutate(request.input, { onSuccess, onError });
+    } else {
+      checkout.mutate(request.input, { onSuccess, onError });
+    }
+  };
+
   const executeCheckout = (tenderedAmount?: number) => {
     setError(null);
     const lines = cartLines();
-
-    if (loadedQuotation) {
-      convert.mutate(
-        {
-          id: loadedQuotation.id,
-          client_request_id: requestId,
-          payment_method: method,
-          cash_account_id: cashAccountId,
-          notes: notes ?? undefined,
-          invoice_discount: invDiscount,
-          lines,
-          tendered_amount: tenderedAmount,
-        },
-        {
-          onSuccess: (sale) => {
-            setIsCashTenderOpen(false);
-            onSold(sale);
+    const request: PendingSaleRequest = loadedQuotation
+      ? {
+          kind: "convert",
+          input: {
+            id: loadedQuotation.id,
+            client_request_id: requestId,
+            payment_method: method,
+            cash_account_id: cashAccountId,
+            notes: notes ?? undefined,
+            invoice_discount: invDiscount,
+            price_tier: priceTier,
+            lines,
+            tendered_amount: tenderedAmount,
           },
-          onError: (err) => {
-            setIsCashTenderOpen(false);
-            fail(err);
+        }
+      : {
+          kind: "checkout",
+          input: {
+            client_request_id: requestId,
+            ...buyerPayload(),
+            payment_method: isInternal ? null : method,
+            cash_account_id: isInternal ? null : cashAccountId,
+            notes: notes ?? undefined,
+            ...(isInternal ? {} : { invoice_discount: invDiscount, price_tier: priceTier }),
+            lines,
+            tendered_amount: tenderedAmount,
           },
-        },
-      );
-      return;
-    }
+        };
 
-    checkout.mutate(
-      {
-        client_request_id: requestId,
-        ...buyerPayload(),
-        payment_method: isInternal ? null : method,
-        cash_account_id: isInternal ? null : cashAccountId,
-        notes: notes ?? undefined,
-        ...(isInternal ? {} : { invoice_discount: invDiscount }),
-        lines,
-        tendered_amount: tenderedAmount,
+    sendSale(
+      request,
+      (sale) => {
+        setIsCashTenderOpen(false);
+        onSold(sale);
       },
-      {
-        onSuccess: (sale) => {
-          setIsCashTenderOpen(false);
-          onSold(sale);
-        },
-        onError: (err) => {
-          setIsCashTenderOpen(false);
-          fail(err);
-        },
+      (err) => {
+        setIsCashTenderOpen(false);
+        handleCheckoutError(err, request);
       },
     );
   };
@@ -446,51 +582,89 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   const executeSplitCheckout = (portions: SplitPaymentPortionInput[]) => {
     setError(null);
     const lines = cartLines();
-
-    if (loadedQuotation) {
-      convert.mutate(
-        {
-          id: loadedQuotation.id,
-          client_request_id: requestId,
-          payment_method: "split",
-          notes: notes ?? undefined,
-          invoice_discount: invDiscount,
-          lines,
-          payments: portions,
-        },
-        {
-          onSuccess: (sale) => {
-            setIsSplitPaymentOpen(false);
-            onSold(sale);
+    const request: PendingSaleRequest = loadedQuotation
+      ? {
+          kind: "convert",
+          input: {
+            id: loadedQuotation.id,
+            client_request_id: requestId,
+            payment_method: "split",
+            notes: notes ?? undefined,
+            invoice_discount: invDiscount,
+            price_tier: priceTier,
+            lines,
+            payments: portions,
           },
-          onError: (err) => {
-            setIsSplitPaymentOpen(false);
-            fail(err);
+        }
+      : {
+          kind: "checkout",
+          input: {
+            client_request_id: requestId,
+            ...buyerPayload(),
+            payment_method: "split",
+            notes: notes ?? undefined,
+            invoice_discount: invDiscount,
+            price_tier: priceTier,
+            lines,
+            payments: portions,
           },
-        },
-      );
-      return;
-    }
+        };
 
-    checkout.mutate(
-      {
-        client_request_id: requestId,
-        ...buyerPayload(),
-        payment_method: "split",
-        notes: notes ?? undefined,
-        invoice_discount: invDiscount,
-        lines,
-        payments: portions,
+    sendSale(
+      request,
+      (sale) => {
+        setIsSplitPaymentOpen(false);
+        onSold(sale);
       },
-      {
-        onSuccess: (sale) => {
-          setIsSplitPaymentOpen(false);
-          onSold(sale);
-        },
-        onError: (err) => {
-          setIsSplitPaymentOpen(false);
-          fail(err);
-        },
+      (err) => {
+        setIsSplitPaymentOpen(false);
+        handleCheckoutError(err, request);
+      },
+    );
+  };
+
+  /** Drops the mutation state so the manager password in its variables does not outlive the attempt. */
+  const clearSaleMutations = () => {
+    checkout.reset();
+    convert.reset();
+  };
+
+  const closePriceOverride = () => {
+    setIsOverrideDialogOpen(false);
+    setPriceFloorViolations(null);
+    setPendingSale(null);
+    setOverrideError(null);
+    clearSaleMutations();
+  };
+
+  // Resends the exact request that was refused — same client_request_id, tender and split portions — plus the approval.
+  const handlePriceOverrideConfirm = (override: PriceOverrideInput) => {
+    if (!pendingSale) return;
+    setOverrideError(null);
+    const request: PendingSaleRequest =
+      pendingSale.kind === "convert"
+        ? { kind: "convert", input: { ...pendingSale.input, price_override: override } }
+        : { kind: "checkout", input: { ...pendingSale.input, price_override: override } };
+
+    sendSale(
+      request,
+      (sale) => {
+        closePriceOverride();
+        onSold(sale);
+      },
+      (err) => {
+        clearSaleMutations();
+        const p = apiErrorPayload(err) as SaleErrorPayload | undefined;
+        const known = p?.code ? SALES_ERROR_MESSAGE[p.code] : undefined;
+        if (p?.code === "PRICE_OVERRIDE_THROTTLED") {
+          const retryAfter = Number(p.retry_after);
+          setOverrideError(
+            `${known}${Number.isFinite(retryAfter) && retryAfter > 0 ? ` (بعد ${retryAfter} ثانية)` : ""}`,
+          );
+          return;
+        }
+        const fieldError = p?.errors ? Object.values(p.errors)[0]?.[0] : undefined;
+        setOverrideError(known || fieldError || p?.message || "تعذّر إتمام العملية.");
       },
     );
   };
@@ -512,7 +686,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     if (buyerMode !== "client" || !clientId) return;
     setError(null);
     createQuotation.mutate(
-      { client_id: clientId, notes: notes ?? undefined, invoice_discount: invDiscount, lines: cartLines() },
+      { client_id: clientId, notes: notes ?? undefined, price_tier: priceTier, invoice_discount: invDiscount, lines: cartLines() },
       {
         onSuccess: (quotation) => {
           toast.success(`تم حفظ عرض السعر ${quotation.quotation_number}`);
@@ -531,7 +705,9 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     const trimmedInvDisc = invoiceDiscount.trim();
     const payload: HeldCartPayload = {
       version: 1,
-      cart,
+      // The full item rides only in memory; it is refetched on resume to keep the payload small.
+      cart: cart.map((line): CartLine => ({ ...line, item: null })),
+      priceTier: isInternal ? "retail" : priceTier,
       ...(!isInternal && trimmedInvDisc ? { invoiceDiscount: trimmedInvDisc } : {}),
       client_id: buyerMode === "client" ? clientId : null,
       buyer_mode: buyerMode,
@@ -573,13 +749,32 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   };
 
   const executeResume = (hc: HeldCart, payload: HeldCartPayload) => {
-    setCart(
-      payload.cart.map((l) => ({
-        ...l,
-        key: l.key || crypto.randomUUID(),
-        discount: l.discount ?? "",
-      })),
+    const resumedLines: CartLine[] = payload.cart.map((l) => ({
+      ...l,
+      key: l.key || crypto.randomUUID(),
+      discount: l.discount ?? "",
+      // Carts held before tier pricing have no flag; treat their prices as typed so a tier switch never overwrites them.
+      priceEdited: l.priceEdited ?? true,
+    }));
+    setCart(resumedLines);
+    setPriceTier(payload.priceTier ?? "retail");
+    const missingIds = Array.from(
+      new Set(
+        resumedLines
+          .filter((l) => l.lineType === "item" && l.itemId && !l.item)
+          .map((l) => l.itemId as string),
+      ),
     );
+    if (missingIds.length > 0) {
+      Promise.all(missingIds.map((id) => inventoryApi.getItem(id).catch((): null => null))).then((responses) => {
+        setCart((prev) =>
+          prev.map((line) => {
+            const res = responses.find((r) => r?.data?.id === line.itemId);
+            return res?.data ? { ...line, item: res.data } : line;
+          }),
+        );
+      });
+    }
     const resumedMode: BuyerMode =
       payload.buyer_mode === "walk_in"
         ? "walk_in"
@@ -815,6 +1010,29 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
             )}
           </div>
         )}
+
+        {!isInternal && (
+          <div className="flex items-center justify-between gap-3 border-t border-app-separator pt-3">
+            <span className="text-[11px] font-semibold text-app-label-secondary">التسعير</span>
+            <div className="inline-flex rounded-xl border border-app-separator p-0.5 bg-app-bg-secondary">
+              {([
+                { value: "retail", label: "تجزئة" },
+                { value: "wholesale", label: "جملة" },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => handleTierChange(opt.value)}
+                  className={`rounded-lg px-3 py-1 text-[11px] font-bold ${
+                    priceTier === opt.value ? "bg-app-bg-primary text-app-accent shadow-sm" : "text-app-label-secondary"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Payment */}
@@ -972,6 +1190,14 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
                 const lineDisc = isInternal ? 0 : num(l.discount);
                 const lineDiscInvalid = !isInternal && (lineDisc < 0 || lineDisc > lineGross);
                 const lineNet = lineGross - lineDisc;
+                const floorStatus = lineFloorStatuses[l.key];
+                const noWholesalePrice =
+                  !isInternal &&
+                  priceTier === "wholesale" &&
+                  l.lineType === "item" &&
+                  !l.priceEdited &&
+                  l.item != null &&
+                  suggestedWholesalePrice(l.item, 1, l.size ?? undefined) === null;
                 return (
                   <tr key={l.key} className="hover:bg-app-fill-f1/50">
                     <td className="px-4 py-2.5">
@@ -989,7 +1215,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
                           type="button"
                           onClick={() =>
                             setBlockPicker({
-                              item: { id: l.itemId as string, name: l.name, code: l.code ?? "" } as InventoryItem,
+                              item: l.item ?? ({ id: l.itemId as string, name: l.name, code: l.code ?? "" } as InventoryItem),
                               editingKey: l.key,
                             })
                           }
@@ -1017,15 +1243,26 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
                       {isInternal ? (
                         <div className="text-center text-[11px] text-app-label-tertiary">تكلفة المخزون</div>
                       ) : (
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.5"
-                          placeholder="السعر"
-                          value={l.price}
-                          onChange={(e) => updateLine(l.key, { price: e.target.value })}
-                          className="w-full px-2 py-1 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono text-center focus:border-app-accent focus:outline-none"
-                        />
+                        <>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            placeholder="السعر"
+                            value={l.price}
+                            onChange={(e) => updateLine(l.key, { price: e.target.value, priceEdited: true })}
+                            className="w-full px-2 py-1 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono text-center focus:border-app-accent focus:outline-none"
+                          />
+                          {noWholesalePrice && (
+                            <div className="mt-1 text-center text-[10px] text-app-label-tertiary">لا يوجد سعر جملة</div>
+                          )}
+                          {floorStatus && (
+                            <div className="mt-1 rounded-md bg-app-status-warning/10 px-1.5 py-0.5 text-center text-[10px] font-semibold text-app-status-warning">
+                              {floorStatus.reason === "cost" ? "أقل من التكلفة" : "أقل من الحد الأدنى"} (
+                              <span className="font-mono">{formatNumber(floorStatus.floor)}</span>)
+                            </div>
+                          )}
+                        </>
                       )}
                     </td>
                     {!isInternal && (
@@ -1202,6 +1439,14 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
         onConfirm={executeSplitCheckout}
       />
       <QuotationPrintDialog quotationId={printQuotationId} onClose={() => setPrintQuotationId(null)} />
+      <PriceOverrideDialog
+        open={isOverrideDialogOpen}
+        lines={priceFloorViolations ?? []}
+        isBusy={isBusy}
+        error={overrideError}
+        onClose={closePriceOverride}
+        onConfirm={handlePriceOverrideConfirm}
+      />
 
       {/* Hold Cart Dialog */}
       <Dialog open={isHoldDialogOpen} onOpenChange={setIsHoldDialogOpen}>

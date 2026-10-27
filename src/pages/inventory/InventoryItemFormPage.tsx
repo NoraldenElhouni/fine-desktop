@@ -71,6 +71,7 @@ const InventoryItemFormPage: React.FC = () => {
   const [purchasePrice, setPurchasePrice] = useState("");
   const [sellingPrice, setSellingPrice] = useState("");
   const [wholesalePrice, setWholesalePrice] = useState("");
+  const [minPrice, setMinPrice] = useState("");
   const [costManuallyEdited, setCostManuallyEdited] = useState(false);
   const [priceBasis, setPriceBasis] = useState<PriceBasis>("unit");
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +125,11 @@ const InventoryItemFormPage: React.FC = () => {
         ? String(Number(editingItem.wholesale_price))
         : "",
     );
+    setMinPrice(
+      editingItem.min_price !== null && editingItem.min_price !== undefined
+        ? String(Number(editingItem.min_price))
+        : "",
+    );
     if (editingItem.cost_price !== null && editingItem.cost_price !== undefined) {
       setCostManuallyEdited(true);
     }
@@ -145,6 +151,9 @@ const InventoryItemFormPage: React.FC = () => {
   const unitLabel = UOM_LABELS[uom] || uom;
   const capacityNumber = Number(capacity);
   const volume = Number(lengthM) * Number(widthM) * Number(heightM);
+  // Min price and cost share one basis, so they compare directly; a zero/empty min price warns about nothing.
+  const minBelowCost = Number(minPrice) > 0 && Number(costPrice) > 0 && Number(minPrice) < Number(costPrice);
+  const minAboveSelling = Number(minPrice) > 0 && Number(sellingPrice) > 0 && Number(minPrice) > Number(sellingPrice);
 
   const handleCategoryChange = (nextId: string) => {
     setCategoryId(nextId);
@@ -193,6 +202,7 @@ const InventoryItemFormPage: React.FC = () => {
       purchase_price: purchasePrice.trim() ? Number(purchasePrice) : null,
       selling_price: sellingPrice.trim() ? Number(sellingPrice) : null,
       wholesale_price: wholesalePrice.trim() ? Number(wholesalePrice) : null,
+      min_price: minPrice.trim() ? Number(minPrice) : null,
       price_basis: priceBasis,
     };
 
@@ -678,7 +688,7 @@ const InventoryItemFormPage: React.FC = () => {
             <h4 className="text-xs font-bold text-app-label-primary flex items-center gap-1.5">
               <span>أسعار البيع (Selling Prices)</span>
             </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <Field
                 label={priceBasis === "m3" ? "سعر بيع القطعة للمتر المكعب (د.ل)" : "سعر بيع القطعة (قطاعي) (د.ل)"}
                 hint="سعر البيع الافتراضي للمستهلك أو المعرض"
@@ -710,13 +720,31 @@ const InventoryItemFormPage: React.FC = () => {
                   dir="ltr"
                 />
               </Field>
+
+              <Field
+                label={priceBasis === "m3" ? "أقل سعر بيع للمتر المكعب (د.ل)" : "أقل سعر بيع (د.ل)"}
+                hint="البيع بأقل من هذا السعر أو من التكلفة يحتاج موافقة المدير"
+              >
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={minPrice}
+                  onChange={(e) => setMinPrice(e.target.value)}
+                  className={cn(inputClass, "font-mono")}
+                  dir="ltr"
+                />
+              </Field>
             </div>
           </div>
 
           {/* Profit margin live feedback */}
-          {Number(costPrice) > 0 && (Number(sellingPrice) > 0 || Number(wholesalePrice) > 0) && (
+          {((Number(costPrice) > 0 && (Number(sellingPrice) > 0 || Number(wholesalePrice) > 0)) ||
+            minBelowCost ||
+            minAboveSelling) && (
             <div className="flex flex-wrap items-center gap-4 text-xs bg-app-bg-primary border border-app-separator p-2.5 rounded-lg">
-              {Number(sellingPrice) > 0 && (
+              {Number(costPrice) > 0 && Number(sellingPrice) > 0 && (
                 <div>
                   <span className="text-app-label-secondary">هامش ربح القطعة: </span>
                   <span className={cn("font-mono font-bold", Number(sellingPrice) >= Number(costPrice) ? "text-app-status-positive" : "text-app-status-danger")}>
@@ -727,7 +755,7 @@ const InventoryItemFormPage: React.FC = () => {
                   </span>
                 </div>
               )}
-              {Number(wholesalePrice) > 0 && (
+              {Number(costPrice) > 0 && Number(wholesalePrice) > 0 && (
                 <div>
                   <span className="text-app-label-secondary">هامش ربح الجملة: </span>
                   <span className={cn("font-mono font-bold", Number(wholesalePrice) >= Number(costPrice) ? "text-app-status-positive" : "text-app-status-danger")}>
@@ -736,6 +764,16 @@ const InventoryItemFormPage: React.FC = () => {
                   <span className="text-app-label-tertiary font-mono ms-1">
                     (+{formatNumber(Number(wholesalePrice) - Number(costPrice))} د.ل)
                   </span>
+                </div>
+              )}
+              {minBelowCost && (
+                <div className="w-full font-semibold text-app-status-warning">
+                  أقل سعر بيع ({formatNumber(Number(minPrice))}) أقل من التكلفة ({formatNumber(Number(costPrice))}) — الحد الفعلي عند البيع هو التكلفة.
+                </div>
+              )}
+              {minAboveSelling && (
+                <div className="w-full font-semibold text-app-status-warning">
+                  أقل سعر بيع ({formatNumber(Number(minPrice))}) أعلى من سعر البيع ({formatNumber(Number(sellingPrice))}) — كل بيع بالسعر الافتراضي سيحتاج موافقة المدير.
                 </div>
               )}
             </div>

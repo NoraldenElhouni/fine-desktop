@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowRight, Banknote, Boxes, Building2, FileText, Package, ShoppingCart, Truck, UserRound,
+  ArrowRight, Banknote, Boxes, Building2, FileText, Package, ShieldCheck, ShoppingCart, Truck, UserRound,
 } from "lucide-react";
 import { useCollectPayment, useSale, usePaymentAccounts } from "../../hooks/useSales";
 import { FULFILLMENT_LABEL, PAYMENT_METHOD_LABEL, SALE_STATUS_LABEL, PaymentMethod, formatSizeCm } from "../../api/endpoints/sales";
@@ -10,6 +10,11 @@ import { formatDateTime, formatNumber, localDateIso } from "../../lib/utils/form
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { toast } from "../../stores/toastStore";
 import { SaleInvoiceDialog, DeliveryNoteDialog } from "../../components/print/SalesDocuments";
+
+/** Backend-generated override reasons, in the user's language (PriceFloorGuard writes these in English). */
+const PRICE_OVERRIDE_REASON_LABEL: Record<string, string> = {
+  "approved by seller": "البائع يملك صلاحية البيع تحت الحد الأدنى",
+};
 
 export const SaleDetailPage: React.FC = () => {
   const { saleId } = useParams<{ saleId: string }>();
@@ -52,6 +57,8 @@ export const SaleDetailPage: React.FC = () => {
       ? Number(sale.gross_amount)
       : Number(sale.total_amount) + totalDiscount;
   const hasAnyDiscount = totalDiscount > 0;
+  const rawOverrideReason = sale.price_override_reason?.trim() ?? "";
+  const overrideReason = PRICE_OVERRIDE_REASON_LABEL[rawOverrideReason] ?? rawOverrideReason;
   const bundleLines = saleLines.filter((l) => l.line_type === "bundle");
   const availableTreasuries = method === "cheque" ? [] : treasuries.filter((a) => a.kind === method && a.account_id);
 
@@ -145,6 +152,9 @@ export const SaleDetailPage: React.FC = () => {
           <ShoppingCart className="w-7 h-7 text-app-accent" />
           <span className="font-mono text-app-accent">{sale.order_number}</span>
           <StatusBadge status={sale.status} label={SALE_STATUS_LABEL[sale.status]} />
+          {sale.price_tier === "wholesale" && (
+            <span className="rounded-full bg-app-accent/15 px-2 py-0.5 text-xs font-bold text-app-accent">جملة</span>
+          )}
           {sale.fulfillment_status && (
             <span className="flex items-center gap-1 text-xs font-semibold text-app-label-secondary">
               <Truck className="w-3.5 h-3.5" /> {FULFILLMENT_LABEL[sale.fulfillment_status]}
@@ -177,6 +187,16 @@ export const SaleDetailPage: React.FC = () => {
           هذا البيع يتجاوز سقف ائتمان العميل بمقدار{" "}
           <span className="font-mono font-bold">{formatNumber(sale.credit_approval_request.amount_over_limit)}</span> ولم يُصرف بعد؛
           راجع تبويب «الموافقات».
+        </div>
+      )}
+
+      {sale.price_override_by && (
+        <div className="flex items-start gap-2 rounded-2xl border border-app-status-warning/40 bg-app-status-warning/5 p-4 text-xs text-app-label-primary">
+          <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-app-status-warning" />
+          <span>
+            سعر أقل من الحد الأدنى بموافقة: <span className="font-bold">{sale.price_override_by.name}</span>
+            {overrideReason ? ` — ${overrideReason}` : ""}
+          </span>
         </div>
       )}
 
