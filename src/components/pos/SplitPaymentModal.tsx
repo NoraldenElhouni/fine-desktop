@@ -31,6 +31,7 @@ interface SplitPaymentModalProps {
   isOpen: boolean;
   total: number;
   clientName?: string;
+  isWalkIn?: boolean;
   isBusy?: boolean;
   onClose: () => void;
   onConfirm: (portions: SplitPaymentPortionInput[]) => void;
@@ -46,6 +47,7 @@ export const SplitPaymentModal: React.FC<SplitPaymentModalProps> = ({
   isOpen,
   total,
   clientName,
+  isWalkIn = false,
   isBusy = false,
   onClose,
   onConfirm,
@@ -116,6 +118,7 @@ export const SplitPaymentModal: React.FC<SplitPaymentModalProps> = ({
   };
 
   const handleMethodChange = (id: string, newMethod: "cash" | "bank" | "cheque") => {
+    if (isWalkIn && newMethod === "cheque") return;
     const defaultTreasuryId =
       newMethod === "cash" && cashTreasuries.length === 1
         ? cashTreasuries[0].id
@@ -207,6 +210,9 @@ export const SplitPaymentModal: React.FC<SplitPaymentModalProps> = ({
           return `الدفعة ${rowNum} (مصرف): اختر الحساب المصرفي.`;
         }
       } else if (row.method === "cheque") {
+        if (isWalkIn) {
+          return "البيع الآجل أو بالشيك يتطلب عميلاً مسجلاً.";
+        }
         if (!row.chequeNo.trim()) {
           return `الدفعة ${rowNum} (شيك): أدخل رقم الشيك.`;
         }
@@ -224,7 +230,7 @@ export const SplitPaymentModal: React.FC<SplitPaymentModalProps> = ({
     }
 
     return null;
-  }, [rows, isBalanced]);
+  }, [rows, isBalanced, isWalkIn]);
 
   const canConfirm = unmetRuleHint === null && !isBusy;
 
@@ -338,7 +344,9 @@ export const SplitPaymentModal: React.FC<SplitPaymentModalProps> = ({
                       >
                         <option value="cash">نقداً</option>
                         <option value="bank">مصرف</option>
-                        <option value="cheque">شيك</option>
+                        <option value="cheque" disabled={isWalkIn}>
+                          شيك
+                        </option>
                       </select>
                     </div>
                     <div className="flex-1">
@@ -509,6 +517,12 @@ export const SplitPaymentModal: React.FC<SplitPaymentModalProps> = ({
               <Plus className="h-4 w-4" />
               إضافة دفعة
             </button>
+          )}
+
+          {isWalkIn && (
+            <p className="text-[11px] text-app-label-tertiary">
+              البيع الآجل أو بالشيك يتطلب عميلاً مسجلاً
+            </p>
           )}
 
           {/* Validation rule hint */}

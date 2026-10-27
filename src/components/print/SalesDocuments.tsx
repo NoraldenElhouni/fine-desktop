@@ -14,61 +14,72 @@ import { formatDate, formatNumber } from "../../lib/utils/format";
 const qty = (value: number | string) => formatNumber(Number(value));
 
 /** The client's invoice: a bundle is one line with its name, like any item. */
-export const SaleInvoiceDocument: React.FC<{ invoice: Invoice }> = ({ invoice }) => (
-  <PrintDocument
-    title="فاتورة مبيعات"
-    number={invoice.invoice_number}
-    date={invoice.date}
-    issuer={invoice.seller}
-    meta={[
-      { label: "العميل", value: invoice.buyer ?? "—" },
-      { label: "الهاتف", value: invoice.buyer_phone ?? "—" },
-      { label: "رقم البيع", value: <span className="font-mono">{invoice.sale_number}</span> },
-      {
-        label: "طريقة الدفع",
-        value: invoice.payment_method
-          ? `${PAYMENT_METHOD_LABEL[invoice.payment_method] ?? invoice.payment_method}${invoice.cash_account ? ` — ${invoice.cash_account}` : ""}`
-          : "تحويل داخلي بسعر التكلفة",
-      },
-    ]}
-    signatures={["توقيع البائع", "توقيع العميل"]}
-    footerNote="شكراً لتعاملكم معنا — البضاعة المباعة تخضع لسياسة الاستبدال والضمان"
-  >
-    <PrintTable head={["#", "البيان", "الكمية", "سعر الوحدة", "الإجمالي"]}>
-      {invoice.lines.map((line, i) => {
-        const size = formatSizeCm(line.length_m, line.width_m, line.height_m);
-        return (
-          <tr key={i}>
-            <Cell className="w-8 text-center">{i + 1}</Cell>
-            <Cell>
-              <div className="font-semibold">{line.description}</div>
-              <div className="text-[10px] text-gray-600">
-                {[line.sku, size, line.lot_number ? `لوت ${line.lot_number}` : null].filter(Boolean).join(" · ")}
-              </div>
-            </Cell>
-            <Cell className="w-16 text-center font-mono">{qty(line.quantity)}</Cell>
-            <Cell className="w-28 text-end font-mono">{money(line.unit_price)}</Cell>
-            <Cell className="w-28 text-end font-mono font-bold">{money(line.line_total)}</Cell>
-          </tr>
-        );
-      })}
-      <tr>
-        <Cell colSpan={4} className="text-end font-bold">الإجمالي</Cell>
-        <Cell className="text-end font-mono font-bold">{money(invoice.total_amount)}</Cell>
-      </tr>
-      <tr>
-        <Cell colSpan={4} className="text-end">المدفوع</Cell>
-        <Cell className="text-end font-mono">{money(invoice.amount_paid)}</Cell>
-      </tr>
-      {invoice.outstanding > 0 && (
+export const SaleInvoiceDocument: React.FC<{ invoice: Invoice }> = ({ invoice }) => {
+  const buyerLabel =
+    invoice.buyer?.trim() ||
+    invoice.walk_in_name?.trim() ||
+    (invoice.buyer_type === "walk_in" ? "زبون عام" : "—");
+  const buyerPhone =
+    invoice.buyer_phone?.trim() ||
+    invoice.walk_in_phone?.trim() ||
+    "—";
+
+  return (
+    <PrintDocument
+      title="فاتورة مبيعات"
+      number={invoice.invoice_number}
+      date={invoice.date}
+      issuer={invoice.seller}
+      meta={[
+        { label: "العميل", value: buyerLabel },
+        { label: "الهاتف", value: buyerPhone },
+        { label: "رقم البيع", value: <span className="font-mono">{invoice.sale_number}</span> },
+        {
+          label: "طريقة الدفع",
+          value: invoice.payment_method
+            ? `${PAYMENT_METHOD_LABEL[invoice.payment_method] ?? invoice.payment_method}${invoice.cash_account ? ` — ${invoice.cash_account}` : ""}`
+            : "تحويل داخلي بسعر التكلفة",
+        },
+      ]}
+      signatures={["توقيع البائع", "توقيع العميل"]}
+      footerNote="شكراً لتعاملكم معنا — البضاعة المباعة تخضع لسياسة الاستبدال والضمان"
+    >
+      <PrintTable head={["#", "البيان", "الكمية", "سعر الوحدة", "الإجمالي"]}>
+        {invoice.lines.map((line, i) => {
+          const size = formatSizeCm(line.length_m, line.width_m, line.height_m);
+          return (
+            <tr key={i}>
+              <Cell className="w-8 text-center">{i + 1}</Cell>
+              <Cell>
+                <div className="font-semibold">{line.description}</div>
+                <div className="text-[10px] text-gray-600">
+                  {[line.sku, size, line.lot_number ? `لوت ${line.lot_number}` : null].filter(Boolean).join(" · ")}
+                </div>
+              </Cell>
+              <Cell className="w-16 text-center font-mono">{qty(line.quantity)}</Cell>
+              <Cell className="w-28 text-end font-mono">{money(line.unit_price)}</Cell>
+              <Cell className="w-28 text-end font-mono font-bold">{money(line.line_total)}</Cell>
+            </tr>
+          );
+        })}
         <tr>
-          <Cell colSpan={4} className="text-end font-bold">المتبقي على العميل</Cell>
-          <Cell className="text-end font-mono font-bold">{money(invoice.outstanding)}</Cell>
+          <Cell colSpan={4} className="text-end font-bold">الإجمالي</Cell>
+          <Cell className="text-end font-mono font-bold">{money(invoice.total_amount)}</Cell>
         </tr>
-      )}
-    </PrintTable>
-  </PrintDocument>
-);
+        <tr>
+          <Cell colSpan={4} className="text-end">المدفوع</Cell>
+          <Cell className="text-end font-mono">{money(invoice.amount_paid)}</Cell>
+        </tr>
+        {invoice.outstanding > 0 && (
+          <tr>
+            <Cell colSpan={4} className="text-end font-bold">المتبقي على العميل</Cell>
+            <Cell className="text-end font-mono font-bold">{money(invoice.outstanding)}</Cell>
+          </tr>
+        )}
+      </PrintTable>
+    </PrintDocument>
+  );
+};
 
 /** A priced preview the client takes home. */
 export const QuotationDocument: React.FC<{ quotation: Quotation }> = ({ quotation }) => (

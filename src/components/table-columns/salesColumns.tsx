@@ -38,11 +38,21 @@ export function useSalesColumns({ onOpen }: UseSalesColumnsArgs): ColumnDef<Sale
         enableSorting: false,
         cell: ({ row }) => {
           const o = row.original;
-          return o.buyer_type === "internal_unit" ? (
-            <span className="inline-flex items-center gap-1 text-app-label-secondary">
-              <Building2 className="w-3.5 h-3.5" /> {o.buyer_unit?.name ?? "وحدة داخلية"}
-            </span>
-          ) : (
+          if (o.buyer_type === "internal_unit") {
+            return (
+              <span className="inline-flex items-center gap-1 text-app-label-secondary">
+                <Building2 className="w-3.5 h-3.5" /> {o.buyer_unit?.name ?? "وحدة داخلية"}
+              </span>
+            );
+          }
+          if (o.buyer_type === "walk_in") {
+            return (
+              <span className="inline-flex items-center gap-1 text-app-label-secondary">
+                <UserRound className="w-3.5 h-3.5" /> {o.walk_in_name?.trim() || "زبون عام"}
+              </span>
+            );
+          }
+          return (
             <span className="inline-flex items-center gap-1">
               <UserRound className="w-3.5 h-3.5" /> {o.client?.entity?.name ?? "عميل"}
             </span>

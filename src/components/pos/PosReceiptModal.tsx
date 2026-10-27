@@ -80,6 +80,21 @@ export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({ isOpen, sale, 
                 <div>رقم البيع: <span className="font-bold">{sale.order_number}</span></div>
                 <div>التاريخ: {formatDateTime(sale.created_at || new Date())}</div>
                 <div>
+                  العميل:{" "}
+                  <span className="font-bold">
+                    {sale.buyer_type === "internal_unit"
+                      ? sale.buyer_unit?.name ?? "وحدة داخلية"
+                      : sale.buyer_type === "walk_in"
+                        ? sale.walk_in_name?.trim() || "زبون عام"
+                        : sale.client?.entity?.name ?? "زبون عام"}
+                  </span>
+                  {sale.buyer_type === "walk_in" && sale.walk_in_phone?.trim()
+                    ? ` (${sale.walk_in_phone.trim()})`
+                    : sale.buyer_type === "client" && sale.client?.entity?.primary_contact?.phone
+                      ? ` (${sale.client.entity.primary_contact.phone})`
+                      : ""}
+                </div>
+                <div>
                   طريقة الدفع: {sale.payment_method ? PAYMENT_METHOD_LABEL[sale.payment_method as keyof typeof PAYMENT_METHOD_LABEL] ?? sale.payment_method : "—"}
                   {sale.cash_account?.name ? ` — ${sale.cash_account.name}` : ""}
                 </div>

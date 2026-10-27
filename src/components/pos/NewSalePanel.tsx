@@ -34,6 +34,7 @@ import { useServerConfigStore } from "../../stores/serverConfigStore";
 import {
   CartLine,
   CartLineInput,
+  CheckoutInput,
   HeldCart,
   HeldCartPayload,
   PAYMENT_METHOD_LABEL,
@@ -112,7 +113,7 @@ function formatTimeAgo(iso: string): string {
   return `منذ ${diffDays} يوماً`;
 }
 
-type BuyerMode = "client" | "internal";
+type BuyerMode = "client" | "walk_in" | "internal";
 
 interface NewSalePanelProps {
   /** A quotation the client came back with — its lines load into the cart. */
@@ -127,6 +128,8 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   const [buyerMode, setBuyerMode] = useState<BuyerMode>("client");
   const [clientId, setClientId] = useState<string | null>(null);
   const [buyerUnitId, setBuyerUnitId] = useState<string | null>(null);
+  const [walkInName, setWalkInName] = useState("");
+  const [walkInPhone, setWalkInPhone] = useState("");
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [cashAccountId, setCashAccountId] = useState<string | null>(null);
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -161,9 +164,10 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   const holdCart = useHoldCart();
   const deleteHeldCart = useDeleteHeldCart();
 
-  const client = clients.find((c) => c.id === clientId) ?? null;
+  const client = buyerMode === "client" ? (clients.find((c) => c.id === clientId) ?? null) : null;
   const otherUnits = units.filter((u) => u.id !== currentUnitId);
   const isInternal = buyerMode === "internal";
+  const isWalkIn = buyerMode === "walk_in";
   const treasuries = paymentAccounts.filter((a) => a.kind === method);
   const linkedTreasuries = treasuries.filter((a) => a.account_id);
 
@@ -172,6 +176,8 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     if (!loadedQuotation) return;
     setBuyerMode("client");
     setClientId(loadedQuotation.client_id);
+    setWalkInName("");
+    setWalkInPhone("");
     setNotes(loadedQuotation.notes ?? null);
     setCart(
       (loadedQuotation.lines ?? []).map((l) => ({
@@ -201,12 +207,14 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     }
   }, [method, linkedTreasuries, cashAccountId]);
 
-  // Reset method if split is selected without client or in internal mode
+  // Reset method if split is selected without client or in internal mode, or receivable in walk-in mode
   useEffect(() => {
-    if ((isInternal || !clientId) && method === "split") {
+    if ((isInternal || (buyerMode === "client" && !clientId)) && method === "split") {
+      setMethod("cash");
+    } else if (isWalkIn && method === "receivable") {
       setMethod("cash");
     }
-  }, [isInternal, clientId, method]);
+  }, [isInternal, isWalkIn, buyerMode, clientId, method]);
 
   const total = useMemo(() => cart.reduce((s, l) => s + num(l.qty) * num(l.price), 0), [cart]);
   const creditLimit = Number(client?.credit_limit ?? 0);
@@ -314,9 +322,26 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
       height_m: l.size?.height_m ?? null,
     }));
 
+  const buyerPayload = (): Pick<CheckoutInput, "client_id" | "buyer_unit_id" | "walk_in_name" | "walk_in_phone"> => {
+    if (isInternal) {
+      return { client_id: null, buyer_unit_id: buyerUnitId };
+    }
+    if (isWalkIn) {
+      const trimmedName = walkInName.trim();
+      const trimmedPhone = walkInPhone.trim();
+      return {
+        ...(trimmedName ? { walk_in_name: trimmedName } : {}),
+        ...(trimmedPhone ? { walk_in_phone: trimmedPhone } : {}),
+      };
+    }
+    return { client_id: clientId, buyer_unit_id: null };
+  };
+
   const onSold = (sale: Sale) => {
     resetCart();
     if (!isInternal) setClientId(null);
+    setWalkInName("");
+    setWalkInPhone("");
 
     if (sale.status === "pending_approval") {
       toast.warning(`البيع ${sale.order_number} تجاوز سقف ائتمان العميل وينتظر موافقة المدير.`);
@@ -372,8 +397,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     checkout.mutate(
       {
         client_request_id: requestId,
-        client_id: isInternal ? null : clientId,
-        buyer_unit_id: isInternal ? buyerUnitId : null,
+        ...buyerPayload(),
         payment_method: isInternal ? null : method,
         cash_account_id: isInternal ? null : cashAccountId,
         notes: notes ?? undefined,
@@ -424,8 +448,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     checkout.mutate(
       {
         client_request_id: requestId,
-        client_id: isInternal ? null : clientId,
-        buyer_unit_id: isInternal ? buyerUnitId : null,
+        ...buyerPayload(),
         payment_method: "split",
         notes: notes ?? undefined,
         lines,
@@ -458,7 +481,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   };
 
   const saveQuotation = () => {
-    if (!clientId) return;
+    if (buyerMode !== "client" || !clientId) return;
     setError(null);
     createQuotation.mutate(
       { client_id: clientId, notes: notes ?? undefined, lines: cartLines() },
@@ -475,12 +498,16 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
 
   const handleHoldCart = () => {
     setHoldCartError(null);
+    const trimmedWalkInName = walkInName.trim();
+    const trimmedWalkInPhone = walkInPhone.trim();
     const payload: HeldCartPayload = {
       version: 1,
       cart,
-      client_id: isInternal ? null : clientId,
+      client_id: buyerMode === "client" ? clientId : null,
       buyer_mode: buyerMode,
       buyer_unit_id: isInternal ? buyerUnitId : null,
+      ...(isWalkIn && trimmedWalkInName ? { walkInName: trimmedWalkInName } : {}),
+      ...(isWalkIn && trimmedWalkInPhone ? { walkInPhone: trimmedWalkInPhone } : {}),
       payment_method: isInternal ? null : method,
       cash_account_id: isInternal ? null : cashAccountId,
       notes: notes ?? null,
@@ -489,7 +516,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     holdCart.mutate(
       {
         label: holdCartLabel.trim() || null,
-        client_id: isInternal ? null : clientId,
+        client_id: buyerMode === "client" ? clientId : null,
         payload,
         total,
         line_count: cart.length,
@@ -499,8 +526,10 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
           setIsHoldDialogOpen(false);
           setHoldCartLabel("");
           resetCart();
-          if (!isInternal) setClientId(null);
+          if (buyerMode === "client") setClientId(null);
           if (isInternal) setBuyerUnitId(null);
+          setWalkInName("");
+          setWalkInPhone("");
           toast.success("تم تعليق الفاتورة بنجاح");
         },
         onError: (err) => {
@@ -520,10 +549,21 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
         key: l.key || crypto.randomUUID(),
       })),
     );
-    setBuyerMode(payload.buyer_mode ?? (payload.buyer_unit_id ? "internal" : "client"));
-    setClientId(payload.client_id ?? null);
-    setBuyerUnitId(payload.buyer_unit_id ?? null);
-    setMethod(payload.payment_method ?? "cash");
+    const resumedMode: BuyerMode =
+      payload.buyer_mode === "walk_in"
+        ? "walk_in"
+        : payload.buyer_mode === "internal" || Boolean(payload.buyer_unit_id)
+          ? "internal"
+          : payload.client_id
+            ? "client"
+            : "walk_in";
+    setBuyerMode(resumedMode);
+    setClientId(resumedMode === "client" ? (payload.client_id ?? null) : null);
+    setBuyerUnitId(resumedMode === "internal" ? (payload.buyer_unit_id ?? null) : null);
+    setWalkInName(resumedMode === "walk_in" ? (payload.walkInName ?? "") : "");
+    setWalkInPhone(resumedMode === "walk_in" ? (payload.walkInPhone ?? "") : "");
+    const resumedMethod = payload.payment_method ?? "cash";
+    setMethod(resumedMode === "walk_in" && resumedMethod === "receivable" ? "cash" : resumedMethod);
     setCashAccountId(payload.cash_account_id ?? null);
     setNotes(payload.notes ?? null);
     setRequestId(newRequestId());
@@ -573,7 +613,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   const linesValid =
     cart.length > 0 &&
     cart.every((l) => num(l.qty) > 0 && l.price.trim() !== "" && num(l.price) >= 0 && (l.lineType === "item" || num(l.price) > 0));
-  const buyerValid = isInternal ? Boolean(buyerUnitId) : Boolean(clientId);
+  const buyerValid = isInternal ? Boolean(buyerUnitId) : isWalkIn ? true : Boolean(clientId);
   const paymentValid = isInternal || method === "receivable" || method === "split" || Boolean(cashAccountId);
   const canCheckout = linesValid && buyerValid && paymentValid && (isInternal || total > 0);
   const isBusy = checkout.isPending || convert.isPending;
@@ -629,6 +669,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
             <div className="inline-flex rounded-xl border border-app-separator p-0.5 bg-app-bg-secondary">
               {([
                 { value: "client", label: "عميل", icon: UserRound },
+                { value: "walk_in", label: "زبون عام", icon: UserRound },
                 { value: "internal", label: "وحدة داخلية", icon: Building2 },
               ] as const).map((opt) => (
                 <button
@@ -637,6 +678,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
                   onClick={() => {
                     setBuyerMode(opt.value);
                     if (opt.value === "internal") setCart((prev) => prev.filter((l) => l.lineType === "item"));
+                    if (opt.value === "walk_in" && method === "receivable") setMethod("cash");
                   }}
                   className={`flex items-center gap-1.5 rounded-lg px-3 py-1 text-[11px] font-bold ${
                     buyerMode === opt.value ? "bg-app-bg-primary text-app-accent shadow-sm" : "text-app-label-secondary"
@@ -664,6 +706,25 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
             <p className="text-[11px] text-app-label-tertiary">
               التحويل الداخلي ينقل الأصناف بسعر التكلفة — بدون دفع ولا إيراد. الحزم لا تُحوَّل داخلياً.
             </p>
+          </div>
+        ) : isWalkIn ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <input
+              type="text"
+              maxLength={100}
+              value={walkInName}
+              onChange={(e) => setWalkInName(e.target.value)}
+              placeholder="اسم الزبون (اختياري)"
+              className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
+            />
+            <input
+              type="tel"
+              maxLength={30}
+              value={walkInPhone}
+              onChange={(e) => setWalkInPhone(e.target.value)}
+              placeholder="رقم الهاتف (اختياري)"
+              className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
+            />
           </div>
         ) : (
           <div className="space-y-2">
@@ -718,13 +779,19 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
               [
                 { value: "cash", icon: Wallet, label: PAYMENT_METHOD_LABEL.cash },
                 { value: "bank", icon: Landmark, label: PAYMENT_METHOD_LABEL.bank },
-                { value: "receivable", icon: FileText, label: PAYMENT_METHOD_LABEL.receivable },
+                {
+                  value: "receivable",
+                  icon: FileText,
+                  label: PAYMENT_METHOD_LABEL.receivable,
+                  disabled: isWalkIn,
+                  tooltip: isWalkIn ? "البيع الآجل أو بالشيك يتطلب عميلاً مسجلاً" : undefined,
+                },
                 {
                   value: "split",
                   icon: Split,
                   label: PAYMENT_METHOD_LABEL.split,
-                  disabled: !clientId || isInternal,
-                  tooltip: !clientId && !isInternal ? "يتطلب اختيار عميل" : undefined,
+                  disabled: isInternal || (buyerMode === "client" && !clientId),
+                  tooltip: buyerMode === "client" && !clientId ? "يتطلب اختيار عميل" : undefined,
                 },
               ] as {
                 value: PaymentMethod;
@@ -751,6 +818,12 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
               </div>
             ))}
           </div>
+
+          {isWalkIn && (
+            <p className="text-[11px] text-app-label-tertiary">
+              البيع الآجل أو بالشيك يتطلب عميلاً مسجلاً
+            </p>
+          )}
 
           {method === "split" ? (
             <p className="text-[11px] text-app-label-secondary">
@@ -955,7 +1028,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
             <button
               type="button"
               onClick={saveQuotation}
-              disabled={!linesValid || !clientId || createQuotation.isPending}
+              disabled={!linesValid || buyerMode !== "client" || !clientId || createQuotation.isPending}
               className="flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-primary px-4 py-3 text-xs font-bold text-app-label-primary hover:bg-app-fill-f1 disabled:opacity-40"
             >
               <FileText className="h-4 w-4 text-app-accent" />
@@ -1010,7 +1083,8 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
       <SplitPaymentModal
         isOpen={isSplitPaymentOpen}
         total={total}
-        clientName={client?.entity?.name}
+        clientName={isWalkIn ? walkInName.trim() || undefined : client?.entity?.name}
+        isWalkIn={isWalkIn}
         isBusy={isBusy}
         onClose={() => setIsSplitPaymentOpen(false)}
         onConfirm={executeSplitCheckout}
@@ -1105,7 +1179,10 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
                   const isValid = parsed !== null;
                   const labelText = hc.label?.trim() ? hc.label : "بدون اسم";
                   const clientName =
-                    hc.client?.name ?? (parsed?.buyer_mode === "internal" ? "تحويل داخلي" : "زبون عام");
+                    hc.client?.name ??
+                    (parsed?.buyer_mode === "internal"
+                      ? "تحويل داخلي"
+                      : parsed?.walkInName?.trim() || "زبون عام");
                   const timeAgo = formatTimeAgo(hc.created_at);
 
                   return (

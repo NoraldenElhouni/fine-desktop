@@ -144,6 +144,12 @@ export const SaleDetailPage: React.FC = () => {
         <p className="text-xs text-app-label-secondary mt-1 flex items-center gap-1.5">
           {sale.buyer_type === "internal_unit" ? (
             <><Building2 className="w-3.5 h-3.5" /> تحويل داخلي إلى {sale.buyer_unit?.name ?? "—"}</>
+          ) : sale.buyer_type === "walk_in" ? (
+            <>
+              <UserRound className="w-3.5 h-3.5" />{" "}
+              {sale.walk_in_name?.trim() || "زبون عام"}
+              {sale.walk_in_phone?.trim() ? ` (${sale.walk_in_phone.trim()})` : ""}
+            </>
           ) : (
             <><UserRound className="w-3.5 h-3.5" /> {sale.client?.entity?.name ?? "—"}</>
           )}

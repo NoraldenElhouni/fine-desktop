@@ -38,6 +38,7 @@ export type FulfillmentStatus = "awaiting_definition" | "in_progress" | "ready" 
 /** Arabic text for sales guard codes whose backend message is English. */
 export const SALES_ERROR_MESSAGE: Record<string, string> = {
   ...LEDGER_ERROR_MESSAGE,
+  CLIENT_REQUIRED: "البيع الآجل أو بالشيك يتطلب عميلاً مسجلاً.",
   POS_DAY_ALREADY_CLOSED: "تم إقفال يومية الصندوق لهذا اليوم — لا يمكن تسجيل مبيعات أو تحصيلات جديدة حتى الغد.",
   HELD_CART_LIMIT: "وصلت إلى الحد الأقصى للفواتير المعلقة (30).",
   HELD_CART_TOO_LARGE: "الفاتورة أكبر من أن تُعلّق.",
@@ -158,6 +159,8 @@ export interface Sale {
   buyer_type: "client" | "internal_unit" | "walk_in";
   client_id?: string | null;
   buyer_unit_id?: string | null;
+  walk_in_name?: string | null;
+  walk_in_phone?: string | null;
   channel: "pos" | "standard";
   status: SaleStatus;
   fulfillment_status?: FulfillmentStatus | null;
@@ -216,6 +219,8 @@ export interface CheckoutInput {
   client_request_id: string;
   client_id?: string | null;
   buyer_unit_id?: string | null;
+  walk_in_name?: string | null;
+  walk_in_phone?: string | null;
   payment_method?: PaymentMethod | null;
   cash_account_id?: string | null;
   notes?: string | null;
@@ -245,6 +250,8 @@ export interface Invoice {
   sold_by?: string | null;
   buyer?: string | null;
   buyer_phone?: string | null;
+  walk_in_name?: string | null;
+  walk_in_phone?: string | null;
   buyer_type: string;
   payment_method?: PaymentMethod | null;
   cash_account?: string | null;
@@ -540,8 +547,10 @@ export interface HeldCartPayload {
   version: 1;
   cart: CartLine[];
   client_id?: string | null;
-  buyer_mode?: "client" | "internal";
+  buyer_mode?: "client" | "internal" | "walk_in";
   buyer_unit_id?: string | null;
+  walkInName?: string | null;
+  walkInPhone?: string | null;
   payment_method?: PaymentMethod | null;
   cash_account_id?: string | null;
   notes?: string | null;
