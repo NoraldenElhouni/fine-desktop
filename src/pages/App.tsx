@@ -28,6 +28,7 @@ import { SalesRoutes } from "../routes/SalesRoutes";
 import { AccountingRoutes } from "../routes/AccountingRoutes";
 import { HrRoutes } from "../routes/HrRoutes";
 import { SettingsRoutes } from "../routes/SettingsRoutes";
+import { PrintSettingsPage } from "./settings/PrintSettingsPage";
 import { MaterialRequestsRoutes } from "../routes/MaterialRequestsRoutes";
 
 import { CategoryHubPage } from "./hub/CategoryHubPage";
@@ -36,6 +37,7 @@ import { AuthorizedRoute } from "../components/AuthorizedRoute";
 import {
   ALL_MANAGER_ROLES,
   DEBTOR_STATEMENT_ROLES,
+  PRINT_SETTINGS_ROLES,
   SALES_MARGIN_ROLES,
   STOCK_MOVEMENT_CARD_ROLES,
 } from "../routes/routes.config";
@@ -321,6 +323,15 @@ const App = () => {
                   ]}
                 >
                   <CutterRoutes />
+                </AuthorizedRoute>
+              }
+            />
+            {/* Per-workstation printer setup: outranks settings/* so the POS staff reach it too. */}
+            <Route
+              path="settings/printing"
+              element={
+                <AuthorizedRoute allowedRoles={PRINT_SETTINGS_ROLES}>
+                  <PrintSettingsPage />
                 </AuthorizedRoute>
               }
             />

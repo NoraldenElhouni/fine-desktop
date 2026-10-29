@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { CheckCircle2, FileText, Receipt as ReceiptIcon, Truck } from "lucide-react";
 import { Sale } from "../../api/endpoints/sales";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../ui/Dialog";
 import { formatNumber } from "../../lib/utils/format";
 import { PosReceiptModal } from "./PosReceiptModal";
 import { SaleInvoiceDialog, DeliveryNoteDialog } from "../print/SalesDocuments";
+import { getPrintSettings } from "../../stores/printSettingsStore";
 
 interface SaleCompletedDialogProps {
   sale: Sale | null;
@@ -16,6 +17,22 @@ export const SaleCompletedDialog: React.FC<SaleCompletedDialogProps> = ({ sale, 
   const [showReceipt, setShowReceipt] = useState(false);
   const [showInvoice, setShowInvoice] = useState(false);
   const [showDeliveryNote, setShowDeliveryNote] = useState(false);
+  const [autoPrintReceipt, setAutoPrintReceipt] = useState(false);
+  /** The sale whose auto-print already ran — never twice. The drawer kick runs in NewSalePanel.onSold. */
+  const handledSaleId = useRef<string | null>(null);
+
+  const saleId = sale?.id ?? null;
+
+  useEffect(() => {
+    if (!saleId || handledSaleId.current === saleId) return;
+    handledSaleId.current = saleId;
+    if (getPrintSettings().autoPrintReceipt) {
+      setAutoPrintReceipt(true);
+      setShowReceipt(true);
+    } else {
+      setAutoPrintReceipt(false);
+    }
+  }, [saleId]);
 
   if (!sale) return null;
 
@@ -72,7 +89,18 @@ export const SaleCompletedDialog: React.FC<SaleCompletedDialogProps> = ({ sale, 
         </DialogContent>
       </Dialog>
 
-      <PosReceiptModal isOpen={showReceipt} sale={sale} onClose={() => { setShowReceipt(false); onClose(); }} />
+      <PosReceiptModal
+        isOpen={showReceipt}
+        sale={sale}
+        autoPrint={autoPrintReceipt}
+        onClose={() => {
+          setShowReceipt(false);
+          // An auto-printed receipt opened on its own: closing it lands on "تم البيع" so the invoice and
+          // delivery note stay one click away. A receipt the cashier opened closes into a fresh cart.
+          if (autoPrintReceipt) setAutoPrintReceipt(false);
+          else onClose();
+        }}
+      />
       <SaleInvoiceDialog saleId={showInvoice ? sale.id : null} onClose={() => { setShowInvoice(false); onClose(); }} />
       <DeliveryNoteDialog saleId={showDeliveryNote ? sale.id : null} onClose={() => { setShowDeliveryNote(false); onClose(); }} />
     </>

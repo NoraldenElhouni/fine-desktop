@@ -4,6 +4,8 @@ import { PosShift, PosShiftTotals } from "../../api/endpoints/sales";
 import { usePosShift, usePosShiftXReport } from "../../hooks/useSales";
 import { formatDateTime, formatInteger, formatNumber } from "../../lib/utils/format";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../ui/Dialog";
+import { printReceipt } from "../../lib/printing";
+import { toast } from "../../stores/toastStore";
 
 interface PosShiftReportModalProps {
   /** The shift to report on; null keeps the modal closed. */
@@ -129,7 +131,12 @@ export const PosShiftReportModal: React.FC<PosShiftReportModalProps> = ({ shiftI
           </button>
           <button
             type="button"
-            onClick={() => window.print()}
+            onClick={() => {
+              // One copy: receiptCopies (customer + store) is for sale receipts only.
+              void printReceipt({ copies: 1 }).then((result) => {
+                if (!result.ok) toast.error(result.message);
+              });
+            }}
             disabled={!shift || isLoading}
             className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-opacity disabled:opacity-40"
           >

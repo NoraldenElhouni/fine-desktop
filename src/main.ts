@@ -1,8 +1,10 @@
 import { app, BrowserWindow, shell, session, nativeImage, ipcMain } from "electron";
 import path from "node:path";
 import fs from "node:fs";
+import { pathToFileURL } from "node:url";
 import started from "electron-squirrel-startup";
 import { updateElectronApp } from "update-electron-app";
+import { registerPrintingHandlers } from "./ipc/printing";
 
 app.setName("Fine ERP");
 process.title = "Fine ERP";
@@ -43,6 +45,29 @@ const getAppIcon = () => {
 };
 
 let mainWindow: BrowserWindow | null = null;
+
+const rendererIndexPath = () => path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`);
+
+/**
+ * True only for the app's own renderer: the vite dev server's origin in development, otherwise the
+ * packaged index.html (HashRouter keeps every route on that one file). Anything else is remote content.
+ */
+const isAppUrl = (url: string): boolean => {
+  try {
+    const target = new URL(url);
+    if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+      return target.origin === new URL(MAIN_WINDOW_VITE_DEV_SERVER_URL).origin;
+    }
+    const index = new URL(pathToFileURL(rendererIndexPath()).href);
+    const normalize = (p: string) => {
+      const decoded = decodeURIComponent(p);
+      return process.platform === "win32" ? decoded.toLowerCase() : decoded; // Windows paths ignore case
+    };
+    return target.protocol === "file:" && normalize(target.pathname) === normalize(index.pathname);
+  } catch {
+    return false;
+  }
+};
 
 const createWindow = () => {
   const appIcon = getAppIcon();
@@ -99,13 +124,20 @@ const createWindow = () => {
     return { action: "deny" };
   });
 
+  // The preload bridge (printers, spooler, raw sockets) must never end up on remote content.
+  mainWindow.webContents.on("will-navigate", (event, url) => {
+    if (isAppUrl(url)) return;
+    event.preventDefault();
+    if (url.startsWith("https:") || url.startsWith("http:")) {
+      shell.openExternal(url);
+    }
+  });
+
   // and load the index.html of the app.
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
-    mainWindow.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
-    );
+    mainWindow.loadFile(rendererIndexPath());
   }
 
   // if its development mode, open dev tools
@@ -159,4 +191,6 @@ app.on("activate", () => {
 ipcMain.handle("app:get-version", () => {
   return app.getVersion();
 });
+
+registerPrintingHandlers(isAppUrl);
 

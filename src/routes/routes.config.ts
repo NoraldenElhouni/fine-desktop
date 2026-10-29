@@ -36,6 +36,7 @@ import {
   ArrowLeftRight,
   ListChecks,
   FileCheck,
+  Printer,
 } from "lucide-react";
 
 export interface AppNavItem {
@@ -80,6 +81,14 @@ export const SETTINGS_ROLES = [
   "assembler",
   "unit_manager",
   "manager",
+];
+
+/** Receipt printer / cash drawer setup is per workstation, so the POS staff configure it too. */
+export const PRINT_SETTINGS_ROLES = [
+  ...SETTINGS_ROLES,
+  "store-manager",
+  "pos-cashier",
+  "cutter-manager",
 ];
 
 export const DEBTOR_STATEMENT_ROLES = [
@@ -173,6 +182,7 @@ export const navItems: AppNavItem[] = [
   { id: "settings-products", path: "/settings/products", label: "إعدادات المنتجات", icon: Tags, allowedRoles: SETTINGS_ROLES, permission: "view-inventory" },
   { id: "settings-data", path: "/settings/data", label: "إعدادات البيانات", icon: Database, allowedRoles: ["owner", "admin"] },
   { id: "settings-warehouses", path: "/settings/warehouses", label: "إعدادات المخازن", icon: Warehouse, allowedRoles: SETTINGS_ROLES, permission: "view-inventory" },
+  { id: "settings-printing", path: "/settings/printing", label: "إعدادات الطباعة", icon: Printer, allowedRoles: PRINT_SETTINGS_ROLES },
 ];
 
 export const getBreadcrumbEntries = (
@@ -267,6 +277,10 @@ export const getBreadcrumbEntries = (
         pages: Object.fromEntries(
           REFERENCE_LOOKUPS.map((lookup) => [lookup.path, lookup.title]),
         ),
+      },
+      printing: {
+        label: "إعدادات الطباعة",
+        pages: {},
       },
       warehouses: {
         label: "إعدادات المخازن",

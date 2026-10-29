@@ -1,18 +1,40 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Printer, CheckCircle2 } from "lucide-react";
 import { PAYMENT_METHOD_LABEL, Sale, formatSizeCm } from "../../api/endpoints/sales";
 import { formatDateTime, formatNumber } from "../../lib/utils/format";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../ui/Dialog";
+import { printReceipt } from "../../lib/printing";
+import { toast } from "../../stores/toastStore";
 
 interface PosReceiptModalProps {
   isOpen: boolean;
   sale: Sale | null;
   onClose: () => void;
+  /** Print once as soon as the receipt is on screen (auto-print after a sale). */
+  autoPrint?: boolean;
 }
 
+const handlePrint = async () => {
+  const result = await printReceipt();
+  if (!result.ok) toast.error(result.message);
+};
+
 /** The thermal (80mm) counter receipt for a cash sale, printed on the spot. */
-export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({ isOpen, sale, onClose }) => {
+export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({ isOpen, sale, onClose, autoPrint = false }) => {
   const [tenderedInput, setTenderedInput] = useState("");
+
+  const saleId = sale?.id ?? null;
+  const autoPrintedFor = useRef<string | null>(null);
+
+  // Once per sale; wait out the dialog's open animation so the print snapshot holds the whole receipt.
+  useEffect(() => {
+    if (!autoPrint || !isOpen || !saleId || autoPrintedFor.current === saleId) return;
+    const timer = window.setTimeout(() => {
+      autoPrintedFor.current = saleId;
+      void handlePrint();
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [autoPrint, isOpen, saleId]);
 
   if (!isOpen || !sale) {
     return null;
@@ -270,7 +292,7 @@ export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({ isOpen, sale, 
           </button>
           <button
             type="button"
-            onClick={() => window.print()}
+            onClick={() => void handlePrint()}
             className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-opacity"
           >
             <Printer className="h-4 w-4" />

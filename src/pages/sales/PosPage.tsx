@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FileSpreadsheet, FileText, History, ShieldAlert, ShoppingCart, Store, Undo2 } from "lucide-react";
+import { Archive, FileSpreadsheet, FileText, History, ShieldAlert, ShoppingCart, Store, Undo2 } from "lucide-react";
 import { usePermissions } from "../../hooks/usePermissions";
 import { useActivePosShift, useCreditApprovals, usePosDailyReport, usePosShifts } from "../../hooks/useSales";
 import { PosShift, Quotation } from "../../api/endpoints/sales";
@@ -15,6 +15,9 @@ import { PosOpenShiftDialog } from "../../components/pos/PosOpenShiftDialog";
 import { PosCloseShiftDialog } from "../../components/pos/PosCloseShiftDialog";
 import { PosShiftReportModal } from "../../components/pos/PosShiftReportModal";
 import { PosShiftsHistory } from "../../components/pos/PosShiftsHistory";
+import { isDrawerConfigured, usePrintSettingsStore } from "../../stores/printSettingsStore";
+import { canOpenCashDrawer, canSellAtPos, isDesktopPrintingAvailable, kickDrawer } from "../../lib/printing";
+import { toast } from "../../stores/toastStore";
 
 const MANAGER_ROLES = ["owner", "admin", "store-manager", "unit_manager", "manager", "accounting-manager"];
 
@@ -38,6 +41,22 @@ export const PosPage: React.FC = () => {
   const [shiftReport, setShiftReport] = useState<{ id: string; mode: "x" | "z" } | null>(null);
   /** A colleague's open shift this cashier chose to work under (shared drawer); never implicit. */
   const [joinedShiftId, setJoinedShiftId] = useState<string | null>(null);
+  const [isKickingDrawer, setIsKickingDrawer] = useState(false);
+
+  const drawerMode = usePrintSettingsStore((s) => s.drawerMode);
+  const drawerHost = usePrintSettingsStore((s) => s.drawerHost);
+  const receiptPrinter = usePrintSettingsStore((s) => s.receiptPrinter);
+  const isDrawerReady = isDesktopPrintingAvailable() && isDrawerConfigured({ drawerMode, drawerHost, receiptPrinter });
+
+  const handleOpenDrawer = async () => {
+    setIsKickingDrawer(true);
+    try {
+      const result = await kickDrawer();
+      if (!result.ok) toast.error(result.message);
+    } finally {
+      setIsKickingDrawer(false);
+    }
+  };
 
   const {
     unit,
@@ -89,6 +108,17 @@ export const PosPage: React.FC = () => {
     );
   const canCloseOthersShifts =
     roleSlugs.includes("owner") || permissions.includes("*") || (permissions.includes("approve-credit") && holdsRoleHere);
+
+  // A no-sale drawer open is a cash-control event (see canOpenCashDrawer); here an own or joined shift counts.
+  const canOpenDrawer =
+    isDrawerReady &&
+    !isUnitLoading &&
+    !isShiftLoading &&
+    canOpenCashDrawer({
+      canSell: canSellAtPos(hasRole, permissions),
+      shiftsEnabled,
+      hasOpenShift: Boolean(activeShift),
+    });
 
   const { data: report } = usePosDailyReport();
   const { data: pendingApprovals } = useCreditApprovals("pending", canApprove);
@@ -149,6 +179,17 @@ export const PosPage: React.FC = () => {
             <FileSpreadsheet className="h-4 w-4 text-app-accent" />
             تقرير الصندوق (Z-Report)
           </button>
+          {canOpenDrawer && (
+            <button
+              type="button"
+              onClick={() => void handleOpenDrawer()}
+              disabled={isKickingDrawer}
+              className="flex items-center gap-2 rounded-2xl border border-app-separator bg-app-bg-secondary px-3.5 py-2 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1 transition-colors shadow-sm disabled:opacity-50"
+            >
+              <Archive className="h-4 w-4 text-app-accent" />
+              فتح الدرج
+            </button>
+          )}
           {canManageShifts && unit && <PosSettingsMenu unitId={unit.id} shiftsEnabled={shiftsEnabled} />}
         </div>
       </div>

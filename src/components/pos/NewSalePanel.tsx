@@ -70,6 +70,8 @@ import { ProductPickerDialog } from "./ProductPickerDialog";
 import { BundlePickerDialog } from "../sales/BundlePickerDialog";
 import { BlockPicker, PickedBlock } from "./BlockPicker";
 import { SaleCompletedDialog } from "./SaleCompletedDialog";
+import { kickDrawerForSale } from "../../lib/printing";
+import { getPrintSettings } from "../../stores/printSettingsStore";
 import { CashTenderModal } from "./CashTenderModal";
 import { SplitPaymentModal } from "./SplitPaymentModal";
 import { PriceOverrideDialog } from "./PriceOverrideDialog";
@@ -517,8 +519,16 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     }
 
     toast.success(`تم البيع ${sale.order_number}`);
+    // Before the bundle branch below, which leaves the POS: every completed cash sale opens the drawer.
+    void kickDrawerForSale(sale).then((result) => {
+      if (result && !result.ok) toast.error(result.message);
+    });
     const bundleLine = sale.lines?.find((l) => l.line_type === "bundle");
     if (bundleLine) {
+      // The counter receipt lives in the "تم البيع" dialog, which a bundle sale skips: say so.
+      if (getPrintSettings().autoPrintReceipt) {
+        toast.info("لا يُطبع إيصال تلقائي لبيع يحتوي على حزم.");
+      }
       navigate(`/sales/${sale.id}/bundles/${bundleLine.id}`);
       return;
     }
