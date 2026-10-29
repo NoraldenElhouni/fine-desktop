@@ -8,6 +8,7 @@ import { WarehouseTransfersPage } from "../pages/inventory/WarehouseTransfersPag
 import WarehouseTransferFormPage from "../pages/inventory/WarehouseTransferFormPage";
 import WarehouseTransferDetailPage from "../pages/inventory/WarehouseTransferDetailPage";
 import { ReorderReportPage } from "../pages/inventory/ReorderReportPage";
+import { StagnantStockReportPage } from "../pages/inventory/StagnantStockReportPage";
 import InventoryItemStockLevelsPage from "../pages/inventory/InventoryItemStockLevelsPage";
 import { usePermissions } from "../hooks/usePermissions";
 import { INVENTORY_ROLES, STOCK_COUNT_ROLES } from "./routes.config";
@@ -20,6 +21,7 @@ const INVENTORY_TABS = [
   { path: "/inventory/transfers", label: "نقل بين المخازن", allowedRoles: INVENTORY_ROLES },
   { path: "/inventory/counts", label: "الجرد", allowedRoles: STOCK_COUNT_ROLES },
   { path: "/inventory/reorder", label: "تقرير إعادة الطلب", allowedRoles: INVENTORY_ROLES },
+  { path: "/inventory/stagnant", label: "المخزون الراكد", allowedRoles: INVENTORY_ROLES },
 ];
 
 /**
@@ -44,6 +46,7 @@ export const InventoryRoutes: React.FC = () => {
         <Route path="transfers/:id" element={<WarehouseTransferDetailPage />} />
         <Route path="transfers/:id/edit" element={<WarehouseTransferFormPage />} />
         <Route path="reorder" element={<ReorderReportPage />} />
+        <Route path="stagnant" element={<StagnantStockReportPage />} />
         {/* The item's "حدود المخزون" for inventory staff, who cannot open /settings/* (same page as the settings tab). */}
         <Route path="items/:id/levels" element={<InventoryItemStockLevelsPage />} />
       </Route>

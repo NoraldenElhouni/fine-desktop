@@ -39,6 +39,7 @@ import {
   Printer,
   ClipboardCheck,
   Gauge,
+  Hourglass,
 } from "lucide-react";
 
 export interface AppNavItem {
@@ -183,6 +184,7 @@ export const navItems: AppNavItem[] = [
   { id: "inventory", path: "/inventory/ledger", label: "المخزون والقطع", icon: Boxes, allowedRoles: INVENTORY_ROLES, permission: "view-inventory" },
   { id: "stock-counts", path: "/inventory/counts", label: "الجرد", icon: ClipboardCheck, allowedRoles: STOCK_COUNT_ROLES, permission: "view-inventory" },
   { id: "reorder-report", path: "/inventory/reorder", label: "تقرير إعادة الطلب", icon: Gauge, allowedRoles: INVENTORY_ROLES, permission: "view-inventory" },
+  { id: "stagnant-stock", path: "/inventory/stagnant", label: "المخزون الراكد", icon: Hourglass, allowedRoles: INVENTORY_ROLES, permission: "view-inventory" },
   {
     id: "manufacturing",
     path: "/manufacturing/batches",

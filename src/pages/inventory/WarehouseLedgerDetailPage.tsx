@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, Boxes, DollarSign, History, Layers, PackageSearch } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ArrowRight, Boxes, DollarSign, History, Hourglass, Layers, PackageSearch } from "lucide-react";
 import { useWarehouseStockSummary, useWarehouseLedger } from "../../hooks/useInventory";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useWarehouseStockSummaryColumns } from "../../components/table-columns/warehouseStockSummaryColumns";
@@ -46,7 +46,7 @@ const WarehouseLedgerDetailPage: React.FC = () => {
 
   return (
     <div className="space-y-6 p-6" dir="rtl">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button
           onClick={() => navigate("/inventory/ledger")}
           className="rounded-xl border border-app-separator bg-app-bg-secondary p-2 hover:bg-app-fill-f1 transition-colors"
@@ -60,6 +60,15 @@ const WarehouseLedgerDetailPage: React.FC = () => {
           </h1>
           <p className="text-xs text-app-label-secondary mt-0.5">أصناف المخزن ومتوسط أسعارها، وسجل حركاته.</p>
         </div>
+        {/* W4-04: this warehouse's stagnant lots. */}
+        {warehouseId && (
+          <Link
+            to={`/inventory/stagnant?warehouse_id=${encodeURIComponent(warehouseId)}`}
+            className="ms-auto flex items-center gap-2 rounded-xl border border-app-separator bg-app-bg-secondary px-4 py-2 text-xs font-bold text-app-label-primary shadow-sm hover:bg-app-fill-f1 transition-colors"
+          >
+            <Hourglass className="w-4 h-4 text-app-accent" /> المخزون الراكد
+          </Link>
+        )}
       </div>
 
       {/* KPI Cards */}

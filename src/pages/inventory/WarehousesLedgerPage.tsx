@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeftRight, PackagePlus, Warehouse as WarehouseIcon } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowLeftRight, Hourglass, PackagePlus, Warehouse as WarehouseIcon } from "lucide-react";
 import { useWarehouses } from "../../hooks/useWarehouses";
 import { useInventoryItems } from "../../hooks/useInventory";
 import { StockIntakeModal } from "./StockIntakeModal";
@@ -42,22 +42,31 @@ export const WarehousesLedgerPage: React.FC = () => {
           </p>
         </div>
 
-        {operatingUnitId && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIntakeOpen(true)}
-              className="flex items-center gap-2 rounded-xl border border-app-separator bg-app-bg-secondary px-4 py-2 text-xs font-bold text-app-label-primary shadow-sm hover:bg-app-fill-f1 transition-all active:scale-95"
-            >
-              <PackagePlus className="w-4 h-4 text-app-accent" /> استلام مخزون
-            </button>
-            <button
-              onClick={() => navigate("/inventory/transfers")}
-              className="flex items-center gap-2 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all active:scale-95"
-            >
-              <ArrowLeftRight className="w-4 h-4" /> نقل بين المخازن
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {/* W4-04: lots that have not really moved for a while, across the warehouses. */}
+          <Link
+            to="/inventory/stagnant"
+            className="flex items-center gap-2 rounded-xl border border-app-separator bg-app-bg-secondary px-4 py-2 text-xs font-bold text-app-label-primary shadow-sm hover:bg-app-fill-f1 transition-all active:scale-95"
+          >
+            <Hourglass className="w-4 h-4 text-app-accent" /> المخزون الراكد
+          </Link>
+          {operatingUnitId && (
+            <>
+              <button
+                onClick={() => setIntakeOpen(true)}
+                className="flex items-center gap-2 rounded-xl border border-app-separator bg-app-bg-secondary px-4 py-2 text-xs font-bold text-app-label-primary shadow-sm hover:bg-app-fill-f1 transition-all active:scale-95"
+              >
+                <PackagePlus className="w-4 h-4 text-app-accent" /> استلام مخزون
+              </button>
+              <button
+                onClick={() => navigate("/inventory/transfers")}
+                className="flex items-center gap-2 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all active:scale-95"
+              >
+                <ArrowLeftRight className="w-4 h-4" /> نقل بين المخازن
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <DataTable table={table}>
