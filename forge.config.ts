@@ -43,8 +43,8 @@ const config: ForgeConfig = {
   publishers: [
     new PublisherGithub({
       repository: {
-        owner: "NoraldenElhouni",
-        name: "fine-desktop",
+        owner: "engroup-dev",
+        name: "fine-erp",
       },
       prerelease: false,
       draft: true,
