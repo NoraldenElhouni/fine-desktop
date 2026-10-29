@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { AlertCircle, Plus, Split, Trash2 } from "lucide-react";
+import { AlertCircle, AlertTriangle, Lock, Plus, Split, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +35,11 @@ interface SplitPaymentModalProps {
   isBusy?: boolean;
   onClose: () => void;
   onConfirm: (portions: SplitPaymentPortionInput[]) => void;
+  /**
+   * FR-SLREP-008: on a unit running cashier shifts the cash portion goes to the
+   * open shift's drawer only; drawerId null means no open shift (cash refused).
+   */
+  cashLock?: { drawerId: string | null; drawerName?: string; isLoading?: boolean; onOpenShift: () => void };
 }
 
 const defaultDueDate = (): string => {
@@ -51,16 +56,21 @@ export const SplitPaymentModal: React.FC<SplitPaymentModalProps> = ({
   isBusy = false,
   onClose,
   onConfirm,
+  cashLock,
 }) => {
   const { data: cashTreasuries = [] } = useTreasuryOptions("cash");
   const { data: bankTreasuries = [] } = useTreasuryOptions("bank");
+  const lockedDrawerId = cashLock ? (cashLock.drawerId ?? "") : null;
+  /** The open shifts are still loading: cash waits, without asking to open a shift. */
+  const isCashLockLoading = Boolean(cashLock?.isLoading);
+  /** The cash portion's default drawer: the shift's when locked, else the only treasury. */
+  const defaultCashId = lockedDrawerId ?? (cashTreasuries.length === 1 ? cashTreasuries[0].id : "");
 
   const [rows, setRows] = useState<PortionRow[]>([]);
 
   // Initialize with one cash row filled with the full total when opening
   useEffect(() => {
     if (isOpen) {
-      const defaultCashId = cashTreasuries.length === 1 ? cashTreasuries[0].id : "";
       setRows([
         {
           id: crypto.randomUUID(),
@@ -76,11 +86,16 @@ export const SplitPaymentModal: React.FC<SplitPaymentModalProps> = ({
         },
       ]);
     }
-  }, [isOpen, total, clientName, cashTreasuries]);
+  }, [isOpen, total, clientName, defaultCashId]);
 
   // Auto-fill treasury if options load after modal was opened
   useEffect(() => {
-    if (cashTreasuries.length === 1) {
+    if (lockedDrawerId !== null) {
+      // Locked to the shift's drawer: every cash portion follows it.
+      setRows((prev) =>
+        prev.map((r) => (r.method === "cash" && r.cashAccountId !== lockedDrawerId ? { ...r, cashAccountId: lockedDrawerId } : r)),
+      );
+    } else if (cashTreasuries.length === 1) {
       setRows((prev) =>
         prev.map((r) =>
           r.method === "cash" && !r.cashAccountId
@@ -89,7 +104,7 @@ export const SplitPaymentModal: React.FC<SplitPaymentModalProps> = ({
         ),
       );
     }
-  }, [cashTreasuries]);
+  }, [cashTreasuries, lockedDrawerId]);
 
   useEffect(() => {
     if (bankTreasuries.length === 1) {
@@ -120,8 +135,8 @@ export const SplitPaymentModal: React.FC<SplitPaymentModalProps> = ({
   const handleMethodChange = (id: string, newMethod: "cash" | "bank" | "cheque") => {
     if (isWalkIn && newMethod === "cheque") return;
     const defaultTreasuryId =
-      newMethod === "cash" && cashTreasuries.length === 1
-        ? cashTreasuries[0].id
+      newMethod === "cash"
+        ? defaultCashId
         : newMethod === "bank" && bankTreasuries.length === 1
           ? bankTreasuries[0].id
           : "";
@@ -150,8 +165,8 @@ export const SplitPaymentModal: React.FC<SplitPaymentModalProps> = ({
     const hasCash = rows.some((r) => r.method === "cash");
     const defaultMethod: "cash" | "bank" | "cheque" = hasCash ? "bank" : "cash";
     const defaultTreasuryId =
-      defaultMethod === "cash" && cashTreasuries.length === 1
-        ? cashTreasuries[0].id
+      defaultMethod === "cash"
+        ? defaultCashId
         : defaultMethod === "bank" && bankTreasuries.length === 1
           ? bankTreasuries[0].id
           : "";
@@ -196,6 +211,12 @@ export const SplitPaymentModal: React.FC<SplitPaymentModalProps> = ({
       }
 
       if (row.method === "cash") {
+        if (isCashLockLoading) {
+          return `الدفعة ${rowNum} (نقداً): جاري تحميل الوردية...`;
+        }
+        if (lockedDrawerId === "") {
+          return `الدفعة ${rowNum} (نقداً): لا توجد وردية مفتوحة — افتح وردية قبل الدفع النقدي.`;
+        }
         if (!row.cashAccountId) {
           return `الدفعة ${rowNum} (نقداً): اختر الخزينة النقدية.`;
         }
@@ -230,7 +251,7 @@ export const SplitPaymentModal: React.FC<SplitPaymentModalProps> = ({
     }
 
     return null;
-  }, [rows, isBalanced, isWalkIn]);
+  }, [rows, isBalanced, isWalkIn, lockedDrawerId, isCashLockLoading]);
 
   const canConfirm = unmetRuleHint === null && !isBusy;
 
@@ -379,12 +400,47 @@ export const SplitPaymentModal: React.FC<SplitPaymentModalProps> = ({
                   {/* Cash fields */}
                   {row.method === "cash" && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-app-separator/50">
-                      <TreasurySelect
-                        kind="cash"
-                        label="الخزينة النقدية"
-                        value={row.cashAccountId}
-                        onChange={(id) => updateRow(row.id, { cashAccountId: id })}
-                      />
+                      {isCashLockLoading ? (
+                        <div className="space-y-1">
+                          <label className="block text-xs font-semibold text-app-label-secondary">الخزينة النقدية</label>
+                          <div className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-secondary">
+                            جاري تحميل الوردية...
+                          </div>
+                        </div>
+                      ) : lockedDrawerId ? (
+                        <div className="space-y-1">
+                          <label className="block text-xs font-semibold text-app-label-secondary">الخزينة النقدية</label>
+                          <div className="flex items-center gap-2 w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-semibold text-app-label-primary">
+                            <Lock className="h-3.5 w-3.5 text-app-label-secondary" />
+                            {cashLock?.drawerName ?? "—"}
+                          </div>
+                          <p className="text-[11px] text-app-label-tertiary">خزينة الوردية المفتوحة — لا يمكن تغييرها.</p>
+                        </div>
+                      ) : lockedDrawerId === "" ? (
+                        <div className="flex flex-col gap-2 rounded-xl border border-app-status-warning/40 bg-app-status-warning/10 p-2.5 text-[11px] font-semibold text-app-status-warning">
+                          <span className="flex items-center gap-1.5">
+                            <AlertTriangle className="h-4 w-4 shrink-0" />
+                            لا توجد وردية مفتوحة — افتح وردية قبل الدفع النقدي.
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onClose();
+                              cashLock?.onOpenShift();
+                            }}
+                            className="self-start rounded-lg bg-app-accent px-2.5 py-1 text-[11px] font-bold text-white hover:opacity-90"
+                          >
+                            فتح وردية
+                          </button>
+                        </div>
+                      ) : (
+                        <TreasurySelect
+                          kind="cash"
+                          label="الخزينة النقدية"
+                          value={row.cashAccountId}
+                          onChange={(id) => updateRow(row.id, { cashAccountId: id })}
+                        />
+                      )}
                       <div className="space-y-1">
                         <label className="block text-xs font-semibold text-app-label-secondary">
                           المبلغ المستلم (لحساب الفكة)

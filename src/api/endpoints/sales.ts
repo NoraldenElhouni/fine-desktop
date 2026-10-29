@@ -1,6 +1,6 @@
 import apiClient from "../client";
 import type { CashAccount } from "../../types/procurement";
-import { LEDGER_ERROR_MESSAGE } from "./production";
+import { LEDGER_ERROR_MESSAGE, apiErrorMessage, apiErrorPayload } from "./production";
 import type { ApiErrorPayload } from "./production";
 import type { InventoryItem } from "./inventory";
 
@@ -60,8 +60,35 @@ export const SALES_ERROR_MESSAGE: Record<string, string> = {
   RETURN_STOCK_SOURCE_NOT_FOUND: "تعذّر العثور على اللوت الذي بيع منه هذا البند لإعادته للمخزون.",
   INVALID_QUANTITY: "الكمية المرتجعة يجب أن تكون أكبر من صفر.",
   NO_OPEN_SHIFT: "لا توجد وردية مفتوحة على هذه الخزينة — افتح وردية قبل قبض النقد أو رده.",
+  SHIFT_ALREADY_OPEN: "هذه الخزينة عليها وردية مفتوحة بالفعل — أغلقها قبل فتح وردية جديدة.",
+  SHIFT_DRAWER_NOT_CASH: "تُفتح الوردية على خزينة نقدية فقط، لا على حساب مصرفي.",
+  SHIFT_ALREADY_CLOSED: "هذه الوردية مغلقة بالفعل.",
+  SHIFT_CLOSE_NOT_ALLOWED: "لا يغلق الوردية إلا الكاشير الذي فتحها أو مدير الوحدة.",
+  OPEN_SHIFTS_EXIST: "توجد ورديات مفتوحة — أغلق كل الورديات المفتوحة أولاً.",
+  SHIFTS_NOT_ENABLED: "الورديات غير مفعّلة لهذه الوحدة — فعّلها من إعدادات نقطة البيع أولاً.",
+  SHIFT_FLOAT_INVALID: "رصيد بداية الوردية لا يمكن أن يكون سالباً.",
+  POS_DAY_IN_PROGRESS: "لا يمكن تغيير إعداد الورديات أثناء يوم صندوق جارٍ — أقفل يومية الصندوق أولاً ويسري التغيير من اليوم التالي.",
   TREASURY_KIND_MISMATCH: "نوع الحساب المختار لا يطابق طريقة الدفع أو الرد (خزينة/مصرف).",
   INVENTORY_ACCOUNT_NOT_LINKED: "لم يُربط حساب المخزون أو الهالك لهذه الوحدة. راجع الحسابات.",
+};
+
+/**
+ * A sales guard refusal in Arabic; shift refusals name the shifts involved
+ * (OPEN_SHIFTS_EXIST, SHIFT_ALREADY_OPEN).
+ */
+export const salesErrorMessage = (err: unknown, fallback: string): string => {
+  const payload = apiErrorPayload(err) as
+    | (ApiErrorPayload & { shift_numbers?: string[]; shift_number?: string; cashier?: string | null })
+    | undefined;
+  const known = payload?.code ? SALES_ERROR_MESSAGE[payload.code] : undefined;
+  if (!known) return apiErrorMessage(err, fallback);
+  if (Array.isArray(payload?.shift_numbers) && payload.shift_numbers.length > 0) {
+    return `${known} (${payload.shift_numbers.join("، ")})`;
+  }
+  if (payload?.shift_number) {
+    return `${known} (${payload.shift_number}${payload.cashier ? ` — ${payload.cashier}` : ""})`;
+  }
+  return known;
 };
 
 export const FULFILLMENT_LABEL: Record<FulfillmentStatus, string> = {
@@ -522,6 +549,8 @@ export interface PosDailyReport {
   by_cash_account: { cash_account_id: string | null; name?: string | null; kind?: "cash" | "bank" | null; total: number }[];
   expected_cash: number;
   expected_cash_by_account?: { cash_account_id: string; name: string; expected: number }[];
+  /** Cash stamped with a cashier shift — counted at each shift close, not in expected_cash. */
+  shift_cash?: number;
 }
 
 export interface PosDailyClose {
@@ -538,8 +567,83 @@ export interface PosDailyClose {
   cash_account?: { id: string; name: string } | null;
   journal_entry_id?: string | null;
   journal_entry?: { id: string; reference?: string } | null;
+  /** The day closed from its cashier shifts: nothing posted, differences were posted per shift. */
+  shift_based?: boolean;
   created_at: string;
 }
+
+// ── Cashier shifts (FR-SLREP-008) ────────────────────────────────────────────
+
+export interface PosShiftTotals {
+  opening_float: number;
+  cash_in: number;
+  cash_refunds: number;
+  net_cash: number;
+  bank: number;
+  cheque: number;
+  sales_count: number;
+  returns_count: number;
+  expected_cash: number;
+}
+
+export type PosShiftStatus = "open" | "closed";
+
+export const POS_SHIFT_STATUS_LABEL: Record<PosShiftStatus, string> = {
+  open: "مفتوحة",
+  closed: "مغلقة",
+};
+
+export interface PosShift {
+  id: string;
+  operating_unit_id: string;
+  cash_account_id: string;
+  cashier_user_id: string;
+  number: string;
+  status: PosShiftStatus;
+  opened_at: string;
+  opening_float: Money;
+  closed_at?: string | null;
+  closed_by_user_id?: string | null;
+  expected_cash?: Money | null;
+  counted_cash?: Money | null;
+  difference?: Money | null;
+  /** Live while open (show/current), stored at close; absent on list rows of open shifts. */
+  totals?: PosShiftTotals | null;
+  notes?: string | null;
+  journal_entry_id?: string | null;
+  cashier?: { id: string; name: string } | null;
+  closed_by?: { id: string; name: string } | null;
+  cash_account?: { id: string; name: string; kind: "cash" | "bank" } | null;
+  created_at?: string;
+}
+
+export interface PosShiftXReport {
+  shift: PosShift;
+  totals: PosShiftTotals;
+  generated_at: string;
+}
+
+export interface PosShiftFilters {
+  status?: PosShiftStatus;
+  cash_account_id?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  per_page?: number;
+}
+
+export const posShiftsApi = {
+  current: (cashAccountId: string) =>
+    apiClient.get<{ data: PosShift | null }>("/pos/shifts/current", { params: { cash_account_id: cashAccountId } }),
+  open: (data: { cash_account_id: string; opening_float: number }) => apiClient.post<PosShift>("/pos/shifts", data),
+  get: (id: string) => apiClient.get<PosShift>(`/pos/shifts/${id}`),
+  xReport: (id: string) => apiClient.get<PosShiftXReport>(`/pos/shifts/${id}/x-report`),
+  close: (id: string, data: { counted_cash: number; notes?: string | null }) =>
+    apiClient.post<PosShift>(`/pos/shifts/${id}/close`, data),
+  list: (params?: PosShiftFilters) => apiClient.get<Paginated<PosShift>>("/pos/shifts", { params }),
+  updateUnitSettings: (unitId: string, data: { pos_shifts_enabled: boolean }) =>
+    apiClient.put<{ id: string; pos_shifts_enabled: boolean }>(`/operating-units/${unitId}/pos-settings`, data),
+};
 
 export type QuotationStatus = "open" | "converted" | "cancelled" | "expired";
 
@@ -638,7 +742,8 @@ export const salesApi = {
 
   dailyReport: (date?: string) => apiClient.get<PosDailyReport>("/pos/daily-report", { params: { date } }),
   dailyClose: (date?: string) => apiClient.get<{ data: PosDailyClose | null }>("/pos/daily-close", { params: { date } }),
-  saveDailyClose: (data: { counted_cash: number; date?: string; notes?: string; cash_account_id?: string | null }) =>
+  /** counted_cash is omitted on a day run on cashier shifts (the response carries shift_based). */
+  saveDailyClose: (data: { counted_cash?: number; date?: string; notes?: string; cash_account_id?: string | null }) =>
     apiClient.post<PosDailyClose>("/pos/daily-close", data),
 
   heldCarts: () => apiClient.get<{ data: HeldCart[] }>("/held-carts"),

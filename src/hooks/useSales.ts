@@ -7,12 +7,19 @@ import {
   creditApprovalsApi,
   heldCartsApi,
   salesReturnsApi,
+  posShiftsApi,
   CreateSalesReturnInput,
   HoldCartInput,
+  PosShift,
+  PosShiftFilters,
   Sale,
   SaleFilters,
   SalesReturnFilters,
 } from "../api/endpoints/sales";
+import { apiErrorPayload } from "../api/endpoints/production";
+import { useOperatingUnits } from "./useOperatingUnits";
+import { useServerConfigStore } from "../stores/serverConfigStore";
+import { useAuthStore } from "../stores/authStore";
 
 /**
  * Every sale-changing action refreshes the sale, the lists, and the stock it
@@ -32,6 +39,9 @@ function useSaleMutation<TArgs, TResult>(
       qc.invalidateQueries({ queryKey: ["sale"] });
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["posDailyReport"] });
+      // Cash taken or refunded moves the open shift's live totals (close dialog, X-report).
+      qc.invalidateQueries({ queryKey: ["posShift"] });
+      qc.invalidateQueries({ queryKey: ["posShiftXReport"] });
       qc.invalidateQueries({ queryKey: ["creditApprovals"] });
       qc.invalidateQueries({ queryKey: ["stockLots"] });
       qc.invalidateQueries({ queryKey: ["availableFoamBlocks"] });
@@ -131,6 +141,128 @@ export function useSavePosDailyClose() {
     mutationFn: salesApi.saveDailyClose,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["posDailyClose"] }),
   });
+}
+
+// ── Cashier shifts (FR-SLREP-008) ────────────────────────────────────────────
+
+/** Opening or closing a shift changes the current shift, its reports, the day's figures and the sales views. */
+function invalidateShiftQueries(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ["posShifts"] });
+  qc.invalidateQueries({ queryKey: ["posShift"] });
+  qc.invalidateQueries({ queryKey: ["posShiftXReport"] });
+  qc.invalidateQueries({ queryKey: ["posDailyReport"] });
+  qc.invalidateQueries({ queryKey: ["posDailyClose"] });
+  qc.invalidateQueries({ queryKey: ["sales"] });
+  qc.invalidateQueries({ queryKey: ["sale"] });
+}
+
+export function usePosShifts(filters: PosShiftFilters, enabled = true) {
+  return useQuery({
+    queryKey: ["posShifts", "list", filters],
+    queryFn: async () => (await posShiftsApi.list(filters)).data,
+    placeholderData: keepPreviousData,
+    enabled,
+  });
+}
+
+/** The drawer's open shift in this unit, or null. */
+export function useCurrentPosShift(cashAccountId?: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ["posShifts", "current", cashAccountId],
+    queryFn: async () => (await posShiftsApi.current(cashAccountId as string)).data.data,
+    enabled: Boolean(cashAccountId) && enabled,
+  });
+}
+
+/** One shift with its totals — live while open, the stored Z-report once closed. */
+export function usePosShift(id?: string | null) {
+  return useQuery({
+    queryKey: ["posShift", id],
+    queryFn: async () => (await posShiftsApi.get(id as string)).data,
+    enabled: Boolean(id),
+  });
+}
+
+export function usePosShiftXReport(id?: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ["posShiftXReport", id],
+    queryFn: async () => (await posShiftsApi.xReport(id as string)).data,
+    enabled: Boolean(id) && enabled,
+  });
+}
+
+export function useOpenPosShift() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { cash_account_id: string; opening_float: number }) => (await posShiftsApi.open(data)).data,
+    onSuccess: () => invalidateShiftQueries(qc),
+  });
+}
+
+export function useClosePosShift() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...data }: { id: string; counted_cash: number; notes?: string | null }) =>
+      (await posShiftsApi.close(id, data)).data,
+    onSuccess: (closed) => {
+      // The close response is the full Z-report (present()): seed it so the Z-report never shows the
+      // cached open shift while the refetch runs.
+      qc.setQueryData(["posShift", closed.id], closed);
+      invalidateShiftQueries(qc);
+      // The count difference posts to the drawer and 625 / 44.
+      qc.invalidateQueries({ queryKey: ["cashAccounts"] });
+      qc.invalidateQueries({ queryKey: ["treasuryOptions"] });
+      qc.invalidateQueries({ queryKey: ["paymentAccounts"] });
+    },
+    onError: (err) => {
+      // Closed on another terminal or by a manager: drop the stale open shift.
+      if (apiErrorPayload(err)?.code === "SHIFT_ALREADY_CLOSED") invalidateShiftQueries(qc);
+    },
+  });
+}
+
+/** Owner / unit managers switch cashier shifts on or off for a unit. */
+export function useUpdatePosShiftSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ unitId, enabled }: { unitId: string; enabled: boolean }) =>
+      (await posShiftsApi.updateUnitSettings(unitId, { pos_shifts_enabled: enabled })).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["operatingUnits"] });
+      qc.invalidateQueries({ queryKey: ["operatingUnit"] });
+      invalidateShiftQueries(qc);
+    },
+  });
+}
+
+/**
+ * The POS's shift state: whether the current unit runs shifts, the logged-in
+ * user's own open shift (the only one cash is locked to by default), and the
+ * unit's other open shifts, which a cashier may join explicitly (shared drawer).
+ */
+export function useActivePosShift() {
+  const unitId = useServerConfigStore((s) => s.operatingUnitId);
+  const userId = useAuthStore((s) => s.user?.id);
+  const { data: units = [], isLoading: isUnitLoading } = useOperatingUnits();
+  const unit = units.find((u) => u.id === unitId) ?? null;
+  const enabled = Boolean(unit?.pos_shifts_enabled);
+  const { data, isLoading } = usePosShifts({ status: "open", per_page: 50 }, enabled);
+  const openShifts = enabled ? (data?.data ?? []) : [];
+  const isOwn = (s: PosShift) => userId !== undefined && String(s.cashier_user_id) === String(userId);
+  const ownShifts = openShifts.filter(isOwn);
+  const ownShift = ownShifts[0] ?? null;
+  /** More open shifts of this cashier (another drawer or terminal): kept reachable so they can be closed. */
+  const extraOwnShifts = ownShifts.slice(1);
+  const otherShifts = openShifts.filter((s) => !isOwn(s));
+  return {
+    unit,
+    enabled,
+    ownShift,
+    extraOwnShifts,
+    otherShifts,
+    isLoading: enabled && isLoading,
+    isUnitLoading: Boolean(unitId) && isUnitLoading,
+  };
 }
 
 // ── Bundle fulfilment ────────────────────────────────────────────────────────

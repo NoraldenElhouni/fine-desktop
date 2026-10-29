@@ -21,6 +21,8 @@ export interface OperatingUnit {
   manager?: { id: string; name: string } | null;
   /** The unit's own sales revenue account; null posts sales to the 41 header. */
   revenue_account_id?: string | null;
+  /** FR-SLREP-008: the POS runs cashier shifts (opening float, X/Z reports per shift). */
+  pos_shifts_enabled?: boolean;
   /**
    * Per-event chart-of-accounts overrides for this unit, when eager-loaded by
    * the show endpoint. Every item transacted inside this unit inherits these

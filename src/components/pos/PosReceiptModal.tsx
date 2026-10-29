@@ -30,6 +30,8 @@ export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({ isOpen, sale, 
       : totalAmount + totalDiscount;
   const hasAnyDiscount = totalDiscount > 0;
   const isCash = sale.payment_method === "cash";
+  // The checkout response carries no sold_by; the payment's receiver is the same cashier.
+  const cashierName = sale.sold_by?.name ?? sale.payments?.find((p) => p.received_by?.name)?.received_by?.name ?? null;
   const cashPayment = sale.payments?.find((p) => p.method === "cash");
   const hasSavedTender =
     cashPayment?.tendered_amount !== undefined &&
@@ -89,6 +91,7 @@ export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({ isOpen, sale, 
               <div className="text-[10px] text-gray-500 pt-1 space-y-0.5">
                 <div>رقم البيع: <span className="font-bold">{sale.order_number}</span></div>
                 <div>التاريخ: {formatDateTime(sale.created_at || new Date())}</div>
+                {cashierName && <div>الكاشير: <span className="font-bold">{cashierName}</span></div>}
                 <div>
                   العميل:{" "}
                   <span className="font-bold">

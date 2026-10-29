@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { DollarSign, Printer, CheckCircle2, AlertCircle, TrendingUp, Landmark, Banknote, FileText, Save } from "lucide-react";
-import { PAYMENT_METHOD_LABEL, PosDailyReport } from "../../api/endpoints/sales";
-import { usePosDailyClose, useSavePosDailyClose } from "../../hooks/useSales";
-import { apiErrorMessage } from "../../api/endpoints/production";
+import { PAYMENT_METHOD_LABEL, PosDailyReport, salesErrorMessage } from "../../api/endpoints/sales";
+import { usePosDailyClose, usePosShifts, useSavePosDailyClose } from "../../hooks/useSales";
+import { apiErrorPayload } from "../../api/endpoints/production";
 import { toast } from "../../stores/toastStore";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../ui/Dialog";
 import { formatNumber } from "../../lib/utils/format";
@@ -11,15 +11,33 @@ interface PosDailyCloseModalProps {
   isOpen: boolean;
   report: PosDailyReport | null;
   isLoading?: boolean;
+  /** FR-SLREP-008: the unit runs cashier shifts now. */
+  shiftsEnabled?: boolean;
+  /** The unit ran cashier shifts at some point (a past day may still close from them). */
+  hasShiftHistory?: boolean;
+  /** The hasShiftHistory check has not answered yet: the close mode is unknown, so Save waits. */
+  isShiftHistoryLoading?: boolean;
   onClose: () => void;
 }
 
 const METHOD_ICON = { cash: Banknote, bank: Landmark, receivable: FileText } as const;
 
+/** YYYY-MM-DD of an instant on the company's clock. */
+const dayIn = (iso: string, timeZone?: string): string => {
+  try {
+    return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
+  } catch {
+    return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
+  }
+};
+
 export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
   isOpen,
   report,
   isLoading,
+  shiftsEnabled,
+  hasShiftHistory,
+  isShiftHistoryLoading,
   onClose,
 }) => {
   const [countedCash, setCountedCash] = useState<string>("");
@@ -27,6 +45,48 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
 
   const { data: savedClose } = usePosDailyClose(undefined, isOpen);
   const saveClose = useSavePosDailyClose();
+  /** The server asked for a drawer count after all (counted_cash required): show the count input. */
+  const [forceCount, setForceCount] = useState(false);
+
+  // FR-SLREP-008: which way the day closes follows what the day holds, as PosController::dailyClose
+  // decides it — closed shifts on the day, or shift-stamped cash with no unstamped cash.
+  const shiftCash = Number(report?.shift_cash ?? 0);
+  const hasUnstampedCash =
+    (report?.expected_cash_by_account?.length ?? 0) > 0 || Math.abs(Number(report?.expected_cash ?? 0)) >= 0.005;
+  const mayHaveShifts = Boolean(shiftsEnabled || hasShiftHistory || Math.abs(shiftCash) >= 0.005);
+
+  // The day sums every shift closed on it, whenever it opened (the list filters on opened_at, so no
+  // lower bound): the latest 100 opened up to the day, kept when closed on the day (company clock).
+  const { data: recentShifts, isLoading: isShiftsLoading } = usePosShifts(
+    { status: "closed", to: report?.date, per_page: 100 },
+    isOpen && mayHaveShifts && !savedClose && Boolean(report),
+  );
+  const dayShifts = (recentShifts?.data ?? []).filter(
+    (s) => s.closed_at && report && dayIn(s.closed_at, report.timezone) === report.date,
+  );
+  const derivedShiftDay =
+    mayHaveShifts && (dayShifts.length > 0 || ((Boolean(shiftsEnabled) || Math.abs(shiftCash) >= 0.005) && !hasUnstampedCash));
+  const isShiftDay = savedClose ? Boolean(savedClose.shift_based) : derivedShiftDay && !forceCount;
+  const isModeLoading =
+    !savedClose && Boolean(report) && ((!shiftsEnabled && Boolean(isShiftHistoryLoading)) || (mayHaveShifts && isShiftsLoading));
+
+  useEffect(() => {
+    if (!isOpen) setForceCount(false);
+  }, [isOpen]);
+  const shiftSums = savedClose
+    ? {
+        expected: Number(savedClose.expected_cash),
+        counted: Number(savedClose.counted_cash),
+        difference: Number(savedClose.difference),
+      }
+    : dayShifts.reduce(
+        (acc, s) => ({
+          expected: acc.expected + Number(s.expected_cash ?? 0),
+          counted: acc.counted + Number(s.counted_cash ?? 0),
+          difference: acc.difference + Number(s.difference ?? 0),
+        }),
+        { expected: 0, counted: 0, difference: 0 },
+      );
 
   const cashAccounts = report?.expected_cash_by_account ?? [];
   const hasMultipleCashAccounts = cashAccounts.length > 1;
@@ -63,6 +123,22 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
   const isTreasuryMissing = isTreasuryRequired && !selectedCashAccountId;
 
   const handleSave = () => {
+    if (isModeLoading) return;
+    if (isShiftDay) {
+      if (savedClose || saveClose.isPending) return;
+      // A shift day takes no count: each shift already posted its own difference.
+      saveClose.mutate(
+        {},
+        {
+          onSuccess: () => toast.success("تم حفظ إغلاق الصندوق اليومي"),
+          // The day took cash outside shifts and no shift closed on it: the server wants a drawer count.
+          onError: (err) => {
+            if (apiErrorPayload(err)?.errors?.counted_cash) setForceCount(true);
+          },
+        },
+      );
+      return;
+    }
     if (counted === null || savedClose || saveClose.isPending || isTreasuryMissing) {
       return;
     }
@@ -76,7 +152,9 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
   };
 
   const saveError = saveClose.isError
-    ? apiErrorMessage(saveClose.error, "تعذّر حفظ إغلاق الصندوق")
+    ? apiErrorPayload(saveClose.error)?.errors?.counted_cash
+      ? "هذا اليوم قُبض فيه نقد خارج الورديات — أدخل النقد المعدود في الدرج ثم احفظ الإغلاق."
+      : salesErrorMessage(saveClose.error, "تعذّر حفظ إغلاق الصندوق")
     : null;
 
   return (
@@ -199,8 +277,35 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
                   مطابقة النقد في الصندوق (Cash Drawer Reconciliation)
                 </div>
 
+                {isShiftDay && (
+                  <div className="space-y-3">
+                    <div className="text-[11px] font-bold text-app-label-secondary">
+                      نتائج ورديات اليوم{!savedClose ? ` (${dayShifts.length} وردية مغلقة)` : ""}
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      {([
+                        ["النقد المتوقع", shiftSums.expected],
+                        ["النقد المعدود", shiftSums.counted],
+                        ["الفرق", shiftSums.difference],
+                      ] as const).map(([label, value]) => (
+                        <div key={label} className="rounded-xl border border-app-separator bg-app-bg-primary px-3 py-2">
+                          <div className="text-[11px] text-app-label-secondary">{label}</div>
+                          <div className="text-xs font-mono font-bold text-app-label-primary mt-0.5">{formatNumber(value)} د.ل</div>
+                        </div>
+                      ))}
+                    </div>
+                    {report?.shift_cash !== undefined && (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-app-label-secondary">صافي النقد المقبوض عبر الورديات</span>
+                        <span className="font-mono font-bold">{formatNumber(report.shift_cash)} د.ل</span>
+                      </div>
+                    )}
+                    <p className="text-[11px] text-app-label-secondary font-medium">الفروقات سُجلت عند إغلاق كل وردية</p>
+                  </div>
+                )}
+
                 {/* Treasury select when multiple cash treasuries, or treasury label */}
-                {hasMultipleCashAccounts && !savedClose ? (
+                {isShiftDay ? null : hasMultipleCashAccounts && !savedClose ? (
                   <div className="space-y-1">
                     <label className="block text-[11px] font-semibold text-app-label-secondary">
                       خزينة الدرج <span className="text-app-status-danger">*</span>
@@ -235,6 +340,7 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
                   )
                 )}
 
+                {!isShiftDay && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">
@@ -266,6 +372,7 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
                     )}
                   </div>
                 </div>
+                )}
 
                 {/* Saved-close confirmation / save error */}
                 {savedClose && (
@@ -295,7 +402,7 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
                 )}
 
                 {/* Difference Status */}
-                {difference !== null && (
+                {!isShiftDay && difference !== null && (
                   <div className="space-y-1.5">
                     <div className={`flex items-center gap-2 rounded-xl p-3 text-xs font-bold ${
                       Math.abs(difference) < 0.001
@@ -348,7 +455,10 @@ export const PosDailyCloseModal: React.FC<PosDailyCloseModalProps> = ({
             <button
               type="button"
               onClick={handleSave}
-              disabled={counted === null || saveClose.isPending || isTreasuryMissing}
+              disabled={
+                isModeLoading ||
+                (isShiftDay ? saveClose.isPending : counted === null || saveClose.isPending || isTreasuryMissing)
+              }
               className="flex items-center gap-2 rounded-xl bg-app-status-positive px-5 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Save className="h-4 w-4" />

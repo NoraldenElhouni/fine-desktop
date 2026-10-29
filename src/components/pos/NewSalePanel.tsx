@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Boxes,
@@ -7,6 +8,7 @@ import {
   Clock,
   FileText,
   Landmark,
+  Lock,
   Package,
   Play,
   Plus,
@@ -31,6 +33,7 @@ import {
 import { useClients } from "../../hooks/useClients";
 import { useOperatingUnits } from "../../hooks/useOperatingUnits";
 import { useServerConfigStore } from "../../stores/serverConfigStore";
+import { useAuthStore } from "../../stores/authStore";
 import {
   CartLine,
   CartLineInput,
@@ -39,6 +42,7 @@ import {
   HeldCartPayload,
   PAYMENT_METHOD_LABEL,
   PaymentMethod,
+  PosShift,
   PriceFloorViolationLine,
   PriceOverrideInput,
   Quotation,
@@ -135,11 +139,18 @@ interface NewSalePanelProps {
   /** A quotation the client came back with — its lines load into the cart. */
   loadedQuotation: Quotation | null;
   onQuotationDone: () => void;
+  /**
+   * FR-SLREP-008: on a unit running cashier shifts, cash goes through the open
+   * shift's drawer only; with no open shift, cash checkout asks to open one.
+   */
+  shiftLock?: { enabled: boolean; shift: PosShift | null; isOwn?: boolean; isLoading?: boolean; onOpenShift: () => void };
 }
 
-export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQuotationDone }) => {
+export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQuotationDone, shiftLock }) => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const currentUnitId = useServerConfigStore((s) => s.operatingUnitId);
+  const authUser = useAuthStore((s) => s.user);
 
   const [buyerMode, setBuyerMode] = useState<BuyerMode>("client");
   const [clientId, setClientId] = useState<string | null>(null);
@@ -192,6 +203,13 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   const isWalkIn = buyerMode === "walk_in";
   const treasuries = paymentAccounts.filter((a) => a.kind === method);
   const linkedTreasuries = treasuries.filter((a) => a.account_id);
+  const shiftDrawerId = shiftLock?.enabled && shiftLock.shift ? shiftLock.shift.cash_account_id : null;
+  const shiftDrawerName =
+    shiftLock?.shift?.cash_account?.name ?? paymentAccounts.find((a) => a.id === shiftDrawerId)?.name ?? "—";
+  /** The open shifts are still loading: cash checkout waits, without asking to open a shift. */
+  const isShiftLoading = Boolean(shiftLock?.enabled && shiftLock.isLoading) && method === "cash" && !isInternal;
+  const needsShift =
+    Boolean(shiftLock?.enabled) && !shiftLock?.isLoading && !shiftLock?.shift && method === "cash" && !isInternal;
 
   // A quotation the client came back with fills the cart.
   useEffect(() => {
@@ -249,10 +267,13 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   useEffect(() => {
     if (method === "receivable" || method === "split") {
       setCashAccountId(null);
+    } else if (method === "cash" && shiftDrawerId) {
+      // Locked to the open shift's drawer.
+      if (cashAccountId !== shiftDrawerId) setCashAccountId(shiftDrawerId);
     } else if (!linkedTreasuries.some((a) => a.id === cashAccountId)) {
       setCashAccountId(linkedTreasuries.length === 1 ? linkedTreasuries[0].id : null);
     }
-  }, [method, linkedTreasuries, cashAccountId]);
+  }, [method, linkedTreasuries, cashAccountId, shiftDrawerId]);
 
   // Reset method if split is selected without client or in internal mode, or receivable in walk-in mode
   useEffect(() => {
@@ -501,11 +522,18 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
       navigate(`/sales/${sale.id}/bundles/${bundleLine.id}`);
       return;
     }
-    setCompletedSale(sale);
+    // The checkout response carries no sold_by; the logged-in user is the seller (receipt "الكاشير").
+    setCompletedSale(
+      sale.sold_by || !authUser ? sale : { ...sale, sold_by: { id: String(authUser.id), name: authUser.name } },
+    );
   };
 
   const fail = (err: unknown) => {
     const payload = apiErrorPayload(err);
+    if (payload?.code === "NO_OPEN_SHIFT") {
+      // The shift was closed elsewhere: refetch so the lock falls back to "open a shift".
+      queryClient.invalidateQueries({ queryKey: ["posShifts"] });
+    }
     const fieldError = payload?.errors ? Object.values(payload.errors)[0]?.[0] : undefined;
     setError(
       (payload?.code && SALES_ERROR_MESSAGE[payload.code]) || fieldError || payload?.message || "تعذّر إتمام العملية.",
@@ -856,7 +884,11 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
       );
     });
   const buyerValid = isInternal ? Boolean(buyerUnitId) : isWalkIn ? true : Boolean(clientId);
-  const paymentValid = isInternal || method === "receivable" || method === "split" || Boolean(cashAccountId);
+  const paymentValid =
+    isInternal ||
+    method === "receivable" ||
+    method === "split" ||
+    (Boolean(cashAccountId) && !needsShift && !isShiftLoading);
   const canCheckout = linesValid && !invoiceDiscountInvalid && buyerValid && paymentValid && (isInternal || total > 0);
   const isBusy = checkout.isPending || convert.isPending;
 
@@ -1097,6 +1129,26 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
             <p className="text-[11px] text-app-label-secondary">
               يتم تحديد طرق الدفع (نقداً / مصرف / شيك) والخزائن والمبالغ لكل دفعة عند إتمام البيع.
             </p>
+          ) : isShiftLoading ? (
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-app-label-secondary">الخزينة المستلمة</label>
+              <div className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-secondary">
+                جاري تحميل الوردية...
+              </div>
+            </div>
+          ) : method === "cash" && shiftDrawerId ? (
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-app-label-secondary">الخزينة المستلمة</label>
+              <div className="flex items-center gap-2 w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-semibold text-app-label-primary">
+                <Lock className="h-3.5 w-3.5 text-app-label-secondary" />
+                {shiftDrawerName}
+              </div>
+              <p className="text-[11px] text-app-label-tertiary">
+                خزينة الوردية المفتوحة {shiftLock?.shift?.number}
+                {shiftLock?.isOwn === false ? ` (الكاشير: ${shiftLock.shift?.cashier?.name ?? "—"})` : ""} — لا يمكن تغييرها
+                أثناء الوردية.
+              </p>
+            </div>
           ) : method !== "receivable" ? (
             <div className="space-y-1">
               <label className="block text-[11px] font-semibold text-app-label-secondary">
@@ -1119,6 +1171,21 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
                 <p className="text-[11px] text-app-status-warning">
                   لا توجد {method === "cash" ? "خزينة" : "حسابات مصرفية"} — أضفها من صفحة الخزينة.
                 </p>
+              )}
+              {needsShift && (
+                <div className="flex items-center justify-between gap-2 rounded-xl border border-app-status-warning/40 bg-app-status-warning/10 p-2.5 text-[11px] font-semibold text-app-status-warning">
+                  <span className="flex items-center gap-1.5">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    لا توجد وردية مفتوحة — افتح وردية قبل البيع النقدي.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={shiftLock?.onOpenShift}
+                    className="shrink-0 rounded-lg bg-app-accent px-2.5 py-1 text-[11px] font-bold text-white hover:opacity-90"
+                  >
+                    فتح وردية
+                  </button>
+                </div>
               )}
             </div>
           ) : (
@@ -1435,6 +1502,16 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
         clientName={isWalkIn ? walkInName.trim() || undefined : client?.entity?.name}
         isWalkIn={isWalkIn}
         isBusy={isBusy}
+        cashLock={
+          shiftLock?.enabled
+            ? {
+                drawerId: shiftDrawerId,
+                drawerName: shiftDrawerName,
+                isLoading: shiftLock.isLoading,
+                onOpenShift: shiftLock.onOpenShift,
+              }
+            : undefined
+        }
         onClose={() => setIsSplitPaymentOpen(false)}
         onConfirm={executeSplitCheckout}
       />
