@@ -105,6 +105,8 @@ interface GuidedFormPageProps {
   submitLabel: string;
   isSubmitting: boolean;
   onCancel: () => void;
+  /** Optional page tabs under the title (e.g. an existing item's tabs). */
+  tabs?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -123,6 +125,7 @@ export const GuidedFormPage: React.FC<GuidedFormPageProps> = ({
   submitLabel,
   isSubmitting,
   onCancel,
+  tabs,
   children,
 }) => (
   <div className="p-6 space-y-5" dir="rtl">
@@ -140,6 +143,7 @@ export const GuidedFormPage: React.FC<GuidedFormPageProps> = ({
       <h1 className={cn(type.largeTitleEmphasized, "text-app-label-primary")}>
         {title}
       </h1>
+      {tabs}
     </div>
 
     <form

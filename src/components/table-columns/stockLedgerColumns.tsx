@@ -1,15 +1,18 @@
 import { useMemo } from "react";
-import { Scissors } from "lucide-react";
+import { Pencil, Scissors } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { StockLot } from "../../api/endpoints/inventory";
 import { formatNumber } from "../../lib/utils/format";
 
 export interface UseStockLedgerColumnsArgs {
   onOpenCutModal: (lot: StockLot) => void;
+  /** Edit the lot's shelf (W4-02); omitted for a read-only viewer. */
+  onEditBin?: (lot: StockLot) => void;
 }
 
 export function useStockLedgerColumns({
   onOpenCutModal,
+  onEditBin,
 }: UseStockLedgerColumnsArgs): ColumnDef<StockLot, unknown>[] {
   return useMemo<ColumnDef<StockLot, unknown>[]>(
     () => [
@@ -19,6 +22,27 @@ export function useStockLedgerColumns({
         header: "رقم الدفعة",
         meta: { className: "font-mono font-bold text-app-accent" },
         cell: ({ row }) => row.original.lot_number,
+      },
+      {
+        id: "bin_location",
+        accessorKey: "bin_location",
+        header: "موقع الرف",
+        cell: ({ row }) => (
+          <div className="flex items-center gap-1.5">
+            <span className="font-mono text-xs text-app-label-primary">{row.original.bin_location || "—"}</span>
+            {onEditBin && (
+              <button
+                type="button"
+                onClick={() => onEditBin(row.original)}
+                aria-label="تعديل موقع الرف"
+                title="تعديل موقع الرف"
+                className="rounded-md p-1 text-app-label-tertiary hover:bg-app-fill-f1 hover:text-app-accent"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        ),
       },
       {
         id: "item",
@@ -127,6 +151,6 @@ export function useStockLedgerColumns({
         },
       },
     ],
-    [onOpenCutModal]
+    [onOpenCutModal, onEditBin]
   );
 }

@@ -44,7 +44,7 @@ export function useUpdateInventoryItem() {
   });
 }
 
-export function useStockLots(params?: { category_id?: string; status?: string; grade?: string; warehouse_id?: string; inventory_item_id?: string; page?: number; attrs?: Record<string, any> }) {
+export function useStockLots(params?: { category_id?: string; status?: string; grade?: string; warehouse_id?: string; inventory_item_id?: string; bin_location?: string; page?: number; attrs?: Record<string, any> }) {
   return useQuery({
     queryKey: ["stockLots", params],
     queryFn: async () => {

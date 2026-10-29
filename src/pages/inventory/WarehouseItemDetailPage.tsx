@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   AlertCircle,
@@ -10,13 +10,20 @@ import {
   History,
   Layers,
   Scissors,
+  Search,
+  SlidersHorizontal,
 } from "lucide-react";
 import {
   useInventoryItem,
   useStockLots,
   useProcessCutRemnant,
+  useUpdateStockLot,
   useWarehouseLedger,
 } from "../../hooks/useInventory";
+import { usePermissions } from "../../hooks/usePermissions";
+import { stockLevelErrorMessage } from "../../api/endpoints/stockLevels";
+import type { StockLevelsBackState } from "./InventoryItemStockLevelsPage";
+import { toast } from "../../stores/toastStore";
 import { StockLot } from "../../api/endpoints/inventory";
 import {
   INVENTORY_EVENT_LABELS,
@@ -51,11 +58,33 @@ const WarehouseItemDetailPage: React.FC = () => {
   const [heightM, setHeightM] = useState<number>(1.0);
   const [byproductKg, setByproductKg] = useState<number>(0);
 
+  // W4-02: a lot's shelf, editable by whoever may edit inventory.
+  const { hasPermission } = usePermissions();
+  const canEditBin = hasPermission("edit-inventory");
+  const [binLot, setBinLot] = useState<StockLot | null>(null);
+  const [binValue, setBinValue] = useState("");
+  const [binError, setBinError] = useState<string | null>(null);
+  const updateLotMutation = useUpdateStockLot();
+
   const { data: item } = useInventoryItem(itemId);
   const pinnedUnitId = useServerConfigStore((s) => s.operatingUnitId);
-  const { data: lotData, isLoading: isLoadingLots } = useStockLots({
+  const { data: lotData } = useStockLots({
     warehouse_id: warehouseId,
     inventory_item_id: itemId,
+  });
+  // W4-02: find lots by shelf (server-side partial match). The totals above keep
+  // using the unfiltered lots; only the table follows the search. With no search
+  // the params match the query above, so it is the same cached request.
+  const [binSearch, setBinSearch] = useState("");
+  const [debouncedBin, setDebouncedBin] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedBin(binSearch.trim()), 300);
+    return () => clearTimeout(t);
+  }, [binSearch]);
+  const { data: tableLotData, isLoading: isLoadingTableLots } = useStockLots({
+    warehouse_id: warehouseId,
+    inventory_item_id: itemId,
+    bin_location: debouncedBin || undefined,
   });
   const { data: ledger, isLoading: isLoadingLedger } = useWarehouseLedger(warehouseId, {
     sku: item?.code,
@@ -64,6 +93,7 @@ const WarehouseItemDetailPage: React.FC = () => {
   const processCutMutation = useProcessCutRemnant();
 
   const lots = useMemo(() => lotData?.data ?? [], [lotData]);
+  const tableLots = useMemo(() => tableLotData?.data ?? [], [tableLotData]);
   const availableLots = useMemo(() => lots.filter((l) => l.status === "available"), [lots]);
   const totalQuantity = useMemo(
     () => availableLots.reduce((sum, l) => sum + Number(l.quantity), 0),
@@ -102,10 +132,35 @@ const WarehouseItemDetailPage: React.FC = () => {
     );
   };
 
-  const lotColumns = useStockLedgerColumns({ onOpenCutModal: openCutModal });
+  const openBinEdit = useCallback((lot: StockLot) => {
+    setBinLot(lot);
+    setBinValue(lot.bin_location ?? "");
+    setBinError(null);
+  }, []);
+
+  const handleBinSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!binLot) return;
+    setBinError(null);
+    updateLotMutation.mutate(
+      { id: binLot.id, data: { bin_location: binValue.trim() || null, record_version: binLot.record_version } },
+      {
+        onSuccess: () => {
+          toast.success("تم حفظ موقع الرف");
+          setBinLot(null);
+        },
+        onError: (err) => setBinError(stockLevelErrorMessage(err, "تعذّر حفظ موقع الرف.")),
+      },
+    );
+  };
+
+  const lotColumns = useStockLedgerColumns({
+    onOpenCutModal: openCutModal,
+    onEditBin: canEditBin ? openBinEdit : undefined,
+  });
   const lotsTable = useDataTable({
     columns: lotColumns,
-    data: lots,
+    data: tableLots,
     enableSorting: true,
     pageSize: 10,
     getRowId: (lot) => lot.id,
@@ -139,13 +194,29 @@ const WarehouseItemDetailPage: React.FC = () => {
         </div>
 
         {itemId && (
-          <button
-            onClick={() => navigate(`/inventory/items/${itemId}/movement-card`)}
-            className="inline-flex items-center gap-2 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-medium text-app-label-primary hover:bg-app-fill-f1 transition-colors"
-          >
-            <History className="w-4 h-4 text-app-accent" />
-            كرت الصنف
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() =>
+                navigate(`/inventory/items/${itemId}/levels`, {
+                  state: {
+                    backTo: `/inventory/ledger/${warehouseId}/items/${itemId}`,
+                    backLabel: item?.name ?? "الصنف",
+                  } satisfies StockLevelsBackState,
+                })
+              }
+              className="inline-flex items-center gap-2 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-medium text-app-label-primary hover:bg-app-fill-f1 transition-colors"
+            >
+              <SlidersHorizontal className="w-4 h-4 text-app-accent" />
+              حدود المخزون
+            </button>
+            <button
+              onClick={() => navigate(`/inventory/items/${itemId}/movement-card`)}
+              className="inline-flex items-center gap-2 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-medium text-app-label-primary hover:bg-app-fill-f1 transition-colors"
+            >
+              <History className="w-4 h-4 text-app-accent" />
+              كرت الصنف
+            </button>
+          </div>
         )}
       </div>
 
@@ -189,11 +260,27 @@ const WarehouseItemDetailPage: React.FC = () => {
 
       {/* Lots */}
       <div>
-        <h2 className="text-sm font-bold text-app-label-primary mb-2">الدفعات في هذا المخزن</h2>
+        <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-sm font-bold text-app-label-primary">الدفعات في هذا المخزن</h2>
+          <div className="relative sm:w-64">
+            <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-app-label-tertiary" />
+            <input
+              type="search"
+              value={binSearch}
+              onChange={(e) => setBinSearch(e.target.value)}
+              placeholder="بحث بموقع الرف"
+              aria-label="بحث بموقع الرف"
+              maxLength={50}
+              className="w-full rounded-xl border border-app-separator bg-app-bg-secondary py-2 pe-3 ps-8 text-xs focus:border-app-accent focus:outline-none"
+            />
+          </div>
+        </div>
         <DataTable table={lotsTable}>
           <DataTable.Content
-            isLoading={isLoadingLots}
-            emptyMessage="لا توجد دفعات لهذا الصنف في هذا المخزن."
+            isLoading={isLoadingTableLots}
+            emptyMessage={
+              debouncedBin ? "لا توجد دفعات على هذا الرف لهذا الصنف." : "لا توجد دفعات لهذا الصنف في هذا المخزن."
+            }
             emptyIcon={Layers}
           />
           <DataTable.Pagination />
@@ -212,6 +299,64 @@ const WarehouseItemDetailPage: React.FC = () => {
           <DataTable.Pagination />
         </DataTable>
       </div>
+
+      {/* Lot shelf (bin) edit — W4-02 */}
+      <Dialog open={Boolean(binLot)} onOpenChange={(next) => !next && setBinLot(null)}>
+        <DialogContent size="sm">
+          <DialogHeader>
+            <div>
+              <DialogTitle>موقع الرف</DialogTitle>
+              {binLot && (
+                <DialogDescription>
+                  الدفعة: <span className="font-mono font-bold">{binLot.lot_number}</span>
+                </DialogDescription>
+              )}
+            </div>
+            <DialogClose />
+          </DialogHeader>
+          <DialogBody>
+            <form id="lot-bin-form" onSubmit={handleBinSubmit} className="space-y-3">
+              {binError && (
+                <div className="flex items-start gap-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 p-3 text-xs text-app-status-danger">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{binError}</span>
+                </div>
+              )}
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">موقع الرف</label>
+                <input
+                  type="text"
+                  maxLength={50}
+                  autoFocus
+                  placeholder="A-03"
+                  value={binValue}
+                  onChange={(e) => setBinValue(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                  dir="ltr"
+                />
+                <p className="mt-1 text-[11px] text-app-label-tertiary">اتركه فارغاً لإزالة موقع الرف من هذه الدفعة.</p>
+              </div>
+            </form>
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setBinLot(null)}
+              className="px-4 py-2 text-xs font-semibold text-app-label-secondary hover:bg-app-fill-f1 rounded-xl"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              form="lot-bin-form"
+              disabled={updateLotMutation.isPending}
+              className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl shadow-sm disabled:opacity-50"
+            >
+              {updateLotMutation.isPending ? "جارٍ الحفظ…" : "حفظ"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Cutter Completion Modal */}
       <Dialog open={Boolean(selectedLotForCut)} onOpenChange={(next) => !next && setSelectedLotForCut(null)}>

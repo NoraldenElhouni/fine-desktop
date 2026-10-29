@@ -49,6 +49,8 @@ export interface StockCountLine {
   item_type: string | null;
   unit_of_measure: string | null;
   lot_number: string | null;
+  /** The lot's shelf (W4-02); null for found stock and unshelved lots. */
+  bin_location: string | null;
   lot_status: string | null;
   grade: string | null;
   is_found: boolean;
@@ -134,6 +136,8 @@ export interface StockCountSheetRow {
   item_name: string | null;
   unit_of_measure: string | null;
   lot_number: string | null;
+  /** The lot's shelf (W4-02), printed so the counter can find it. */
+  bin_location: string | null;
   is_found: boolean;
   system_qty: Decimal | null;
   counted_qty: Decimal | null;

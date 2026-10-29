@@ -143,6 +143,8 @@ export interface StockLot {
   id: string;
   inventory_item_id: string;
   warehouse_id: string;
+  /** Shelf/bin inside the warehouse (W4-02, FR-STK-004); defaults from the item's level row. */
+  bin_location?: string | null;
   lot_number: string;
   quantity: number;
   container_quantity?: number;
@@ -235,7 +237,7 @@ export const inventoryApi = {
     apiClient.put<InventoryItem>(`/inventory-items/${id}`, data),
 
   // Stock Lots
-  getLots: (params?: { category_id?: string; status?: string; grade?: string; warehouse_id?: string; inventory_item_id?: string; page?: number; attrs?: Record<string, any> }) =>
+  getLots: (params?: { category_id?: string; status?: string; grade?: string; warehouse_id?: string; inventory_item_id?: string; bin_location?: string; page?: number; attrs?: Record<string, any> }) =>
     apiClient.get<{ data: StockLot[]; current_page: number; last_page: number }>("/stock-lots", { params }),
 
   getAvailableForCutting: (params?: { min_volume_m3?: number; grade?: string }) =>
@@ -266,6 +268,8 @@ export const inventoryApi = {
     primary_uom?: string;
     secondary_uom?: string;
     save_as_item_default?: boolean;
+    /** W4-02: the lot's shelf; omitted, the server uses the item's level row bin in that warehouse. */
+    bin_location?: string | null;
     unit_cost: number;
     source: "opening_balance" | "purchase_cash" | "purchase_credit" | "import_receipt";
     purchase_order_id?: string;

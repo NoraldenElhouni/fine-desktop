@@ -7,6 +7,7 @@ import { RolesPage } from "../pages/settings/RolesPage";
 import { OperatingUnitsPage } from "../pages/admin/OperatingUnitsPage";
 import { InventoryItemsPage } from "../pages/inventory/InventoryItemsPage";
 import InventoryItemFormPage from "../pages/inventory/InventoryItemFormPage";
+import InventoryItemStockLevelsPage from "../pages/inventory/InventoryItemStockLevelsPage";
 import { CategoryAttributeManagerPage } from "../pages/inventory/CategoryAttributeManagerPage";
 import CategoryDetailPage from "../pages/inventory/CategoryDetailPage";
 import { BundlesPage } from "../pages/inventory/BundlesPage";
@@ -65,6 +66,7 @@ export const SettingsRoutes: React.FC = () => {
         <Route path="items" element={<InventoryItemsPage />} />
         <Route path="items/new" element={<InventoryItemFormPage />} />
         <Route path="items/:id/edit" element={<InventoryItemFormPage />} />
+        <Route path="items/:id/levels" element={<InventoryItemStockLevelsPage />} />
         <Route path="categories" element={<CategoryAttributeManagerPage />} />
         <Route path="categories/:id" element={<CategoryDetailPage />} />
         <Route path="bundles" element={<BundlesPage />} />

@@ -122,6 +122,7 @@ export const BatchBlocksPage: React.FC = () => {
     grade: "standard",
     color: "",
     status: "available",
+    bin_location: "",
   });
 
   const bunWidth = batch ? Number(batch.bun_width_m) : 0;
@@ -145,6 +146,7 @@ export const BatchBlocksPage: React.FC = () => {
       grade: lot.grade ?? "standard",
       color: (lot.attribute_values as Record<string, string> | undefined)?.color ?? "",
       status: lot.status ?? "available",
+      bin_location: lot.bin_location ?? "",
     });
     setError(null);
   };
@@ -169,6 +171,7 @@ export const BatchBlocksPage: React.FC = () => {
       height_m: height,
       grade: blockForm.grade as StockLot["grade"],
       status: blockForm.status as StockLot["status"],
+      bin_location: blockForm.bin_location.trim() || null,
       record_version: editingBlock.record_version,
       ...(num(blockForm.pressure) > 0 ? { pressure: num(blockForm.pressure) } : {}),
       attribute_values: {
@@ -742,6 +745,21 @@ export const BatchBlocksPage: React.FC = () => {
                     </select>
                   )}
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
+                  موقع الرف
+                </label>
+                <input
+                  type="text"
+                  maxLength={50}
+                  value={blockForm.bin_location}
+                  onChange={(e) => setBlockForm({ ...blockForm, bin_location: e.target.value })}
+                  placeholder="A-03"
+                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
+                  dir="ltr"
+                />
               </div>
             </form>
           </DialogBody>

@@ -56,6 +56,7 @@ export const StockIntakeModal: React.FC<{
   const [itemId, setItemId] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
   const [lotNumber, setLotNumber] = useState("");
+  const [binLocation, setBinLocation] = useState("");
   const [quantity, setQuantity] = useState("");
   const [containerQuantity, setContainerQuantity] = useState("");
   const [containerCapacity, setContainerCapacity] = useState("");
@@ -201,6 +202,8 @@ export const StockIntakeModal: React.FC<{
         inventory_item_id: itemId,
         warehouse_id: warehouseId,
         lot_number: lotNumber.trim() || undefined,
+        // Left empty, the server takes the item's shelf in this warehouse (its level row).
+        bin_location: binLocation.trim() || undefined,
         quantity: num(quantity),
         container_quantity: num(containerQuantity) > 0 ? num(containerQuantity) : undefined,
         container_capacity: num(containerCapacity) > 0 ? num(containerCapacity) : undefined,
@@ -311,6 +314,22 @@ export const StockIntakeModal: React.FC<{
             <p className="text-[10px] text-app-label-tertiary">
               يمكنك إدخال رقم دفعة المورد، أو النقر على "توليد تلقائي" للحصول على رقم فريد، أو تركه فارغاً.
             </p>
+
+            <div>
+              <label className="block text-xs font-semibold text-app-label-secondary mb-1">موقع الرف</label>
+              <input
+                type="text"
+                dir="ltr"
+                maxLength={50}
+                placeholder="A-03"
+                value={binLocation}
+                onChange={(e) => setBinLocation(e.target.value)}
+                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono focus:border-app-accent focus:outline-none"
+              />
+              <p className="mt-1 text-[10px] text-app-label-tertiary">
+                اتركه فارغاً ليُستخدم رف الصنف المحدد في حدود مخزونه لهذا المخزن.
+              </p>
+            </div>
 
             {/* Dual UOM / Container Capacity Section */}
             <div className="rounded-xl border border-app-separator bg-app-bg-secondary/40 p-3 space-y-3">

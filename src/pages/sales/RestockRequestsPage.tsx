@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Truck, Plus, AlertTriangle, Trash2, Check, X, PackageCheck } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useRestockRequests, useCreateRestock, useRestockAction } from "../../hooks/useSales";
 import { useInventoryItems } from "../../hooks/useInventory";
 import { getOperatingUnits } from "../../api/endpoints/operatingUnits";
-import { apiErrorPayload } from "../../api/endpoints/production";
+import { apiErrorMessage } from "../../api/endpoints/production";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { InventoryItem } from "../../api/endpoints/inventory";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
@@ -13,6 +14,17 @@ const num = (v: string): number => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
+
+type ItemOption = Pick<InventoryItem, "id" | "name" | "code">;
+
+/**
+ * Router state another screen passes to open the request form prefilled —
+ * the reorder report's "طلب تزويد" (W4-02). Name and code travel with each
+ * line so the item shows even when it is not in the loaded item page.
+ */
+export interface RestockPrefill {
+  lines: { inventory_item_id: string; name: string; code: string; quantity: number }[];
+}
 
 const STATUS_STYLE: Record<string, string> = {
   pending_approval: "bg-app-status-yellow/15 text-app-status-yellow",
@@ -34,15 +46,36 @@ export const RestockRequestsPage: React.FC = () => {
   const [requestNumber, setRequestNumber] = useState("");
   const [sourceUnitId, setSourceUnitId] = useState("");
   const [lines, setLines] = useState([{ key: "1", item: "", qty: "1" }]);
+  const [prefilledItems, setPrefilledItems] = useState<ItemOption[]>([]);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const { data: requests, isLoading } = useRestockRequests();
   const { data: items } = useInventoryItems({});
   const { data: units } = useQuery({ queryKey: ["operatingUnits"], queryFn: () => getOperatingUnits() });
   const createMutation = useCreateRestock();
+
+  const itemOptions = useMemo<ItemOption[]>(() => {
+    const loaded: ItemOption[] = items?.data ?? [];
+    const known = new Set(loaded.map((i) => i.id));
+    return [...loaded, ...prefilledItems.filter((i) => !known.has(i.id))];
+  }, [items, prefilledItems]);
+
+  // Opened from the reorder report: start the form with its lines, then drop
+  // the router state so a reload or going back does not open it again.
+  useEffect(() => {
+    const prefill = (location.state as { restockPrefill?: RestockPrefill } | null)?.restockPrefill;
+    if (!prefill || prefill.lines.length === 0) return;
+    setLines(prefill.lines.map((l, i) => ({ key: `prefill-${i}`, item: l.inventory_item_id, qty: String(l.quantity) })));
+    setPrefilledItems(prefill.lines.map((l) => ({ id: l.inventory_item_id, name: l.name, code: l.code })));
+    setError(null);
+    setShowForm(true);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.state, location.pathname, navigate]);
   const actionMutation = useRestockAction();
 
-  const fail = (err: unknown, fallback: string) =>
-    setError(apiErrorPayload(err)?.message ?? fallback);
+  // Known refusal codes (OPERATING_UNIT_REQUIRED, …) show in Arabic.
+  const fail = (err: unknown, fallback: string) => setError(apiErrorMessage(err, fallback));
 
   const ACTION_LABEL: Record<"approve" | "reject" | "fulfill", string> = {
     approve: "الموافقة",
@@ -200,10 +233,10 @@ export const RestockRequestsPage: React.FC = () => {
               {lines.map((l) => (
                 <div key={l.key} className="flex gap-2 items-end">
                   <div className="flex-1">
-                    <SearchableSelect<InventoryItem>
-                      options={items?.data ?? []}
+                    <SearchableSelect<ItemOption>
+                      options={itemOptions}
                       value={
-                        items?.data.find((i) => i.id === l.item) ?? null
+                        itemOptions.find((i) => i.id === l.item) ?? null
                       }
                       onChange={(item) =>
                         setLines(
@@ -223,10 +256,10 @@ export const RestockRequestsPage: React.FC = () => {
                   <div>
                     <label className="block text-[11px] font-semibold text-app-label-secondary mb-1">الكمية</label>
                     <input
-                      type="number" step="0.01" min="0.01"
+                      type="number" step="0.0001" min="0.0001"
                       value={l.qty}
                       onChange={(e) => setLines(lines.map((x) => x.key === l.key ? { ...x, qty: e.target.value } : x))}
-                      className="w-20 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
+                      className="w-24 px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs font-mono focus:border-app-accent focus:outline-none"
                     />
                   </div>
                   {lines.length > 1 && (

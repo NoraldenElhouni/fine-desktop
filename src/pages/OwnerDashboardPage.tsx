@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   LayoutGrid,
   AlertTriangle,
@@ -9,6 +10,7 @@ import {
   Inbox,
   Check,
   X,
+  Gauge,
 } from "lucide-react";
 import {
   useDashboardKpis,
@@ -19,6 +21,8 @@ import {
 } from "../hooks/useDashboard";
 import { apiErrorPayload } from "../api/endpoints/production";
 import { formatNumber } from "../lib/utils/format";
+import { usePermissions } from "../hooks/usePermissions";
+import { INVENTORY_ROLES } from "../routes/routes.config";
 
 // Keys must match DashboardService::operationalPipeline() on the backend —
 // furniture_orders was removed there when production_orders/boms were
@@ -35,8 +39,14 @@ const KpiCard: React.FC<{
   label: string;
   value: string;
   sub?: string;
-}> = ({ icon, label, value, sub }) => (
-  <div className="rounded-2xl border border-app-separator bg-app-bg-primary p-4 shadow-sm">
+  onClick?: () => void;
+}> = ({ icon, label, value, sub, onClick }) => (
+  <div
+    onClick={onClick}
+    className={`rounded-2xl border border-app-separator bg-app-bg-primary p-4 shadow-sm ${
+      onClick ? "cursor-pointer hover:border-app-accent/40 transition-colors" : ""
+    }`}
+  >
     <div className="flex items-center gap-2 text-xs text-app-label-secondary">
       {icon}
       {label}
@@ -52,6 +62,10 @@ const KpiCard: React.FC<{
 
 export const OwnerDashboardPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  // The low-stock card opens the reorder report only for viewers whose role reaches /inventory/*.
+  const { hasRole, hasPermission } = usePermissions();
+  const canOpenReorder = hasRole(INVENTORY_ROLES) && hasPermission("view-inventory");
 
   const kpis = useDashboardKpis();
   const comparison = useUnitComparison();
@@ -105,7 +119,7 @@ export const OwnerDashboardPage: React.FC = () => {
       )}
 
       {/* KPI row */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         <KpiCard
           icon={<TrendingUp className="w-4 h-4 text-app-accent" />}
           label="إيرادات الشهر"
@@ -142,6 +156,13 @@ export const OwnerDashboardPage: React.FC = () => {
           label="بانتظار القرار"
           value={String(approvals.data?.total ?? 0)}
           sub={`ائتمان ${kpis.data?.pending_approvals.credit ?? 0} · تزويد ${kpis.data?.pending_approvals.restock ?? 0} · رواتب ${kpis.data?.pending_approvals.payroll ?? 0} · إجازات ${kpis.data?.pending_approvals.leave ?? 0} · توزيعات ${kpis.data?.pending_approvals.overhead_allocations ?? 0} · تكاليف ${kpis.data?.pending_approvals.landed_cost_lines ?? 0}`}
+        />
+        <KpiCard
+          icon={<Gauge className="w-4 h-4 text-app-status-danger" />}
+          label="أصناف تحت الحد الأدنى"
+          value={String(kpis.data?.low_stock_count ?? 0)}
+          sub="مخزن/صنف وصل رصيده إلى الحد الأدنى — كل الوحدات (التقرير يعرض الوحدة المحددة)"
+          onClick={canOpenReorder ? () => navigate("/inventory/reorder") : undefined}
         />
       </div>
 

@@ -9,6 +9,7 @@ import {
 } from "../../hooks/useInventory";
 import { useLeafItemCategories } from "../../hooks/useCategories";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
+import { ItemPageTabs } from "../../components/inventory/ItemPageTabs";
 import {
   Field,
   GuidedFormLoading,
@@ -322,6 +323,7 @@ const InventoryItemFormPage: React.FC = () => {
       submitLabel={isEdit ? "حفظ التعديلات" : "حفظ الصنف"}
       isSubmitting={isSubmitting}
       onCancel={() => navigate("/settings/products/items")}
+      tabs={isEdit && id ? <ItemPageTabs itemId={id} /> : undefined}
     >
       <Question number="1" title="ما هو الصنف؟">
         <Field label="اسم الصنف">

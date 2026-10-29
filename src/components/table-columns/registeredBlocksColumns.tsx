@@ -108,6 +108,13 @@ export function useRegisteredBlocksColumns(
           ),
         },
         {
+          id: "bin_location",
+          accessorKey: "bin_location",
+          header: "موقع الرف",
+          meta: { className: "font-mono" },
+          cell: ({ row }) => row.original.bin_location || "—",
+        },
+        {
           id: "status",
           accessorKey: "status",
           header: "الحالة",

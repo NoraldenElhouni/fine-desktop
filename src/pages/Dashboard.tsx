@@ -14,12 +14,16 @@ import {
   TrendingUp,
   Clock,
   CheckCircle2,
+  Gauge,
 } from "lucide-react";
 import { useServerConfigStore } from "../stores/serverConfigStore";
 import { useAuthStore } from "../stores/authStore";
 import { usePosDailyReport, useRestockRequests } from "../hooks/useSales";
 import { useProductionBatches } from "../hooks/useProduction";
 import { useStockLots } from "../hooks/useInventory";
+import { useReorderReport } from "../hooks/useStockLevels";
+import { usePermissions } from "../hooks/usePermissions";
+import { INVENTORY_ROLES } from "../routes/routes.config";
 import { getOperatingUnits } from "../api/endpoints/operatingUnits";
 import { OperatingUnit } from "../types/entities";
 import { MyAllocationApprovalsWidget } from "../components/dashboard/MyAllocationApprovalsWidget";
@@ -39,6 +43,10 @@ export const Dashboard: React.FC = () => {
   const { data: batchesData, isLoading: isBatchesLoading, refetch: refetchBatches } = useProductionBatches({ page: 1 });
   const { data: stockLotsData, isLoading: isStockLoading } = useStockLots({ status: "available" });
   const { data: restockData, isLoading: isRestockLoading } = useRestockRequests("pending_approval");
+  // W4-02: the unit's warehouse/item pairs at or below their minimum (inventory staff only).
+  const { hasRole, hasPermission } = usePermissions();
+  const showLowStock = hasRole(INVENTORY_ROLES) && hasPermission("view-inventory");
+  const { data: reorderReport, isLoading: isReorderLoading } = useReorderReport(undefined, showLowStock);
 
   const activeBatches =
     batchesData?.data?.filter(
@@ -92,7 +100,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Real-time KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${showLowStock ? "lg:grid-cols-3 xl:grid-cols-5" : "lg:grid-cols-4"}`}>
         {/* POS Sales Today */}
         <div
           onClick={() => navigate("/sales/pos")}
@@ -183,6 +191,30 @@ export const Dashboard: React.FC = () => {
             <span>تحويلات داخلية بين الوحدات</span>
           </div>
         </div>
+
+        {/* Low stock (W4-02) */}
+        {showLowStock && (
+          <div
+            onClick={() => navigate("/inventory/reorder")}
+            className="group cursor-pointer rounded-2xl border border-app-separator bg-app-bg-primary p-5 shadow-sm hover:border-app-accent/40 transition-all"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-app-label-secondary">أصناف تحت الحد الأدنى</span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-app-status-danger/15 text-app-status-danger group-hover:scale-110 transition-transform">
+                <Gauge className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-2xl font-bold font-mono text-app-label-primary">
+                {isReorderLoading ? "..." : reorderReport?.summary.needs_reorder_count ?? 0}
+              </span>
+              <span className="text-xs font-semibold text-app-label-secondary">صنف / مخزن</span>
+            </div>
+            <div className="mt-2 text-[11px] text-app-label-tertiary flex items-center gap-1">
+              <span>تحتاج إعادة طلب — افتح تقرير إعادة الطلب</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Operational Action Shortcuts Hub */}

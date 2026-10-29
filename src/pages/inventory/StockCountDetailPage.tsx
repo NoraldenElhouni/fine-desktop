@@ -92,6 +92,7 @@ const exportCsv = (count: StockCount) => {
     { header: "الصنف", value: (l) => l.item_name ?? "" },
     { header: "الوحدة", value: (l) => l.unit_of_measure ?? "" },
     { header: "اللوت", value: (l) => (l.is_found ? `موجود غير مسجل${l.new_lot_number ? ` (${l.new_lot_number})` : ""}` : l.lot_number ?? "") },
+    { header: "موقع الرف", value: (l) => l.bin_location ?? "" },
     { header: "حالة اللوت", value: (l) => (l.lot_status ? LOT_STATUS_LABEL[l.lot_status] ?? l.lot_status : "") },
     ...(hidden
       ? []

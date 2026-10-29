@@ -38,6 +38,7 @@ import {
   FileCheck,
   Printer,
   ClipboardCheck,
+  Gauge,
 } from "lucide-react";
 
 export interface AppNavItem {
@@ -153,6 +154,9 @@ export const INVENTORY_ROLES = [
   "manager",
 ];
 
+/** Internal restock (/sales/restock): who raises and works restock requests. */
+export const RESTOCK_ROLES = ["owner", "admin", "store-manager", "pos-cashier", "unit_manager", "manager"];
+
 /** Stock counts (W4-01, decision #13): who opens and enters a count. */
 export const STOCK_COUNT_COUNTER_ROLES = ["owner", "admin", "inventory-manager", "unit_manager", "manager"];
 
@@ -178,6 +182,7 @@ export const navItems: AppNavItem[] = [
   { id: "clients", path: "/clients", label: "العملاء", icon: Users, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "accounting-manager", "unit_manager", "manager"], permission: "view-clients" },
   { id: "inventory", path: "/inventory/ledger", label: "المخزون والقطع", icon: Boxes, allowedRoles: INVENTORY_ROLES, permission: "view-inventory" },
   { id: "stock-counts", path: "/inventory/counts", label: "الجرد", icon: ClipboardCheck, allowedRoles: STOCK_COUNT_ROLES, permission: "view-inventory" },
+  { id: "reorder-report", path: "/inventory/reorder", label: "تقرير إعادة الطلب", icon: Gauge, allowedRoles: INVENTORY_ROLES, permission: "view-inventory" },
   {
     id: "manufacturing",
     path: "/manufacturing/batches",
@@ -189,7 +194,7 @@ export const navItems: AppNavItem[] = [
   { id: "cutter", path: "/cutter/orders", label: "التقطيع", icon: Scissors, allowedRoles: ["owner", "admin", "cutter-manager", "cutter-operator", "unit_manager", "manager"], permission: "view-cutting" },
   { id: "material-requests", path: "/material-requests", label: "طلبات المواد (MRs)", icon: PackageCheck, allowedRoles: ["owner", "admin", "furniture-manager", "cutter-manager", "foam-manager", "unit_manager", "manager"], permission: "view-material-requests" },
   { id: "pos", path: "/sales/pos", label: "المبيعات ونقطة البيع", icon: ShoppingCart, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "cutter-manager", "unit_manager", "manager"], permission: "view-sales" },
-  { id: "restock", path: "/sales/restock", label: "التزويد الداخلي", icon: Truck, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "unit_manager", "manager"], permission: "view-inventory" },
+  { id: "restock", path: "/sales/restock", label: "التزويد الداخلي", icon: Truck, allowedRoles: RESTOCK_ROLES, permission: "view-inventory" },
   { id: "attendance", path: "/hr/attendance", label: "الحضور والانصراف", icon: CalendarCheck2, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"], permission: "view-hr" },
   { id: "labor-rates", path: "/hr/rates", label: "أجور الأدوار", icon: BadgeDollarSign, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager"], permission: "view-hr" },
   { id: "payroll", path: "/hr/payroll", label: "مسير الرواتب", icon: Banknote, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager"], permission: "view-hr" },

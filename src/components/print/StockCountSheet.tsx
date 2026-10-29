@@ -43,6 +43,7 @@ export const StockCountSheetDocument: React.FC<{ sheet: StockCountSheet }> = ({ 
     "الصنف",
     "الوحدة",
     "اللوت",
+    "الرف",
     ...(hidden ? [] : ["الدفترية"]),
     "المعدودة",
     ...(hidden ? [] : ["الفرق"]),
@@ -74,6 +75,7 @@ export const StockCountSheetDocument: React.FC<{ sheet: StockCountSheet }> = ({ 
             <Cell>{row.item_name ?? "—"}</Cell>
             <Cell>{row.unit_of_measure ?? ""}</Cell>
             <Cell className="font-mono text-[11px]">{row.is_found ? "موجود غير مسجل" : row.lot_number ?? "—"}</Cell>
+            <Cell className="font-mono text-[11px]">{row.bin_location ?? ""}</Cell>
             {!hidden && <Cell className="font-mono text-end">{qty(row.system_qty)}</Cell>}
             <Cell className="w-20 font-mono text-end font-bold">{qty(row.counted_qty)}</Cell>
             {!hidden && <Cell className="font-mono text-end">{qty(row.variance_qty)}</Cell>}

@@ -16,6 +16,8 @@ export interface DashboardKpis {
     overhead_allocations: number;
     landed_cost_lines: number;
   };
+  /** W4-02: warehouse/item pairs at or below their minimum, company-wide. */
+  low_stock_count: number;
 }
 
 export interface UnitComparisonRow {
