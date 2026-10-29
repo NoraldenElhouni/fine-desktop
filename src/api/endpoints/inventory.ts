@@ -15,6 +15,8 @@ export interface InventoryItem {
   category?: ItemCategory;
   name: string;
   code: string;
+  /** W4-03: optional scan code (printable ASCII, unique; never equal to an item code or lot number). */
+  barcode?: string | null;
   item_type:
     | "raw_material"
     | "foam_block"
@@ -122,6 +124,7 @@ export function suggestedCostPrice(
 }
 
 type ClearableItemField =
+  | "barcode"
   | "primary_uom"
   | "secondary_uom"
   | "container_capacity"
@@ -222,6 +225,30 @@ export interface InventoryMovement {
   created_at: string;
 }
 
+/** W4-03: what GET /inventory/lookup resolved a scanned code to — an item, or a lot of this unit with its item. */
+export type InventoryLookupResult =
+  | { type: "item"; item: InventoryItem; lot?: undefined }
+  | { type: "lot"; item: InventoryItem; lot: StockLot };
+
+/** The lookup's miss: HTTP 404 with code CODE_NOT_FOUND (no barcode, item code or lot number matches). */
+export const isCodeNotFound = (err: unknown): boolean => {
+  const response = (err as { response?: { status?: number; data?: { code?: string } } } | undefined)?.response;
+  return response?.status === 404 && response.data?.code === "CODE_NOT_FOUND";
+};
+
+/** The scan box's not-found message. */
+export const codeNotFoundMessage = (code: string): string => `لا يوجد صنف أو دفعة بالرمز ${code}`;
+
+/**
+ * W4-03 "توليد": an internal barcode made from the item code — its printable
+ * ASCII characters (upper-cased, spaces dropped) plus "-0001". Null when the
+ * code has no such characters (an all-Arabic code).
+ */
+export const internalBarcodeFromCode = (code: string): string | null => {
+  const ascii = code.toUpperCase().replace(/[^\x21-\x7E]/g, "");
+  return ascii ? `${ascii.slice(0, 58)}-0001` : null;
+};
+
 export const inventoryApi = {
   // Inventory Items
   getItems: (params?: { category_id?: string; item_type?: string; search?: string; page?: number; per_page?: number; with_stock?: 1 }) =>
@@ -236,9 +263,16 @@ export const inventoryApi = {
   updateItem: (id: string, data: InventoryItemPayload) =>
     apiClient.put<InventoryItem>(`/inventory-items/${id}`, data),
 
+  /** W4-03: exact match on a barcode, then an item code, then a lot number (404 CODE_NOT_FOUND on a miss). */
+  lookup: (code: string) =>
+    apiClient.get<InventoryLookupResult>("/inventory/lookup", { params: { code } }),
+
   // Stock Lots
-  getLots: (params?: { category_id?: string; status?: string; grade?: string; warehouse_id?: string; inventory_item_id?: string; bin_location?: string; page?: number; attrs?: Record<string, any> }) =>
+  getLots: (params?: { category_id?: string; status?: string; grade?: string; warehouse_id?: string; inventory_item_id?: string; bin_location?: string; page?: number; per_page?: number; attrs?: Record<string, any> }) =>
     apiClient.get<{ data: StockLot[]; current_page: number; last_page: number }>("/stock-lots", { params }),
+
+  /** One lot (with its item and warehouse), inside the caller's unit. */
+  getLot: (id: string) => apiClient.get<StockLot>(`/stock-lots/${id}`),
 
   getAvailableForCutting: (params?: { min_volume_m3?: number; grade?: string }) =>
     apiClient.get<{ data: StockLot[] }>("/stock-lots/available-for-cutting", { params }),

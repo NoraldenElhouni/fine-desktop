@@ -1,11 +1,13 @@
 import { useMemo } from "react";
-import { Edit } from "lucide-react";
+import { Edit, Tag } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { RowActionsMenu, RowActionItem } from "../ui/RowActionsMenu";
 import { StockLot } from "../../api/endpoints/inventory";
 
 export interface UseRegisteredBlocksColumnsArgs {
   onEdit?: (lot: StockLot) => void;
+  /** Print the block's barcode label (W4-03). */
+  onPrintLabel?: (lot: StockLot) => void;
 }
 
 // Registered blocks — the page's main per-batch list; can grow large, so it gets
@@ -14,6 +16,7 @@ export function useRegisteredBlocksColumns(
   args?: UseRegisteredBlocksColumnsArgs,
 ): ColumnDef<StockLot, unknown>[] {
   const onEdit = args?.onEdit;
+  const onPrintLabel = args?.onPrintLabel;
 
   return useMemo<ColumnDef<StockLot, unknown>[]>(
     () => {
@@ -123,7 +126,7 @@ export function useRegisteredBlocksColumns(
         },
       ];
 
-      if (onEdit) {
+      if (onEdit || onPrintLabel) {
         cols.push({
           id: "actions",
           header: "الإجراءات",
@@ -132,7 +135,8 @@ export function useRegisteredBlocksColumns(
           cell: ({ row }) => {
             const lot = row.original;
             const items: RowActionItem[] = [
-              { label: "تعديل", icon: Edit, onClick: () => onEdit(lot) },
+              ...(onEdit ? [{ label: "تعديل", icon: Edit, onClick: () => onEdit(lot) }] : []),
+              ...(onPrintLabel ? [{ label: "طباعة ملصق", icon: Tag, onClick: () => onPrintLabel(lot) }] : []),
             ];
             return <RowActionsMenu items={items} />;
           },
@@ -141,6 +145,6 @@ export function useRegisteredBlocksColumns(
 
       return cols;
     },
-    [onEdit],
+    [onEdit, onPrintLabel],
   );
 }

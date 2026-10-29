@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { isAxiosError } from "axios";
-import { Package, Plus, X } from "lucide-react";
+import { Package, Plus, Wand2, X } from "lucide-react";
 import {
   useCreateInventoryItem,
   useInventoryItem,
@@ -23,7 +23,10 @@ import {
   type PriceBasis,
   PRICE_BASIS_LABELS,
   UOM_LABELS,
+  internalBarcodeFromCode,
 } from "../../api/endpoints/inventory";
+import { isCode128B } from "../../lib/code128";
+import { Code128Barcode } from "../../components/print/Code128Barcode";
 import {
   ITEM_TYPE_LABELS,
   type InventoryItemType,
@@ -57,6 +60,7 @@ const InventoryItemFormPage: React.FC = () => {
 
   const [name, setName] = useState("");
   const [codeSegment, setCodeSegment] = useState("");
+  const [barcode, setBarcode] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [itemType, setItemType] =
     useState<InventoryItem["item_type"]>("raw_material");
@@ -90,6 +94,7 @@ const InventoryItemFormPage: React.FC = () => {
         ? editingItem.code.slice(prefix.length)
         : editingItem.code,
     );
+    setBarcode(editingItem.barcode ?? "");
     setCategoryId(editingItem.category_id ?? "");
     setItemType(editingItem.item_type);
     setUom(editingItem.unit_of_measure || "kg");
@@ -149,6 +154,9 @@ const InventoryItemFormPage: React.FC = () => {
   const categoryPrefix = selectedCategory?.code ?? "";
   const fullCode = `${categoryPrefix}${codeSegment.trim()}`;
   const typeFromCategory = Boolean(selectedCategory?.item_type);
+  const trimmedBarcode = barcode.trim();
+  // W4-03: the backend takes printable ASCII only (the Code128 set B range the labels encode).
+  const barcodeInvalid = trimmedBarcode !== "" && !isCode128B(trimmedBarcode);
   const unitLabel = UOM_LABELS[uom] || uom;
   const capacityNumber = Number(capacity);
   const volume = Number(lengthM) * Number(widthM) * Number(heightM);
@@ -182,13 +190,27 @@ const InventoryItemFormPage: React.FC = () => {
     setCostManuallyEdited(true);
   };
 
+  const generateBarcode = () => {
+    const generated = internalBarcodeFromCode(fullCode);
+    if (!generated) {
+      toast.error("أدخل رمز صنف بأحرف أو أرقام لاتينية أولاً — منه يُولَّد الباركود.");
+      return;
+    }
+    setBarcode(generated);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (barcodeInvalid) {
+      setError("الباركود يقبل الأحرف والأرقام اللاتينية والرموز فقط.");
+      return;
+    }
 
     const payload = {
       name: name.trim(),
       code: fullCode,
+      barcode: trimmedBarcode || null,
       category_id: categoryId || undefined,
       item_type: itemType,
       unit_of_measure: uom,
@@ -220,6 +242,17 @@ const InventoryItemFormPage: React.FC = () => {
       if (isAxiosError(err)) {
         const errors = err.response?.data?.errors;
         if (errors && typeof errors === "object") {
+          // W4-03: the scan-code clashes (the backend's "unique" messages)
+          // come back in English; say them in Arabic.
+          const isTaken = (field: string) => /already used/i.test(String(errors[field]?.[0] ?? ""));
+          if (isTaken("barcode")) {
+            setError("هذا الباركود مستخدم لصنف آخر (باركود أو رمز صنف) أو كرقم دفعة.");
+            return;
+          }
+          if (isTaken("code")) {
+            setError("رمز الصنف مستخدم لصنف آخر (رمز أو باركود) أو كرقم دفعة.");
+            return;
+          }
           const firstMsg = errors[Object.keys(errors)[0]]?.[0];
           if (firstMsg) {
             setError(String(firstMsg));
@@ -255,6 +288,15 @@ const InventoryItemFormPage: React.FC = () => {
         <>
           <SummaryRow label="التصنيف">
             {selectedCategory?.name ?? "—"}
+          </SummaryRow>
+          <SummaryRow label="الباركود">
+            {trimmedBarcode ? (
+              <span className="font-mono" dir="ltr">
+                {trimmedBarcode}
+              </span>
+            ) : (
+              <span className="text-app-label-tertiary">بدون — يُمسح برمز الصنف</span>
+            )}
           </SummaryRow>
           <SummaryRow label="النوع">
             {ITEM_TYPE_LABELS[itemType as InventoryItemType] ?? itemType}
@@ -374,6 +416,49 @@ const InventoryItemFormPage: React.FC = () => {
             </div>
           </Field>
         </div>
+
+        <Field
+          label="الباركود"
+          hint="اختياري — امسح باركود المنتج أو اضغط «توليد» لإنشاء رمز داخلي من رمز الصنف"
+        >
+          <div className="flex items-center gap-1.5" dir="ltr">
+            <input
+              type="text"
+              maxLength={64}
+              placeholder="6291234567890"
+              value={barcode}
+              onChange={(e) => setBarcode(e.target.value)}
+              onKeyDown={(e) => {
+                // A barcode reader ends every scan with Enter: keep the code
+                // in the field instead of submitting a half-filled form.
+                if (e.key === "Enter") e.preventDefault();
+              }}
+              className={cn(inputClass, "font-mono", barcodeInvalid && "border-app-status-danger")}
+            />
+            <button
+              type="button"
+              onClick={generateBarcode}
+              className={cn(
+                type.c1Emphasized,
+                "flex shrink-0 items-center gap-1 rounded-app-md border border-app-separator bg-app-bg-secondary px-3 py-2 text-app-accent hover:bg-app-fill-f1",
+              )}
+            >
+              <Wand2 className="h-3.5 w-3.5" />
+              توليد
+            </button>
+          </div>
+          {barcodeInvalid ? (
+            <p className={cn(type.c1Regular, "mt-1 text-app-status-danger")}>
+              الباركود يقبل الأحرف والأرقام اللاتينية والرموز فقط.
+            </p>
+          ) : (
+            trimmedBarcode && (
+              <div className="mt-2 w-56 rounded-app-md border border-app-separator bg-app-bg-primary p-2">
+                <Code128Barcode value={trimmedBarcode} height="10mm" />
+              </div>
+            )
+          )}
+        </Field>
 
         <Field
           label="نوع الصنف"

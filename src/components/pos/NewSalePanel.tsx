@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -13,6 +13,7 @@ import {
   Play,
   Plus,
   Receipt,
+  ScanLine,
   ShoppingCart,
   Split,
   Trash2,
@@ -31,6 +32,7 @@ import {
   usePaymentAccounts,
 } from "../../hooks/useSales";
 import { useClients } from "../../hooks/useClients";
+import { useScanQueue } from "../../hooks/useInventory";
 import { useOperatingUnits } from "../../hooks/useOperatingUnits";
 import { useServerConfigStore } from "../../stores/serverConfigStore";
 import { useAuthStore } from "../../stores/authStore";
@@ -54,7 +56,10 @@ import {
 } from "../../api/endpoints/sales";
 import {
   InventoryItem,
+  type InventoryLookupResult,
+  codeNotFoundMessage,
   inventoryApi,
+  isCodeNotFound,
   suggestedCostPrice,
   suggestedMinPrice,
   suggestedPrice,
@@ -94,6 +99,22 @@ const num = (v: string): number => {
 };
 
 const newRequestId = () => crypto.randomUUID();
+
+/**
+ * The POS scan box stays focused: after a pointer click on anything that is
+ * not a field of its own (a button, the page), focus goes back to it, unless
+ * a dialog is open or the user is typing in another input or an open picker.
+ * Keyboard focus moves (Tab to a button) are left alone; focus comes back on
+ * its own only when it falls to nowhere (a removed row, a closed menu).
+ */
+const keepsFocusElsewhere = (el: Element | null): boolean =>
+  Boolean(
+    el &&
+      el !== document.body &&
+      (el.matches('input, textarea, select, [contenteditable="true"]') ||
+        el.closest('[role="listbox"]') ||
+        el.getAttribute("aria-expanded") === "true"),
+  );
 
 function parseHeldCartPayload(raw: unknown): HeldCartPayload | null {
   try {
@@ -178,6 +199,8 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   const [pendingSale, setPendingSale] = useState<PendingSaleRequest | null>(null);
   const [overrideError, setOverrideError] = useState<string | null>(null);
   const [blockPicker, setBlockPicker] = useState<{ item: InventoryItem; editingKey: string | null } | null>(null);
+  const [scanCode, setScanCode] = useState("");
+  const scanRef = useRef<HTMLInputElement | null>(null);
   const [completedSale, setCompletedSale] = useState<Sale | null>(null);
   const [printQuotationId, setPrintQuotationId] = useState<string | null>(null);
 
@@ -264,6 +287,50 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
       });
     }
   }, [loadedQuotation]);
+
+  // W4-03: the scan box takes the focus back after clicks and closed dialogs.
+  const refocusScan = useCallback((onlyFromNowhere = false) => {
+    setTimeout(() => {
+      const input = scanRef.current;
+      if (!input || document.querySelector('[role="dialog"]')) return;
+      const active = document.activeElement;
+      if (active === input) return;
+      if (onlyFromNowhere ? active !== null && active !== document.body : keepsFocusElsewhere(active)) return;
+      input.focus({ preventScroll: true });
+    }, 0);
+  }, []);
+  useEffect(() => {
+    const onPointerUp = () => refocusScan();
+    const onFocusOut = () => refocusScan(true);
+    refocusScan();
+    document.addEventListener("pointerup", onPointerUp);
+    document.addEventListener("focusout", onFocusOut);
+    return () => {
+      document.removeEventListener("pointerup", onPointerUp);
+      document.removeEventListener("focusout", onFocusOut);
+    };
+  }, [refocusScan]);
+  const anyDialogOpen =
+    isProductPickerOpen ||
+    isBundlePickerOpen ||
+    isQuickClientOpen ||
+    isCashTenderOpen ||
+    isSplitPaymentOpen ||
+    isOverrideDialogOpen ||
+    isHoldDialogOpen ||
+    isHeldCartsDialogOpen ||
+    Boolean(blockPicker || completedSale || printQuotationId || resumeConfirmCart || deletingCartId);
+  useEffect(() => {
+    if (!anyDialogOpen) {
+      refocusScan();
+    } else if (document.activeElement === scanRef.current) {
+      // The dialog has no focus trap: a scan typed now must not land in the
+      // box behind its overlay.
+      scanRef.current?.blur();
+    }
+  }, [anyDialogOpen, refocusScan]);
+  /** A dialog is open (state, or one already in the DOM): scans are not applied behind it. */
+  const dialogOpenNow = (): boolean => anyDialogOpen || document.querySelector('[role="dialog"]') !== null;
 
   // One linked treasury of the chosen kind is picked for the cashier.
   useEffect(() => {
@@ -385,32 +452,37 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
       setBlockPicker({ item, editingKey: null });
       return;
     }
-    const existing = cart.find((l) => l.lineType === "item" && l.itemId === item.id && !l.stockLotId);
-    if (existing) {
-      updateLine(existing.key, { qty: String(num(existing.qty) + 1), item: existing.item ?? item });
-      return;
-    }
     let unitPrice: number | null = null;
     if (priceTier === "wholesale") {
       unitPrice = suggestedWholesalePrice(item, 1) ?? suggestedPrice(item, 1);
     } else {
       unitPrice = suggestedPrice(item, 1);
     }
-    setCart((prev) => [
-      ...prev,
-      {
-        key: crypto.randomUUID(),
-        lineType: "item",
-        itemId: item.id,
-        name: item.name,
-        code: item.code,
-        qty: "1",
-        price: unitPrice !== null ? String(unitPrice) : "",
-        discount: "",
-        priceEdited: false,
-        item,
-      },
-    ]);
+    // Re-adding (or re-scanning, W4-03) bumps the line's quantity. The check
+    // runs on the latest cart, so scans answered back to back each count.
+    setCart((prev) => {
+      const existing = prev.find((l) => l.lineType === "item" && l.itemId === item.id && !l.stockLotId);
+      if (existing) {
+        return prev.map((l) =>
+          l.key === existing.key ? { ...l, qty: String(num(l.qty) + 1), item: l.item ?? item } : l,
+        );
+      }
+      return [
+        ...prev,
+        {
+          key: crypto.randomUUID(),
+          lineType: "item",
+          itemId: item.id,
+          name: item.name,
+          code: item.code,
+          qty: "1",
+          price: unitPrice !== null ? String(unitPrice) : "",
+          discount: "",
+          priceEdited: false,
+          item,
+        },
+      ];
+    });
   };
 
   const addBundle = (bundle: Bundle, suggestedTotal: number | null) => {
@@ -429,18 +501,50 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     ]);
   };
 
+  const blockUnitPrice = (
+    item: InventoryItem,
+    size: { length_m: number; width_m: number; height_m: number } | null,
+  ): number | null => {
+    if (!size) return null;
+    return priceTier === "wholesale"
+      ? (suggestedWholesalePrice(item, 1, size) ?? suggestedPrice(item, 1, size))
+      : suggestedPrice(item, 1, size);
+  };
+
+  /** A new cart line for one specific block (picked, or scanned by its lot label). */
+  const addBlockLine = (item: InventoryItem, block: PickedBlock) => {
+    const size = { length_m: block.length_m, width_m: block.width_m, height_m: block.height_m };
+    const unitPrice = blockUnitPrice(item, size);
+    // One block is one line: a block already in the cart is never added twice.
+    setCart((prev) =>
+      prev.some((l) => l.stockLotId === block.id)
+        ? prev
+        : [
+            ...prev,
+            {
+              key: crypto.randomUUID(),
+              lineType: "item",
+              itemId: item.id,
+              name: item.name,
+              code: item.code,
+              qty: "1",
+              price: unitPrice !== null ? String(unitPrice) : "",
+              discount: "",
+              stockLotId: block.id,
+              stockLotLabel: block.lot_number,
+              size,
+              priceEdited: false,
+              item,
+            },
+          ],
+    );
+  };
+
   const pickBlock = (block: PickedBlock) => {
     if (!blockPicker) return;
     const { item, editingKey } = blockPicker;
     const size = block.id ? { length_m: block.length_m, width_m: block.width_m, height_m: block.height_m } : null;
-    let unitPrice: number | null = null;
-    if (size) {
-      if (priceTier === "wholesale") {
-        unitPrice = suggestedWholesalePrice(item, 1, size) ?? suggestedPrice(item, 1, size);
-      } else {
-        unitPrice = suggestedPrice(item, 1, size);
-      }
-    }
+    const unitPrice = blockUnitPrice(item, size);
 
     if (editingKey) {
       updateLine(editingKey, {
@@ -455,24 +559,74 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
       return;
     }
     if (!block.id) return;
-    setCart((prev) => [
-      ...prev,
-      {
-        key: crypto.randomUUID(),
-        lineType: "item",
-        itemId: item.id,
-        name: item.name,
-        code: item.code,
-        qty: "1",
-        price: unitPrice !== null ? String(unitPrice) : "",
-        discount: "",
-        stockLotId: block.id,
-        stockLotLabel: block.lot_number,
-        size,
-        priceEdited: false,
-        item,
-      },
-    ]);
+    addBlockLine(item, block);
+  };
+
+  /**
+   * W4-03 scan box: a barcode reader types the code and Enter. An item
+   * (barcode or code) goes through addItem — a foam block item opens the
+   * block picker, anything else is added or its quantity bumped. A foam block
+   * lot label adds that very block, as picking it would; another lot's label
+   * adds its item. A miss says so and puts the code back, selected, for a
+   * re-scan (unless the next scan is already being typed).
+   */
+  const applyScanResult = (res: InventoryLookupResult) => {
+    if (res.type === "item" || res.item.item_type !== "foam_block") {
+      addItem(res.item);
+      return;
+    }
+    const lot = res.lot;
+    if (lot.status !== "available") {
+      toast.error(`القطعة ${lot.lot_number} غير متاحة للبيع.`);
+      return;
+    }
+    if (cart.some((l) => l.stockLotId === lot.id)) {
+      toast.info(`القطعة ${lot.lot_number} في السلة بالفعل.`);
+      return;
+    }
+    addBlockLine(res.item, {
+      id: lot.id,
+      lot_number: lot.lot_number,
+      volume_m3: Number(lot.volume_m3),
+      length_m: Number(lot.length_m),
+      width_m: Number(lot.width_m),
+      height_m: Number(lot.height_m),
+      unit_cost: Number(lot.unit_cost),
+      grade: lot.grade,
+    });
+  };
+
+  const scanQueue = useScanQueue({
+    onResult: (code, res) => {
+      // A result answered after a dialog opened (a foam item's block picker)
+      // would change the cart, or swap the picker's item, out of sight.
+      if (dialogOpenNow()) {
+        toast.error(`لم يُضف ${code}: أغلق النافذة المفتوحة ثم امسح الرمز مجدداً.`);
+        return;
+      }
+      applyScanResult(res);
+    },
+    onError: (code, err) => {
+      toast.error(isCodeNotFound(err) ? codeNotFoundMessage(code) : apiErrorMessage(err, "تعذّر البحث عن الرمز."));
+      const input = scanRef.current;
+      if (input && input.value === "") {
+        setScanCode(code);
+        setTimeout(() => scanRef.current?.select(), 0);
+      }
+    },
+    onIdle: () => refocusScan(),
+  });
+
+  /** Enter: the box is cleared at once for the next scan, and the code is queued for lookup. */
+  const handleScan = () => {
+    const code = scanCode.trim();
+    if (!code) return;
+    if (dialogOpenNow()) {
+      toast.error("أغلق النافذة المفتوحة أولاً ثم امسح الرمز.");
+      return;
+    }
+    setScanCode("");
+    scanQueue.enqueue(code);
   };
 
   const cartLines = (): CartLineInput[] =>
@@ -1239,6 +1393,32 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
               <Plus className="w-4 h-4" />
               صنف
             </button>
+          </div>
+        </div>
+
+        <div className="border-b border-app-separator px-5 py-2.5">
+          <div className="relative">
+            <ScanLine className="pointer-events-none absolute top-1/2 -translate-y-1/2 start-3 h-4 w-4 text-app-label-tertiary" />
+            <input
+              ref={scanRef}
+              value={scanCode}
+              onChange={(e) => setScanCode(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleScan();
+                }
+              }}
+              autoFocus
+              placeholder="امسح الباركود أو ملصق القطعة، أو اكتب الرمز ثم Enter"
+              aria-label="مسح الباركود"
+              className="w-full rounded-xl border border-app-separator bg-app-bg-secondary py-2 ps-9 pe-3 text-xs font-mono focus:border-app-accent focus:outline-none"
+            />
+            {scanQueue.pending && (
+              <span className="pointer-events-none absolute top-1/2 -translate-y-1/2 end-3 text-[10px] text-app-label-tertiary">
+                جارٍ البحث…
+              </span>
+            )}
           </div>
         </div>
 

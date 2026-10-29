@@ -15,6 +15,9 @@ import {
 } from "lucide-react";
 import { useCancelStockCount, useStockCount, useSubmitStockCount, useUpdateStockCountLines } from "../../hooks/useStockCounts";
 import { usePermissions } from "../../hooks/usePermissions";
+import { useScanQueue } from "../../hooks/useInventory";
+import { isCodeNotFound } from "../../api/endpoints/inventory";
+import { apiErrorMessage } from "../../api/endpoints/production";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { AddFoundDialog, ApproveStockCountDialog } from "../../components/inventory/StockCountDialogs";
 import { StockCountSheetDialog } from "../../components/print/StockCountSheet";
@@ -123,8 +126,12 @@ const StockCountDetailPage: React.FC = () => {
   const [drafts, setDrafts] = useState<Record<string, LineDraft>>({});
   const [scan, setScan] = useState("");
   const [uncountedOnly, setUncountedOnly] = useState(false);
-  /** The line to bring on screen; `input` also focuses its counted box (else the scan box keeps focus). */
-  const [focusTarget, setFocusTarget] = useState<{ lineId: string; input: boolean } | null>(null);
+  /**
+   * The line to bring on screen, and where focus goes: its counted box, the
+   * scan box, or nowhere (a late lookup result must not move focus the
+   * operator is already using).
+   */
+  const [focusTarget, setFocusTarget] = useState<{ lineId: string; focus: "counted" | "scan" | "none" } | null>(null);
   const [isFoundOpen, setIsFoundOpen] = useState(false);
   const [isApproveOpen, setIsApproveOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<"submit" | "cancel" | null>(null);
@@ -198,47 +205,64 @@ const StockCountDetailPage: React.FC = () => {
   useEffect(() => {
     if (!focusTarget) return;
     rowRefs.current[focusTarget.lineId]?.scrollIntoView({ block: "center" });
-    const input = focusTarget.input ? inputRefs.current[focusTarget.lineId] : null;
+    const input = focusTarget.focus === "counted" ? inputRefs.current[focusTarget.lineId] : null;
     if (input) {
       input.focus();
       input.select();
-    } else {
+    } else if (focusTarget.focus !== "none") {
       scanRef.current?.focus({ preventScroll: true });
     }
     setFocusTarget(null);
   }, [focusTarget, visibleLines.length]);
 
+  const scanQueue = useScanQueue({
+    onResult: (raw, res, queued) => {
+      const resolved = (res.type === "lot" ? res.lot.lot_number : res.item.code).toLowerCase();
+      // The result lands after its scan: focus may move only while the
+      // operator is not already on the next scan or typing a quantity.
+      const mayFocus = queued === 0 && scanBoxIdle();
+      const applied = applyScan(resolved, { itemId: res.type === "item" ? res.item.id : undefined, mayFocus });
+      if (!applied) reportScanMiss(raw, resolved);
+    },
+    onError: (raw, err) => {
+      const code = raw.toLowerCase();
+      // A 404 is a code nothing knows; any other failure still gets the
+      // count's own explanation when the code is a lot it leaves out.
+      if (isCodeNotFound(err) || excludedLotMessage(code)) {
+        reportScanMiss(raw, code);
+      } else {
+        toast.error(apiErrorMessage(err, "تعذّر البحث عن الرمز."));
+        restoreScan(raw);
+      }
+    },
+  });
+
   /**
    * A barcode reader types the code and Enter. A lot number picks its line
    * (a scanned foam block is there, so it counts 1 and the scan box keeps
    * focus for the next block); an item code picks that item's first line not
-   * counted yet and focuses its counted box for the quantity.
+   * counted yet and focuses its counted box for the quantity. Both match here,
+   * at once. A code that is neither on this count is looked up (W4-03): the
+   * box is cleared for the next scan and the code queued, and an item barcode
+   * resolves to its item's lines.
    */
   const handleScan = () => {
     const raw = scan.trim();
     const code = raw.toLowerCase();
     if (!code || !count) return;
-    const byLot = lines.filter((l) => l.lot_number?.toLowerCase() === code);
-    const matches = byLot.length > 0 ? byLot : lines.filter((l) => l.item_code?.toLowerCase() === code);
+    setScan("");
+    if (!applyScan(code)) scanQueue.enqueue(raw);
+  };
 
-    if (matches.length === 0) {
-      // A lot the count leaves out is on the floor but must not be counted,
-      // nor added as found stock (a second lot and a surplus that is not there).
-      const isCode = (lot: StockCountExcludedLot) =>
-        lot.lot_number.toLowerCase() === code || lot.inventory_item?.code?.toLowerCase() === code;
-      const reserved = count.reserved_lots.filter(isCode);
-      const openBatch = count.excluded_lots.filter(isCode);
-      const lotList = (lots: StockCountExcludedLot[]) => lots.map((l) => l.lot_number).join("، ");
-      if (reserved.length > 0) {
-        toast.error(`خارج الجرد: ${lotList(reserved)} محجوز لأمر تقطيع أو بيع — لا يُعدّ ولا يُضاف كمخزون موجود غير مسجل.`);
-      } else if (openBatch.length > 0) {
-        toast.error(`خارج الجرد: ${lotList(openBatch)} من تشغيلة إنتاج غير مغلقة — لا يُعدّ ولا يُضاف كمخزون موجود غير مسجل.`);
-      } else {
-        toast.error(`لا يوجد في هذا الجرد سطر للرمز ${raw} — إن وُجد الصنف فعلاً فأضفه كمخزون موجود غير مسجل.`);
-      }
-      scanRef.current?.select();
-      return;
-    }
+  /** Picks the scanned line (lower-cased lot number or item code, or the looked-up item); false when none matches. */
+  const applyScan = (code: string, opts: { itemId?: string; mayFocus?: boolean } = {}): boolean => {
+    const { itemId, mayFocus = true } = opts;
+    const byLot = lines.filter((l) => l.lot_number?.toLowerCase() === code);
+    const matches =
+      byLot.length > 0
+        ? byLot
+        : lines.filter((l) => l.item_code?.toLowerCase() === code || (itemId !== undefined && l.inventory_item_id === itemId));
+    if (matches.length === 0) return false;
 
     const target = matches.find((l) => effectiveCounted(l).trim() === "") ?? matches[0];
     const autoCounted = canEnter && byLot.length > 0 && isBlock(target);
@@ -250,8 +274,66 @@ const StockCountDetailPage: React.FC = () => {
     if (uncountedOnly && !autoCounted && !inUncountedView(target)) {
       setUncountedOnly(false);
     }
-    setScan("");
-    setFocusTarget({ lineId: target.id, input: !autoCounted });
+    if (mayFocus) {
+      setFocusTarget({ lineId: target.id, focus: autoCounted ? "scan" : "counted" });
+    } else {
+      // Bring the line on screen but leave focus where the operator is.
+      setFocusTarget({ lineId: target.id, focus: "none" });
+      if (!autoCounted) {
+        toast.info(`السطر ${lineNumbers.get(target.id) ?? ""} (${target.item_code ?? code}): اكتب الكمية المعدودة في خانتها.`);
+      }
+    }
+    return true;
+  };
+
+  /** The scan box is empty and nothing else holds focus, so moving focus takes nothing from the operator. */
+  const scanBoxIdle = (): boolean => {
+    const input = scanRef.current;
+    if (!input || input.value !== "") return false;
+    const active = document.activeElement;
+    return active === null || active === document.body || active === input;
+  };
+
+  /** Why a code (lower-cased lot number or item code) names a lot this count leaves out; null when it does not. */
+  const excludedLotMessage = (code: string): string | null => {
+    if (!count) return null;
+    // A lot the count leaves out is on the floor but must not be counted,
+    // nor added as found stock (a second lot and a surplus that is not there).
+    const isCode = (lot: StockCountExcludedLot) =>
+      lot.lot_number.toLowerCase() === code || lot.inventory_item?.code?.toLowerCase() === code;
+    const reserved = count.reserved_lots.filter(isCode);
+    const openBatch = count.excluded_lots.filter(isCode);
+    const lotList = (lots: StockCountExcludedLot[]) => lots.map((l) => l.lot_number).join("، ");
+    if (reserved.length > 0) {
+      return `خارج الجرد: ${lotList(reserved)} محجوز لأمر تقطيع أو بيع — لا يُعدّ ولا يُضاف كمخزون موجود غير مسجل.`;
+    }
+    if (openBatch.length > 0) {
+      return `خارج الجرد: ${lotList(openBatch)} من تشغيلة إنتاج غير مغلقة — لا يُعدّ ولا يُضاف كمخزون موجود غير مسجل.`;
+    }
+    return null;
+  };
+
+  /** Explains a scan with no line on this count; `code` is the lower-cased lot number or item code. */
+  const reportScanMiss = (raw: string, code: string) => {
+    toast.error(
+      excludedLotMessage(code) ??
+        `لا يوجد في هذا الجرد سطر للرمز ${raw} — إن وُجد الصنف فعلاً فأضفه كمخزون موجود غير مسجل.`,
+    );
+    restoreScan(raw);
+  };
+
+  /**
+   * A missed code goes back in the box, selected for a re-scan — unless the
+   * next scan is already being typed or focus is elsewhere (a quantity being
+   * typed); then the toast alone reports it.
+   */
+  const restoreScan = (raw: string) => {
+    if (!scanBoxIdle()) return;
+    setScan(raw);
+    setTimeout(() => {
+      scanRef.current?.focus({ preventScroll: true });
+      scanRef.current?.select();
+    }, 0);
   };
 
   /** Enter in a counted box moves to the next line, for keyed-in counts. */

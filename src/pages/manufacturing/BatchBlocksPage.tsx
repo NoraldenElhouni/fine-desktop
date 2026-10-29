@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, Boxes, Plus, AlertTriangle, Save, ChevronLeft, Info } from "lucide-react";
+import { ArrowRight, Boxes, Plus, AlertTriangle, Save, ChevronLeft, Info, Tag } from "lucide-react";
 import {
   useProductionBatch,
   useBatchBlocks,
@@ -23,6 +23,7 @@ import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useBatchDraftRowsColumns } from "../../components/table-columns/batchDraftRowsColumns";
 import { useRegisteredBlocksColumns } from "../../components/table-columns/registeredBlocksColumns";
+import { LabelPrintDialog, lotLabelData } from "../../components/print/LabelPrint";
 
 /** A lot status this form may switch between (StockLotController::ensureStatusChangeAllowed). */
 const LOT_EDITABLE_STATUSES: StockLot["status"][] = ["available", "quarantined"];
@@ -113,6 +114,8 @@ export const BatchBlocksPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [editingBlock, setEditingBlock] = useState<StockLot | null>(null);
+  // W4-03: block labels — one block, the whole list, or the blocks just registered.
+  const [labelBlocks, setLabelBlocks] = useState<{ title: string; lots: StockLot[] } | null>(null);
   const [blockForm, setBlockForm] = useState({
     block_type: "block",
     length_m: "",
@@ -282,7 +285,13 @@ export const BatchBlocksPage: React.FC = () => {
     registerMutation.mutate(
       { id: batchId, groups },
       {
-        onSuccess: () => setRows([newRow()]),
+        onSuccess: (res) => {
+          setRows([newRow()]);
+          const created = res.data.blocks ?? [];
+          if (created.length > 0) {
+            setLabelBlocks({ title: `ملصقات البلوكات المسجلة (${created.length})`, lots: created });
+          }
+        },
         onError: (err: unknown) =>
           setError(apiErrorPayload(err)?.message ?? "تعذر تسجيل البلوكات."),
       },
@@ -327,7 +336,16 @@ export const BatchBlocksPage: React.FC = () => {
 
   // Registered blocks — the page's main per-batch list; can grow large, so it gets
   // sorting/search/pagination like a top-level list would.
-  const blocksColumns = useRegisteredBlocksColumns({ onEdit: handleOpenEditBlock });
+  const blocksColumns = useRegisteredBlocksColumns({
+    onEdit: handleOpenEditBlock,
+    onPrintLabel: (lot) => setLabelBlocks({ title: `ملصق البلوك: ${lot.lot_number}`, lots: [lot] }),
+  });
+  // Lots come back without their item; the label names it from the catalog lists this page loads.
+  const itemNameById = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const i of [...(itemData?.data ?? []), ...(scrapItems?.data ?? [])]) names.set(i.id, i.name);
+    return names;
+  }, [itemData, scrapItems]);
   const blocksTableData = useMemo(() => blocks ?? [], [blocks]);
   const blocksTable = useDataTable({
     columns: blocksColumns,
@@ -562,6 +580,17 @@ export const BatchBlocksPage: React.FC = () => {
             <DataTable.Toolbar>
               <DataTable.SearchInput placeholder="بحث في البلوكات..." />
             </DataTable.Toolbar>
+            <DataTable.Actions>
+              <button
+                type="button"
+                onClick={() => setLabelBlocks({ title: "ملصقات البلوكات", lots: blocksTableData })}
+                disabled={blocksTableData.length === 0}
+                className="flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1 transition-colors disabled:opacity-50"
+              >
+                <Tag className="w-3.5 h-3.5 text-app-accent" />
+                طباعة الملصقات
+              </button>
+            </DataTable.Actions>
           </DataTable.Header>
           <DataTable.Content
             isLoading={blocksLoading}
@@ -572,6 +601,13 @@ export const BatchBlocksPage: React.FC = () => {
         </DataTable>
       </div>
       )}
+
+      <LabelPrintDialog
+        open={Boolean(labelBlocks)}
+        onClose={() => setLabelBlocks(null)}
+        title={labelBlocks?.title}
+        labels={(labelBlocks?.lots ?? []).map((lot) => lotLabelData(lot, itemNameById.get(lot.inventory_item_id)))}
+      />
 
       {/* Edit Registered Block Dialog */}
       <Dialog

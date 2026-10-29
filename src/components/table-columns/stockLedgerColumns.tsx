@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Pencil, Scissors } from "lucide-react";
+import { Pencil, Scissors, Tag } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { StockLot } from "../../api/endpoints/inventory";
 import { formatNumber } from "../../lib/utils/format";
@@ -8,11 +8,14 @@ export interface UseStockLedgerColumnsArgs {
   onOpenCutModal: (lot: StockLot) => void;
   /** Edit the lot's shelf (W4-02); omitted for a read-only viewer. */
   onEditBin?: (lot: StockLot) => void;
+  /** Print the lot's barcode label (W4-03). */
+  onPrintLabel?: (lot: StockLot) => void;
 }
 
 export function useStockLedgerColumns({
   onOpenCutModal,
   onEditBin,
+  onPrintLabel,
 }: UseStockLedgerColumnsArgs): ColumnDef<StockLot, unknown>[] {
   return useMemo<ColumnDef<StockLot, unknown>[]>(
     () => [
@@ -21,7 +24,22 @@ export function useStockLedgerColumns({
         accessorKey: "lot_number",
         header: "رقم الدفعة",
         meta: { className: "font-mono font-bold text-app-accent" },
-        cell: ({ row }) => row.original.lot_number,
+        cell: ({ row }) => (
+          <div className="flex items-center gap-1.5">
+            <span>{row.original.lot_number}</span>
+            {onPrintLabel && (
+              <button
+                type="button"
+                onClick={() => onPrintLabel(row.original)}
+                aria-label="طباعة ملصق الدفعة"
+                title="طباعة ملصق الدفعة"
+                className="rounded-md p-1 text-app-label-tertiary hover:bg-app-fill-f1 hover:text-app-accent"
+              >
+                <Tag className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        ),
       },
       {
         id: "bin_location",
@@ -151,6 +169,6 @@ export function useStockLedgerColumns({
         },
       },
     ],
-    [onOpenCutModal, onEditBin]
+    [onOpenCutModal, onEditBin, onPrintLabel]
   );
 }

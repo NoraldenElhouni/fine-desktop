@@ -106,6 +106,42 @@ body {
   page: thermal;
 }
 
+/* Barcode labels (W4-03): one 50×30 mm label per page on a label roll
+   (.print-label-roll), or an A4 sheet of 50×30 mm labels (.print-label-sheet,
+   on the default A4 page). */
+@page label {
+  size: 50mm 30mm;
+  margin: 0;
+}
+
+.print-label-roll {
+  page: label;
+}
+
+.print-label-sheet {
+  display: grid;
+  grid-template-columns: repeat(3, 50mm);
+  gap: 3mm 6mm;
+  justify-content: center;
+}
+
+@media print {
+  /* A named page is taken from in-flow boxes, and .print-area is absolutely
+     positioned: name the body's pages too while a roll is on screen, or the
+     labels land on the default A4 page. */
+  body:has(.print-label-roll) {
+    page: label;
+  }
+
+  .print-area.print-label-roll .label-cell + .label-cell {
+    break-before: page;
+  }
+
+  .print-area .label-cell {
+    break-inside: avoid;
+  }
+}
+
 .icon-chevron-forward {
   transition: transform 0.2s ease;
 }

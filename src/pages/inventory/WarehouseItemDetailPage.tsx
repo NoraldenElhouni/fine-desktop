@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   AlertTriangle,
@@ -12,9 +13,13 @@ import {
   Scissors,
   Search,
   SlidersHorizontal,
+  Tag,
+  X,
 } from "lucide-react";
 import {
   useInventoryItem,
+  useInventoryLookup,
+  useStockLot,
   useStockLots,
   useProcessCutRemnant,
   useUpdateStockLot,
@@ -24,7 +29,9 @@ import { usePermissions } from "../../hooks/usePermissions";
 import { stockLevelErrorMessage } from "../../api/endpoints/stockLevels";
 import type { StockLevelsBackState } from "./InventoryItemStockLevelsPage";
 import { toast } from "../../stores/toastStore";
-import { StockLot } from "../../api/endpoints/inventory";
+import { StockLot, codeNotFoundMessage, inventoryApi, isCodeNotFound } from "../../api/endpoints/inventory";
+import { apiErrorMessage } from "../../api/endpoints/production";
+import { LabelPrintDialog, lotLabelData } from "../../components/print/LabelPrint";
 import {
   INVENTORY_EVENT_LABELS,
   REQUIRED_INVENTORY_EVENTS,
@@ -47,9 +54,16 @@ import { useInventoryMovementColumns } from "../../components/table-columns/inve
 import { useOperatingUnit } from "../../hooks/useOperatingUnits";
 import { useServerConfigStore } from "../../stores/serverConfigStore";
 
+/** Navigation state: a lot label scanned on another item's page opens here filtered to that lot (W4-03). */
+interface WarehouseItemScanState {
+  scannedLot?: StockLot;
+}
+
 const WarehouseItemDetailPage: React.FC = () => {
   const { warehouseId, itemId } = useParams<{ warehouseId: string; itemId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const queryClient = useQueryClient();
 
   const [selectedLotForCut, setSelectedLotForCut] = useState<StockLot | null>(null);
   const [remnantAction, setRemnantAction] = useState<"restock_remnant" | "convert_to_byproduct">("restock_remnant");
@@ -77,15 +91,169 @@ const WarehouseItemDetailPage: React.FC = () => {
   // the params match the query above, so it is the same cached request.
   const [binSearch, setBinSearch] = useState("");
   const [debouncedBin, setDebouncedBin] = useState("");
+  /** A scanned code is being looked up (W4-03): its text is not a shelf search unless the lookup misses. */
+  const [isLookingUp, setIsLookingUp] = useState(false);
   useEffect(() => {
+    if (isLookingUp) return;
     const t = setTimeout(() => setDebouncedBin(binSearch.trim()), 300);
     return () => clearTimeout(t);
-  }, [binSearch]);
+  }, [binSearch, isLookingUp]);
   const { data: tableLotData, isLoading: isLoadingTableLots } = useStockLots({
     warehouse_id: warehouseId,
     inventory_item_id: itemId,
     bin_location: debouncedBin || undefined,
   });
+
+  // W4-03: the lot search also takes a scan. Enter looks the code up: a lot
+  // label shows that lot (on its own item's page when it is another item's),
+  // an item barcode or code opens that item here. A code that matches nothing
+  // stays what it was typed as, a shelf search.
+  const lookup = useInventoryLookup();
+  const lotSearchRef = useRef<HTMLInputElement | null>(null);
+  // The lookup's copy of the scanned lot only says which lot it is; the row
+  // shows the live lot, refreshed after a shelf edit or a cut like the list.
+  const [scannedLot, setScannedLot] = useState<StockLot | null>(
+    () => (location.state as WarehouseItemScanState | null)?.scannedLot ?? null,
+  );
+  const [scanMiss, setScanMiss] = useState<string | null>(null);
+  const [labelLots, setLabelLots] = useState<StockLot[] | null>(null);
+  const [isPreparingLabels, setIsPreparingLabels] = useState(false);
+  const scannedLotHere =
+    scannedLot && scannedLot.inventory_item_id === itemId && scannedLot.warehouse_id === warehouseId ? scannedLot : null;
+  const { data: liveScannedLot } = useStockLot(scannedLotHere?.id);
+  const activeScannedLot = scannedLotHere
+    ? liveScannedLot?.id === scannedLotHere.id
+      ? liveScannedLot
+      : scannedLotHere
+    : null;
+  // The hand-over state is read once: drop it from history, so going back to
+  // this entry later does not bring the old scan filter back.
+  useEffect(() => {
+    if ((location.state as WarehouseItemScanState | null)?.scannedLot) {
+      navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+    }
+  }, [location.state, location.pathname, location.search, navigate]);
+
+  /** Bumped per lookup: only the latest scan's answer is applied. */
+  const lookupSeq = useRef(0);
+  /** The search box still holds `code` (no newer scan or typing replaced it). */
+  const boxHolds = (code: string) => (lotSearchRef.current?.value ?? "").trim() === code;
+
+  const handleLotScan = () => {
+    const code = binSearch.trim();
+    if (!code) return;
+    // A shelf name typed by hand that already filters the table to that very
+    // shelf is a shelf search, not a scan: nothing to look up.
+    if (
+      !activeScannedLot &&
+      debouncedBin === code &&
+      (tableLotData?.data ?? []).some((l) => (l.bin_location ?? "").trim().toLowerCase() === code.toLowerCase())
+    ) {
+      return;
+    }
+    // Selected, so a scan that follows replaces this text instead of being
+    // glued onto it; the newest scan's answer wins.
+    lotSearchRef.current?.select();
+    setScanMiss(null);
+    const seq = ++lookupSeq.current;
+    setIsLookingUp(true);
+    lookup.mutateAsync(code).then(
+      (res) => {
+        if (seq !== lookupSeq.current) return;
+        setIsLookingUp(false);
+        if (boxHolds(code)) {
+          setBinSearch("");
+          setDebouncedBin("");
+        }
+        if (res.type === "lot") {
+          const lot: StockLot = { ...res.lot, inventory_item: res.item };
+          setScannedLot(lot);
+          if (lot.warehouse_id !== warehouseId || lot.inventory_item_id !== itemId) {
+            navigate(`/inventory/ledger/${lot.warehouse_id}/items/${lot.inventory_item_id}`, {
+              state: { scannedLot: lot } satisfies WarehouseItemScanState,
+            });
+          }
+          return;
+        }
+        setScannedLot(null);
+        if (res.item.id !== itemId) navigate(`/inventory/ledger/${warehouseId}/items/${res.item.id}`);
+      },
+      async (err: unknown) => {
+        if (seq !== lookupSeq.current) return;
+        setIsLookingUp(false);
+        const refocus = () => {
+          if (!boxHolds(code)) return;
+          lotSearchRef.current?.focus();
+          lotSearchRef.current?.select();
+        };
+        if (!isCodeNotFound(err)) {
+          toast.error(apiErrorMessage(err, "تعذّر البحث عن الرمز."));
+          refocus();
+          return;
+        }
+        // No item or lot has this code: it is what it was typed as, a shelf
+        // search. Only when that finds nothing either is it reported.
+        setScanMiss(code);
+        setScannedLot(null);
+        if (boxHolds(code)) setDebouncedBin(code);
+        refocus();
+        const params = { warehouse_id: warehouseId, inventory_item_id: itemId, bin_location: code };
+        try {
+          // The table's own query (same key), so the filter below reuses it.
+          const shelf = await queryClient.fetchQuery({
+            queryKey: ["stockLots", params],
+            queryFn: async () => (await inventoryApi.getLots(params)).data,
+          });
+          if (seq === lookupSeq.current && shelf.data.length === 0) {
+            toast.error(`${codeNotFoundMessage(code)}، ولا دفعات على رف بهذا الاسم لهذا الصنف.`);
+          }
+        } catch {
+          if (seq === lookupSeq.current) toast.error(codeNotFoundMessage(code));
+        }
+      },
+    );
+  };
+
+  /**
+   * Labels for the lots on hand: the scanned lot alone, else every lot of this
+   * item in this warehouse (all pages, after the shelf search) that is still
+   * in stock — consumed or emptied lots have no block to stick a label on.
+   */
+  const printLotLabels = async () => {
+    if (activeScannedLot) {
+      setLabelLots([activeScannedLot]);
+      return;
+    }
+    if (!warehouseId || !itemId) return;
+    setIsPreparingLabels(true);
+    try {
+      const all: StockLot[] = [];
+      let page = 1;
+      let lastPage = 1;
+      do {
+        const res = await inventoryApi.getLots({
+          warehouse_id: warehouseId,
+          inventory_item_id: itemId,
+          bin_location: debouncedBin || undefined,
+          page,
+          per_page: 100,
+        });
+        all.push(...res.data.data);
+        lastPage = res.data.last_page;
+        page += 1;
+      } while (page <= lastPage);
+      const onHand = all.filter((l) => l.status !== "consumed" && Number(l.quantity) > 0);
+      if (onHand.length === 0) {
+        toast.info("لا توجد دفعات في المخزون لطباعة ملصقاتها.");
+        return;
+      }
+      setLabelLots(onHand);
+    } catch (err) {
+      toast.error(apiErrorMessage(err, "تعذّر تحميل الدفعات للطباعة."));
+    } finally {
+      setIsPreparingLabels(false);
+    }
+  };
   const { data: ledger, isLoading: isLoadingLedger } = useWarehouseLedger(warehouseId, {
     sku: item?.code,
     per_page: 50,
@@ -93,7 +261,10 @@ const WarehouseItemDetailPage: React.FC = () => {
   const processCutMutation = useProcessCutRemnant();
 
   const lots = useMemo(() => lotData?.data ?? [], [lotData]);
-  const tableLots = useMemo(() => tableLotData?.data ?? [], [tableLotData]);
+  const tableLots = useMemo(
+    () => (activeScannedLot ? [activeScannedLot] : (tableLotData?.data ?? [])),
+    [activeScannedLot, tableLotData],
+  );
   const availableLots = useMemo(() => lots.filter((l) => l.status === "available"), [lots]);
   const totalQuantity = useMemo(
     () => availableLots.reduce((sum, l) => sum + Number(l.quantity), 0),
@@ -154,9 +325,12 @@ const WarehouseItemDetailPage: React.FC = () => {
     );
   };
 
+  const openLotLabel = useCallback((lot: StockLot) => setLabelLots([lot]), []);
+
   const lotColumns = useStockLedgerColumns({
     onOpenCutModal: openCutModal,
     onEditBin: canEditBin ? openBinEdit : undefined,
+    onPrintLabel: openLotLabel,
   });
   const lotsTable = useDataTable({
     columns: lotColumns,
@@ -262,24 +436,71 @@ const WarehouseItemDetailPage: React.FC = () => {
       <div>
         <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-sm font-bold text-app-label-primary">الدفعات في هذا المخزن</h2>
-          <div className="relative sm:w-64">
-            <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-app-label-tertiary" />
-            <input
-              type="search"
-              value={binSearch}
-              onChange={(e) => setBinSearch(e.target.value)}
-              placeholder="بحث بموقع الرف"
-              aria-label="بحث بموقع الرف"
-              maxLength={50}
-              className="w-full rounded-xl border border-app-separator bg-app-bg-secondary py-2 pe-3 ps-8 text-xs focus:border-app-accent focus:outline-none"
-            />
+          <div className="flex flex-wrap items-center gap-2">
+            {activeScannedLot && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-app-accent/10 px-2.5 py-1 text-[11px] font-semibold text-app-accent">
+                الدفعة الممسوحة: <span className="font-mono">{activeScannedLot.lot_number}</span>
+                <button
+                  type="button"
+                  onClick={() => setScannedLot(null)}
+                  aria-label="عرض كل الدفعات"
+                  title="عرض كل الدفعات"
+                  className="rounded-full p-0.5 hover:bg-app-accent/20"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => void printLotLabels()}
+              disabled={tableLots.length === 0 || isPreparingLabels}
+              title={
+                activeScannedLot
+                  ? "ملصق الدفعة الممسوحة"
+                  : "ملصقات كل الدفعات الموجودة من هذا الصنف في هذا المخزن (حسب بحث الرف)"
+              }
+              className="inline-flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-medium text-app-label-primary hover:bg-app-fill-f1 transition-colors disabled:opacity-50"
+            >
+              <Tag className="h-3.5 w-3.5 text-app-accent" />
+              {isPreparingLabels ? "جارٍ التحضير…" : "طباعة الملصقات"}
+            </button>
+            <div className="relative sm:w-64">
+              <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-app-label-tertiary" />
+              <input
+                ref={lotSearchRef}
+                type="search"
+                value={binSearch}
+                onChange={(e) => {
+                  setBinSearch(e.target.value);
+                  setScanMiss(null);
+                  // Typing something other than the scanned lot's number is a
+                  // shelf search: drop the scan filter so the table follows it.
+                  if (scannedLot && e.target.value.trim() !== scannedLot.lot_number) setScannedLot(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleLotScan();
+                  }
+                }}
+                placeholder="بحث بموقع الرف أو امسح ملصق الدفعة"
+                aria-label="بحث بموقع الرف أو مسح ملصق الدفعة"
+                maxLength={255}
+                className="w-full rounded-xl border border-app-separator bg-app-bg-secondary py-2 pe-3 ps-8 text-xs focus:border-app-accent focus:outline-none"
+              />
+            </div>
           </div>
         </div>
         <DataTable table={lotsTable}>
           <DataTable.Content
             isLoading={isLoadingTableLots}
             emptyMessage={
-              debouncedBin ? "لا توجد دفعات على هذا الرف لهذا الصنف." : "لا توجد دفعات لهذا الصنف في هذا المخزن."
+              debouncedBin
+                ? scanMiss === debouncedBin
+                  ? `${codeNotFoundMessage(debouncedBin)}، ولا دفعات على رف بهذا الاسم لهذا الصنف.`
+                  : "لا توجد دفعات على هذا الرف لهذا الصنف."
+                : "لا توجد دفعات لهذا الصنف في هذا المخزن."
             }
             emptyIcon={Layers}
           />
@@ -299,6 +520,14 @@ const WarehouseItemDetailPage: React.FC = () => {
           <DataTable.Pagination />
         </DataTable>
       </div>
+
+      {/* Lot barcode labels — W4-03 */}
+      <LabelPrintDialog
+        open={Boolean(labelLots)}
+        onClose={() => setLabelLots(null)}
+        title={labelLots?.length === 1 ? `ملصق الدفعة: ${labelLots[0].lot_number}` : "ملصقات الدفعات"}
+        labels={(labelLots ?? []).map((lot) => lotLabelData(lot, item?.name))}
+      />
 
       {/* Lot shelf (bin) edit — W4-02 */}
       <Dialog open={Boolean(binLot)} onOpenChange={(next) => !next && setBinLot(null)}>

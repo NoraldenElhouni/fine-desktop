@@ -1,5 +1,6 @@
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { inventoryApi, type InventoryItemPayload } from "../api/endpoints/inventory";
+import { inventoryApi, type InventoryItemPayload, type InventoryLookupResult } from "../api/endpoints/inventory";
 
 export function useInventoryItems(params?: { category_id?: string; item_type?: string; search?: string; page?: number; per_page?: number; with_stock?: 1 }) {
   return useQuery({
@@ -44,6 +45,74 @@ export function useUpdateInventoryItem() {
   });
 }
 
+/**
+ * W4-03: resolves a scanned or typed code (barcode, item code, lot number).
+ * A mutation because a scan is a one-off action; it changes nothing, so it
+ * invalidates nothing. A miss rejects with 404 CODE_NOT_FOUND (isCodeNotFound).
+ */
+export function useInventoryLookup() {
+  return useMutation({
+    mutationFn: async (code: string) => {
+      const res = await inventoryApi.lookup(code);
+      return res.data;
+    },
+  });
+}
+
+/**
+ * W4-03 scan boxes that take scans back to back (POS, count entry): every
+ * code is queued the moment Enter is pressed and looked up in turn, so a
+ * second scan arriving while the first is still on the network is neither
+ * dropped nor glued onto the first one's text. The handlers are read at call
+ * time, so they always see the latest render's state; `queued` is how many
+ * codes still wait behind the one being handled.
+ */
+export function useScanQueue(handlers: {
+  onResult: (code: string, res: InventoryLookupResult, queued: number) => void;
+  onError: (code: string, err: unknown, queued: number) => void;
+  onIdle?: () => void;
+}) {
+  const handlersRef = useRef(handlers);
+  useEffect(() => {
+    handlersRef.current = handlers;
+  });
+  const queueRef = useRef<string[]>([]);
+  const busyRef = useRef(false);
+  const [pending, setPending] = useState(0);
+
+  const drain = useCallback(async () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    try {
+      let code = queueRef.current.shift();
+      while (code !== undefined) {
+        try {
+          const res = await inventoryApi.lookup(code);
+          handlersRef.current.onResult(code, res.data, queueRef.current.length);
+        } catch (err) {
+          handlersRef.current.onError(code, err, queueRef.current.length);
+        }
+        setPending((n) => Math.max(0, n - 1));
+        code = queueRef.current.shift();
+      }
+    } finally {
+      busyRef.current = false;
+      handlersRef.current.onIdle?.();
+    }
+  }, []);
+
+  const enqueue = useCallback(
+    (code: string) => {
+      queueRef.current.push(code);
+      setPending((n) => n + 1);
+      void drain();
+    },
+    [drain],
+  );
+
+  return { enqueue, pending: pending > 0 };
+}
+
 export function useStockLots(params?: { category_id?: string; status?: string; grade?: string; warehouse_id?: string; inventory_item_id?: string; bin_location?: string; page?: number; attrs?: Record<string, any> }) {
   return useQuery({
     queryKey: ["stockLots", params],
@@ -51,6 +120,21 @@ export function useStockLots(params?: { category_id?: string; status?: string; g
       const res = await inventoryApi.getLots(params);
       return res.data;
     },
+  });
+}
+
+/**
+ * One lot, live. Its key sits under "stockLots", so every mutation that
+ * invalidates the lot lists (shelf edit, cut, intake) refreshes it too.
+ */
+export function useStockLot(id: string | null | undefined) {
+  return useQuery({
+    queryKey: ["stockLots", "one", id],
+    queryFn: async () => {
+      const res = await inventoryApi.getLot(id as string);
+      return res.data;
+    },
+    enabled: Boolean(id),
   });
 }
 
