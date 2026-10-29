@@ -6,9 +6,12 @@ import {
   quotationsApi,
   creditApprovalsApi,
   heldCartsApi,
+  salesReturnsApi,
+  CreateSalesReturnInput,
   HoldCartInput,
   Sale,
   SaleFilters,
+  SalesReturnFilters,
 } from "../api/endpoints/sales";
 
 /**
@@ -275,6 +278,51 @@ export function useRestockAction() {
       qc.invalidateQueries({ queryKey: ["restockRequests"] });
       qc.invalidateQueries({ queryKey: ["stockLots"] });
     },
+  });
+}
+
+// ── Sales returns ────────────────────────────────────────────────────────────
+
+export function useReturnableLines(saleId?: string) {
+  return useQuery({
+    queryKey: ["returnableLines", saleId],
+    queryFn: async () => (await salesReturnsApi.returnable(saleId as string)).data,
+    enabled: Boolean(saleId),
+  });
+}
+
+/** A return moves stock back, pays money out of a treasury or credits the client — refresh all of it. */
+export function useCreateSalesReturn() {
+  return useSaleMutation(
+    ({ saleId, ...data }: { saleId: string } & CreateSalesReturnInput) =>
+      salesReturnsApi.create(saleId, data).then((r) => r.data),
+    [
+      ["salesReturns"],
+      ["salesReturn"],
+      ["returnableLines"],
+      ["treasuryOptions"],
+      ["cashAccounts"],
+      ["cashAccountStatement"],
+      ["paymentAccounts"],
+      ["client"],
+      ["debtorStatements"],
+    ],
+  );
+}
+
+export function useSalesReturns(filters: SalesReturnFilters) {
+  return useQuery({
+    queryKey: ["salesReturns", filters],
+    queryFn: async () => (await salesReturnsApi.list(filters)).data,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useSalesReturn(id?: string | null) {
+  return useQuery({
+    queryKey: ["salesReturn", id],
+    queryFn: async () => (await salesReturnsApi.get(id as string)).data,
+    enabled: Boolean(id),
   });
 }
 

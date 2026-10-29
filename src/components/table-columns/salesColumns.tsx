@@ -87,7 +87,9 @@ export function useSalesColumns({ onOpen }: UseSalesColumnsArgs): ColumnDef<Sale
         header: "المتبقي",
         meta: { className: "font-mono text-app-label-secondary" },
         cell: ({ row }) => {
-          const outstanding = Number(row.original.total_amount) - Number(row.original.amount_paid);
+          // Returns lower what is owed: total − returned − paid, as on the sale page and the backend.
+          const outstanding =
+            Number(row.original.total_amount) - Number(row.original.returned_amount || 0) - Number(row.original.amount_paid);
           return outstanding > 0.001 ? formatNumber(outstanding) : "—";
         },
       },

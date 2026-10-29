@@ -218,9 +218,10 @@ export const getBreadcrumbEntries = (
     entries.push({ path: matchingItem.path, label: matchingItem.label });
   }
 
-  // A sale, or its bundle-definition page, is not a tab of the POS hub but
-  // still belongs under it in the breadcrumb: /sales/{id}[/bundles/{id}],
-  // never /sales/pos or /sales/restock (those already matched above).
+  // A sale, its bundle-definition or return page, and a return's own page
+  // are not tabs of the POS hub but still belong under it in the breadcrumb:
+  // /sales/{id}[/bundles/{id}|/return], /sales/returns/{id} — never
+  // /sales/pos or /sales/restock (those already matched above).
   const isSaleDetailPath = /^\/sales\/(?!pos\b|restock\b)[^/]+/.test(normalizedPath);
   if (isSaleDetailPath && !matchingItem) {
     const posItem = navItems.find((item) => item.id === "pos");

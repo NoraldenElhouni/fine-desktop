@@ -50,6 +50,18 @@ export const SALES_ERROR_MESSAGE: Record<string, string> = {
   PRICE_OVERRIDE_INVALID: "بيانات المدير غير صحيحة.",
   PRICE_OVERRIDE_NOT_ALLOWED: "هذا المستخدم لا يملك صلاحية الموافقة على البيع تحت الحد الأدنى، أو هو نفسه البائع.",
   PRICE_OVERRIDE_THROTTLED: "محاولات كثيرة خاطئة. حاول بعد قليل.",
+  RETURN_SALE_NOT_COMPLETED: "لا يمكن إرجاع هذا البيع (تحويل داخلي أو بانتظار الموافقة).",
+  RETURN_LINE_NOT_RETURNABLE: "هذا البند لا يمكن إرجاعه.",
+  RETURN_QUANTITY_EXCEEDS_SOLD: "الكمية المرتجعة أكبر من المتبقي من الكمية المباعة.",
+  RETURN_REFUND_METHOD_INVALID: "الرد كرصيد يتطلب عميلاً مسجلاً.",
+  RETURN_EMPTY: "حدد كمية مرتجعة لبند واحد على الأقل.",
+  UNIT_RETURNS_NOT_LINKED: "لم يُربط حساب مردودات المبيعات لهذه الوحدة. راجع الحسابات.",
+  RETURN_CONDITION_INVALID: "حالة البند المرتجع غير صحيحة.",
+  RETURN_STOCK_SOURCE_NOT_FOUND: "تعذّر العثور على اللوت الذي بيع منه هذا البند لإعادته للمخزون.",
+  INVALID_QUANTITY: "الكمية المرتجعة يجب أن تكون أكبر من صفر.",
+  NO_OPEN_SHIFT: "لا توجد وردية مفتوحة على هذه الخزينة — افتح وردية قبل قبض النقد أو رده.",
+  TREASURY_KIND_MISMATCH: "نوع الحساب المختار لا يطابق طريقة الدفع أو الرد (خزينة/مصرف).",
+  INVENTORY_ACCOUNT_NOT_LINKED: "لم يُربط حساب المخزون أو الهالك لهذه الوحدة. راجع الحسابات.",
 };
 
 export const FULFILLMENT_LABEL: Record<FulfillmentStatus, string> = {
@@ -148,6 +160,8 @@ export interface SalePayment {
   tendered_amount?: Money | null;
   change_given?: Money | null;
   cheque?: { id?: string; number?: string; cheque_no?: string } | null;
+  /** Set on a cash/bank refund: a negative payment raised by that sales return. */
+  sales_return_id?: string | null;
 }
 
 export interface CreditApproval {
@@ -184,6 +198,8 @@ export interface Sale {
   total_amount: Money;
   total_cost: Money;
   amount_paid: Money;
+  /** Sum of every sales return raised against this sale. */
+  returned_amount?: Money;
   notes?: string | null;
   lines?: SaleLine[];
   lines_count?: number;
@@ -198,8 +214,143 @@ export interface Sale {
   payments?: SalePayment[];
   sold_by?: { id: string; name: string } | null;
   credit_approval_request?: CreditApproval | null;
+  returns?: SaleReturnSummary[];
   created_at: string;
 }
+
+// ── Sales returns (W3-07) ────────────────────────────────────────────────────
+
+/**
+ * Roles that may raise a return here (with `create-sales-returns`); a cashier can only see them.
+ * The backend also grants accounting-manager, but every return screen sits under the POS `sales/*`
+ * guard and the create flow needs `GET /sales/{id}` (view-sales), so that role is left out on purpose.
+ */
+export const SALES_RETURN_ROLES = ["owner", "admin", "store-manager", "unit_manager", "manager"];
+
+export type RefundMethod = "cash" | "bank" | "credit";
+
+export const REFUND_METHOD_LABEL: Record<RefundMethod, string> = {
+  cash: "نقداً",
+  bank: "مصرف",
+  credit: "رصيد للعميل",
+};
+
+export type ReturnCondition = "restock" | "damaged";
+
+export const RETURN_CONDITION_LABEL: Record<ReturnCondition, string> = {
+  restock: "سليم — يعاد للمخزون",
+  damaged: "تالف",
+};
+
+/** A return as listed on its sale's page. */
+export interface SaleReturnSummary {
+  id: string;
+  number: string;
+  return_date: string;
+  amount: Money;
+  refund_method: RefundMethod;
+}
+
+/** What one line of a sale can still be returned. */
+export interface ReturnableLine {
+  sales_order_line_id: string;
+  line_type: "item" | "bundle";
+  description?: string | null;
+  inventory_item_id?: string | null;
+  item_code?: string | null;
+  sold_qty: number;
+  returned_qty: number;
+  remaining_qty: number;
+  net_unit_amount: number;
+  returnable: boolean;
+}
+
+export interface ReturnableResponse {
+  sales_order_id: string;
+  order_number: string;
+  /** What the sale actually took in — the ceiling of a cash/bank refund. */
+  refundable_amount: number;
+  lines: ReturnableLine[];
+}
+
+export interface SalesReturnLine {
+  id: string;
+  sales_return_id: string;
+  sales_order_line_id: string;
+  quantity: Money;
+  amount: Money;
+  condition: ReturnCondition;
+  unit_cost?: Money;
+  order_line?: {
+    id: string;
+    line_type: "item" | "bundle";
+    description?: string | null;
+    inventory_item_id?: string | null;
+    quantity?: Money;
+    unit_price?: Money;
+    discount_amount?: Money;
+    inventory_item?: { id: string; name: string; code: string } | null;
+  } | null;
+}
+
+export interface SalesReturn {
+  id: string;
+  number: string;
+  sales_order_id: string;
+  client_id?: string | null;
+  return_date: string;
+  refund_method: RefundMethod;
+  cash_account_id?: string | null;
+  amount: Money;
+  total_cost?: Money;
+  reason?: string | null;
+  created_at?: string;
+  lines?: SalesReturnLine[];
+  order?: {
+    id: string;
+    order_number: string;
+    walk_in_name?: string | null;
+    walk_in_phone?: string | null;
+    buyer_type?: Sale["buyer_type"];
+    client_id?: string | null;
+    total_amount?: Money;
+    returned_amount?: Money;
+    amount_paid?: Money;
+  } | null;
+  client?: { id: string; entity?: { id?: string; name?: string } | null } | null;
+  cash_account?: { id: string; name: string; kind: "cash" | "bank" } | null;
+  created_by?: { id: string; name: string } | null;
+  journal_entry?: { id: string; reference?: string; entry_date?: string } | null;
+}
+
+export interface CreateSalesReturnInput {
+  lines: { sales_order_line_id: string; quantity: number; condition: ReturnCondition }[];
+  refund_method: RefundMethod;
+  cash_account_id?: string | null;
+  reason?: string | null;
+}
+
+export interface SalesReturnFilters {
+  from?: string;
+  to?: string;
+  search?: string;
+  client_id?: string;
+  page?: number;
+  per_page?: number;
+}
+
+/** Who took the goods back: the registered client, the walk-in's name, or "زبون عام". */
+export function salesReturnBuyer(r: Pick<SalesReturn, "client" | "order">): string {
+  return r.client?.entity?.name?.trim() || r.order?.walk_in_name?.trim() || "زبون عام";
+}
+
+export const salesReturnsApi = {
+  returnable: (saleId: string) => apiClient.get<ReturnableResponse>(`/sales/${saleId}/returnable`),
+  create: (saleId: string, data: CreateSalesReturnInput) =>
+    apiClient.post<SalesReturn>(`/sales/${saleId}/returns`, data),
+  list: (params?: SalesReturnFilters) => apiClient.get<Paginated<SalesReturn>>("/sales-returns", { params }),
+  get: (id: string) => apiClient.get<SalesReturn>(`/sales-returns/${id}`),
+};
 
 export interface PriceOverrideInput {
   login: string;

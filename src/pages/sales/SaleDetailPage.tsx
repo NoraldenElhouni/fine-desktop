@@ -1,12 +1,22 @@
 import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowRight, Banknote, Boxes, Building2, FileText, Package, ShieldCheck, ShoppingCart, Truck, UserRound,
+  ArrowRight, Banknote, Boxes, Building2, FileText, Package, ShieldCheck, ShoppingCart, Truck, Undo2, UserRound,
 } from "lucide-react";
 import { useCollectPayment, useSale, usePaymentAccounts } from "../../hooks/useSales";
-import { FULFILLMENT_LABEL, PAYMENT_METHOD_LABEL, SALE_STATUS_LABEL, PaymentMethod, formatSizeCm } from "../../api/endpoints/sales";
+import {
+  FULFILLMENT_LABEL,
+  PAYMENT_METHOD_LABEL,
+  REFUND_METHOD_LABEL,
+  SALE_STATUS_LABEL,
+  SALES_RETURN_ROLES,
+  PaymentMethod,
+  SaleStatus,
+  formatSizeCm,
+} from "../../api/endpoints/sales";
 import { apiErrorMessage } from "../../api/endpoints/production";
-import { formatDateTime, formatNumber, localDateIso } from "../../lib/utils/format";
+import { formatDate, formatDateTime, formatNumber, localDateIso } from "../../lib/utils/format";
+import { usePermissions } from "../../hooks/usePermissions";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { toast } from "../../stores/toastStore";
 import { SaleInvoiceDialog, DeliveryNoteDialog } from "../../components/print/SalesDocuments";
@@ -16,9 +26,14 @@ const PRICE_OVERRIDE_REASON_LABEL: Record<string, string> = {
   "approved by seller": "البائع يملك صلاحية البيع تحت الحد الأدنى",
 };
 
+/** Sales the backend will not take a return against (never sold: RETURN_SALE_NOT_COMPLETED). */
+const NOT_RETURNABLE_STATUSES: SaleStatus[] = ["pending_approval", "rejected", "draft"];
+
 export const SaleDetailPage: React.FC = () => {
   const { saleId } = useParams<{ saleId: string }>();
   const navigate = useNavigate();
+  const { hasRole, hasPermission } = usePermissions();
+  const canCreateReturns = hasRole(SALES_RETURN_ROLES) && hasPermission("create-sales-returns");
 
   const { data: sale, isLoading } = useSale(saleId);
   const { data: treasuries = [] } = usePaymentAccounts();
@@ -45,7 +60,12 @@ export const SaleDetailPage: React.FC = () => {
     );
   }
 
-  const outstanding = Number(sale.total_amount) - Number(sale.amount_paid);
+  const returnedAmount = Number(sale.returned_amount || 0);
+  // Returns lower what is still owed: total − returned − paid (cash/bank refunds already lowered amount_paid).
+  const outstanding = Math.max(0, Number(sale.total_amount) - returnedAmount - Number(sale.amount_paid));
+  const saleReturns = sale.returns ?? [];
+  const showReturnButton =
+    canCreateReturns && sale.buyer_type !== "internal_unit" && !NOT_RETURNABLE_STATUSES.includes(sale.status);
   const isReceivable = sale.payment_method === "receivable";
   const saleLines = sale.lines ?? [];
   const hasLineDiscount = saleLines.some((l) => Number(l.discount_amount || 0) > 0);
@@ -213,6 +233,9 @@ export const SaleDetailPage: React.FC = () => {
               الإجمالي <span className="font-mono font-bold text-app-label-primary">{formatNumber(sale.total_amount)}</span>
             </>
           )}
+          {returnedAmount > 0.001 && (
+            <> · المرتجع <span className="font-mono text-app-status-warning">{formatNumber(returnedAmount)}</span></>
+          )}
           {" · "}المدفوع <span className="font-mono">{formatNumber(sale.amount_paid)}</span>
           {outstanding > 0.001 && (
             <> · المتبقي <span className="font-mono font-bold text-app-status-danger">{formatNumber(outstanding)}</span></>
@@ -240,6 +263,14 @@ export const SaleDetailPage: React.FC = () => {
           >
             <Truck className="w-4 h-4" /> إذن استلام
           </button>
+          {showReturnButton && (
+            <button
+              onClick={() => navigate(`/sales/${sale.id}/return`)}
+              className="flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs font-semibold hover:bg-app-fill-f1"
+            >
+              <Undo2 className="w-4 h-4" /> مرتجع
+            </button>
+          )}
         </div>
       </div>
 
@@ -384,19 +415,26 @@ export const SaleDetailPage: React.FC = () => {
               </div>
             )}
           </div>
+        </div>
+      )}
 
-          {sale.payments && sale.payments.length > 0 && (
-            <ul className="text-[11px] text-app-label-secondary space-y-1">
-              {sale.payments.map((p) => {
-                const methodLabel = p.method === "cheque" ? "شيك" : PAYMENT_METHOD_LABEL[p.method as PaymentMethod] ?? p.method;
-                return (
-                  <li key={p.id} className="font-mono">
-                    {formatDateTime(p.received_at)} — {formatNumber(p.amount)} ({p.cash_account?.name ?? methodLabel})
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+      {sale.payments && sale.payments.length > 0 && (
+        <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm p-4 space-y-2">
+          <h2 className="flex items-center gap-2 text-sm font-bold text-app-label-primary">
+            <Banknote className="w-4 h-4 text-app-accent" /> الدفعات
+          </h2>
+          <ul className="text-[11px] text-app-label-secondary space-y-1">
+            {sale.payments.map((p) => {
+              const methodLabel = p.method === "cheque" ? "شيك" : PAYMENT_METHOD_LABEL[p.method as PaymentMethod] ?? p.method;
+              const isRefund = Boolean(p.sales_return_id) || Number(p.amount) < 0;
+              return (
+                <li key={p.id} className={`font-mono ${isRefund ? "text-app-status-warning" : ""}`}>
+                  {formatDateTime(p.received_at)} — {isRefund && "استرداد "}
+                  {formatNumber(Math.abs(Number(p.amount)))} ({p.cash_account?.name ?? methodLabel})
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
 
@@ -475,6 +513,43 @@ export const SaleDetailPage: React.FC = () => {
           )}
         </table>
       </div>
+
+      {saleReturns.length > 0 && (
+        <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm overflow-hidden">
+          <div className="border-b border-app-separator px-4 py-3 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-sm font-bold text-app-label-primary">
+              <Undo2 className="w-4 h-4 text-app-accent" /> المرتجعات
+            </h2>
+            <span className="text-xs text-app-label-secondary">
+              إجمالي المرتجع <span className="font-mono font-bold text-app-label-primary">{formatNumber(returnedAmount)}</span>
+            </span>
+          </div>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-app-separator bg-app-bg-secondary/60 text-app-label-secondary">
+                <th className="px-4 py-2 text-start font-semibold">رقم المرتجع</th>
+                <th className="px-3 py-2 text-start font-semibold">التاريخ</th>
+                <th className="px-3 py-2 text-start font-semibold">طريقة الرد</th>
+                <th className="px-3 py-2 text-end font-semibold">المبلغ</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-app-separator">
+              {saleReturns.map((r) => (
+                <tr
+                  key={r.id}
+                  onClick={() => navigate(`/sales/returns/${r.id}`)}
+                  className="cursor-pointer hover:bg-app-fill-f1"
+                >
+                  <td className="px-4 py-2.5 font-mono font-bold text-app-accent">{r.number}</td>
+                  <td className="px-3 py-2.5 font-mono">{formatDate(r.return_date)}</td>
+                  <td className="px-3 py-2.5 text-app-label-secondary">{REFUND_METHOD_LABEL[r.refund_method] ?? r.refund_method}</td>
+                  <td className="px-3 py-2.5 text-end font-mono font-bold">{formatNumber(r.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <SaleInvoiceDialog saleId={showInvoice ? sale.id : null} onClose={() => setShowInvoice(false)} />
       <DeliveryNoteDialog saleId={showDeliveryNote ? sale.id : null} onClose={() => setShowDeliveryNote(false)} />

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FileSpreadsheet, FileText, ShieldAlert, ShoppingCart, Store } from "lucide-react";
+import { FileSpreadsheet, FileText, ShieldAlert, ShoppingCart, Store, Undo2 } from "lucide-react";
 import { usePermissions } from "../../hooks/usePermissions";
 import { useCreditApprovals, usePosDailyReport } from "../../hooks/useSales";
 import { Quotation } from "../../api/endpoints/sales";
@@ -7,14 +7,15 @@ import { NewSalePanel } from "../../components/pos/NewSalePanel";
 import { SalesListPage } from "./SalesListPage";
 import { QuotationsPage } from "./QuotationsPage";
 import { ApprovalsPage } from "./ApprovalsPage";
+import { SalesReturnsListPage } from "./SalesReturnsListPage";
 import { PosDailyCloseModal } from "../../components/pos/PosDailyCloseModal";
 import { formatNumber } from "../../lib/utils/format";
 
 const MANAGER_ROLES = ["owner", "admin", "store-manager", "unit_manager", "manager", "accounting-manager"];
 
-type Tab = "new" | "sales" | "quotations" | "approvals";
+type Tab = "new" | "sales" | "returns" | "quotations" | "approvals";
 
-/** The POS: the one place every sale happens, plus the history, quotations and manager approvals. */
+/** The POS: the one place every sale happens, plus the history, returns, quotations and manager approvals. */
 export const PosPage: React.FC = () => {
   const { hasRole } = usePermissions();
   const canApprove = hasRole(MANAGER_ROLES);
@@ -30,6 +31,7 @@ export const PosPage: React.FC = () => {
   const tabs: { id: Tab; label: string; icon: typeof Store; badge?: number }[] = [
     { id: "new", label: "بيع جديد", icon: ShoppingCart },
     { id: "sales", label: "المبيعات", icon: Store },
+    { id: "returns", label: "المرتجعات", icon: Undo2 },
     { id: "quotations", label: "عروض الأسعار", icon: FileText },
     ...(canApprove ? [{ id: "approvals" as const, label: "الموافقات", icon: ShieldAlert, badge: pendingCount || undefined }] : []),
   ];
@@ -86,6 +88,7 @@ export const PosPage: React.FC = () => {
 
       {tab === "new" && <NewSalePanel loadedQuotation={loadedQuotation} onQuotationDone={() => setLoadedQuotation(null)} />}
       {tab === "sales" && <SalesListPage />}
+      {tab === "returns" && <SalesReturnsListPage />}
       {tab === "quotations" && (
         <QuotationsPage onOpenInPos={(q) => { setLoadedQuotation(q); setTab("new"); }} />
       )}
