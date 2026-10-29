@@ -37,6 +37,7 @@ import {
   ListChecks,
   FileCheck,
   Printer,
+  ClipboardCheck,
 } from "lucide-react";
 
 export interface AppNavItem {
@@ -136,6 +137,31 @@ export const STOCK_MOVEMENT_CARD_ROLES = [
   "inventory-manager",
 ];
 
+/** Who works in the inventory section (ledger, transfers). */
+export const INVENTORY_ROLES = [
+  "owner",
+  "admin",
+  "inventory-manager",
+  "foam-manager",
+  "foam-operator",
+  "cutter-manager",
+  "cutter-operator",
+  "furniture-manager",
+  "assembler",
+  "store-manager",
+  "unit_manager",
+  "manager",
+];
+
+/** Stock counts (W4-01, decision #13): who opens and enters a count. */
+export const STOCK_COUNT_COUNTER_ROLES = ["owner", "admin", "inventory-manager", "unit_manager", "manager"];
+
+/** Stock counts: who approves one (with approve-stock-counts; never the counter). */
+export const STOCK_COUNT_APPROVER_ROLES = ["owner", "admin", "accounting-manager"];
+
+/** Stock counts: who sees them — the counters and the approvers. */
+export const STOCK_COUNT_ROLES = [...STOCK_COUNT_COUNTER_ROLES, "accounting-manager"];
+
 export const navItems: AppNavItem[] = [
   { id: "dashboard", path: "/", label: "لوحة التحكم", icon: LayoutGrid },
   { id: "admin-entities", path: "/admin/entities", label: "إدارة الكيانات (مشرف)", icon: Building2, allowedRoles: ["owner", "admin"] },
@@ -150,7 +176,8 @@ export const navItems: AppNavItem[] = [
   { id: "cheques", path: "/treasury/cheques", label: "الشيكات", icon: FileCheck, allowedRoles: ALL_MANAGER_ROLES, permission: "view-treasury" },
   { id: "employees", path: "/employees", label: "الموظفون والعمالة", icon: UserCheck, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"], permission: "view-hr" },
   { id: "clients", path: "/clients", label: "العملاء", icon: Users, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "accounting-manager", "unit_manager", "manager"], permission: "view-clients" },
-  { id: "inventory", path: "/inventory/ledger", label: "المخزون والقطع", icon: Boxes, allowedRoles: ["owner", "admin", "inventory-manager", "foam-manager", "foam-operator", "cutter-manager", "cutter-operator", "furniture-manager", "assembler", "store-manager", "unit_manager", "manager"], permission: "view-inventory" },
+  { id: "inventory", path: "/inventory/ledger", label: "المخزون والقطع", icon: Boxes, allowedRoles: INVENTORY_ROLES, permission: "view-inventory" },
+  { id: "stock-counts", path: "/inventory/counts", label: "الجرد", icon: ClipboardCheck, allowedRoles: STOCK_COUNT_ROLES, permission: "view-inventory" },
   {
     id: "manufacturing",
     path: "/manufacturing/batches",

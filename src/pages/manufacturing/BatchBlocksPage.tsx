@@ -11,6 +11,7 @@ import { useInventoryItems, useUpdateStockLot } from "../../hooks/useInventory";
 import { useWarehouses } from "../../hooks/useWarehouses";
 import {
   BlockGroupInput,
+  apiErrorMessage,
   apiErrorPayload,
   BLOCK_ENTRY_STATES,
   NEXT_STATUS,
@@ -22,6 +23,9 @@ import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useBatchDraftRowsColumns } from "../../components/table-columns/batchDraftRowsColumns";
 import { useRegisteredBlocksColumns } from "../../components/table-columns/registeredBlocksColumns";
+
+/** A lot status this form may switch between (StockLotController::ensureStatusChangeAllowed). */
+const LOT_EDITABLE_STATUSES: StockLot["status"][] = ["available", "quarantined"];
 
 const STATUS_ORDER = [
   "planned", "configured", "running", "consumed",
@@ -183,8 +187,7 @@ export const BatchBlocksPage: React.FC = () => {
           toast.success("تم تحديث بيانات البلوك بنجاح");
         },
         onError: (err: unknown) => {
-          const apiErr = apiErrorPayload(err);
-          setError(apiErr?.message ?? "تعذر تحديث بيانات البلوك.");
+          setError(apiErrorMessage(err, "تعذر تحديث بيانات البلوك."));
         },
       }
     );
@@ -722,16 +725,22 @@ export const BatchBlocksPage: React.FC = () => {
                   <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
                     الحالة
                   </label>
-                  <select
-                    value={blockForm.status}
-                    onChange={(e) => setBlockForm({ ...blockForm, status: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
-                  >
-                    <option value="available">متاح (Available)</option>
-                    <option value="reserved">محجوز (Reserved)</option>
-                    <option value="consumed">مستهلك (Consumed)</option>
-                    <option value="quarantined">حجر صحي (Quarantined)</option>
-                  </select>
+                  {/* INV-06: only available <-> quarantined here; reserving and consuming go through their own flows. */}
+                  {editingBlock && !LOT_EDITABLE_STATUSES.includes(editingBlock.status) ? (
+                    <div className="w-full px-3 py-2 border rounded-xl bg-app-fill-f1 text-xs text-app-label-secondary border-app-separator">
+                      {editingBlock.status === "reserved" ? "محجوز (Reserved)" : "مستهلك (Consumed)"}
+                      <span className="block text-[10px] text-app-label-tertiary">تتغير هذه الحالة من أمر التقطيع أو البيع أو الجرد فقط.</span>
+                    </div>
+                  ) : (
+                    <select
+                      value={blockForm.status}
+                      onChange={(e) => setBlockForm({ ...blockForm, status: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none"
+                    >
+                      <option value="available">متاح (Available)</option>
+                      <option value="quarantined">حجر صحي (Quarantined)</option>
+                    </select>
+                  )}
                 </div>
               </div>
             </form>

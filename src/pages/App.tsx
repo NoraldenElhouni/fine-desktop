@@ -22,6 +22,7 @@ import EmployeesRoutes from "../routes/EmployeesRoutes";
 import OperatingUnitsRoutes from "../routes/OperatingUnitsRoutes";
 import BlueprintsRoutes from "../routes/BlueprintsRoutes";
 import { InventoryRoutes } from "../routes/InventoryRoutes";
+import { StockCountRoutes } from "../routes/StockCountRoutes";
 import { ManufacturingRoutes } from "../routes/ManufacturingRoutes";
 import { CutterRoutes } from "../routes/CutterRoutes";
 import { SalesRoutes } from "../routes/SalesRoutes";
@@ -39,6 +40,7 @@ import {
   DEBTOR_STATEMENT_ROLES,
   PRINT_SETTINGS_ROLES,
   SALES_MARGIN_ROLES,
+  STOCK_COUNT_ROLES,
   STOCK_MOVEMENT_CARD_ROLES,
 } from "../routes/routes.config";
 import { SuppliersPage } from "./procurement/SuppliersPage";
@@ -266,6 +268,14 @@ const App = () => {
               element={
                 <AuthorizedRoute allowedRoles={STOCK_MOVEMENT_CARD_ROLES}>
                   <StockMovementCardPage />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="inventory/counts/*"
+              element={
+                <AuthorizedRoute allowedRoles={STOCK_COUNT_ROLES}>
+                  <StockCountRoutes />
                 </AuthorizedRoute>
               }
             />

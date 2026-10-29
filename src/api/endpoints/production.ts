@@ -174,6 +174,7 @@ export const LEDGER_ERROR_MESSAGE: Record<string, string> = {
   SPLIT_NOT_ALLOWED: "لا يمكن تجزئة الدفع في التحويل الداخلي.",
   CASH_ACCOUNT_REQUIRED: "اختر خزينة الدرج التي تُغلق يومها.",
   OPERATING_UNIT_REQUIRED: "يرجى اختيار الوحدة التشغيلية.",
+  LOT_STATUS_CHANGE_NOT_ALLOWED: "تتغير حالة اللوت هنا بين «متاح» و«حجر صحي» فقط — الحجز والاستهلاك يتمان من خلال أوامر التقطيع والمبيعات والجرد.",
 };
 
 /** The Arabic message for a known refusal code, else the server's message, else the fallback. */
