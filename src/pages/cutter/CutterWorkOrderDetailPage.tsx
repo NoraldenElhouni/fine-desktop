@@ -12,13 +12,13 @@ import { useInventoryItems } from "../../hooks/useInventory";
 import { useWarehouses } from "../../hooks/useWarehouses";
 import {
   CUTTER_STATUS_ORDER, CUTTER_STATUS_LABEL, CUTTER_NEXT_STATUS,
-  CutterWorkOrderLine, AvailableFoamBlock,
+  CutterWorkOrderLine, AvailableFoamBlock, CUTTER_ERROR_MESSAGE, CUTTER_WEIGH_IN_ERROR_MESSAGE, cutterErrorMessage,
 } from "../../api/endpoints/cutter";
-import { apiErrorPayload } from "../../api/endpoints/production";
 import { formatNumber } from "../../lib/utils/format";
 import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { InventoryItem } from "../../api/endpoints/inventory";
 import { CutterJobSheetDialog } from "../../components/print/CutterJobSheet";
+import { CutterCompletionDialog } from "./CutterCompletionDialog";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -53,6 +53,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
   const [warehouseId, setWarehouseId] = useState("");
   const [selectedBlockId, setSelectedBlockId] = useState("");
   const [showJobSheet, setShowJobSheet] = useState(false);
+  const [showCompletion, setShowCompletion] = useState(false);
 
   const nextStatus = order ? CUTTER_NEXT_STATUS[order.status] : null;
   const atWeighIn = order?.status === "awaiting_byproduct_weigh_in";
@@ -79,7 +80,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
   const cannotAdvanceToProduction = blockMissingForProduction || untemplatedMissingForProduction;
 
   const fail = (err: unknown, fallback: string) =>
-    setError(apiErrorPayload(err)?.message ?? fallback);
+    setError(cutterErrorMessage(err, fallback));
 
   const advance = () => {
     if (!orderId || !nextStatus) return;
@@ -94,6 +95,11 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
       }
     }
     setError(null);
+    // W4-06: the completion registers usable remnants and previews the cost split.
+    if (nextStatus === "completed") {
+      setShowCompletion(true);
+      return;
+    }
     transitionMutation.mutate(
       { id: orderId, status: nextStatus },
       { onError: (e) => fail(e, "تعذر ترقية حالة الأمر.") },
@@ -139,6 +145,10 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
 
   const submitWeighIn = (e: React.FormEvent) => {
     e.preventDefault();
+    if (num(weight) > 0 && !fillItemId) {
+      setError(CUTTER_ERROR_MESSAGE.BYPRODUCT_ITEM_REQUIRED);
+      return;
+    }
     setError(null);
     weighInMutation.mutate(
       {
@@ -146,7 +156,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
         byproduct_inventory_item_id: num(weight) > 0 ? fillItemId || undefined : undefined,
         warehouse_id: num(weight) > 0 ? warehouseId || undefined : undefined,
       },
-      { onError: (e) => fail(e, "تعذر تسجيل الوزن.") },
+      { onError: (e) => setError(cutterErrorMessage(e, "تعذر تسجيل الوزن.", CUTTER_WEIGH_IN_ERROR_MESSAGE)) },
     );
   };
 
@@ -666,6 +676,7 @@ export const CutterWorkOrderDetailPage: React.FC = () => {
       </div>
 
       <CutterJobSheetDialog orderId={showJobSheet ? (orderId as string) : null} onClose={() => setShowJobSheet(false)} />
+      <CutterCompletionDialog order={showCompletion ? order : null} onClose={() => setShowCompletion(false)} />
     </div>
   );
 };

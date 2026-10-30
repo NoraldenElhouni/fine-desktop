@@ -31,6 +31,7 @@ import type { StockLevelsBackState } from "./InventoryItemStockLevelsPage";
 import { toast } from "../../stores/toastStore";
 import { StockLot, codeNotFoundMessage, inventoryApi, isCodeNotFound } from "../../api/endpoints/inventory";
 import { apiErrorMessage } from "../../api/endpoints/production";
+import { CUT_REMNANT_ERROR_MESSAGE, cutterErrorMessage } from "../../api/endpoints/cutter";
 import { LabelPrintDialog, lotLabelData } from "../../components/print/LabelPrint";
 import {
   INVENTORY_EVENT_LABELS,
@@ -299,7 +300,12 @@ const WarehouseItemDetailPage: React.FC = () => {
           byproduct_weight_kg: byproductKg > 0 ? byproductKg : undefined,
         },
       },
-      { onSuccess: () => setSelectedLotForCut(null) },
+      {
+        onSuccess: () => setSelectedLotForCut(null),
+        // W4-06 refusals (LOT_NOT_SINGLE_BLOCK, CUT_VOLUME_EXCEEDS_BLOCKS…) in Arabic, worded for one block.
+        onError: (err) =>
+          toast.error(cutterErrorMessage(err, "تعذر تنفيذ التصرف في البقايا.", CUT_REMNANT_ERROR_MESSAGE)),
+      },
     );
   };
 

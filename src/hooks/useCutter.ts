@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { cutterApi, CutterWorkOrderStatus } from "../api/endpoints/cutter";
+import { cutterApi, CutterRemnantInput, CutterWorkOrderStatus } from "../api/endpoints/cutter";
 
 export function useCutterOrders(params?: { status?: string; internal_only?: boolean; page?: number }) {
   return useQuery({
@@ -39,14 +39,30 @@ export function useCreateCutterOrder() {
 export function useTransitionCutterOrder() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: CutterWorkOrderStatus }) =>
-      cutterApi.transition(id, status),
+    mutationFn: ({
+      id,
+      status,
+      remnants,
+    }: {
+      id: string;
+      status: CutterWorkOrderStatus;
+      remnants?: CutterRemnantInput[];
+    }) => cutterApi.transition(id, status, remnants),
     onSuccess: (_r, v) => {
       qc.invalidateQueries({ queryKey: ["cutterOrder", v.id] });
       qc.invalidateQueries({ queryKey: ["cutterOrders"] });
-      // Completing produces cut pieces and fill, so stock and valuation move.
+      // Completing produces cut pieces, remnants and fill, so stock and valuation move.
       qc.invalidateQueries({ queryKey: ["stockLots"] });
       qc.invalidateQueries({ queryKey: ["inventoryValuation"] });
+      if (v.status === "completed") {
+        // Remnants go back into stock as new foam-block lots, so the block pickers
+        // and the warehouse screens need fresh data too.
+        qc.invalidateQueries({ queryKey: ["availableFoamBlocks"] });
+        qc.invalidateQueries({ queryKey: ["availableBlocks"] });
+        qc.invalidateQueries({ queryKey: ["availableForCutting"] });
+        qc.invalidateQueries({ queryKey: ["warehouseStockSummary"] });
+        qc.invalidateQueries({ queryKey: ["warehouseLedger"] });
+      }
     },
   });
 }
