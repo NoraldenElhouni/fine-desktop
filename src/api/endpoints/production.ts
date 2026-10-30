@@ -37,8 +37,47 @@ export interface ProductionBatch {
   blocks_count?: number;
   scrap_lots_count?: number;
   operating_unit?: { id: string; name: string };
+  /**
+   * W4-05: chemicals issued to the run, one row per lot drawn. Loaded by the
+   * detail read and the materials endpoints only. Once any exist, material_cost
+   * is their summed total_cost and cannot be typed over.
+   */
+  materials?: ProductionBatchMaterial[];
   created_at: string;
   updated_at: string;
+}
+
+/** W4-05: one chemical drawn from one lot into a batch, at that lot's actual cost. */
+export interface ProductionBatchMaterial {
+  id: string;
+  production_batch_id: string;
+  inventory_item_id: string;
+  stock_lot_id: string;
+  quantity: number | string;
+  unit_cost: number | string;
+  total_cost: number | string;
+  /**
+   * The issuing user. Laravel serializes the loaded `issuedBy` relation under
+   * the same snake_case key as the column, so this is the user object (or null).
+   */
+  issued_by?: { id: string; name: string } | string | null;
+  inventory_movement_id?: string | null;
+  inventory_item?: {
+    id: string;
+    code: string;
+    name: string;
+    unit_of_measure?: string;
+    primary_uom?: string | null;
+    container_capacity?: number | string | null;
+  } | null;
+  stock_lot?: { id: string; lot_number: string; warehouse_id: string } | null;
+  created_at: string;
+}
+
+/** W4-05: one requested chemical; the server draws it FIFO across the unit's lots. */
+export interface IssueMaterialLine {
+  inventory_item_id: string;
+  quantity: number;
 }
 
 /**
@@ -100,6 +139,8 @@ export interface ApiErrorPayload {
   message?: string;
   code?: string;
   errors?: Record<string, string[]>;
+  /** W4-05 INSUFFICIENT_STOCK: each chemical the stock could not cover. */
+  shortfalls?: { inventory_item_id: string; code?: string | null; required: number; available: number }[];
 }
 
 /** Pull the JSON body out of a rejected axios request without reaching for `any`. */
@@ -174,6 +215,12 @@ export const LEDGER_ERROR_MESSAGE: Record<string, string> = {
   SPLIT_NOT_ALLOWED: "لا يمكن تجزئة الدفع في التحويل الداخلي.",
   CASH_ACCOUNT_REQUIRED: "اختر خزينة الدرج التي تُغلق يومها.",
   OPERATING_UNIT_REQUIRED: "يرجى اختيار الوحدة التشغيلية.",
+  MATERIAL_COST_FROM_ISSUES: "تكلفة المواد محسوبة من المواد الكيماوية المصروفة لهذه الدفعة ولا تُدخل يدوياً — اصرف المواد أو أزلها بدلاً من ذلك.",
+  MATERIAL_COST_ZERO_FROM_ISSUES: "لا يمكن إغلاق الدفعة: كل المواد الكيماوية المصروفة لها جاءت من لوتات بلا تكلفة مسجلة، فلا توجد تكلفة تُحمَّل على البلوكات. أزل المواد المصروفة وأدخل تكلفة المواد يدوياً من شاشة تعديل الدفعة، ثم أغلقها.",
+  INSUFFICIENT_STOCK: "المخزون المتاح في مخازن الوحدة لا يغطي الكمية المطلوبة — لم يُصرف شيء.",
+  MATERIAL_NOT_RAW: "لا تُصرف لعملية الإسفنج إلا المواد الخام (الكيماويات).",
+  EMPTY_CONTAINERS_MISSING: "إرجاع هذه الكمية يعيد تعبئة براميل فارغة لم تعد موجودة في مخزن اللوت، لذا لا يمكن إرجاعها.",
+  BATCH_HAS_MATERIALS: "لا يمكن حذف دفعة صُرفت لها مواد كيماوية — أزل المواد المصروفة أولاً لتعود إلى لوتاتها.",
   LOT_STATUS_CHANGE_NOT_ALLOWED: "تتغير حالة اللوت هنا بين «متاح» و«حجر صحي» فقط — الحجز والاستهلاك يتمان من خلال أوامر التقطيع والمبيعات والجرد.",
 };
 
@@ -223,6 +270,14 @@ export const productionApi = {
 
   registerBlocks: (id: string, groups: BlockGroupInput[]) =>
     apiClient.post<RegisterBlocksResponse>(`/production-batches/${id}/blocks`, { groups }),
+
+  /** W4-05: issue chemicals to an open batch; returns the batch with its materials. */
+  issueMaterials: (id: string, lines: IssueMaterialLine[]) =>
+    apiClient.post<ProductionBatch>(`/production-batches/${id}/materials`, { lines }),
+
+  /** W4-05: remove an issued row; its quantity returns to the lot and its entry is reversed. */
+  removeMaterial: (id: string, lineId: string) =>
+    apiClient.delete<ProductionBatch>(`/production-batches/${id}/materials/${lineId}`),
 
   getBatchBlocks: (batchId: string) =>
     apiClient.get<{ data: StockLot[] }>("/stock-lots", {

@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { inventoryApi, type InventoryItemPayload, type InventoryLookupResult } from "../api/endpoints/inventory";
 
-export function useInventoryItems(params?: { category_id?: string; item_type?: string; search?: string; page?: number; per_page?: number; with_stock?: 1 }) {
+export function useInventoryItems(
+  params?: { category_id?: string; item_type?: string; search?: string; page?: number; per_page?: number; with_stock?: 1 },
+  options?: { enabled?: boolean; keepPrevious?: boolean },
+) {
   return useQuery({
     queryKey: ["inventoryItems", params],
     queryFn: async () => {
       const res = await inventoryApi.getItems(params);
       return res.data;
     },
+    enabled: options?.enabled ?? true,
+    placeholderData: options?.keepPrevious ? keepPreviousData : undefined,
   });
 }
 

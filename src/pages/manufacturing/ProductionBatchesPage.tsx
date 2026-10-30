@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Factory, Plus, RefreshCw, AlertTriangle } from "lucide-react";
 import {
   useProductionBatches,
+  useProductionBatch,
   useCreateProductionBatch,
   useUpdateProductionBatch,
   useDeleteProductionBatch,
@@ -15,12 +16,15 @@ import {
   ProductionBatch,
   isNonSequentialError,
   apiErrorPayload,
+  apiErrorMessage,
+  LEDGER_ERROR_MESSAGE,
   MAX_BUN_WIDTH_M,
   NonSequentialOperationError,
 } from "../../api/endpoints/production";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useProductionBatchesColumns } from "../../components/table-columns/productionBatchesColumns";
+import { formatNumber } from "../../lib/utils/format";
 
 const emptyForm = {
   operation_number: "",
@@ -46,6 +50,20 @@ export const ProductionBatchesPage: React.FC = () => {
   const createMutation = useCreateProductionBatch();
   const updateMutation = useUpdateProductionBatch();
   const deleteMutation = useDeleteProductionBatch();
+
+  // W4-05: the list carries no materials, so the edit dialog reads the batch's
+  // detail. Once chemicals are issued, its material cost is their total and is
+  // shown read-only instead of typed.
+  const {
+    data: editingDetail,
+    isLoading: editingDetailLoading,
+    isError: editingDetailError,
+    refetch: refetchEditingDetail,
+  } = useProductionBatch(editingBatch?.id);
+  const costFromIssues = (editingDetail?.materials?.length ?? 0) > 0;
+  // Until the detail is known we cannot tell a typed cost from an issued one,
+  // so saving waits for it (and stays blocked if it failed to load).
+  const editDetailBlocked = Boolean(editingBatch) && (editingDetailLoading || editingDetailError || !editingDetail);
 
   const batches = data?.data ?? [];
   const expected = expectedOperationNumber(batches);
@@ -117,15 +135,31 @@ export const ProductionBatchesPage: React.FC = () => {
     if (!editingBatch) return;
     setError(null);
 
+    if (editDetailBlocked) {
+      setError(
+        editingDetailError
+          ? "تعذر تحميل تفاصيل الدفعة، فلا يمكن حفظ التعديل الآن. أعد المحاولة."
+          : "جاري تحميل تفاصيل الدفعة…"
+      );
+      return;
+    }
+
     if (editForm.status === "closed") {
-      const cost = Number(editForm.material_cost);
-      if (editForm.material_cost.trim() === "" || isNaN(cost) || cost <= 0) {
-        setError("أدخل تكلفة المواد قبل إغلاق الدفعة");
-        return;
+      if (costFromIssues) {
+        if (Number(editingDetail?.material_cost ?? 0) <= 0) {
+          setError(LEDGER_ERROR_MESSAGE.MATERIAL_COST_ZERO_FROM_ISSUES);
+          return;
+        }
+      } else {
+        const cost = Number(editForm.material_cost);
+        if (editForm.material_cost.trim() === "" || isNaN(cost) || cost <= 0) {
+          setError("أدخل تكلفة المواد قبل إغلاق الدفعة");
+          return;
+        }
       }
     }
 
-    if (editForm.material_cost.trim() !== "") {
+    if (!costFromIssues && editForm.material_cost.trim() !== "") {
       const cost = Number(editForm.material_cost);
       if (isNaN(cost) || cost <= 0) {
         setError("تكلفة المواد يجب أن تكون أكبر من صفر");
@@ -142,7 +176,9 @@ export const ProductionBatchesPage: React.FC = () => {
         conveyor_speed: editForm.conveyor_speed ? Number(editForm.conveyor_speed) : undefined,
       },
       record_version: editingBatch.record_version,
-      ...(editForm.material_cost.trim() !== "" ? { material_cost: Number(editForm.material_cost) } : {}),
+      ...(!costFromIssues && editForm.material_cost.trim() !== ""
+        ? { material_cost: Number(editForm.material_cost) }
+        : {}),
     };
 
     if ((editingBatch.blocks_count ?? 0) === 0 && Number(editForm.operation_number) !== editingBatch.operation_number) {
@@ -161,8 +197,7 @@ export const ProductionBatchesPage: React.FC = () => {
           const payloadErr = apiErrorPayload(err);
           setError(
             payloadErr?.errors?.operation_number?.[0] ??
-              payloadErr?.message ??
-              "تعذر تعديل دفعة الإنتاج."
+              apiErrorMessage(err, "تعذر تعديل دفعة الإنتاج.")
           );
         },
       }
@@ -172,8 +207,7 @@ export const ProductionBatchesPage: React.FC = () => {
   const handleDelete = (batch: ProductionBatch) => {
     setError(null);
     deleteMutation.mutate(batch.id, {
-      onError: (err: unknown) =>
-        setError(apiErrorPayload(err)?.message ?? "تعذر حذف الدفعة."),
+      onError: (err: unknown) => setError(apiErrorMessage(err, "تعذر حذف الدفعة.")),
       onSuccess: () => refetch(),
     });
   };
@@ -534,14 +568,37 @@ export const ProductionBatchesPage: React.FC = () => {
                 <label className="block text-xs font-semibold text-app-label-secondary uppercase mb-1">
                   تكلفة المواد (د.ل)
                 </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={editForm.material_cost}
-                  onChange={(e) => setEditForm({ ...editForm, material_cost: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono"
-                />
+                {editingDetailError ? (
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-app-status-danger/30 bg-app-status-danger/10 text-xs text-app-status-danger">
+                    <span>تعذر تحميل تفاصيل الدفعة لمعرفة مصدر تكلفة المواد.</span>
+                    <button
+                      type="button"
+                      onClick={() => refetchEditingDetail()}
+                      className="font-bold underline shrink-0"
+                    >
+                      إعادة المحاولة
+                    </button>
+                  </div>
+                ) : costFromIssues ? (
+                  <>
+                    <div className="w-full px-3 py-2 border rounded-xl bg-app-fill-f1 text-xs text-app-label-primary border-app-separator font-mono">
+                      {formatNumber(editingDetail?.material_cost)}
+                    </div>
+                    <p className="text-[10px] text-app-label-tertiary mt-1">
+                      محسوب من المواد — يتغير بصرف المواد الكيماوية أو إزالتها من صفحة الدفعة.
+                    </p>
+                  </>
+                ) : (
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    disabled={editingDetailLoading}
+                    value={editForm.material_cost}
+                    onChange={(e) => setEditForm({ ...editForm, material_cost: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl bg-app-bg-secondary text-xs text-app-label-primary border-app-separator focus:border-app-accent focus:outline-none font-mono disabled:opacity-60"
+                  />
+                )}
               </div>
 
               <div>
@@ -579,7 +636,7 @@ export const ProductionBatchesPage: React.FC = () => {
             <button
               type="submit"
               form="edit-production-batch-form"
-              disabled={updateMutation.isPending}
+              disabled={updateMutation.isPending || editDetailBlocked}
               className="px-4 py-2 text-xs font-bold text-white bg-app-accent hover:opacity-90 rounded-xl disabled:opacity-50"
             >
               {updateMutation.isPending ? "جاري الحفظ..." : "حفظ التعديلات"}

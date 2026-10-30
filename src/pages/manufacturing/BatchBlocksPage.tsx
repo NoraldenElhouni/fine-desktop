@@ -13,6 +13,7 @@ import {
   BlockGroupInput,
   apiErrorMessage,
   apiErrorPayload,
+  LEDGER_ERROR_MESSAGE,
   BLOCK_ENTRY_STATES,
   NEXT_STATUS,
 } from "../../api/endpoints/production";
@@ -24,6 +25,7 @@ import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useBatchDraftRowsColumns } from "../../components/table-columns/batchDraftRowsColumns";
 import { useRegisteredBlocksColumns } from "../../components/table-columns/registeredBlocksColumns";
 import { LabelPrintDialog, lotLabelData } from "../../components/print/LabelPrint";
+import { BatchMaterialsSection } from "../../components/manufacturing/BatchMaterialsSection";
 
 /** A lot status this form may switch between (StockLotController::ensureStatusChangeAllowed). */
 const LOT_EDITABLE_STATUSES: StockLot["status"][] = ["available", "quarantined"];
@@ -52,9 +54,9 @@ const STATUS_INFO: Record<string, string> = {
   configured:
     "تم إعداد الماكينة بالتركيبة والمعايير المطلوبة. عند بدء تشغيل الماكينة فعلياً، رقِّ الدفعة إلى «قيد التشغيل».",
   running:
-    "الماكينة تعمل الآن. سجّل استهلاك المواد الكيميائية الفعلي من الخزانات بعد انتهاء التشغيلة، ثم رقِّ الدفعة إلى «مستهلك».",
+    "الماكينة تعمل الآن. بعد انتهاء التشغيلة اصرف المواد الكيماوية الفعلية من قسم «المواد الكيماوية» أدناه (تُسحب من لوتات مخزون الوحدة)، ثم رقِّ الدفعة إلى «مستهلك».",
   consumed:
-    "تم تسجيل استهلاك المواد وخصمه من الخزانات. بعد تقطيع الكتلة المستمرة إلى بلوكات فردية، رقِّ الدفعة إلى «قيد التصلب».",
+    "تم صرف المواد الكيماوية من اللوتات ويمكن تصحيحها من قسم «المواد الكيماوية» حتى الإغلاق. بعد تقطيع الكتلة المستمرة إلى بلوكات فردية، رقِّ الدفعة إلى «قيد التصلب».",
   curing:
     "البلوكات في طور التصلب. عند انتهاء المهلة المحددة، رقِّ الدفعة إلى «جاهز للفرز» لبدء تسجيل الإنتاج والفرز.",
   ready_for_grading:
@@ -303,15 +305,19 @@ export const BatchBlocksPage: React.FC = () => {
     setError(null);
 
     if (nextStatus === "closed" && (!batch?.material_cost || Number(batch.material_cost) <= 0)) {
-      setError("أدخل تكلفة المواد من شاشة تعديل الدفعة قبل الإغلاق — بدونها لن تُحمَّل البلوكات أي تكلفة.");
+      // W4-05: issued chemicals fix the cost; zero means they all came from uncosted lots.
+      setError(
+        (batch?.materials?.length ?? 0) > 0
+          ? LEDGER_ERROR_MESSAGE.MATERIAL_COST_ZERO_FROM_ISSUES
+          : "اصرف المواد الكيماوية للدفعة، أو أدخل تكلفة المواد من شاشة تعديل الدفعة، قبل الإغلاق — بدونها لن تُحمَّل البلوكات أي تكلفة.",
+      );
       return;
     }
 
     transitionMutation.mutate(
       { id: batchId, status: nextStatus },
       {
-        onError: (err: unknown) =>
-          setError(apiErrorPayload(err)?.message ?? "تعذر ترقية حالة الدفعة."),
+        onError: (err: unknown) => setError(apiErrorMessage(err, "تعذر ترقية حالة الدفعة.")),
       },
     );
   };
@@ -390,6 +396,9 @@ export const BatchBlocksPage: React.FC = () => {
                 ? `${Number(batch.material_cost).toLocaleString()} د.ل`
                 : "—"}
             </span>
+            {(batch.materials?.length ?? 0) > 0 && (
+              <span className="text-app-label-tertiary"> (محسوب من المواد)</span>
+            )}
           </p>
         </div>
       </div>
@@ -444,6 +453,9 @@ export const BatchBlocksPage: React.FC = () => {
           <p className="mt-0.5 text-app-label-secondary">{STATUS_INFO[batch.status]}</p>
         </div>
       </div>
+
+      {/* W4-05: chemicals issued to the run — their total is the batch's material cost */}
+      <BatchMaterialsSection batch={batch} />
 
       {/* Registration form — mirrors the paper production report, only while grading is open */}
       {acceptsBlocks && (
