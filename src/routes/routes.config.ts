@@ -159,7 +159,11 @@ export const INVENTORY_ROLES = [
 export const RESTOCK_ROLES = ["owner", "admin", "store-manager", "pos-cashier", "unit_manager", "manager"];
 
 /** Stock counts (W4-01, decision #13): who opens and enters a count. */
-export const STOCK_COUNT_COUNTER_ROLES = ["owner", "admin", "inventory-manager", "unit_manager", "manager"];
+export const STOCK_COUNT_COUNTER_ROLES = [
+  "owner", "admin", "inventory-manager", "unit_manager", "manager",
+  // A unit's own manager role counts its warehouses (decision #13 default).
+  "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager",
+];
 
 /** Stock counts: who approves one (with approve-stock-counts; never the counter). */
 export const STOCK_COUNT_APPROVER_ROLES = ["owner", "admin", "accounting-manager"];
