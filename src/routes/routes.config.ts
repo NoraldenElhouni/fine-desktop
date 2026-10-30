@@ -40,6 +40,7 @@ import {
   ClipboardCheck,
   Gauge,
   Hourglass,
+  Sofa,
 } from "lucide-react";
 
 export interface AppNavItem {
@@ -171,6 +172,13 @@ export const STOCK_COUNT_APPROVER_ROLES = ["owner", "admin", "accounting-manager
 /** Stock counts: who sees them — the counters and the approvers. */
 export const STOCK_COUNT_ROLES = [...STOCK_COUNT_COUNTER_ROLES, "accounting-manager"];
 
+/**
+ * Furniture assembly orders (W4-07, decision #12): the roles the API lets in
+ * (owner and admin always pass). Reading needs view-furniture, opening an
+ * order create-furniture, completing or cancelling it edit-furniture.
+ */
+export const FURNITURE_ROLES = ["owner", "admin", "furniture-manager", "assembler"];
+
 export const navItems: AppNavItem[] = [
   { id: "dashboard", path: "/", label: "لوحة التحكم", icon: LayoutGrid },
   { id: "admin-entities", path: "/admin/entities", label: "إدارة الكيانات (مشرف)", icon: Building2, allowedRoles: ["owner", "admin"] },
@@ -197,6 +205,7 @@ export const navItems: AppNavItem[] = [
     allowedRoles: ["owner", "admin", "foam-manager", "foam-operator", "unit_manager", "manager"],
     permission: "view-foam",
   },
+  { id: "assembly-orders", path: "/furniture/assembly", label: "أوامر التجميع", icon: Sofa, allowedRoles: FURNITURE_ROLES, permission: "view-furniture" },
   { id: "cutter", path: "/cutter/orders", label: "التقطيع", icon: Scissors, allowedRoles: ["owner", "admin", "cutter-manager", "cutter-operator", "unit_manager", "manager"], permission: "view-cutting" },
   { id: "material-requests", path: "/material-requests", label: "طلبات المواد (MRs)", icon: PackageCheck, allowedRoles: ["owner", "admin", "furniture-manager", "cutter-manager", "foam-manager", "unit_manager", "manager"], permission: "view-material-requests" },
   { id: "pos", path: "/sales/pos", label: "المبيعات ونقطة البيع", icon: ShoppingCart, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "cutter-manager", "unit_manager", "manager"], permission: "view-sales" },
@@ -241,6 +250,7 @@ export const getBreadcrumbEntries = (
       partners: "الكيانات والشركاء",
       procurement: "التوريد والاعتمادات",
       production: "الإنتاج والمخازن",
+      furniture: "الأثاث",
       sales: "المبيعات والمعارض",
       hr: "الموارد البشرية",
       finance: "المالية والتقارير",
@@ -285,10 +295,14 @@ export const getBreadcrumbEntries = (
     normalizedPath.startsWith("/inventory/") ||
     normalizedPath.startsWith("/manufacturing/batches/") ||
     normalizedPath.startsWith("/cutter/orders/") ||
+    normalizedPath.startsWith("/furniture/assembly/") ||
     isSaleDetailPath ||
     normalizedPath.startsWith("/accounting/accounts/")
   ) {
-    entries.push({ path: normalizedPath, label: dynamicLabel });
+    entries.push({
+      path: normalizedPath,
+      label: normalizedPath === "/furniture/assembly/new" ? "أمر تجميع جديد" : dynamicLabel,
+    });
   }
 
   if (normalizedPath.startsWith("/settings/")) {

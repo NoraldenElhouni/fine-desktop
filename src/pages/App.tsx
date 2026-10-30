@@ -25,6 +25,7 @@ import { InventoryRoutes } from "../routes/InventoryRoutes";
 import { StockCountRoutes } from "../routes/StockCountRoutes";
 import { ManufacturingRoutes } from "../routes/ManufacturingRoutes";
 import { CutterRoutes } from "../routes/CutterRoutes";
+import { FurnitureRoutes } from "../routes/FurnitureRoutes";
 import { SalesRoutes } from "../routes/SalesRoutes";
 import { AccountingRoutes } from "../routes/AccountingRoutes";
 import { HrRoutes } from "../routes/HrRoutes";
@@ -38,6 +39,7 @@ import { AuthorizedRoute } from "../components/AuthorizedRoute";
 import {
   ALL_MANAGER_ROLES,
   DEBTOR_STATEMENT_ROLES,
+  FURNITURE_ROLES,
   PRINT_SETTINGS_ROLES,
   SALES_MARGIN_ROLES,
   STOCK_COUNT_ROLES,
@@ -333,6 +335,14 @@ const App = () => {
                   ]}
                 >
                   <CutterRoutes />
+                </AuthorizedRoute>
+              }
+            />
+            <Route
+              path="furniture/*"
+              element={
+                <AuthorizedRoute allowedRoles={FURNITURE_ROLES} permission="view-furniture">
+                  <FurnitureRoutes />
                 </AuthorizedRoute>
               }
             />

@@ -6,6 +6,7 @@ import {
   Package,
   Settings,
   ShieldCheck,
+  Sofa,
   Store,
   UserCheck,
 } from "lucide-react";
@@ -57,6 +58,17 @@ export const categoryGroups: CategoryGroup[] = [
     icon: Factory,
     path: "/hub/production",
     itemIds: ["inventory", "stock-counts", "reorder-report", "stagnant-stock", "orders", "manufacturing", "cutter"],
+    get items() {
+      return findItems(this.itemIds);
+    },
+  },
+  {
+    id: "furniture",
+    label: "الأثاث",
+    description: "أوامر تجميع الأثاث: تستهلك لوتات المكونات وتنتج لوت المنتج التام بتكلفته الفعلية",
+    icon: Sofa,
+    path: "/hub/furniture",
+    itemIds: ["assembly-orders"],
     get items() {
       return findItems(this.itemIds);
     },
