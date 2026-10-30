@@ -83,6 +83,8 @@ export interface CreateTreasuryVoucherPayload {
   cash_account_id: string;
   counter_account_code?: string;
   client_id?: string;
+  /** W5-00: required when the counter account is in the employee advances subtree (1215). */
+  employee_id?: string;
   amount: number;
   fx_rate?: number;
   voucher_date?: string;

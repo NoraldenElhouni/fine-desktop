@@ -1,21 +1,53 @@
 import type { Account } from "../../api/endpoints/accounting";
 
+/** 121 الأموال الجاهزة والنقدية — treasuries and banks (backend `AccountTree::subtreeIds('121')`). */
+export const TREASURY_ROOT_CODE = "121";
+
+/** 1215 سلف الموظفين — lines in this subtree carry the employee (backend `EmployeeAdvanceAccounts`). */
+export const EMPLOYEE_ADVANCES_ROOT_CODE = "1215";
+
+/**
+ * Ids of the account with this code and every descendant, walked by
+ * parent_account_id like the backend's `AccountTree::subtreeIds`. Codes are
+ * not a reliable guide: 1214 and 1215 keep their codes but sit under 12, not
+ * under the treasury node 121 (W5-00).
+ */
+export function accountSubtreeIds(accounts: Account[], rootCode: string): Set<string> {
+  const root = accounts.find((a) => a.account_code === rootCode);
+  const ids = new Set<string>();
+  if (!root) return ids;
+  const children = new Map<string, string[]>();
+  for (const a of accounts) {
+    if (!a.parent_account_id) continue;
+    const list = children.get(a.parent_account_id) ?? [];
+    list.push(a.id);
+    children.set(a.parent_account_id, list);
+  }
+  const frontier = [root.id];
+  while (frontier.length > 0) {
+    const id = frontier.pop() as string;
+    if (ids.has(id)) continue;
+    ids.add(id);
+    frontier.push(...(children.get(id) ?? []));
+  }
+  return ids;
+}
+
 /**
  * Strict picker filter for purchase-order payment source accounts.
  *
- * Restricts the dropdown to asset accounts whose code starts with `121` —
- * the chart's cash/bank/custodhip sub-tree (الأموال الجاهزة والنقدية). This
+ * Restricts the dropdown to asset leaves in the 121 subtree — the chart's
+ * cash/bank node (الأموال الجاهزة والنقدية), walked by parent_account_id. This
  * matches the seed at `database/seeders/ChartOfAccountsSeeder.php` and
  * prevents an operator from accidentally posting a payment against, say,
- * a fixed-asset sub-account.
+ * a fixed-asset sub-account or the employee advances moved out to 12.
  *
  * Returns accounts ordered as the chart presents them (parent-first is
  * already how `useAccounts` returns them).
  */
 export function filterPaymentSourceAccounts(accounts: Account[]): Account[] {
-  return leafAccounts(accounts).filter(
-    (a) => a.type === "asset" && a.account_code.startsWith("121"),
-  );
+  const treasuryIds = accountSubtreeIds(accounts, TREASURY_ROOT_CODE);
+  return leafAccounts(accounts).filter((a) => a.type === "asset" && treasuryIds.has(a.id));
 }
 
 /**

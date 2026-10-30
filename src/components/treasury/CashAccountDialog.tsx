@@ -9,10 +9,7 @@ import { apiErrorPayload } from "../../api/endpoints/production";
 import type { Account } from "../../api/endpoints/accounting";
 import type { CashAccount, CashAccountKind } from "../../types/procurement";
 import { toast } from "../../stores/toastStore";
-import { leafAccounts } from "../../lib/utils/coa";
-
-/** Treasuries and banks live under 121 الأموال الجاهزة والنقدية. */
-const TREASURY_PARENT_PREFIX = "121";
+import { TREASURY_ROOT_CODE, accountSubtreeIds, leafAccounts } from "../../lib/utils/coa";
 
 interface CashAccountDialogProps {
   open: boolean;
@@ -40,10 +37,16 @@ export const CashAccountDialog: React.FC<CashAccountDialogProps> = ({ open, onCl
     setError(null);
   }, [open, cashAccount]);
 
-  const treasuryAccounts = leafAccounts(accounts, [], [cashAccount?.account_id]).filter(
-    (a) => a.account_code.startsWith(TREASURY_PARENT_PREFIX) && a.account_code !== TREASURY_PARENT_PREFIX,
+  // Treasuries and banks live in the 121 الأموال الجاهزة والنقدية subtree (by parent, not code prefix).
+  const treasuryIds = accountSubtreeIds(accounts, TREASURY_ROOT_CODE);
+  // The account already linked stays listed even if it is outside 121 (e.g. a pre-W5-00 link to
+  // 1214/1215), so the form shows what the treasury actually holds instead of a blank picker.
+  const linkedAccountId = cashAccount?.account_id ?? null;
+  const treasuryAccounts = leafAccounts(accounts, [], [linkedAccountId]).filter(
+    (a) => a.id === linkedAccountId || (treasuryIds.has(a.id) && a.account_code !== TREASURY_ROOT_CODE),
   );
   const selectedAccount = treasuryAccounts.find((a) => a.id === accountId) ?? null;
+  const selectedOutsideTreasury = selectedAccount !== null && !treasuryIds.has(selectedAccount.id);
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -144,6 +147,11 @@ export const CashAccountDialog: React.FC<CashAccountDialogProps> = ({ open, onCl
               <p className="text-[11px] text-app-label-tertiary mt-1">
                 من حسابات «الأموال الجاهزة والنقدية» (121). بدون ربط لا يمكن استلام مبيعات عليها.
               </p>
+              {selectedOutsideTreasury && (
+                <p className="text-[11px] text-app-status-warning mt-1">
+                  الحساب المربوط حالياً لم يعد ضمن «الأموال الجاهزة والنقدية» (121) — اختر حساب خزينة أو مصرف بدلاً منه.
+                </p>
+              )}
             </div>
           </form>
         </DialogBody>

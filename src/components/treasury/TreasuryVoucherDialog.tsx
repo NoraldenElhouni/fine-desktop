@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,16 +14,19 @@ import { CoaAccountSelector } from "../accounting/CoaAccountSelector";
 import { useAccounts, useIsCompanyWide } from "../../hooks/useAccounting";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import { useClients } from "../../hooks/useClients";
+import { useEmployees } from "../../hooks/useEmployees";
 import { useOperatingUnits } from "../../hooks/usePartners";
 import { formatNumber, localDateIso } from "../../lib/utils/format";
-import { apiErrorMessage } from "../../api/endpoints/production";
+import { LEDGER_ERROR_MESSAGE, apiErrorMessage } from "../../api/endpoints/production";
+import { EMPLOYEE_ADVANCES_ROOT_CODE, TREASURY_ROOT_CODE, accountSubtreeIds } from "../../lib/utils/coa";
 import { useCreateTreasuryVoucher } from "../../hooks/useTreasuryVouchers";
+import { useServerConfigStore } from "../../stores/serverConfigStore";
 import type {
   TreasuryVoucher,
   TreasuryVoucherKind,
   CreateTreasuryVoucherPayload,
 } from "../../api/endpoints/treasuryVouchers";
-import type { Client } from "../../types/entities";
+import type { Client, Employee } from "../../types/entities";
 
 export interface TreasuryVoucherDialogProps {
   open: boolean;
@@ -43,6 +46,7 @@ export const TreasuryVoucherDialog: React.FC<TreasuryVoucherDialogProps> = ({
   const [counterMode, setCounterMode] = useState<"client" | "account">("account");
   const [clientId, setClientId] = useState<string | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
   const [fxRate, setFxRate] = useState("1");
   const today = localDateIso();
@@ -53,10 +57,15 @@ export const TreasuryVoucherDialog: React.FC<TreasuryVoucherDialogProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const isCompanyWide = useIsCompanyWide();
+  const pinnedUnitId = useServerConfigStore((s) => s.operatingUnitId);
   const { data: treasuries = [] } = useTreasuryOptions();
   const { data: accounts = [] } = useAccounts();
   const { data: clients = [] } = useClients();
   const { data: units = [] } = useOperatingUnits();
+  // A company-wide caller picks the unit, so list that unit's employees (the advance belongs there).
+  const { data: employees = [] } = useEmployees(
+    isCompanyWide && operatingUnitId ? { operating_unit_id: operatingUnitId } : undefined,
+  );
 
   const createMutation = useCreateTreasuryVoucher();
 
@@ -68,6 +77,7 @@ export const TreasuryVoucherDialog: React.FC<TreasuryVoucherDialogProps> = ({
       setCounterMode("account");
       setClientId(null);
       setSelectedAccountId(null);
+      setEmployeeId(null);
       setAmount("");
       setFxRate("1");
       setVoucherDate(localDateIso());
@@ -86,6 +96,31 @@ export const TreasuryVoucherDialog: React.FC<TreasuryVoucherDialogProps> = ({
 
   const client = clients.find((c) => c.id === clientId) ?? null;
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
+
+  // W5-00: treasury accounts are the 121 subtree by parent; 1214/1215 now sit under 12.
+  const treasuryAccountIds = useMemo(() => accountSubtreeIds(accounts, TREASURY_ROOT_CODE), [accounts]);
+  const advanceAccountIds = useMemo(() => accountSubtreeIds(accounts, EMPLOYEE_ADVANCES_ROOT_CODE), [accounts]);
+  // The backend also refuses any account a cash account is linked to (VOUCHER_COUNTER_IS_TREASURY),
+  // e.g. a pre-W5-00 treasury still linked to 1214/1215; the options list spans every unit.
+  const linkedTreasuryCodes = useMemo(
+    () => new Set(treasuries.map((t) => t.account_code).filter((code): code is string => Boolean(code))),
+    [treasuries],
+  );
+  const needsEmployee =
+    counterMode === "account" && selectedAccountId !== null && advanceAccountIds.has(selectedAccountId);
+  const unitEmployees = isCompanyWide
+    ? employees.filter((emp) => emp.operating_unit_id === operatingUnitId)
+    : employees;
+  const employee = unitEmployees.find((emp) => emp.id === employeeId) ?? null;
+  // The backend looks the voucher's employee up under the pinned unit (X-Operating-Unit-ID), so a
+  // company-wide caller can only name an employee of the unit pinned in the top bar. Until that
+  // lookup is lifted server-side, an advance for another unit's employee needs a unit switch first.
+  const employeeUnitBlocked =
+    needsEmployee && isCompanyWide && !!pinnedUnitId && !!operatingUnitId && operatingUnitId !== pinnedUnitId;
+  const pinnedUnitName = units.find((u) => u.id === pinnedUnitId)?.name;
+  const employeeUnitBlockedMessage = `لا يمكن تحديد موظف من وحدة غير الوحدة المحددة في الشريط العلوي${
+    pinnedUnitName ? ` («${pinnedUnitName}»)` : ""
+  } — بدّل الوحدة من الشريط العلوي أو اختر الوحدة نفسها للسند.`;
 
   const numAmount = Number(amount);
   const numFxRate = Number(fxRate);
@@ -107,6 +142,16 @@ export const TreasuryVoucherDialog: React.FC<TreasuryVoucherDialogProps> = ({
 
     if (counterMode === "account" && !selectedAccount?.account_code) {
       setError("يرجى اختيار الحساب المقابل.");
+      return;
+    }
+
+    if (employeeUnitBlocked) {
+      setError(employeeUnitBlockedMessage);
+      return;
+    }
+
+    if (needsEmployee && !employee) {
+      setError(LEDGER_ERROR_MESSAGE.PARTY_EMPLOYEE_REQUIRED);
       return;
     }
 
@@ -153,6 +198,9 @@ export const TreasuryVoucherDialog: React.FC<TreasuryVoucherDialogProps> = ({
         return;
       }
       payload.counter_account_code = selectedAccount.account_code;
+      if (needsEmployee && employee) {
+        payload.employee_id = employee.id;
+      }
     }
 
     if (!isLyd) {
@@ -304,20 +352,60 @@ export const TreasuryVoucherDialog: React.FC<TreasuryVoucherDialogProps> = ({
                   )}
                 </div>
               ) : (
-                <div className="pt-1">
+                <div className="space-y-2 pt-1">
                   <CoaAccountSelector
                     entityTypeLabel="الحساب المقابل"
                     selectedAccountId={selectedAccountId}
                     onSelectedAccountIdChange={(id) => {
                       setSelectedAccountId(id);
+                      if (!id || !advanceAccountIds.has(id)) {
+                        setEmployeeId(null);
+                      }
                       const acc = accounts.find((a) => a.id === id);
                       if (acc?.name && !payee.trim()) {
                         setPayee(acc.name);
                       }
                     }}
-                    filter={(a) => !a.account_code.startsWith("121")}
+                    filter={(a) => !treasuryAccountIds.has(a.id) && !linkedTreasuryCodes.has(a.account_code)}
                     hideActionToggle
                   />
+                  {needsEmployee && (
+                    <div>
+                      <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                        الموظف <span className="text-app-status-danger">*</span>
+                      </label>
+                      <SearchableSelect<Employee>
+                        options={unitEmployees}
+                        value={employee}
+                        onChange={(emp) => {
+                          setEmployeeId(emp ? emp.id : null);
+                          const name = emp?.entity?.name;
+                          if (name && (!payee.trim() || payee === selectedAccount?.name)) {
+                            setPayee(name);
+                          }
+                        }}
+                        getOptionId={(emp) => emp.id}
+                        getOptionLabel={(emp) => emp.entity?.name ?? emp.id}
+                        getOptionSubLabel={(emp) => emp.job_title || undefined}
+                        getOptionSearchText={(emp) => `${emp.entity?.name ?? ""} ${emp.job_title ?? ""}`}
+                        placeholder={
+                          isCompanyWide && !operatingUnitId
+                            ? "اختر الوحدة التشغيلية أولاً…"
+                            : "ابحث عن الموظف بالاسم…"
+                        }
+                        disabled={(isCompanyWide && !operatingUnitId) || employeeUnitBlocked}
+                        required
+                        size="sm"
+                      />
+                      {employeeUnitBlocked ? (
+                        <p className="mt-1 text-[11px] text-app-status-warning">{employeeUnitBlockedMessage}</p>
+                      ) : (
+                        <p className="mt-1 text-[11px] text-app-label-secondary">
+                          حساب سلف الموظفين يتطلب تحديد الموظف.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -432,7 +520,11 @@ export const TreasuryVoucherDialog: React.FC<TreasuryVoucherDialogProps> = ({
                 </label>
                 <select
                   value={operatingUnitId}
-                  onChange={(e) => setOperatingUnitId(e.target.value)}
+                  onChange={(e) => {
+                    setOperatingUnitId(e.target.value);
+                    // The advance belongs to the employee's unit, so a unit change drops the pick.
+                    setEmployeeId(null);
+                  }}
                   className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs focus:border-app-accent focus:outline-none"
                 >
                   <option value="">اختر الوحدة…</option>

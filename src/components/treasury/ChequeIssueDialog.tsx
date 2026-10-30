@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,7 @@ import { useOperatingUnits } from "../../hooks/usePartners";
 import { useAccounts, useIsCompanyWide } from "../../hooks/useAccounting";
 import { useIssueCheque } from "../../hooks/useCheques";
 import { localDateIso } from "../../lib/utils/format";
+import { EMPLOYEE_ADVANCES_ROOT_CODE, TREASURY_ROOT_CODE, accountSubtreeIds } from "../../lib/utils/coa";
 import { apiErrorMessage } from "../../api/endpoints/production";
 import type { Cheque, IssueChequePayload } from "../../api/endpoints/cheques";
 import type { Supplier } from "../../types/procurement";
@@ -50,6 +51,14 @@ export const ChequeIssueDialog: React.FC<ChequeIssueDialogProps> = ({
   const { data: suppliers = [] } = useSuppliers();
   const { data: accounts = [] } = useAccounts();
   const { data: units = [] } = useOperatingUnits();
+
+  // Treasury accounts are the 121 subtree by parent (W5-00 moved 1214/1215 out to 12).
+  // A cheque carries no employee, so the advances subtree (1215, needs one) is left out too.
+  const excludedCounterIds = useMemo(() => {
+    const ids = accountSubtreeIds(accounts, TREASURY_ROOT_CODE);
+    accountSubtreeIds(accounts, EMPLOYEE_ADVANCES_ROOT_CODE).forEach((id) => ids.add(id));
+    return ids;
+  }, [accounts]);
 
   const issueMutation = useIssueCheque();
 
@@ -333,7 +342,7 @@ export const ChequeIssueDialog: React.FC<ChequeIssueDialogProps> = ({
                           setPayeeName(acc.name);
                         }
                       }}
-                      filter={(a) => !a.account_code.startsWith("121")}
+                      filter={(a) => !excludedCounterIds.has(a.id)}
                       hideActionToggle
                     />
                   </div>

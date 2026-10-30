@@ -141,6 +141,8 @@ export interface ApiErrorPayload {
   errors?: Record<string, string[]>;
   /** W4-05 INSUFFICIENT_STOCK: each chemical the stock could not cover. */
   shortfalls?: { inventory_item_id: string; code?: string | null; required: number; available: number }[];
+  /** W5-00 PARTY_EMPLOYEE_REQUIRED on a manual entry: the untagged advance balance an untagged credit may still clear. */
+  untagged_balance?: number;
 }
 
 /** Pull the JSON body out of a rejected axios request without reaching for `any`. */
@@ -181,6 +183,11 @@ export const LEDGER_ERROR_MESSAGE: Record<string, string> = {
   YEAR_NOT_CLOSED: "السنة المالية مفتوحة.",
   LATER_YEAR_CLOSED: "لا يمكن إعادة فتح السنة لأن سنة لاحقة مقفلة.",
   VOUCHER_COUNTER_IS_TREASURY: "لا يمكن استخدام حساب خزينة كطرف مقابل — استخدم التحويل بين الخزائن.",
+  PARTY_EMPLOYEE_REQUIRED: "حساب سلف الموظفين يتطلب تحديد الموظف.",
+  PARTY_ON_NON_EMPLOYEE_ACCOUNT: "لا يمكن ربط موظف إلا بحساب سلف الموظفين.",
+  PARTY_EMPLOYEE_UNIT_MISMATCH: "الموظف يتبع وحدة تشغيلية أخرى غير وحدة القيد.",
+  PARTY_EMPLOYEE_DELETED: "الموظف محذوف — لا تُسجَّل له سلفة جديدة، ويُقبل السداد فقط.",
+  EMPLOYEE_NOT_FOUND: "الموظف غير موجود أو يتبع وحدة تشغيلية أخرى — بدّل الوحدة من الشريط العلوي.",
   VOUCHER_ALREADY_CANCELLED: "السند ملغى بالفعل.",
   INVALID_AMOUNT: "المبلغ يجب أن يكون أكبر من صفر.",
   TRANSFER_SAME_TREASURY: "لا يمكن التحويل إلى نفس الخزينة.",

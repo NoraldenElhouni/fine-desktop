@@ -262,6 +262,8 @@ export interface ManualJournalPayload {
     fx_rate?: number | null;
     operating_unit_id?: string | null;
     client_id?: string | null;
+    /** W5-00: the employee on an employee advances (1215 subtree) line. */
+    employee_id?: string | null;
     memo?: string | null;
   }[];
 }

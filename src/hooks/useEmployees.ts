@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useQuery, useQueries, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import {
   getEmployees,
   getEmployee,
@@ -10,12 +10,48 @@ import {
   GetEmployeesParams,
 } from "../api/endpoints/employees";
 import { CreateEmployeePayload } from "../types/entities";
+import type { Employee } from "../types/entities";
 
 export function useEmployees(params?: GetEmployeesParams) {
   return useQuery({
     queryKey: ["employees", params],
     queryFn: () => getEmployees(params),
   });
+}
+
+/**
+ * Employees a party picker may name. GET /employees keeps the pinned unit's scope
+ * (X-Operating-Unit-ID) unless `operating_unit_id` is passed, which the backend honours
+ * only for company-wide roles — and AppShell always pins a unit. So a company-wide caller
+ * gets one request per unit (sharing `useEmployees({ operating_unit_id })`'s cache) merged
+ * into one list; a unit caller gets their own unit's list.
+ */
+export function useEmployeesForParty(companyWide: boolean, unitIds: string[]) {
+  const perUnit = useQueries({
+    queries: (companyWide ? unitIds : []).map((operating_unit_id) => {
+      const params: GetEmployeesParams = { operating_unit_id };
+      return { queryKey: ["employees", params], queryFn: () => getEmployees(params) };
+    }),
+  });
+  const own = useQuery({
+    queryKey: ["employees", undefined],
+    queryFn: () => getEmployees(),
+    enabled: !companyWide,
+  });
+
+  if (!companyWide) {
+    return { data: own.data ?? [], isLoading: own.isLoading };
+  }
+  const seen = new Set<string>();
+  const data: Employee[] = [];
+  for (const q of perUnit) {
+    for (const emp of q.data ?? []) {
+      if (seen.has(emp.id)) continue;
+      seen.add(emp.id);
+      data.push(emp);
+    }
+  }
+  return { data, isLoading: perUnit.some((q) => q.isLoading) };
 }
 
 export function useEmployee(id?: string) {

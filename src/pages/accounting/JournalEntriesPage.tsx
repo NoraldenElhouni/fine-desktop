@@ -2,12 +2,14 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { BookOpenText, Plus, AlertTriangle, Trash2, ChevronDown, ChevronUp, PencilLine, Undo2, Search, Printer, FileSpreadsheet } from "lucide-react";
 import { useClients } from "../../hooks/useClients";
-import type { Client } from "../../types/entities";
+import { useEmployeesForParty } from "../../hooks/useEmployees";
+import { useOperatingUnits } from "../../hooks/usePartners";
+import type { Client, Employee } from "../../types/entities";
 import { useJournalEntries, useCreateManualEntry, useAccounts, useReverseEntry, useIsCompanyWide } from "../../hooks/useAccounting";
 import { toCsv, downloadCsv } from "../../lib/utils/csv";
 import { PrintDialog, PrintDocument, PrintTable, Cell } from "../../components/print/PrintDocument";
 import { usePermissions } from "../../hooks/usePermissions";
-import { apiErrorMessage, apiErrorPayload } from "../../api/endpoints/production";
+import { LEDGER_ERROR_MESSAGE, apiErrorMessage, apiErrorPayload } from "../../api/endpoints/production";
 import {
   accountingApi,
   JOURNAL_ENTRY_TYPE_LABEL,
@@ -21,7 +23,7 @@ import { SearchableSelect } from "../../components/ui/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useJournalLinesColumns } from "../../components/table-columns/journalLinesColumns";
-import { leafAccounts } from "../../lib/utils/coa";
+import { EMPLOYEE_ADVANCES_ROOT_CODE, accountSubtreeIds, leafAccounts } from "../../lib/utils/coa";
 
 const num = (v: string): number => {
   const n = Number(v);
@@ -100,6 +102,11 @@ interface FormLine {
   key: string;
   account_code: string;
   client_id: string;
+  employee_id: string;
+  /** W5-00: a deliberate untagged 1215 credit that clears a pre-W5-00 balance (credit lines only). */
+  legacy_clear: boolean;
+  /** The unit whose untagged balance the legacy credit clears ("" = balances posted with no unit). */
+  legacy_unit_id: string;
   side: "debit" | "credit";
   amount: string;
   memo: string;
@@ -113,6 +120,9 @@ const emptyLine = (side: "debit" | "credit"): FormLine => ({
   key: Math.random().toString(36).slice(2),
   account_code: "",
   client_id: "",
+  employee_id: "",
+  legacy_clear: false,
+  legacy_unit_id: "",
   side,
   amount: "",
   memo: "",
@@ -198,6 +208,12 @@ export const JournalEntriesPage: React.FC = () => {
   const canReverse = hasRole(["owner", "accounting-manager"]);
   const { data: accounts } = useAccounts();
   const { data: clients = [] } = useClients();
+  const { data: units = [] } = useOperatingUnits();
+  // Manual entries are for company-wide roles, and the backend takes an employee of any unit (it
+  // fills in the employee's unit), so list every unit's employees, not just the pinned unit's.
+  const unitIds = useMemo(() => units.map((u) => u.id), [units]);
+  const { data: employees } = useEmployeesForParty(companyWide, unitIds);
+  const unitNameById = useMemo(() => new Map(units.map((u) => [u.id, u.name])), [units]);
   const createMutation = useCreateManualEntry();
 
   const totalDebit = lines.reduce((s, l) => s + (l.side === "debit" ? num(l.amount) : 0), 0);
@@ -220,6 +236,18 @@ export const JournalEntriesPage: React.FC = () => {
     return new Set((accounts ?? []).filter((a) => inSubtree(a.id)).map((a) => a.account_code));
   }, [accounts]);
 
+  // W5-00 employee advances subtree: account 1215 plus every descendant, by parent_account_id.
+  const advanceCodes = useMemo(() => {
+    const ids = accountSubtreeIds(accounts ?? [], EMPLOYEE_ADVANCES_ROOT_CODE);
+    return new Set((accounts ?? []).filter((a) => ids.has(a.id)).map((a) => a.account_code));
+  }, [accounts]);
+
+  // The employee is required on every advances line. The one exception the backend allows — a
+  // manual credit with no employee clearing an older untagged 1215 balance of one unit, up to that
+  // balance — is an explicit per-line opt-out, never the default.
+  const isLegacyClear = (l: FormLine) => advanceCodes.has(l.account_code) && l.side === "credit" && l.legacy_clear;
+  const employeeRequired = (l: FormLine) => advanceCodes.has(l.account_code) && !isLegacyClear(l);
+
   // A client bound to a sub-account may only sit on that account (backend PARTY_ACCOUNT_MISMATCH).
   const clientFitsAccount = (client: Client, accountId: string | undefined): boolean =>
     !client.account_id || client.account_id === accountId;
@@ -230,6 +258,10 @@ export const JournalEntriesPage: React.FC = () => {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (lines.some((l) => employeeRequired(l) && !l.employee_id)) {
+      setError(LEDGER_ERROR_MESSAGE.PARTY_EMPLOYEE_REQUIRED);
+      return;
+    }
     createMutation.mutate(
       {
         entry_type: entryType,
@@ -240,6 +272,9 @@ export const JournalEntriesPage: React.FC = () => {
           [l.side]: num(l.amount),
           memo: l.memo || undefined,
           ...(l.client_id && receivableCodes.has(l.account_code) ? { client_id: l.client_id } : {}),
+          ...(l.employee_id && employeeRequired(l) ? { employee_id: l.employee_id } : {}),
+          // The backend checks the untagged balance of the line's unit (none = lines posted without one).
+          ...(isLegacyClear(l) && l.legacy_unit_id ? { operating_unit_id: l.legacy_unit_id } : {}),
           ...(l.is_foreign && l.currency.trim()
             ? {
                 currency: l.currency.trim().toUpperCase(),
@@ -259,8 +294,12 @@ export const JournalEntriesPage: React.FC = () => {
         },
         onError: (err) => {
           const payload = apiErrorPayload(err);
+          const message =
+            (payload?.code && PARTY_ERROR_MESSAGES[payload.code]) || apiErrorMessage(err, "تعذر ترحيل القيد.");
           setError(
-            (payload?.code && PARTY_ERROR_MESSAGES[payload.code]) || apiErrorMessage(err, "تعذر ترحيل القيد."),
+            payload?.code === "PARTY_EMPLOYEE_REQUIRED" && payload.untagged_balance != null
+              ? `${message} الرصيد القديم غير المحدد بموظف المتاح للتسوية دون موظف: ${formatNumber(Number(payload.untagged_balance))} د.ل`
+              : message,
           );
         },
       },
@@ -590,6 +629,8 @@ export const JournalEntriesPage: React.FC = () => {
                               clients.some((c) => c.id === l.client_id && clientFitsAccount(c, a.id))
                                 ? l.client_id
                                 : "",
+                            employee_id: a && advanceCodes.has(a.account_code) ? l.employee_id : "",
+                            legacy_clear: a && advanceCodes.has(a.account_code) ? l.legacy_clear : false,
                           })
                         }
                         getOptionId={(a) => a.id}
@@ -618,6 +659,49 @@ export const JournalEntriesPage: React.FC = () => {
                           placeholder="العميل…"
                           size="sm"
                         />
+                      </div>
+                    )}
+                    {employeeRequired(l) && (
+                      <div className="flex flex-col w-44">
+                        <label className="block text-[10px] font-semibold text-app-label-secondary mb-0.5">
+                          الموظف <span className="text-app-status-danger">*</span>
+                        </label>
+                        <SearchableSelect<Employee>
+                          options={employees}
+                          value={employees.find((emp) => emp.id === l.employee_id) ?? null}
+                          onChange={(emp) => patchLine(l.key, { employee_id: emp ? emp.id : "" })}
+                          getOptionId={(emp) => emp.id}
+                          getOptionLabel={(emp) => emp.entity?.name ?? emp.id}
+                          getOptionSubLabel={(emp) => {
+                            const unitName = emp.operating_unit?.name ?? unitNameById.get(emp.operating_unit_id);
+                            return [emp.job_title, companyWide ? unitName : null].filter(Boolean).join(" — ") || undefined;
+                          }}
+                          getOptionSearchText={(emp) =>
+                            `${emp.entity?.name ?? ""} ${emp.job_title ?? ""} ${emp.operating_unit?.name ?? unitNameById.get(emp.operating_unit_id) ?? ""}`
+                          }
+                          placeholder="الموظف…"
+                          required
+                          size="sm"
+                        />
+                      </div>
+                    )}
+                    {isLegacyClear(l) && (
+                      <div className="flex flex-col w-44">
+                        <label className="block text-[10px] font-semibold text-app-label-secondary mb-0.5">
+                          وحدة الرصيد القديم
+                        </label>
+                        <select
+                          value={l.legacy_unit_id}
+                          onChange={(e) => patchLine(l.key, { legacy_unit_id: e.target.value })}
+                          className="w-full px-2 py-1.5 border border-app-separator rounded-lg bg-app-bg-secondary text-xs focus:border-app-accent focus:outline-none"
+                        >
+                          <option value="">بدون وحدة (قيود يدوية قديمة)</option>
+                          {units.map((u) => (
+                            <option key={u.id} value={u.id}>
+                              {u.name}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     )}
                     <div className="flex flex-col">
@@ -671,6 +755,25 @@ export const JournalEntriesPage: React.FC = () => {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-app-separator/40 text-xs">
+                    {advanceCodes.has(l.account_code) && l.side === "credit" && (
+                      <label
+                        className="flex items-center gap-1.5 cursor-pointer text-app-label-secondary hover:text-app-label-primary"
+                        title="قيد دائن دون موظف يسوّي رصيداً قديماً على حساب السلف سُجّل قبل ربط السلف بالموظفين، ولا يتجاوز ذلك الرصيد."
+                      >
+                        <input
+                          type="checkbox"
+                          checked={l.legacy_clear}
+                          onChange={(e) =>
+                            patchLine(l.key, {
+                              legacy_clear: e.target.checked,
+                              employee_id: e.target.checked ? "" : l.employee_id,
+                            })
+                          }
+                          className="rounded border-app-separator text-app-accent focus:ring-app-accent h-3.5 w-3.5"
+                        />
+                        <span className="text-[11px] font-medium">تسوية رصيد قديم غير محدد بموظف</span>
+                      </label>
+                    )}
                     <label className="flex items-center gap-1.5 cursor-pointer text-app-label-secondary hover:text-app-label-primary">
                       <input
                         type="checkbox"
