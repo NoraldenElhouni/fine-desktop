@@ -50,15 +50,22 @@ const validIso = (v: string | null): v is string => {
   return !Number.isNaN(d.getTime()) && isoDate(d) === v;
 };
 
-/** Single source of initial filter values; `?from=&to=` (YYYY-MM-DD) override the defaults. */
+/** The client a client card's statement button passes (`?client_id=`), if any. */
+const clientIdParam = (search?: URLSearchParams): string | null => search?.get("client_id")?.trim() || null;
+
+/**
+ * Single source of initial filter values; `?from=&to=` (YYYY-MM-DD) override the defaults and
+ * `?client_id=` narrows the statement to that client.
+ */
 function defaultFilters(search?: URLSearchParams): DebtorFilters {
   const now = new Date();
   const qFrom = search?.get("from") ?? null;
   const qTo = search?.get("to") ?? null;
+  const qClient = clientIdParam(search);
   return {
     from: validIso(qFrom) ? qFrom : isoDate(new Date(now.getFullYear(), now.getMonth(), 1)),
     to: validIso(qTo) ? qTo : isoDate(now),
-    clientIds: [],
+    clientIds: qClient ? [qClient] : [],
     status: "",
     city: "",
     minBalance: "",
@@ -175,9 +182,10 @@ const inputClass =
 export const DebtorStatementsPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [filters, setFilters] = useState<DebtorFilters>(() => defaultFilters(searchParams));
-  // Auto-submit once on mount when both valid dates arrive via the URL (shortcut from reports).
+  // Auto-submit once on mount when both valid dates arrive via the URL (shortcut from reports)
+  // or when a client card opens its own statement.
   const [submitted, setSubmitted] = useState<DebtorStatementParams | null>(() =>
-    validIso(searchParams.get("from")) && validIso(searchParams.get("to"))
+    (validIso(searchParams.get("from")) && validIso(searchParams.get("to"))) || clientIdParam(searchParams)
       ? toParams(defaultFilters(searchParams))
       : null,
   );

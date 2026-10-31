@@ -75,6 +75,7 @@ export const ClientsPage: React.FC = () => {
   const [editCity, setEditCity] = useState("");
   const [editAddress, setEditAddress] = useState("");
   const [editCreditLimit, setEditCreditLimit] = useState<number>(10000);
+  const [editCreditLimitReason, setEditCreditLimitReason] = useState("");
   const [editPaymentTermsDays, setEditPaymentTermsDays] = useState<number>(30);
   const [editStatus, setEditStatus] = useState<ClientStatus>("active");
   const [editCoaAction, setEditCoaAction] = useState<CoaAction>("none");
@@ -198,6 +199,7 @@ export const ClientsPage: React.FC = () => {
     setEditCity(client.entity?.city || client.entity?.primary_contact?.city || "");
     setEditAddress(client.entity?.address || client.entity?.primary_contact?.address || "");
     setEditCreditLimit(Number(client.credit_limit || 0));
+    setEditCreditLimitReason("");
     setEditPaymentTermsDays(client.payment_terms_days ?? 30);
     setEditStatus(client.status || "active");
     setEditCoaAction(client.account_id ? "link_existing" : "none");
@@ -210,6 +212,9 @@ export const ClientsPage: React.FC = () => {
     });
     setIsEditModalOpen(true);
   };
+
+  const editCreditLimitChanged =
+    editingClient !== null && Number(editCreditLimit) !== Number(editingClient.credit_limit || 0);
 
   const handleUpdateClient = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -250,6 +255,8 @@ export const ClientsPage: React.FC = () => {
       city: editCity.trim() || undefined,
       address: editAddress.trim() || undefined,
       credit_limit: editCreditLimit,
+      // W5-05: a credit limit change is logged with its reason on the client card.
+      credit_limit_reason: editCreditLimitChanged ? editCreditLimitReason.trim() || null : undefined,
       payment_terms_days: editPaymentTermsDays,
       status: editStatus,
       coa_action: editCoaAction,
@@ -893,6 +900,22 @@ export const ClientsPage: React.FC = () => {
                   </select>
                 </div>
               </div>
+
+              {editCreditLimitChanged && (
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                    سبب تغيير الحد الائتماني
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={500}
+                    value={editCreditLimitReason}
+                    onChange={(e) => setEditCreditLimitReason(e.target.value)}
+                    placeholder="يُحفظ في سجل حد الائتمان على بطاقة العميل"
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                  />
+                </div>
+              )}
 
               {/* Chart of Accounts Linkage */}
               <CoaAccountSelector

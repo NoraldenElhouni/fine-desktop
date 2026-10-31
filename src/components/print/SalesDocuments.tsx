@@ -219,6 +219,7 @@ export const DeliveryNoteDocument: React.FC<{ note: DeliveryNote }> = ({ note })
       meta={[
         { label: "العميل", value: note.buyer ?? "—" },
         { label: "الهاتف", value: note.buyer_phone ?? "—" },
+        ...(note.delivery_address ? [{ label: "عنوان التوصيل", value: note.delivery_address }] : []),
         { label: "رقم البيع", value: <span className="font-mono">{note.sale_number}</span> },
       ]}
       signatures={["المستلم", "أمين المخزن", "المراجعة"]}

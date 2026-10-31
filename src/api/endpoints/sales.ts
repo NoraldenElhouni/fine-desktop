@@ -70,6 +70,22 @@ export const SALES_ERROR_MESSAGE: Record<string, string> = {
   POS_DAY_IN_PROGRESS: "لا يمكن تغيير إعداد الورديات أثناء يوم صندوق جارٍ — أقفل يومية الصندوق أولاً ويسري التغيير من اليوم التالي.",
   TREASURY_KIND_MISMATCH: "نوع الحساب المختار لا يطابق طريقة الدفع أو الرد (خزينة/مصرف).",
   INVENTORY_ACCOUNT_NOT_LINKED: "لم يُربط حساب المخزون أو الهالك لهذه الوحدة. راجع الحسابات.",
+  DELIVERY_ADDRESS_INVALID: "عنوان التوصيل يجب أن يكون أحد عناوين العميل المختار.",
+  // Checkout guards (SaleCheckoutService); payment and split codes come from LEDGER_ERROR_MESSAGE.
+  CLIENT_BLOCKED: "هذا العميل محظور، أو غير نشط فلا يشتري بالآجل.",
+  CLIENT_NOT_FOUND: "العميل غير مسجل في هذه الوحدة.",
+  BUYER_REQUIRED: "اختر مشترياً واحداً: عميلاً مسجلاً أو وحدة تشغيل أخرى.",
+  SELF_TRANSFER: "لا يمكن للوحدة أن تبيع لنفسها.",
+  PAYMENT_METHOD_REQUIRED: "اختر طريقة دفع صحيحة.",
+  PAYMENT_EXCEEDS_OUTSTANDING: "المبلغ المدفوع أكبر من المتبقي على البيع.",
+  CHEQUE_DETAILS_REQUIRED: "بيانات الشيك مطلوبة للدفع بالشيك.",
+  EMPTY_SALE: "أضف صنفاً أو حزمة واحدة على الأقل للبيع.",
+  ZERO_TOTAL: "البيع لعميل يجب أن يكون إجماليه أكبر من صفر.",
+  INVALID_LINE: "كل بند يحتاج كمية أكبر من صفر وسعراً صفراً أو أكثر.",
+  INVALID_PRICE_TIER: "فئة السعر يجب أن تكون تجزئة أو جملة.",
+  ITEM_NOT_FOUND: "أحد الأصناف غير موجود في المخزون.",
+  BUNDLE_NOT_FOUND: "الحزمة غير موجودة أو لا تباع في هذه الوحدة.",
+  INTERNAL_BUNDLE_NOT_ALLOWED: "التحويل الداخلي يحمل أصناف المخزون فقط، لا الحزم.",
 };
 
 /**
@@ -436,6 +452,8 @@ export interface CheckoutInput {
   buyer_unit_id?: string | null;
   walk_in_name?: string | null;
   walk_in_phone?: string | null;
+  /** W5-05: one of the buying client's addresses (client sales only); the sale keeps a snapshot of it. */
+  delivery_address_id?: string | null;
   payment_method?: PaymentMethod | null;
   cash_account_id?: string | null;
   notes?: string | null;
@@ -503,6 +521,8 @@ export interface DeliveryNote {
   seller?: string | null;
   buyer?: string | null;
   buyer_phone?: string | null;
+  /** W5-05: the delivery address snapshot taken at checkout, if one was chosen. */
+  delivery_address?: string | null;
   fulfillment_status?: FulfillmentStatus | null;
   lines: {
     line_type: "item" | "bundle";

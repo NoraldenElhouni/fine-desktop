@@ -9,6 +9,7 @@ import {
   FileText,
   Landmark,
   Lock,
+  MapPin,
   Package,
   Play,
   Plus,
@@ -31,7 +32,7 @@ import {
   useHoldCart,
   usePaymentAccounts,
 } from "../../hooks/useSales";
-import { useClients } from "../../hooks/useClients";
+import { useClientAddresses, useClients } from "../../hooks/useClients";
 import { useScanQueue } from "../../hooks/useInventory";
 import { useOperatingUnits } from "../../hooks/useOperatingUnits";
 import { useServerConfigStore } from "../../stores/serverConfigStore";
@@ -180,6 +181,8 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   const [buyerUnitId, setBuyerUnitId] = useState<string | null>(null);
   const [walkInName, setWalkInName] = useState("");
   const [walkInPhone, setWalkInPhone] = useState("");
+  /** W5-05: the delivery address picked for this client; it counts only while that client stays selected. */
+  const [deliveryPick, setDeliveryPick] = useState<{ clientId: string; addressId: string } | null>(null);
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [cashAccountId, setCashAccountId] = useState<string | null>(null);
   const [priceTier, setPriceTier] = useState<"retail" | "wholesale">("retail");
@@ -223,6 +226,22 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   const deleteHeldCart = useDeleteHeldCart();
 
   const client = buyerMode === "client" ? (clients.find((c) => c.id === clientId) ?? null) : null;
+  // A quotation conversion takes no delivery address (the convert endpoint does not accept one).
+  const canPickDeliveryAddress = buyerMode === "client" && Boolean(clientId) && !loadedQuotation;
+  const {
+    data: clientAddresses = [],
+    isLoading: clientAddressesLoading,
+    isError: clientAddressesError,
+  } = useClientAddresses(
+    clientId,
+    canPickDeliveryAddress,
+  );
+  const deliveryAddressId =
+    canPickDeliveryAddress &&
+    deliveryPick?.clientId === clientId &&
+    clientAddresses.some((a) => a.id === deliveryPick.addressId)
+      ? deliveryPick.addressId
+      : null;
   const otherUnits = units.filter((u) => u.id !== currentUnitId);
   const isInternal = buyerMode === "internal";
   const isWalkIn = buyerMode === "walk_in";
@@ -380,6 +399,8 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     setPriceFloorViolations(null);
     setOverrideError(null);
     setIsOverrideDialogOpen(false);
+    // Each sale starts with no delivery address; a pick never carries over to the next sale.
+    setDeliveryPick(null);
     if (loadedQuotation) onQuotationDone();
   };
 
@@ -646,7 +667,10 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
       };
     });
 
-  const buyerPayload = (): Pick<CheckoutInput, "client_id" | "buyer_unit_id" | "walk_in_name" | "walk_in_phone"> => {
+  const buyerPayload = (): Pick<
+    CheckoutInput,
+    "client_id" | "buyer_unit_id" | "walk_in_name" | "walk_in_phone" | "delivery_address_id"
+  > => {
     if (isInternal) {
       return { client_id: null, buyer_unit_id: buyerUnitId };
     }
@@ -658,7 +682,11 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
         ...(trimmedPhone ? { walk_in_phone: trimmedPhone } : {}),
       };
     }
-    return { client_id: clientId, buyer_unit_id: null };
+    return {
+      client_id: clientId,
+      buyer_unit_id: null,
+      ...(deliveryAddressId ? { delivery_address_id: deliveryAddressId } : {}),
+    };
   };
 
   const onSold = (sale: Sale) => {
@@ -697,6 +725,11 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     if (payload?.code === "NO_OPEN_SHIFT") {
       // The shift was closed elsewhere: refetch so the lock falls back to "open a shift".
       queryClient.invalidateQueries({ queryKey: ["posShifts"] });
+    }
+    if (payload?.code === "DELIVERY_ADDRESS_INVALID") {
+      // The picked address is gone or no longer this client's: drop it and reload the list so a retry can succeed.
+      setDeliveryPick(null);
+      queryClient.invalidateQueries({ queryKey: ["clientAddresses", clientId] });
     }
     const fieldError = payload?.errors ? Object.values(payload.errors)[0]?.[0] : undefined;
     setError(
@@ -980,6 +1013,8 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
       resumedMode === "internal" || !payload.invoiceDiscount ? "" : String(payload.invoiceDiscount),
     );
     setClientId(resumedMode === "client" ? (payload.client_id ?? null) : null);
+    // Held carts do not store a delivery address; the cashier picks it again after resuming.
+    setDeliveryPick(null);
     setBuyerUnitId(resumedMode === "internal" ? (payload.buyer_unit_id ?? null) : null);
     setWalkInName(resumedMode === "walk_in" ? (payload.walkInName ?? "") : "");
     setWalkInPhone(resumedMode === "walk_in" ? (payload.walkInPhone ?? "") : "");
@@ -1203,6 +1238,35 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
                   المتاح {formatNumber(available)}
                 </span>
               </div>
+            )}
+            {canPickDeliveryAddress && clientId && (
+              <label className="flex items-center gap-2 text-[11px] font-semibold text-app-label-secondary">
+                <MapPin className="h-3.5 w-3.5 shrink-0 text-app-accent" />
+                <span className="shrink-0">عنوان التوصيل</span>
+                <select
+                  value={deliveryAddressId ?? ""}
+                  onChange={(e) =>
+                    setDeliveryPick(e.target.value ? { clientId, addressId: e.target.value } : null)
+                  }
+                  disabled={clientAddressesLoading || clientAddressesError || clientAddresses.length === 0}
+                  className="min-w-0 flex-1 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-1.5 text-xs font-normal text-app-label-primary focus:border-app-accent focus:outline-none disabled:opacity-60"
+                >
+                  <option value="">
+                    {clientAddressesLoading
+                      ? "جارٍ تحميل العناوين…"
+                      : clientAddressesError
+                        ? "تعذر تحميل العناوين"
+                        : clientAddresses.length === 0
+                          ? "لا توجد عناوين مسجلة لهذا العميل"
+                          : "بدون توصيل"}
+                  </option>
+                  {clientAddresses.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.is_default ? `${a.snapshot} (الافتراضي)` : a.snapshot}
+                    </option>
+                  ))}
+                </select>
+              </label>
             )}
           </div>
         )}
