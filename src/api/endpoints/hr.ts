@@ -90,6 +90,14 @@ export interface PayrollRun {
   total_net: string;
   payslips_count?: number;
   payslips?: Payslip[];
+  /** HR-11: pay terms changed after it was calculated; submit is refused until it is recalculated. */
+  needs_recalculation?: boolean;
+}
+
+/** Company-wide HR settings (GET/PUT /hr-settings). */
+export interface HrSettings {
+  /** The annual leave entitlement the employee card's balance is measured against (default 30). */
+  annual_leave_days: number;
 }
 
 export interface LeaveRequest {
@@ -166,7 +174,15 @@ export const hrApi = {
   setDeductions: (payslipId: string, deductions: Deduction[]) =>
     apiClient.put<Payslip>(`/payslips/${payslipId}/deductions`, { deductions }),
 
-  getLeaveRequests: (params?: { status?: string; page?: number }) =>
+  getLeaveRequests: (params?: {
+    status?: string;
+    employee_id?: string;
+    leave_type?: LeaveType;
+    /** Leave counted in a year is leave that starts in it. */
+    year?: number;
+    page?: number;
+    per_page?: number;
+  }) =>
     apiClient.get<Paginated<LeaveRequest>>("/leave-requests", { params }),
 
   createLeaveRequest: (payload: {
@@ -179,4 +195,8 @@ export const hrApi = {
 
   decideLeave: (id: string, decision: "approve" | "reject", notes?: string) =>
     apiClient.put<LeaveRequest>(`/leave-requests/${id}/${decision}`, { notes }),
+
+  getHrSettings: () => apiClient.get<HrSettings>("/hr-settings"),
+
+  updateHrSettings: (payload: HrSettings) => apiClient.put<HrSettings>("/hr-settings", payload),
 };

@@ -2,6 +2,7 @@ export type EntityType = 'individual' | 'organization';
 
 export type EntityRoleType = 'employee' | 'client' | 'vendor';
 
+/** piece_rate stays only for legacy rows: payroll does not support it and the API refuses it (W5-01). */
 export type PayType = 'hourly' | 'monthly' | 'piece_rate';
 
 export type EmployeeStatus = 'active' | 'terminated' | 'on_leave';
@@ -110,6 +111,14 @@ export interface Employee {
   monthly_salary?: string | number | null;
   hourly_rate?: string | number | null;
   hire_date: string;
+  employee_number?: string | null;
+  contract_start?: string | null;
+  contract_end?: string | null;
+  probation_end?: string | null;
+  termination_date?: string | null;
+  /** Present only for the pay roles (owner, hr-manager, accounting-manager). */
+  bank_name?: string | null;
+  bank_account?: string | null;
   status: EmployeeStatus;
   record_version?: number;
   entity?: Entity;
@@ -203,7 +212,33 @@ export interface CreateEmployeePayload {
   monthly_salary?: number | null;
   hourly_rate?: number | null;
   hire_date: string;
+  employee_number?: string | null;
+  contract_start?: string | null;
+  contract_end?: string | null;
+  probation_end?: string | null;
+  termination_date?: string | null;
+  bank_name?: string | null;
+  bank_account?: string | null;
   status?: EmployeeStatus;
+}
+
+/**
+ * PUT /employees/{id}: the card fields only. Pay type and rates are refused here;
+ * they change through a dated pay change (POST /employees/{id}/compensations, HR-11).
+ */
+export interface UpdateEmployeePayload {
+  employee_number?: string | null;
+  job_title?: string;
+  labor_role?: string | null;
+  hire_date?: string;
+  contract_start?: string | null;
+  contract_end?: string | null;
+  probation_end?: string | null;
+  termination_date?: string | null;
+  bank_name?: string | null;
+  bank_account?: string | null;
+  status?: EmployeeStatus;
+  record_version: number;
 }
 
 /** "auto" = the server opens the next receivable sub-account under 122. */

@@ -135,7 +135,7 @@ export function usePayslipsColumns({ run, onError }: UsePayslipsColumnsArgs): Co
         header: "استقطاعات",
         enableSorting: false,
         cell: ({ row }) => (
-          <DeductionEditor payslip={row.original} editable={run.status === "calculated"} onError={onError} />
+          <DeductionEditor payslip={row.original} editable={run.status === "calculated" && !run.needs_recalculation} onError={onError} />
         ),
       },
       {
@@ -145,6 +145,6 @@ export function usePayslipsColumns({ run, onError }: UsePayslipsColumnsArgs): Co
         cell: ({ row }) => fmt(row.original.net_pay),
       },
     ],
-    [run.status, onError],
+    [run.status, run.needs_recalculation, onError],
   );
 }

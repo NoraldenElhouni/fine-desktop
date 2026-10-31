@@ -30,7 +30,7 @@ import {
   useOpenPayrollRun,
   usePayrollAction,
 } from "../../hooks/useHr";
-import { apiErrorMessage } from "../../api/endpoints/production";
+import { apiErrorMessage, apiErrorPayload } from "../../api/endpoints/production";
 import { TreasurySelect } from "../../components/treasury/TreasurySelect";
 import {
   PAYROLL_STATUS_LABEL,
@@ -39,6 +39,7 @@ import {
 } from "../../api/endpoints/hr";
 import { formatNumber } from "../../lib/utils/format";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { usePayslipsColumns } from "../../components/table-columns/payslipsColumns";
 
 const STATUS_STYLE: Record<PayrollRun["status"], string> = {
@@ -62,6 +63,18 @@ const NEXT_ACTION: Partial<
   approved: { action: "mark-paid", label: "تأكيد الصرف", desc: "صرف الرواتب للموظفين وإثبات السداد" },
   paid: { action: "post", label: "ترحيل للدفاتر", desc: "ترحيل قيود الرواتب والالتزامات للدفاتر المحاسبية" },
 };
+
+/** HR-11: a pay change reached this calculated run after it was calculated, so the backend refuses submit. */
+const RECALCULATE_ACTION = {
+  action: "calculate" as const,
+  label: "إعادة احتساب المسير",
+  desc: "تغيّرت أجور بعض الموظفين بعد احتساب هذا المسير؛ أعد احتسابه قبل إرساله للاعتماد.",
+};
+
+function nextActionFor(run: PayrollRun) {
+  if (run.status === "calculated" && run.needs_recalculation) return RECALCULATE_ACTION;
+  return NEXT_ACTION[run.status];
+}
 
 function getPreviousMonth(p: string): string {
   const [year, month] = p.split("-").map(Number);
@@ -149,6 +162,7 @@ export const PayrollPage: React.FC = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [postingRun, setPostingRun] = useState<PayrollRun | null>(null);
   const [postTreasuryId, setPostTreasuryId] = useState("");
+  const [recalcRun, setRecalcRun] = useState<PayrollRun | null>(null);
   const [createPeriod, setCreatePeriod] = useState<string>(currentMonthStr);
 
   const { data: allRunsData, isLoading: isAllRunsLoading } = usePayrollRuns({ per_page: 50 });
@@ -165,7 +179,16 @@ export const PayrollPage: React.FC = () => {
   // Fetch payslips for the active run
   const { data: payslips, isLoading: isPayslipsLoading } = usePayslips(activeRun?.id);
 
-  const fail = (err: unknown, fallback: string) => setError(apiErrorMessage(err, fallback));
+  const fail = (err: unknown, fallback: string) => {
+    const payload = apiErrorPayload(err);
+    // HR-11: a pay change flagged the run after this page loaded it; the refusal is English.
+    // usePayrollMutation refetches the runs on error, so the recalculate action appears.
+    if (payload?.code === "INVALID_PAYROLL_TRANSITION" && /recalculate it before submitting/.test(payload.message ?? "")) {
+      setError(RECALCULATE_ACTION.desc);
+      return;
+    }
+    setError(apiErrorMessage(err, fallback));
+  };
 
   const openRun = (targetPeriod: string) => {
     setError(null);
@@ -180,7 +203,7 @@ export const PayrollPage: React.FC = () => {
   };
 
   const act = (run: PayrollRun) => {
-    const next = NEXT_ACTION[run.status];
+    const next = nextActionFor(run);
     if (!next) return;
     setError(null);
     // Posting writes the journal, so it asks which treasury the net pay left from.
@@ -188,11 +211,49 @@ export const PayrollPage: React.FC = () => {
       setPostingRun(run);
       return;
     }
+    // Recalculating rebuilds every payslip, which drops hand-entered deductions: confirm first.
+    if (next === RECALCULATE_ACTION) {
+      setRecalcRun(run);
+      return;
+    }
     actionMutation.mutate(
       { id: run.id, action: next.action },
       { onError: (err) => fail(err, "تعذر تنفيذ الإجراء.") },
     );
   };
+
+  const recalculateRun = () => {
+    if (!recalcRun) return;
+    const run = recalcRun;
+    actionMutation.mutate(
+      { id: run.id, action: "calculate" },
+      {
+        onSuccess: () => setRecalcRun(null),
+        onError: (err) => {
+          setRecalcRun(null);
+          fail(err, "تعذر إعادة احتساب المسير.");
+        },
+      },
+    );
+  };
+
+  // Payslips of the run being recalculated that carry deductions (only known for the loaded run).
+  const manualDeductionCount = useMemo(() => {
+    if (!recalcRun || recalcRun.id !== activeRun?.id) return null;
+    return (payslips ?? []).filter((p) => (p.deductions ?? []).length > 0).length;
+  }, [recalcRun, activeRun, payslips]);
+
+  const recalcMessage = recalcRun
+    ? [
+        `إعادة احتساب مسير ${recalcRun.period} تحذف جميع القسائم الحالية وتبنيها من جديد على الأجور المحدّثة.`,
+        "تُحذف معها جميع الاستقطاعات المُدخلة على القسائم؛ أعد إدخالها بعد الاحتساب.",
+        manualDeductionCount
+          ? `عدد القسائم التي عليها استقطاعات: ${manualDeductionCount}.`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" ")
+    : "";
 
   const postRun = () => {
     if (!postingRun || !postTreasuryId) return;
@@ -449,24 +510,40 @@ export const PayrollPage: React.FC = () => {
                       >
                         {PAYROLL_STATUS_LABEL[activeRun.status]}
                       </span>
+                      {activeRun.status === "calculated" && activeRun.needs_recalculation && (
+                        <span className="px-2.5 py-0.5 text-xs font-bold rounded-full border bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30">
+                          يحتاج إعادة احتساب
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-app-label-secondary mt-0.5">
-                      {NEXT_ACTION[activeRun.status]?.desc ?? "المسير معتمد ومرحل بالكامل إلى شجرة الحسابات."}
+                      {nextActionFor(activeRun)?.desc ?? "المسير معتمد ومرحل بالكامل إلى شجرة الحسابات."}
                     </p>
                   </div>
                 </div>
 
-                {NEXT_ACTION[activeRun.status] && (
+                {nextActionFor(activeRun) && (
                   <button
                     onClick={() => act(activeRun)}
                     disabled={actionMutation.isPending}
                     className="flex items-center gap-1.5 rounded-xl bg-app-accent px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
                   >
                     <ArrowUpRight className="w-4 h-4" />
-                    {NEXT_ACTION[activeRun.status]?.label}
+                    {nextActionFor(activeRun)?.label}
                   </button>
                 )}
               </div>
+
+              {activeRun.status === "calculated" && activeRun.needs_recalculation && (
+                <div className="flex items-start gap-2 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-xs text-rose-700 dark:text-rose-300">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>
+                    سُجّل تغيير أجر يمس شهر {activeRun.period} بعد احتساب هذا المسير، فالقسائم الحالية محسوبة على الأجور القديمة.
+                    لا يمكن إرساله للاعتماد حتى يُعاد احتسابه. إعادة الاحتساب تحذف الاستقطاعات المُدخلة يدوياً على القسائم،
+                    فأدخلها بعد الاحتساب لا قبله.
+                  </span>
+                </div>
+              )}
 
               {/* KPI Summary Cards Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -756,7 +833,7 @@ export const PayrollPage: React.FC = () => {
             ) : (
               <div className="divide-y divide-app-separator">
                 {allRuns.map((run) => {
-                  const next = NEXT_ACTION[run.status];
+                  const next = nextActionFor(run);
 
                   return (
                     <div
@@ -780,6 +857,11 @@ export const PayrollPage: React.FC = () => {
                         >
                           {PAYROLL_STATUS_LABEL[run.status]}
                         </span>
+                        {run.status === "calculated" && run.needs_recalculation && (
+                          <span className="px-2.5 py-0.5 text-[10px] font-bold rounded-full border bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30">
+                            يحتاج إعادة احتساب
+                          </span>
+                        )}
                         <span className="text-xs text-app-label-secondary font-mono">
                           {run.payslips_count ?? 0} موظف
                         </span>
@@ -873,6 +955,17 @@ export const PayrollPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={recalcRun !== null}
+        onClose={() => setRecalcRun(null)}
+        onConfirm={recalculateRun}
+        title={recalcRun ? `إعادة احتساب مسير ${recalcRun.period}` : ""}
+        message={recalcMessage}
+        confirmText="إعادة الاحتساب"
+        variant="warning"
+        isLoading={actionMutation.isPending}
+      />
 
       {/* Modal: Open New Payroll Run */}
       {isCreateOpen && (

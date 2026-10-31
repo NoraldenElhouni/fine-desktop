@@ -75,6 +75,16 @@ export const EmployeesPage: React.FC = () => {
       return;
     }
 
+    // StoreEmployeeRequest refuses these with English messages; catch them here in Arabic.
+    if (payType === "monthly" && monthlySalary.trim() === "") {
+      toast.error("أدخل الراتب الشهري للموظف براتب شهري.");
+      return;
+    }
+    if (payType === "hourly" && !laborRole.trim() && hourlyRate.trim() === "") {
+      toast.error("موظف بالساعة بلا دور عمالي يحتاج أجر ساعة شخصياً.");
+      return;
+    }
+
     const payload = {
       operating_unit_id: unitId,
       job_title: jobTitle,
@@ -384,7 +394,6 @@ export const EmployeesPage: React.FC = () => {
               >
                 <option value="monthly">راتب شهري ثابت</option>
                 <option value="hourly">أجر بالساعة</option>
-                <option value="piece_rate">حسب الإنتاج (بالقطعة)</option>
               </select>
             </div>
 
@@ -392,13 +401,14 @@ export const EmployeesPage: React.FC = () => {
               {payType === "monthly" && (
                 <div>
                   <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                    الراتب الشهري (LYD)
+                    الراتب الشهري (LYD) <span className="text-app-status-danger">*</span>
                   </label>
                   <input
                     type="number"
                     min="0"
                     step="50"
                     placeholder="مثال: 1500"
+                    required
                     value={monthlySalary}
                     onChange={(e) => setMonthlySalary(e.target.value)}
                     className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
@@ -409,12 +419,14 @@ export const EmployeesPage: React.FC = () => {
                 <div>
                   <label className="block text-xs font-semibold text-app-label-secondary mb-1">
                     الأجر بالساعة (LYD)
+                    {!laborRole.trim() && <span className="text-app-status-danger"> *</span>}
                   </label>
                   <input
                     type="number"
                     min="0"
                     step="1"
-                    placeholder="مثال: 10"
+                    placeholder={laborRole.trim() ? "اتركه فارغاً ليُحتسب بأجر الدور" : "مثال: 10"}
+                    required={!laborRole.trim()}
                     value={hourlyRate}
                     onChange={(e) => setHourlyRate(e.target.value)}
                     className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { hrApi, type Deduction, type AttendanceStatus, type LeaveType } from "../api/endpoints/hr";
+import { hrApi, type Deduction, type AttendanceStatus, type LeaveType, type HrSettings } from "../api/endpoints/hr";
 
 export function useAttendance(params?: {
   work_date?: string;
@@ -93,6 +93,12 @@ function usePayrollMutation<TArgs>(fn: (args: TArgs) => Promise<unknown>) {
       qc.invalidateQueries({ queryKey: ["journalEntries"] });
       qc.invalidateQueries({ queryKey: ["trialBalance"] });
     },
+    // A refusal often means the run moved on the server (another user, or HR-11's
+    // needs_recalculation flag): refetch so the page shows its real state and action.
+    onError: () => {
+      qc.invalidateQueries({ queryKey: ["payrollRuns"] });
+      qc.invalidateQueries({ queryKey: ["payslips"] });
+    },
   });
 }
 
@@ -125,6 +131,34 @@ export function useLeaveRequests(status?: string) {
   return useQuery({
     queryKey: ["leaveRequests", status],
     queryFn: async () => (await hrApi.getLeaveRequests(status ? { status } : undefined)).data,
+  });
+}
+
+/**
+ * One employee's leave requests that start in `year` (the employee card's leave tab).
+ * Keyed under "leaveRequests" so creating or deciding a request refreshes it too.
+ */
+export function useEmployeeLeaveRequests(employeeId?: string, year?: number) {
+  return useQuery({
+    queryKey: ["leaveRequests", { employee_id: employeeId, year }],
+    queryFn: async () =>
+      (await hrApi.getLeaveRequests({ employee_id: employeeId, year, per_page: 200 })).data,
+    enabled: Boolean(employeeId),
+  });
+}
+
+export function useHrSettings() {
+  return useQuery({
+    queryKey: ["hrSettings"],
+    queryFn: async () => (await hrApi.getHrSettings()).data,
+  });
+}
+
+export function useUpdateHrSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: HrSettings) => hrApi.updateHrSettings(payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["hrSettings"] }),
   });
 }
 

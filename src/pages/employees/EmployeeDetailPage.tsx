@@ -1,16 +1,15 @@
 import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, CalendarCheck, Receipt, UserCircle } from "lucide-react";
+import { ArrowRight, CalendarCheck, CalendarOff, FileText, History, Pencil, Receipt, UserCircle } from "lucide-react";
 import { useEmployee, useEmployeeAttendance, useEmployeePayslips } from "../../hooks/useEmployees";
 import { ATTENDANCE_STATUS_LABEL, PAYROLL_STATUS_LABEL } from "../../api/endpoints/hr";
+import { PAY_ROLES } from "../../api/endpoints/employees";
+import { usePermissions } from "../../hooks/usePermissions";
 import { formatDate } from "../../lib/utils/format";
-import type { EmployeeStatus, PayType } from "../../types/entities";
-
-const STATUS_LABEL: Record<EmployeeStatus, string> = {
-  active: "على رأس العمل",
-  on_leave: "في إجازة",
-  terminated: "منتهية خدمته",
-};
+import type { Employee, PayType } from "../../types/entities";
+import { EmployeeEditDialog, EMPLOYEE_STATUS_LABEL as STATUS_LABEL } from "./EmployeeEditDialog";
+import { EmployeeCompensationTab } from "./EmployeeCompensationTab";
+import { EmployeeLeaveTab } from "./EmployeeLeaveTab";
 
 const PAY_TYPE_LABEL: Record<PayType, string> = {
   monthly: "راتب شهري",
@@ -20,7 +19,7 @@ const PAY_TYPE_LABEL: Record<PayType, string> = {
 
 const money = (v: string | number | null | undefined) => Number(v ?? 0).toLocaleString();
 
-type Tab = "attendance" | "payslips";
+type Tab = "attendance" | "payslips" | "leave" | "salary" | "contract";
 
 const Pager: React.FC<{ page: number; lastPage: number; onChange: (page: number) => void }> = ({ page, lastPage, onChange }) =>
   lastPage > 1 ? (
@@ -46,13 +45,56 @@ const Pager: React.FC<{ page: number; lastPage: number; onChange: (page: number)
 const th = "px-3 py-2 text-start text-[11px] font-semibold text-app-label-secondary";
 const td = "px-3 py-2 text-xs text-app-label-primary";
 
-/** One employee: master data plus their attendance and payslip history. */
+const dateOrDash = (v?: string | null) => (v ? formatDate(v) : "—");
+
+/** The contract card. Bank details are in the payload only for the pay roles. */
+const ContractTab: React.FC<{ employee: Employee; showBank: boolean }> = ({ employee, showBank }) => {
+  const rows: { label: string; value: React.ReactNode }[] = [
+    { label: "الرقم الوظيفي", value: employee.employee_number || "—" },
+    { label: "تاريخ التعيين", value: dateOrDash(employee.hire_date) },
+    { label: "بداية العقد", value: dateOrDash(employee.contract_start) },
+    { label: "نهاية العقد", value: dateOrDash(employee.contract_end) },
+    { label: "نهاية فترة التجربة", value: dateOrDash(employee.probation_end) },
+    { label: "تاريخ انتهاء الخدمة", value: dateOrDash(employee.termination_date) },
+    ...(showBank
+      ? [
+          { label: "المصرف", value: employee.bank_name || "—" },
+          {
+            label: "رقم الحساب المصرفي",
+            value: employee.bank_account ? (
+              <span className="font-mono" dir="ltr">
+                {employee.bank_account}
+              </span>
+            ) : (
+              "—"
+            ),
+          },
+        ]
+      : []),
+  ];
+  return (
+    <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
+      {rows.map((row) => (
+        <div key={row.label} className="flex items-center justify-between gap-3 border-b border-app-separator px-4 py-3">
+          <dt className="text-xs font-semibold text-app-label-secondary">{row.label}</dt>
+          <dd className="text-xs font-bold text-app-label-primary">{row.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+};
+
+/** One employee: master data, attendance, payslips, leave, pay history and contract, with an edit dialog. */
 export const EmployeeDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("attendance");
   const [attendancePage, setAttendancePage] = useState(1);
   const [payslipPage, setPayslipPage] = useState(1);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const { hasRole, roleSlugs } = usePermissions();
+  // HrSettingsController::update checks the exact slugs; hasRole would also pass admin roles it refuses.
+  const canEditEntitlement = roleSlugs.some((s) => s === "owner" || s === "hr-manager");
 
   const { data: employee, isLoading, isError } = useEmployee(id);
   const attendance = useEmployeeAttendance(id, attendancePage);
@@ -70,6 +112,10 @@ export const EmployeeDetailPage: React.FC = () => {
       </div>
     );
   }
+
+  // HR-10: the roles that set pay also see and set bank details; the API sends the
+  // bank keys only to them, so their presence confirms the role server-side.
+  const holdsPayRole = hasRole(PAY_ROLES) && "bank_name" in employee;
 
   const pay =
     employee.pay_type === "monthly"
@@ -94,10 +140,18 @@ export const EmployeeDetailPage: React.FC = () => {
             {employee.entity?.name ?? "موظف"}
           </h1>
           <p className="text-xs text-app-label-secondary mt-1">
+            {employee.employee_number ? <span className="font-mono">{employee.employee_number} · </span> : null}
             {employee.job_title}
             {employee.operating_unit?.name ? ` · ${employee.operating_unit.name}` : ""}
           </p>
         </div>
+        <button
+          onClick={() => setIsEditOpen(true)}
+          className="ms-auto inline-flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+          تعديل
+        </button>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -118,6 +172,9 @@ export const EmployeeDetailPage: React.FC = () => {
         {([
           ["attendance", "الدوام", CalendarCheck],
           ["payslips", "قسائم الراتب", Receipt],
+          ["leave", "الإجازات", CalendarOff],
+          ["salary", "سجل الراتب", History],
+          ["contract", "بيانات العقد", FileText],
         ] as const).map(([key, label, Icon]) => (
           <button
             key={key}
@@ -133,7 +190,13 @@ export const EmployeeDetailPage: React.FC = () => {
       </div>
 
       <div className="bg-app-bg-primary rounded-2xl border border-app-separator shadow-sm overflow-hidden">
-        {tab === "attendance" ? (
+        {tab === "leave" ? (
+          <EmployeeLeaveTab employeeId={employee.id} canEditEntitlement={canEditEntitlement} />
+        ) : tab === "salary" ? (
+          <EmployeeCompensationTab employee={employee} canChangePay={holdsPayRole} />
+        ) : tab === "contract" ? (
+          <ContractTab employee={employee} showBank={holdsPayRole} />
+        ) : tab === "attendance" ? (
           <>
             <table className="w-full">
               <thead className="bg-app-bg-secondary border-b border-app-separator">
@@ -197,6 +260,13 @@ export const EmployeeDetailPage: React.FC = () => {
           </>
         )}
       </div>
+
+      <EmployeeEditDialog
+        employee={employee}
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+        canEditBank={holdsPayRole}
+      />
     </div>
   );
 };
