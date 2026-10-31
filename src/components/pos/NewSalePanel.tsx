@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   Boxes,
   Building2,
+  CalendarClock,
   Clock,
   FileText,
   Landmark,
@@ -82,7 +83,13 @@ import { CashTenderModal } from "./CashTenderModal";
 import { SplitPaymentModal } from "./SplitPaymentModal";
 import { PriceOverrideDialog } from "./PriceOverrideDialog";
 import { QuotationPrintDialog } from "../print/SalesDocuments";
-import { formatNumber } from "../../lib/utils/format";
+import { formatNumber, localDateIso } from "../../lib/utils/format";
+import {
+  InstallmentPlanDraft,
+  InstallmentPlanFields,
+  buildInstallmentPlan,
+  defaultInstallmentDraft,
+} from "../sales/InstallmentPlanFields";
 import {
   Dialog,
   DialogBody,
@@ -185,6 +192,9 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   const [deliveryPick, setDeliveryPick] = useState<{ clientId: string; addressId: string } | null>(null);
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [cashAccountId, setCashAccountId] = useState<string | null>(null);
+  /** W5-08: «تقسيط» on a receivable sale — the plan rides on the checkout. */
+  const [installmentEnabled, setInstallmentEnabled] = useState(false);
+  const [installmentDraft, setInstallmentDraft] = useState<InstallmentPlanDraft>(defaultInstallmentDraft);
   const [priceTier, setPriceTier] = useState<"retail" | "wholesale">("retail");
   // W5-06: true while the wholesale tier was set by picking a wholesale-group client
   // (not by the cashier), so picking a non-wholesale client puts it back on retail.
@@ -393,7 +403,31 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   const creditLimit = Number(client?.credit_limit ?? 0);
   const balance = Number(client?.current_balance ?? 0);
   const available = creditLimit - balance;
-  const needsApproval = method === "receivable" && client !== null && total > available;
+  // W5-08: installments ride only on a registered client's receivable checkout (a quotation
+  // conversion does not take a plan). A cash down payment goes into the open shift's drawer.
+  const canInstall = !isInternal && buyerMode === "client" && Boolean(clientId) && !loadedQuotation && method === "receivable";
+  const installmentActive = canInstall && installmentEnabled;
+  const installmentPlan = installmentActive
+    ? buildInstallmentPlan(installmentDraft, total, localDateIso(), shiftLock?.enabled ? shiftDrawerId : null)
+    : null;
+  // The typed down payment counts as soon as it is a valid amount, before its treasury or bank
+  // account is picked, so a missing account never reads as an over-limit sale.
+  const draftDownRaw = installmentDraft.downPayment.trim();
+  const draftDown = draftDownRaw === "" ? 0 : Number(draftDownRaw);
+  const installmentDown =
+    installmentActive && Number.isFinite(draftDown) && draftDown > 0 && draftDown < total - 0.0001 ? draftDown : 0;
+  const installmentCashDown = installmentActive && installmentDown > 0 && installmentDraft.downPaymentMethod === "cash";
+  /** The open shifts are still loading: a cash down payment waits, without asking to open a shift. */
+  const installmentShiftLoading = installmentCashDown && Boolean(shiftLock?.enabled && shiftLock.isLoading);
+  const installmentNeedsShift =
+    installmentCashDown && Boolean(shiftLock?.enabled) && !shiftLock?.isLoading && !shiftDrawerId;
+  // Only what stays on credit after the down payment counts against the limit.
+  const creditExposure = total - installmentDown;
+  const needsApproval = method === "receivable" && client !== null && creditExposure > available;
+  /** An over-limit sale goes to credit approval first; a plan cannot ride on it (INSTALLMENT_CREDIT_PENDING). */
+  const installmentBlockedByCredit = installmentActive && needsApproval;
+  /** The sale will be sent for credit approval (never with a plan: that one is blocked instead). */
+  const showApprovalNotice = needsApproval && !installmentBlockedByCredit;
   const hasBundle = cart.some((l) => l.lineType === "bundle");
 
   /**
@@ -417,6 +451,8 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     setIsOverrideDialogOpen(false);
     // Each sale starts with no delivery address; a pick never carries over to the next sale.
     setDeliveryPick(null);
+    setInstallmentEnabled(false);
+    setInstallmentDraft(defaultInstallmentDraft());
     if (loadedQuotation) onQuotationDone();
   };
 
@@ -846,6 +882,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
             ...(isInternal ? {} : { invoice_discount: invDiscount, price_tier: priceTier }),
             lines,
             tendered_amount: tenderedAmount,
+            ...(installmentActive && installmentPlan?.input ? { installment_plan: installmentPlan.input } : {}),
           },
         };
 
@@ -1073,8 +1110,11 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
       resumedMode === "internal" || !payload.invoiceDiscount ? "" : String(payload.invoiceDiscount),
     );
     setClientId(resumedMode === "client" ? (payload.client_id ?? null) : null);
-    // Held carts do not store a delivery address; the cashier picks it again after resuming.
+    // Held carts do not store a delivery address or an installment plan; the cashier picks
+    // them again after resuming.
     setDeliveryPick(null);
+    setInstallmentEnabled(false);
+    setInstallmentDraft(defaultInstallmentDraft());
     setBuyerUnitId(resumedMode === "internal" ? (payload.buyer_unit_id ?? null) : null);
     setWalkInName(resumedMode === "walk_in" ? (payload.walkInName ?? "") : "");
     setWalkInPhone(resumedMode === "walk_in" ? (payload.walkInPhone ?? "") : "");
@@ -1145,7 +1185,12 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   const buyerValid = isInternal ? Boolean(buyerUnitId) : isWalkIn ? true : Boolean(clientId);
   const paymentValid =
     isInternal ||
-    method === "receivable" ||
+    (method === "receivable" &&
+      (!installmentActive ||
+        (Boolean(installmentPlan?.input) &&
+          !installmentNeedsShift &&
+          !installmentShiftLoading &&
+          !installmentBlockedByCredit))) ||
     method === "split" ||
     (Boolean(cashAccountId) && !needsShift && !isShiftLoading);
   const canCheckout = linesValid && !invoiceDiscountInvalid && buyerValid && paymentValid && (isInternal || total > 0);
@@ -1478,10 +1523,66 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
             </div>
           ) : (
             <p className={`text-[11px] ${needsApproval ? "text-app-status-warning font-semibold" : "text-app-label-tertiary"}`}>
-              {needsApproval
-                ? `هذا البيع يتجاوز المتاح من سقف العميل بمقدار ${formatNumber(total - available)} — سيُرسل لموافقة المدير ولن يُصرف شيء قبلها.`
-                : "يُقيَّد المبلغ على حساب ذمم العميل ويُحصَّل لاحقاً."}
+              {installmentBlockedByCredit
+                ? `هذا البيع يتجاوز المتاح من سقف العميل بمقدار ${formatNumber(creditExposure - available)} — لا يمكن تقسيطه قبل موافقة المدير.`
+                : showApprovalNotice
+                  ? `هذا البيع يتجاوز المتاح من سقف العميل بمقدار ${formatNumber(creditExposure - available)} — سيُرسل لموافقة المدير ولن يُصرف شيء قبلها.`
+                  : "يُقيَّد المبلغ على حساب ذمم العميل ويُحصَّل لاحقاً."}
             </p>
+          )}
+
+          {canInstall && (
+            <div className="space-y-3 rounded-xl border border-app-separator bg-app-bg-secondary/50 p-3">
+              <label className="flex items-center gap-2 text-xs font-bold text-app-label-primary cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={installmentEnabled}
+                  onChange={(e) => setInstallmentEnabled(e.target.checked)}
+                  className="rounded border-app-separator text-app-accent focus:ring-app-accent h-4 w-4"
+                />
+                <CalendarClock className="h-4 w-4 text-app-accent" />
+                تقسيط
+                <span className="font-normal text-[11px] text-app-label-tertiary">أقساط شهرية متساوية بلا فوائد</span>
+              </label>
+              {installmentEnabled && (
+                <>
+                  <InstallmentPlanFields
+                    draft={installmentDraft}
+                    onChange={setInstallmentDraft}
+                    owed={total}
+                    earliestDueDate={localDateIso()}
+                    treasuries={paymentAccounts}
+                    lockedCashAccount={shiftDrawerId ? { id: shiftDrawerId, name: shiftDrawerName } : null}
+                    cashNotice={
+                      installmentShiftLoading ? (
+                        <p className="text-[11px] text-app-label-tertiary">جارٍ التحقق من الوردية المفتوحة…</p>
+                      ) : installmentNeedsShift ? (
+                        <div className="flex items-center justify-between gap-2 rounded-xl border border-app-status-warning/40 bg-app-status-warning/10 p-2.5 text-[11px] font-semibold text-app-status-warning">
+                          <span className="flex items-center gap-1.5">
+                            <AlertTriangle className="h-4 w-4 shrink-0" />
+                            لا توجد وردية مفتوحة — افتح وردية لقبض الدفعة المقدمة نقداً، أو اقبضها عبر المصرف.
+                          </span>
+                          <button
+                            type="button"
+                            onClick={shiftLock?.onOpenShift}
+                            className="shrink-0 rounded-lg bg-app-accent px-2.5 py-1 text-[11px] font-bold text-white hover:opacity-90"
+                          >
+                            فتح وردية
+                          </button>
+                        </div>
+                      ) : null
+                    }
+                    error={total > 0 ? installmentPlan?.error : null}
+                  />
+                  {installmentBlockedByCredit && (
+                    <p className="flex items-start gap-1.5 text-[11px] font-semibold text-app-status-warning">
+                      <AlertTriangle className="h-4 w-4 shrink-0" />
+                      {SALES_ERROR_MESSAGE.INSTALLMENT_CREDIT_PENDING}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
           )}
         </section>
       )}
@@ -1750,7 +1851,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
               ? "جارٍ إتمام البيع…"
               : isInternal
                 ? "إتمام التحويل الداخلي"
-                : needsApproval
+                : showApprovalNotice
                   ? `إرسال للموافقة — ${formatNumber(total)} د.ل`
                   : `إتمام البيع — ${formatNumber(total)} د.ل`}
           </button>

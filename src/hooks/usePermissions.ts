@@ -50,11 +50,12 @@ export function usePermissions() {
     return roleSlugs.some((slug) => normalizedAllowed.includes(slug));
   };
 
+  /** `a|b` holds when the user has either one, like the API's require.module alternatives. */
   const hasPermission = (permission: string): boolean => {
     if (!user) return false;
     if (isOwner) return true;
     if (permissions.includes("*")) return true;
-    return permissions.includes(permission);
+    return permission.split("|").some((p) => permissions.includes(p.trim()));
   };
 
   /** Role list (if any) AND view permission (if any) — mirrors the API's two checks. */

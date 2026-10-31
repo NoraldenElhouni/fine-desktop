@@ -3,6 +3,7 @@ import type { CashAccount } from "../../types/procurement";
 import { LEDGER_ERROR_MESSAGE, apiErrorMessage, apiErrorPayload } from "./production";
 import type { ApiErrorPayload } from "./production";
 import type { InventoryItem } from "./inventory";
+import type { InstallmentPlan, InstallmentPlanInput } from "./installments";
 
 /*
  * The POS is the one place every sale happens — to a registered client or to
@@ -86,6 +87,16 @@ export const SALES_ERROR_MESSAGE: Record<string, string> = {
   ITEM_NOT_FOUND: "أحد الأصناف غير موجود في المخزون.",
   BUNDLE_NOT_FOUND: "الحزمة غير موجودة أو لا تباع في هذه الوحدة.",
   INTERNAL_BUNDLE_NOT_ALLOWED: "التحويل الداخلي يحمل أصناف المخزون فقط، لا الحزم.",
+  // W5-08: installment schedules (InstallmentPlanService / SaleCheckoutService).
+  INSTALLMENTS_NEED_RECEIVABLE: "التقسيط متاح فقط للبيع الآجل (ذمم) لعميل مسجل، بعد إتمام البيع.",
+  INSTALLMENT_COUNT_INVALID: "عدد الأقساط غير صحيح: من 1 إلى 60 قسطاً، ولا يقل القسط عن درهم واحد.",
+  INSTALLMENT_FIRST_DUE_DATE_REQUIRED: "اختر تاريخ استحقاق القسط الأول.",
+  INSTALLMENT_FIRST_DUE_DATE_INVALID: "لا يمكن أن يستحق القسط الأول قبل تاريخ البيع.",
+  INSTALLMENT_DOWN_PAYMENT_INVALID: "الدفعة المقدمة يجب أن تكون صفراً أو أكثر وأقل من المبلغ المستحق.",
+  INSTALLMENT_CREDIT_PENDING:
+    "هذا البيع يتجاوز سقف ائتمان العميل ويحتاج موافقة الائتمان أولاً — أتمّه دون تقسيط، ثم أضف جدول الأقساط من صفحة البيع بعد الموافقة.",
+  INSTALLMENT_NOTHING_OUTSTANDING: "لا يوجد مبلغ متبقٍ على هذا البيع لتقسيطه.",
+  INSTALLMENT_PLAN_EXISTS: "لهذا البيع جدول أقساط بالفعل.",
 };
 
 /**
@@ -258,6 +269,8 @@ export interface Sale {
   sold_by?: { id: string; name: string } | null;
   credit_approval_request?: CreditApproval | null;
   returns?: SaleReturnSummary[];
+  /** W5-08: the derived installment schedule, or null when the sale has none. */
+  installment_plan?: InstallmentPlan | null;
   created_at: string;
 }
 
@@ -463,6 +476,8 @@ export interface CheckoutInput {
   lines: CartLineInput[];
   tendered_amount?: number | null;
   payments?: SplitPaymentPortionInput[];
+  /** W5-08: receivable sales to a registered client only; the down payment is collected in the same transaction. */
+  installment_plan?: InstallmentPlanInput;
 }
 
 export interface InvoiceLine {

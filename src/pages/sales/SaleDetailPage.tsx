@@ -20,6 +20,7 @@ import { usePermissions } from "../../hooks/usePermissions";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { toast } from "../../stores/toastStore";
 import { SaleInvoiceDialog, DeliveryNoteDialog } from "../../components/print/SalesDocuments";
+import { InstallmentScheduleSection } from "../../components/sales/InstallmentSchedule";
 
 /** Backend-generated override reasons, in the user's language (PriceFloorGuard writes these in English). */
 const PRICE_OVERRIDE_REASON_LABEL: Record<string, string> = {
@@ -34,6 +35,8 @@ export const SaleDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { hasRole, hasPermission } = usePermissions();
   const canCreateReturns = hasRole(SALES_RETURN_ROLES) && hasPermission("create-sales-returns");
+  // W5-08: POST /sales/{id}/installment-plan sits in the POS group (create-sales for writes).
+  const canAddInstallmentPlan = hasPermission("create-sales");
 
   const { data: sale, isLoading } = useSale(saleId);
   const { data: treasuries = [] } = usePaymentAccounts();
@@ -417,6 +420,8 @@ export const SaleDetailPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      <InstallmentScheduleSection sale={sale} outstanding={outstanding} canAddPlan={canAddInstallmentPlan} />
 
       {sale.payments && sale.payments.length > 0 && (
         <div className="rounded-2xl border border-app-separator bg-app-bg-primary shadow-sm p-4 space-y-2">

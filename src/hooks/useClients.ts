@@ -17,10 +17,11 @@ import {
 } from "../api/endpoints/clients";
 import { CreateClientPayload } from "../types/entities";
 
-export function useClients(params?: GetClientsParams) {
+export function useClients(params?: GetClientsParams, enabled = true) {
   return useQuery({
     queryKey: ["clients", params],
     queryFn: () => getClients(params),
+    enabled,
   });
 }
 

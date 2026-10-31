@@ -13,6 +13,8 @@ import { FinancialReportsPage } from "./accounting/FinancialReportsPage";
 import { DebtorStatementsPage } from "./accounting/DebtorStatementsPage";
 import { BundleSalesReportPage } from "./reports/BundleSalesReportPage";
 import { SalesMarginReportPage } from "./reports/SalesMarginReportPage";
+import { InstallmentsPage } from "./sales/InstallmentsPage";
+import { INSTALLMENT_ROLES } from "../api/endpoints/installments";
 import { StockMovementCardPage } from "./inventory/StockMovementCardPage";
 import { useIsCompanyWide } from "../hooks/useAccounting";
 import UsersRoutes from "../routes/UsersRoutes";
@@ -416,6 +418,15 @@ const App = () => {
                   ]}
                 >
                   <SalesRoutes />
+                </AuthorizedRoute>
+              }
+            />
+            {/* W5-08: outside sales/* — accounting and treasury follow installments too. */}
+            <Route
+              path="installments"
+              element={
+                <AuthorizedRoute allowedRoles={INSTALLMENT_ROLES}>
+                  <InstallmentsPage />
                 </AuthorizedRoute>
               }
             />

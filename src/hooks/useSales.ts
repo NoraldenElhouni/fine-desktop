@@ -16,6 +16,7 @@ import {
   SaleFilters,
   SalesReturnFilters,
 } from "../api/endpoints/sales";
+import { installmentsApi, InstallmentPlanInput } from "../api/endpoints/installments";
 import { apiErrorPayload } from "../api/endpoints/production";
 import { useOperatingUnits } from "./useOperatingUnits";
 import { useServerConfigStore } from "../stores/serverConfigStore";
@@ -47,6 +48,8 @@ function useSaleMutation<TArgs, TResult>(
       qc.invalidateQueries({ queryKey: ["availableFoamBlocks"] });
       qc.invalidateQueries({ queryKey: ["inventoryValuation"] });
       qc.invalidateQueries({ queryKey: ["clients"] });
+      // W5-08: collections, returns and new plans move the derived installment statuses.
+      qc.invalidateQueries({ queryKey: ["installments"] });
 
       const sale = data as unknown as Partial<Sale> | undefined;
       if (sale?.payments?.some((p) => p.method === "cheque" || Boolean(p.cheque))) {
@@ -91,6 +94,15 @@ export function useCollectPayment() {
     ({ id, ...data }: { id: string } & Parameters<typeof salesApi.collectPayment>[1]) =>
       salesApi.collectPayment(id, data).then((r) => r.data),
     [["cheques"], ["chequeSummary"]],
+  );
+}
+
+/** W5-08: put an existing receivable sale on installments, optionally taking a down payment first. */
+export function useAddInstallmentPlan() {
+  return useSaleMutation(
+    ({ saleId, ...data }: { saleId: string } & InstallmentPlanInput) =>
+      installmentsApi.addPlan(saleId, data).then((r) => r.data),
+    [["client"], ["clientSummary"]],
   );
 }
 

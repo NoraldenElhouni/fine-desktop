@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { REFERENCE_LOOKUPS, WAREHOUSE_LOOKUPS } from "../config/referenceLookups";
+import { INSTALLMENT_PERMISSION, INSTALLMENT_ROLES } from "../api/endpoints/installments";
 import {
   BadgeDollarSign,
   Banknote,
@@ -226,6 +227,7 @@ export const navItems: AppNavItem[] = [
   { id: "cutter", path: "/cutter/orders", label: "التقطيع", icon: Scissors, allowedRoles: ["owner", "admin", "cutter-manager", "cutter-operator", "unit_manager", "manager"], permission: "view-cutting" },
   { id: "material-requests", path: "/material-requests", label: "طلبات المواد (MRs)", icon: PackageCheck, allowedRoles: ["owner", "admin", "furniture-manager", "cutter-manager", "foam-manager", "unit_manager", "manager"], permission: "view-material-requests" },
   { id: "pos", path: "/sales/pos", label: "المبيعات ونقطة البيع", icon: ShoppingCart, allowedRoles: ["owner", "admin", "store-manager", "pos-cashier", "cutter-manager", "unit_manager", "manager"], permission: "view-sales" },
+  { id: "installments", path: "/installments", label: "الأقساط", icon: CalendarClock, allowedRoles: INSTALLMENT_ROLES, permission: INSTALLMENT_PERMISSION },
   { id: "restock", path: "/sales/restock", label: "التزويد الداخلي", icon: Truck, allowedRoles: RESTOCK_ROLES, permission: "view-inventory" },
   { id: "attendance", path: "/hr/attendance", label: "الحضور والانصراف", icon: CalendarCheck2, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"], permission: "view-hr" },
   { id: "labor-rates", path: "/hr/rates", label: "أجور الأدوار", icon: BadgeDollarSign, allowedRoles: ["owner", "admin", "hr-manager", "accounting-manager"], permission: "view-hr" },

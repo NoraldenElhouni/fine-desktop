@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Printer, CheckCircle2 } from "lucide-react";
 import { PAYMENT_METHOD_LABEL, Sale, formatSizeCm } from "../../api/endpoints/sales";
-import { formatDateTime, formatNumber } from "../../lib/utils/format";
+import { formatDate, formatDateTime, formatNumber } from "../../lib/utils/format";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../ui/Dialog";
 import { printReceipt } from "../../lib/printing";
 import { toast } from "../../stores/toastStore";
@@ -65,6 +65,21 @@ export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({ isOpen, sale, 
     : isCash && tenderedInput.trim() !== ""
       ? Number(tenderedInput)
       : totalAmount;
+
+  // W5-08: a receivable (آجل) sale on installments may take a down payment at checkout; only
+  // what stays after it is on the client's account.
+  const isReceivable = sale.payment_method === "receivable";
+  const downPayments = isReceivable
+    ? (sale.payments ?? []).filter((p) => !p.sales_return_id && Number(p.amount) > 0)
+    : [];
+  const plan = isReceivable ? (sale.installment_plan ?? null) : null;
+  const paidAmount = downPayments.reduce((s, p) => s + Number(p.amount), 0);
+  const creditAmount = plan
+    ? Number(plan.totals.remaining)
+    : Math.max(0, totalAmount - Math.max(Number(sale.amount_paid || 0), paidAmount));
+  const planLines = plan?.lines ?? [];
+  const planBase = planLines.length > 0 ? Number(planLines[0].amount) : null;
+  const planLast = planLines.length > 1 ? Number(planLines[planLines.length - 1].amount) : null;
 
   const change =
     hasSavedTender && cashPayment?.change_given !== undefined && cashPayment?.change_given !== null
@@ -210,11 +225,33 @@ export const PosReceiptModal: React.FC<PosReceiptModalProps> = ({ isOpen, sale, 
                   </div>
                 </>
               )}
-              {sale.payment_method === "receivable" && (
-                <div className="flex justify-between text-gray-700 text-[11px] font-bold">
-                  <span>مقيّد على ذمة العميل</span>
-                  <span>{formatNumber(totalAmount)} د.ل</span>
-                </div>
+              {isReceivable && (
+                <>
+                  {downPayments.map((p, idx) => (
+                    <div key={p.id || idx} className="flex justify-between text-gray-700 text-[11px]">
+                      <span>
+                        دفعة مقدمة — {p.method === "cash" ? "نقداً" : p.method === "bank" ? "مصرف" : "شيك"}
+                        {p.cash_account?.name ? ` (${p.cash_account.name})` : ""}
+                      </span>
+                      <span>{formatNumber(Number(p.amount))} د.ل</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between text-gray-700 text-[11px] font-bold">
+                    <span>مقيّد على ذمة العميل</span>
+                    <span>{formatNumber(creditAmount)} د.ل</span>
+                  </div>
+                  {plan && planBase !== null && (
+                    <div className="text-[10px] text-gray-700 space-y-0.5 pt-1">
+                      <div>
+                        تقسيط: {formatNumber(plan.installment_count)} قسط شهري بقيمة {formatNumber(planBase)} د.ل
+                        {planLast !== null && Math.abs(planLast - planBase) > 0.0001
+                          ? ` (الأخير ${formatNumber(planLast)} د.ل)`
+                          : ""}
+                      </div>
+                      <div>أول قسط يستحق في {formatDate(plan.first_due_date)}</div>
+                    </div>
+                  )}
+                </>
               )}
               {sale.payment_method === "split" && sale.payments && sale.payments.length > 0 && (
                 <div className="space-y-1.5 pt-2 border-t border-dashed border-gray-200">

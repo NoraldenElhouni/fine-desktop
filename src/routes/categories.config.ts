@@ -79,7 +79,7 @@ export const categoryGroups: CategoryGroup[] = [
     description: "إدارة طلبات المبيعات، ومنافذ البيع المباشر (POS)، ونظام التزويد الداخلي للمعارض",
     icon: Store,
     path: "/hub/sales",
-    itemIds: ["sales", "pos", "restock"],
+    itemIds: ["sales", "pos", "installments", "restock"],
     get items() {
       return findItems(this.itemIds);
     },

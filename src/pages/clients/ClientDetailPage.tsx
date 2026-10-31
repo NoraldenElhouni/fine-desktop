@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { AlertTriangle, ArrowRight, Clock, FileSpreadsheet, History, MapPin, ShoppingCart, User } from "lucide-react";
+import { AlertTriangle, ArrowRight, CalendarClock, Clock, FileSpreadsheet, History, MapPin, ShoppingCart, User } from "lucide-react";
 import { useClient, useClientSummary } from "../../hooks/useClients";
 import type { ClientLastPayment, ClientOpenSale, ClientSummary } from "../../api/endpoints/clients";
 import { useSales } from "../../hooks/useSales";
@@ -8,7 +8,12 @@ import { Sale } from "../../api/endpoints/sales";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useSalesColumns } from "../../components/table-columns/salesColumns";
 import type { ClientStatus, EntityType } from "../../types/entities";
-import { formatDate } from "../../lib/utils/format";
+import { formatDate, formatNumber } from "../../lib/utils/format";
+import { useInstallments } from "../../hooks/useInstallments";
+import { usePermissions } from "../../hooks/usePermissions";
+import { INSTALLMENT_PERMISSION, INSTALLMENT_ROLES } from "../../api/endpoints/installments";
+import { InstallmentStatusChip } from "../../components/sales/InstallmentSchedule";
+import { navItems } from "../../routes/routes.config";
 import { ClientAddressesTab } from "./ClientAddressesTab";
 import { ClientCreditHistoryTab } from "./ClientCreditHistoryTab";
 
@@ -199,12 +204,90 @@ const OpenSalesList: React.FC<{
   );
 };
 
+/** How many of the client's next unpaid installments the card lists. */
+const UPCOMING_INSTALLMENTS_SHOWN = 5;
+
+/**
+ * W5-08: the client's unpaid installments (oldest due first) with what is left and what is late;
+ * shown only when the client has some and the user may read the installments report.
+ */
+const UpcomingInstallmentsCard: React.FC<{
+  clientId: string;
+  /** Omitted when the user cannot open a sale's page (e.g. accounting); the rows are then read-only. */
+  onOpenSale?: (saleId: string) => void;
+  onShowAll: () => void;
+}> = ({
+  clientId,
+  onOpenSale,
+  onShowAll,
+}) => {
+  const { canAccess } = usePermissions();
+  const allowed = canAccess({ allowedRoles: INSTALLMENT_ROLES, permission: INSTALLMENT_PERMISSION });
+  const { data } = useInstallments({ status: "due", client_id: clientId }, allowed);
+  const rows = data?.data ?? [];
+  if (!allowed || rows.length === 0 || !data) return null;
+  const overdue = Number(data.totals.overdue);
+
+  return (
+    <div className="bg-app-bg-primary rounded-2xl border border-app-separator shadow-sm overflow-hidden">
+      <div className="flex flex-wrap items-center gap-3 border-b border-app-separator px-4 py-3">
+        <h2 className="flex items-center gap-2 text-xs font-bold text-app-label-primary">
+          <CalendarClock className="h-4 w-4 text-app-accent" /> الأقساط غير المسددة
+        </h2>
+        <span className="text-[11px] text-app-label-secondary">
+          <span className="font-mono">{data.totals.count}</span> قسط · المتبقي{" "}
+          <span className="font-mono font-semibold text-app-label-primary">{money(data.totals.remaining)}</span>
+          {overdue > 0.0001 && (
+            <>
+              {" "}· متأخر <span className="font-mono font-semibold text-app-status-danger">{money(overdue)}</span>
+            </>
+          )}
+        </span>
+        <button type="button" onClick={onShowAll} className="ms-auto text-[11px] font-semibold text-app-accent hover:underline">
+          عرض الكل
+        </button>
+      </div>
+      <table className="w-full text-xs">
+        <thead className="bg-app-fill-f1 text-app-label-secondary">
+          <tr>
+            <th className="px-3 py-2 text-start font-semibold">تاريخ الاستحقاق</th>
+            <th className="px-3 py-2 text-start font-semibold">رقم البيع</th>
+            <th className="px-3 py-2 text-start font-semibold">القسط</th>
+            <th className="px-3 py-2 text-end font-semibold">المتبقي</th>
+            <th className="px-3 py-2 text-start font-semibold">الحالة</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.slice(0, UPCOMING_INSTALLMENTS_SHOWN).map((r) => (
+            <tr
+              key={r.id}
+              onClick={onOpenSale ? () => onOpenSale(r.sales_order_id) : undefined}
+              className={`border-t border-app-separator ${onOpenSale ? "cursor-pointer hover:bg-app-fill-f1" : ""} ${r.status === "overdue" ? "bg-app-status-danger/5" : ""}`}
+            >
+              <td className="px-3 py-2 font-mono">{formatDate(r.due_date)}</td>
+              <td className="px-3 py-2 font-mono text-app-label-primary">{r.order_number}</td>
+              <td className="px-3 py-2 font-mono text-app-label-secondary">{r.number} / {r.installment_count}</td>
+              <td className="px-3 py-2 text-end font-mono font-semibold text-app-label-primary">
+                {formatNumber(r.remaining, { maximumFractionDigits: 3 })}
+              </td>
+              <td className="px-3 py-2"><InstallmentStatusChip line={r} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
 type Tab = "sales" | "open" | "addresses" | "credit";
 
 /** One client: master data, balance against credit limit, aging, addresses, credit history and every sale made to them. */
 export const ClientDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { canAccess } = usePermissions();
+  // A sale's page sits under the POS route; accounting reaches the client card but not sales/*.
+  const canOpenSale = canAccess(navItems.find((item) => item.id === "pos"));
   const [page, setPage] = useState(1);
   const [tab, setTab] = useState<Tab>("sales");
 
@@ -300,6 +383,12 @@ export const ClientDetailPage: React.FC = () => {
       </div>
 
       <AgingWidgets summary={summary} isLoading={summaryLoading} isError={summaryError} />
+
+      <UpcomingInstallmentsCard
+        clientId={client.id}
+        onOpenSale={canOpenSale ? (saleId) => navigate(`/sales/${saleId}`) : undefined}
+        onShowAll={() => navigate(`/installments?client_id=${encodeURIComponent(client.id)}`)}
+      />
 
       <div className="flex flex-wrap gap-2">
         {([
