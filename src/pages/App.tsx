@@ -31,6 +31,7 @@ import { AccountingRoutes } from "../routes/AccountingRoutes";
 import { HrRoutes } from "../routes/HrRoutes";
 import { SettingsRoutes } from "../routes/SettingsRoutes";
 import { PrintSettingsPage } from "./settings/PrintSettingsPage";
+import { ClientGroupsPage } from "./clients/ClientGroupsPage";
 import { MaterialRequestsRoutes } from "../routes/MaterialRequestsRoutes";
 
 import { CategoryHubPage } from "./hub/CategoryHubPage";
@@ -38,6 +39,7 @@ import { CategoryHubPage } from "./hub/CategoryHubPage";
 import { AuthorizedRoute } from "../components/AuthorizedRoute";
 import {
   ALL_MANAGER_ROLES,
+  CLIENT_GROUP_ROLES,
   DEBTOR_STATEMENT_ROLES,
   FURNITURE_ROLES,
   PRINT_SETTINGS_ROLES,
@@ -352,6 +354,15 @@ const App = () => {
               element={
                 <AuthorizedRoute allowedRoles={PRINT_SETTINGS_ROLES}>
                   <PrintSettingsPage />
+                </AuthorizedRoute>
+              }
+            />
+            {/* W5-06: client groups — the client managers reach it, so it outranks settings/* too. */}
+            <Route
+              path="settings/client-groups"
+              element={
+                <AuthorizedRoute allowedRoles={CLIENT_GROUP_ROLES} permission="view-clients">
+                  <ClientGroupsPage />
                 </AuthorizedRoute>
               }
             />

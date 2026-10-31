@@ -166,6 +166,8 @@ export interface ApiErrorPayload {
   employee_id?: string;
   /** W5-04 WORK_SHIFT_IN_USE: the employees still on the shift. */
   employee_ids?: string[];
+  /** W5-06 CLIENT_GROUP_IN_USE: how many clients are still in the group. */
+  clients_count?: number;
 }
 
 /** Pull the JSON body out of a rejected axios request without reaching for `any`. */

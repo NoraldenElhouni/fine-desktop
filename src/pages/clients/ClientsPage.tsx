@@ -1,9 +1,14 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, Plus, RefreshCw, CreditCard } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Users, Plus, RefreshCw, CreditCard, Filter, UsersRound } from "lucide-react";
 import { isAxiosError } from "axios";
 import { EntityType, Client, ClientStatus } from "../../types/entities";
 import { useClients, useCreateClient, useUpdateClient } from "../../hooks/useClients";
+import { useClientGroups } from "../../hooks/useClientGroups";
+import { usePermissions } from "../../hooks/usePermissions";
+import { navItems } from "../../routes/routes.config";
+import type { ClientGroup } from "../../api/endpoints/clientGroups";
 import { useEntities, useOperatingUnits } from "../../hooks/usePartners";
 import { useReferenceLookups } from "../../hooks/useReferenceLookups";
 import type { LookupEntry } from "../../config/referenceLookups";
@@ -31,17 +36,36 @@ export const ClientsPage: React.FC = () => {
   const navigate = useNavigate();
   const { allowManualEntitySelection } = useServerConfigStore();
   const [selectedOperatingUnitId, setSelectedOperatingUnitId] = useState("");
+  // W5-06: the list filter by client group ("" = all groups).
+  const [groupFilter, setGroupFilter] = useState("");
+  const { canAccess } = usePermissions();
+  const canOpenGroups = canAccess(navItems.find((i) => i.id === "settings-client-groups"));
 
+  const queryClient = useQueryClient();
+
+  // One unfiltered list: the KPI cards always total every client, and the group
+  // filter narrows only the table (client-side), so a filter change never blanks the page.
   const {
     data: clients = [],
     isLoading,
     error: queryError,
     refetch,
   } = useClients();
+  const { data: clientGroups = [] } = useClientGroups();
   const { data: entities = [] } = useEntities();
   const { data: operatingUnits = [] } = useOperatingUnits();
   const { data: cities = [] } = useReferenceLookups("cities", { isActive: true });
   const createClientMutation = useCreateClient();
+
+  /**
+   * W5-06: the backend refuses client_group_id (422) when the picked group was
+   * deleted after this page loaded; say so in Arabic and refresh the picker.
+   */
+  const clientGroupRefusal = (err: unknown): string | null => {
+    if (!apiErrorPayload(err)?.errors?.client_group_id) return null;
+    queryClient.invalidateQueries({ queryKey: ["clientGroups"] });
+    return "المجموعة المختارة لم تعد موجودة — اختر مجموعة أخرى أو أزل المجموعة.";
+  };
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [entityMode, setEntityMode] = useState<"auto" | "existing">("auto");
@@ -54,6 +78,7 @@ export const ClientsPage: React.FC = () => {
   const [selectedEntityId, setSelectedEntityId] = useState("");
   const [creditLimit, setCreditLimit] = useState<number>(10000);
   const [paymentTermsDays, setPaymentTermsDays] = useState<number>(30);
+  const [clientGroupId, setClientGroupId] = useState("");
   const [coaAction, setCoaAction] = useState<CoaAction>("create_new");
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [newAccount, setNewAccount] = useState<NewCoaAccountPayload>({
@@ -77,6 +102,7 @@ export const ClientsPage: React.FC = () => {
   const [editCreditLimit, setEditCreditLimit] = useState<number>(10000);
   const [editCreditLimitReason, setEditCreditLimitReason] = useState("");
   const [editPaymentTermsDays, setEditPaymentTermsDays] = useState<number>(30);
+  const [editClientGroupId, setEditClientGroupId] = useState("");
   const [editStatus, setEditStatus] = useState<ClientStatus>("active");
   const [editCoaAction, setEditCoaAction] = useState<CoaAction>("none");
   const [editSelectedAccountId, setEditSelectedAccountId] = useState<string | null>(null);
@@ -96,6 +122,7 @@ export const ClientsPage: React.FC = () => {
     setSelectedEntityId("");
     setCreditLimit(10000);
     setPaymentTermsDays(30);
+    setClientGroupId("");
     setEntityMode("auto");
     setCoaAction("create_new");
     setSelectedAccountId(null);
@@ -105,6 +132,15 @@ export const ClientsPage: React.FC = () => {
       name: "",
       currency: "LYD",
     });
+  };
+
+  /** A new client starts from its group's defaults (W5-06); the fields stay editable. */
+  const handlePickCreateGroup = (group: ClientGroup | null) => {
+    setClientGroupId(group ? group.id : "");
+    if (group) {
+      setCreditLimit(Number(group.default_credit_limit));
+      setPaymentTermsDays(group.default_payment_terms_days);
+    }
   };
 
   const handleAddClient = async (e: React.FormEvent) => {
@@ -155,6 +191,7 @@ export const ClientsPage: React.FC = () => {
         entityMode === "auto" && taxNumber.trim()
           ? taxNumber.trim()
           : undefined,
+      client_group_id: clientGroupId || undefined,
       credit_limit: creditLimit,
       payment_terms_days: paymentTermsDays,
       phone: clientPhone.trim() || undefined,
@@ -182,6 +219,7 @@ export const ClientsPage: React.FC = () => {
       onError: (err: unknown) => {
         const payloadErr = apiErrorPayload(err);
         const message =
+          clientGroupRefusal(err) ||
           payloadErr?.message ||
           (isAxiosError(err) ? err.response?.data?.message : null);
         toast.error(message || "تعذر إضافة العميل");
@@ -201,6 +239,7 @@ export const ClientsPage: React.FC = () => {
     setEditCreditLimit(Number(client.credit_limit || 0));
     setEditCreditLimitReason("");
     setEditPaymentTermsDays(client.payment_terms_days ?? 30);
+    setEditClientGroupId(client.client_group_id ?? "");
     setEditStatus(client.status || "active");
     setEditCoaAction(client.account_id ? "link_existing" : "none");
     setEditSelectedAccountId(client.account_id || null);
@@ -258,6 +297,8 @@ export const ClientsPage: React.FC = () => {
       // W5-05: a credit limit change is logged with its reason on the client card.
       credit_limit_reason: editCreditLimitChanged ? editCreditLimitReason.trim() || null : undefined,
       payment_terms_days: editPaymentTermsDays,
+      // Moving a client to another group keeps its own limit and terms (W5-06).
+      client_group_id: editClientGroupId || null,
       status: editStatus,
       coa_action: editCoaAction,
       account_id: editCoaAction === "link_existing" ? editSelectedAccountId : (editCoaAction === "none" ? null : undefined),
@@ -283,6 +324,7 @@ export const ClientsPage: React.FC = () => {
         onError: (err: unknown) => {
           const payloadErr = apiErrorPayload(err);
           const message =
+            clientGroupRefusal(err) ||
             payloadErr?.message ||
             (isAxiosError(err) ? err.response?.data?.message : null);
           toast.error(message || "تعذر تحديث بيانات العميل");
@@ -322,7 +364,10 @@ export const ClientsPage: React.FC = () => {
     onViewStatement: handleOpenStatement,
   });
 
-  const tableData = useMemo(() => clients, [clients]);
+  const tableData = useMemo(
+    () => (groupFilter ? clients.filter((c) => c.client_group_id === groupFilter) : clients),
+    [clients, groupFilter],
+  );
   const clientsTable = useDataTable({
     columns,
     data: tableData,
@@ -353,6 +398,16 @@ export const ClientsPage: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {canOpenGroups && (
+            <button
+              type="button"
+              onClick={() => navigate("/settings/client-groups")}
+              className="flex items-center gap-2 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1"
+            >
+              <UsersRound className="h-4 w-4 text-app-accent" />
+              مجموعات العملاء
+            </button>
+          )}
           <button
             type="button"
             onClick={() => refetch()}
@@ -424,11 +479,28 @@ export const ClientsPage: React.FC = () => {
           <DataTable.Header>
             <DataTable.Toolbar>
               <DataTable.SearchInput placeholder="بحث بالاسم..." />
+              {clientGroups.length > 0 && (
+                <div className="flex items-center gap-1.5 text-xs text-app-label-secondary">
+                  <Filter className="w-3.5 h-3.5 text-app-label-tertiary" />
+                  <select
+                    value={groupFilter}
+                    onChange={(e) => setGroupFilter(e.target.value)}
+                    className="rounded-xl border border-app-separator bg-app-bg-primary px-2.5 py-1.5 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
+                  >
+                    <option value="">جميع المجموعات</option>
+                    {clientGroups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name} ({g.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </DataTable.Toolbar>
           </DataTable.Header>
           <DataTable.Content
             isLoading={isLoading}
-            emptyMessage="لا يوجد عملاء مضافون"
+            emptyMessage={groupFilter ? "لا يوجد عملاء في هذه المجموعة" : "لا يوجد عملاء مضافون"}
             onRowClick={(row: Client) => navigate(`/clients/${row.id}`)}
             emptyIcon={Users}
           />
@@ -662,6 +734,27 @@ export const ClientsPage: React.FC = () => {
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                  مجموعة العملاء (اختياري)
+                </label>
+                <SearchableSelect<ClientGroup>
+                  options={clientGroups}
+                  value={clientGroups.find((g) => g.id === clientGroupId) ?? null}
+                  onChange={handlePickCreateGroup}
+                  getOptionId={(g) => g.id}
+                  getOptionLabel={(g) => g.name}
+                  getOptionSubLabel={(g) => g.code}
+                  getOptionSearchText={(g) => `${g.name} ${g.code}`}
+                  placeholder="-- بدون مجموعة --"
+                />
+                {clientGroupId && (
+                  <p className="mt-1 text-[11px] text-app-label-tertiary">
+                    عُبِّئ الحد الائتماني وفترة السداد من المجموعة، ويمكن تعديلهما لهذا العميل.
+                  </p>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-app-label-secondary mb-1">
@@ -853,6 +946,27 @@ export const ClientsPage: React.FC = () => {
                   placeholder="مثال: طريق المطار، المنطقة الصناعية"
                   className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                  مجموعة العملاء
+                </label>
+                <SearchableSelect<ClientGroup>
+                  options={clientGroups}
+                  value={clientGroups.find((g) => g.id === editClientGroupId) ?? null}
+                  onChange={(g) => setEditClientGroupId(g ? g.id : "")}
+                  getOptionId={(g) => g.id}
+                  getOptionLabel={(g) => g.name}
+                  getOptionSubLabel={(g) => g.code}
+                  getOptionSearchText={(g) => `${g.name} ${g.code}`}
+                  placeholder="-- بدون مجموعة --"
+                />
+                {editingClient && editClientGroupId !== (editingClient.client_group_id ?? "") && (
+                  <p className="mt-1 text-[11px] text-app-label-tertiary">
+                    نقل العميل إلى مجموعة أخرى لا يغيّر حده الائتماني ولا فترة سداده.
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-3 gap-3">

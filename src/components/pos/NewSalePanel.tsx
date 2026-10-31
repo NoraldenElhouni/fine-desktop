@@ -186,6 +186,12 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [cashAccountId, setCashAccountId] = useState<string | null>(null);
   const [priceTier, setPriceTier] = useState<"retail" | "wholesale">("retail");
+  // W5-06: true while the wholesale tier was set by picking a wholesale-group client
+  // (not by the cashier), so picking a non-wholesale client puts it back on retail.
+  const autoTierRef = useRef(false);
+  // True while that automatic tier was put back on retail only because the cashier
+  // left client mode; returning to client mode with the same client re-applies it.
+  const tierParkedByModeRef = useRef(false);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [invoiceDiscount, setInvoiceDiscount] = useState("");
   const [requestId, setRequestId] = useState(newRequestId);
@@ -264,6 +270,8 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     setWalkInPhone("");
     setNotes(loadedQuotation.notes ?? null);
     setPriceTier(loadedQuotation.price_tier ?? "retail");
+    autoTierRef.current = false;
+    tierParkedByModeRef.current = false;
     const qInvDiscount = Number(loadedQuotation.invoice_discount ?? 0);
     setInvoiceDiscount(qInvDiscount > 0 ? String(qInvDiscount) : "");
     const lines: CartLine[] = (loadedQuotation.lines ?? []).map((l) => {
@@ -388,13 +396,21 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   const needsApproval = method === "receivable" && client !== null && total > available;
   const hasBundle = cart.some((l) => l.lineType === "bundle");
 
-  const resetCart = () => {
+  /**
+   * Empties the cart for the next sale. The tier goes back to the default of the
+   * client who stays selected (W5-06: جملة for a wholesale-group client); callers
+   * that also clear the client pass null.
+   */
+  const resetCart = (nextClient: Client | null = client) => {
+    const nextTier = nextClient?.client_group?.default_price_tier === "wholesale" ? "wholesale" : "retail";
     setCart([]);
     setInvoiceDiscount("");
     setRequestId(newRequestId());
     setError(null);
     setNotes(null);
-    setPriceTier("retail");
+    setPriceTier(nextTier);
+    autoTierRef.current = nextTier === "wholesale";
+    tierParkedByModeRef.current = false;
     setPendingSale(null);
     setPriceFloorViolations(null);
     setOverrideError(null);
@@ -405,6 +421,9 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   };
 
   const handleTierChange = (newTier: "retail" | "wholesale") => {
+    // A tier the cashier chooses is never undone by a later client pick.
+    autoTierRef.current = false;
+    tierParkedByModeRef.current = false;
     if (newTier === priceTier) return;
     setPriceTier(newTier);
     setCart((prev) =>
@@ -426,6 +445,45 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
         };
       }),
     );
+  };
+
+  /**
+   * W5-06: picking a client of a wholesale group starts the sale on the wholesale
+   * tier (decision #10: the cashier can still switch it back). Moving on to a
+   * client outside a wholesale group undoes only a tier that was set this way.
+   */
+  const pickClient = (picked: Client | null) => {
+    setClientId(picked ? picked.id : null);
+    if (picked?.client_group?.default_price_tier === "wholesale") {
+      if (priceTier !== "wholesale") {
+        handleTierChange("wholesale");
+        autoTierRef.current = true;
+      }
+    } else if (autoTierRef.current) {
+      handleTierChange("retail");
+    }
+  };
+
+  /**
+   * Only a client of a wholesale group sets جملة automatically, so leaving client
+   * mode (walk-in or internal) puts that automatic tier back on retail. Coming back
+   * to client mode with that client still selected applies its group's tier again.
+   * A tier the cashier chose is left alone either way.
+   */
+  const switchBuyerMode = (nextMode: BuyerMode) => {
+    if (nextMode === buyerMode) return;
+    if (nextMode !== "client" && autoTierRef.current) {
+      handleTierChange("retail");
+      tierParkedByModeRef.current = true;
+    } else if (nextMode === "client" && tierParkedByModeRef.current) {
+      tierParkedByModeRef.current = false;
+      const selected = clients.find((c) => c.id === clientId) ?? null;
+      if (selected?.client_group?.default_price_tier === "wholesale" && priceTier !== "wholesale") {
+        handleTierChange("wholesale");
+        autoTierRef.current = true;
+      }
+    }
+    setBuyerMode(nextMode);
   };
 
   const lineFloorStatuses = useMemo(() => {
@@ -690,7 +748,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
   };
 
   const onSold = (sale: Sale) => {
-    resetCart();
+    resetCart(null);
     if (!isInternal) setClientId(null);
     setWalkInName("");
     setWalkInPhone("");
@@ -956,7 +1014,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
         onSuccess: () => {
           setIsHoldDialogOpen(false);
           setHoldCartLabel("");
-          resetCart();
+          resetCart(null);
           if (buyerMode === "client") setClientId(null);
           if (isInternal) setBuyerUnitId(null);
           setWalkInName("");
@@ -983,6 +1041,8 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
     }));
     setCart(resumedLines);
     setPriceTier(payload.priceTier ?? "retail");
+    autoTierRef.current = false;
+    tierParkedByModeRef.current = false;
     const missingIds = Array.from(
       new Set(
         resumedLines
@@ -1118,7 +1178,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
             <FileText className="h-4 w-4" />
             تحويل عرض السعر <span className="font-mono">{loadedQuotation.quotation_number}</span> إلى بيع — يمكن تعديل الأسعار قبل الإتمام.
           </span>
-          <button type="button" onClick={resetCart} className="text-app-label-secondary hover:text-app-status-danger">
+          <button type="button" onClick={() => resetCart()} className="text-app-label-secondary hover:text-app-status-danger">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -1149,7 +1209,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
                   key={opt.value}
                   type="button"
                   onClick={() => {
-                    setBuyerMode(opt.value);
+                    switchBuyerMode(opt.value);
                     if (opt.value === "internal") {
                       setCart((prev) => prev.filter((l) => l.lineType === "item").map((l) => ({ ...l, discount: "" })));
                       setInvoiceDiscount("");
@@ -1209,7 +1269,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
                 <SearchableSelect<Client>
                   options={clients}
                   value={client}
-                  onChange={(c) => setClientId(c ? c.id : null)}
+                  onChange={pickClient}
                   getOptionId={(c) => c.id}
                   getOptionLabel={(c) => c.entity?.name ?? c.id}
                   getOptionSubLabel={(c) => c.entity?.primary_contact?.phone ?? undefined}
@@ -1435,7 +1495,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
           </div>
           <div className="flex items-center gap-2">
             {cart.length > 0 && (
-              <button type="button" onClick={resetCart} className="text-[11px] text-app-status-danger hover:underline font-semibold">
+              <button type="button" onClick={() => resetCart()} className="text-[11px] text-app-status-danger hover:underline font-semibold">
                 تفريغ
               </button>
             )}
@@ -1728,7 +1788,7 @@ export const NewSalePanel: React.FC<NewSalePanelProps> = ({ loadedQuotation, onQ
       <QuickClientDialog
         open={isQuickClientOpen}
         onClose={() => setIsQuickClientOpen(false)}
-        onCreated={(c) => setClientId(c.id)}
+        onCreated={pickClient}
       />
       {blockPicker && (
         <BlockPicker

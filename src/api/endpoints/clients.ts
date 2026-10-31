@@ -5,6 +5,8 @@ import { Client, CreateClientPayload } from "../../types/entities";
 export interface GetClientsParams {
   operating_unit_id?: string;
   status?: string;
+  /** W5-06: only the clients of this group. */
+  client_group_id?: string;
 }
 
 export const getClients = async (params?: GetClientsParams): Promise<Client[]> => {

@@ -33,6 +33,7 @@ import {
   TrendingUp,
   UserCheck,
   Users,
+  UsersRound,
   Truck,
   Wallet,
   CalendarClock,
@@ -96,6 +97,19 @@ export const PRINT_SETTINGS_ROLES = [
   "store-manager",
   "pos-cashier",
   "cutter-manager",
+];
+
+/**
+ * W5-06: the client groups settings page. Everyone with client access reads
+ * the groups; writing them is checked again on the page (company-wide only).
+ */
+export const CLIENT_GROUP_ROLES = [
+  "owner",
+  "admin",
+  "store-manager",
+  "accounting-manager",
+  "unit_manager",
+  "manager",
 ];
 
 export const DEBTOR_STATEMENT_ROLES = [
@@ -236,6 +250,7 @@ export const navItems: AppNavItem[] = [
   { id: "settings-data", path: "/settings/data", label: "إعدادات البيانات", icon: Database, allowedRoles: ["owner", "admin"] },
   { id: "settings-warehouses", path: "/settings/warehouses", label: "إعدادات المخازن", icon: Warehouse, allowedRoles: SETTINGS_ROLES, permission: "view-inventory" },
   { id: "settings-printing", path: "/settings/printing", label: "إعدادات الطباعة", icon: Printer, allowedRoles: PRINT_SETTINGS_ROLES },
+  { id: "settings-client-groups", path: "/settings/client-groups", label: "مجموعات العملاء", icon: UsersRound, allowedRoles: CLIENT_GROUP_ROLES, permission: "view-clients" },
 ];
 
 export const getBreadcrumbEntries = (
@@ -338,6 +353,10 @@ export const getBreadcrumbEntries = (
       },
       printing: {
         label: "إعدادات الطباعة",
+        pages: {},
+      },
+      "client-groups": {
+        label: "مجموعات العملاء",
         pages: {},
       },
       warehouses: {

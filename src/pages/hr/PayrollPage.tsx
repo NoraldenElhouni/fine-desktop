@@ -175,6 +175,14 @@ interface PayrollError {
 
 const REFUSED_NAMES_SHOWN = 10;
 
+/** The payroll charts' SVG is LTR; their HTML tooltips stay RTL so Arabic labels read correctly. */
+const RTL_CHART_HTML: React.CSSProperties = { direction: "rtl", textAlign: "right" };
+
+/** The unit chart's category label: names past 14 characters are cut with an ellipsis. */
+const UNIT_LABEL_MAX = 14;
+const shortUnitLabel = (name: string): string =>
+  typeof name === "string" && name.length > UNIT_LABEL_MAX ? `${name.slice(0, UNIT_LABEL_MAX - 1)}…` : name;
+
 export const PayrollPage: React.FC = () => {
   const [errorState, setErrorState] = useState<PayrollError | null>(null);
   // Stable, as the useState setter it replaces was: the payslip columns memoize on it.
@@ -727,9 +735,15 @@ export const PayrollPage: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="h-64 w-full">
+                  {/*
+                    The charts render left-to-right: under the page's RTL direction the SVG
+                    tick text anchors flip and the axis labels land on top of the bars.
+                    Only the SVG stays LTR: the empty state, tooltip and legend are HTML
+                    and are set back to RTL so the Arabic reads correctly.
+                  */}
+                  <div className="h-64 w-full" dir="ltr">
                     {monthStats?.grossTotal === 0 && monthStats?.employeeCount === 0 ? (
-                      <div className="flex h-full items-center justify-center text-xs text-app-label-tertiary">
+                      <div className="flex h-full items-center justify-center text-xs text-app-label-tertiary" dir="rtl">
                         لم يتم احتساب المسير بعد لتوليد الرسم البياني.
                       </div>
                     ) : (
@@ -737,17 +751,29 @@ export const PayrollPage: React.FC = () => {
                         <BarChart
                           data={monthStats?.compositionData}
                           layout="vertical"
-                          margin={{ top: 10, right: 30, left: 10, bottom: 10 }}
+                          margin={{ top: 10, right: 10, left: 20, bottom: 10 }}
                         >
                           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(150,150,150,0.15)" />
-                          <XAxis type="number" tickFormatter={(v) => formatNumber(v)} tick={{ fontSize: 11 }} />
-                          <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11 }} />
+                          {/* RTL reading: bars grow leftwards from the category labels, which sit outside the plot on the right. */}
+                          <XAxis type="number" reversed tickFormatter={(v) => formatNumber(v)} tick={{ fontSize: 11 }} />
+                          <YAxis
+                            type="category"
+                            dataKey="name"
+                            orientation="right"
+                            width={130}
+                            tickLine={false}
+                            tick={{ fontSize: 11, textAnchor: "start" }}
+                            tickMargin={8}
+                            interval={0}
+                          />
                           <Tooltip
+                            contentStyle={RTL_CHART_HTML}
                             formatter={(v: number | string | undefined) => [
                               `${formatNumber(v ?? 0)} د.ل`,
                               "المبلغ",
                             ]}
                           />
+                          {/* Under the reversed axis recharts mirrors the radius (negative width), so this rounds the free left end. */}
                           <Bar dataKey="amount" radius={[0, 6, 6, 0]}>
                             {monthStats?.compositionData.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -773,24 +799,26 @@ export const PayrollPage: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="h-64 w-full">
+                  <div className="h-64 w-full" dir="ltr">
                     {!monthStats?.unitData || monthStats.unitData.length === 0 ? (
-                      <div className="flex h-full items-center justify-center text-xs text-app-label-tertiary">
+                      <div className="flex h-full items-center justify-center text-xs text-app-label-tertiary" dir="rtl">
                         لا توجد وحدات تشغيلية مسندة في هذا المسير.
                       </div>
                     ) : (
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={monthStats.unitData} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="rgba(150,150,150,0.15)" />
-                          <XAxis dataKey="unit" tick={{ fontSize: 11 }} />
-                          <YAxis tickFormatter={(v) => formatNumber(v)} tick={{ fontSize: 11 }} />
+                          {/* Long unit names are shortened (the tooltip shows the full name) and recharts' default auto-skip drops any that would still collide. */}
+                          <XAxis dataKey="unit" tick={{ fontSize: 11 }} tickFormatter={shortUnitLabel} />
+                          <YAxis tickFormatter={(v) => formatNumber(v)} tick={{ fontSize: 11 }} width={80} />
                           <Tooltip
+                            contentStyle={RTL_CHART_HTML}
                             formatter={(v: number | string | undefined) => [
                               `${formatNumber(v ?? 0)} د.ل`,
                               "",
                             ]}
                           />
-                          <Legend wrapperStyle={{ fontSize: 11 }} />
+                          <Legend wrapperStyle={{ fontSize: 11, direction: "rtl" }} />
                           <Bar dataKey="gross" name="إجمالي المستحق" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                           <Bar dataKey="net" name="صافي الصرف" fill="#10b981" radius={[4, 4, 0, 0]} />
                         </BarChart>
@@ -869,9 +897,9 @@ export const PayrollPage: React.FC = () => {
               </span>
             </div>
 
-            <div className="h-72 w-full">
+            <div className="h-72 w-full" dir="ltr">
               {trendData.length === 0 ? (
-                <div className="flex h-full items-center justify-center text-xs text-app-label-tertiary">
+                <div className="flex h-full items-center justify-center text-xs text-app-label-tertiary" dir="rtl">
                   لا توجد بيانات مسيرات كافية لعرض الرسم البياني.
                 </div>
               ) : (
@@ -879,14 +907,15 @@ export const PayrollPage: React.FC = () => {
                   <BarChart data={trendData} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(150,150,150,0.15)" />
                     <XAxis dataKey="period" tick={{ fontSize: 11 }} />
-                    <YAxis tickFormatter={(v) => formatNumber(v)} tick={{ fontSize: 11 }} />
+                    <YAxis tickFormatter={(v) => formatNumber(v)} tick={{ fontSize: 11 }} width={80} />
                     <Tooltip
+                      contentStyle={RTL_CHART_HTML}
                       formatter={(v: number | string | undefined) => [
                         `${formatNumber(v ?? 0)} د.ل`,
                         "",
                       ]}
                     />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Legend wrapperStyle={{ fontSize: 11, direction: "rtl" }} />
                     <Bar dataKey="gross" name="إجمالي المستحق" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="net" name="صافي الصرف" fill="#10b981" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="deductions" name="الاستقطاعات" fill="#ef4444" radius={[4, 4, 0, 0]} />

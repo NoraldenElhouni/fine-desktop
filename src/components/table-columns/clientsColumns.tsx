@@ -56,6 +56,28 @@ export function useClientsColumns({ onEdit, onViewStatement }: UseClientsColumns
         ),
       },
       {
+        id: "client_group",
+        header: "المجموعة",
+        accessorFn: (c) => c.client_group?.name ?? "",
+        enableSorting: true,
+        cell: ({ row }) => {
+          const group = row.original.client_group;
+          if (!group) return <span className="text-[11px] text-app-label-secondary">—</span>;
+          return (
+            <span
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                group.default_price_tier === "wholesale"
+                  ? "bg-app-accent/15 text-app-accent"
+                  : "bg-app-fill-f1 text-app-label-secondary"
+              }`}
+              title={group.code}
+            >
+              {group.name}
+            </span>
+          );
+        },
+      },
+      {
         id: "credit_limit",
         header: "الحد الائتماني (LYD)",
         accessorFn: (c) => Number(c.credit_limit || 0),

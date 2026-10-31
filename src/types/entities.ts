@@ -141,6 +141,9 @@ export interface Client {
   entity_id: string;
   operating_unit_id: string;
   operating_unit?: { id: string; name: string };
+  /** W5-06: the client's group (company-wide); null when it has none. */
+  client_group_id?: string | null;
+  client_group?: { id: string; code: string; name: string; default_price_tier: 'retail' | 'wholesale' } | null;
   credit_limit: string | number;
   current_balance?: string | number;
   payment_terms_days: number;
@@ -274,6 +277,8 @@ export interface CreateClientPayload {
   tax_number?: string;
   /** Optional for a POS quick-add — the backend uses the current unit. */
   operating_unit_id?: string;
+  /** W5-06: on create, a blank credit_limit / payment_terms_days comes from the group; null clears it on update. */
+  client_group_id?: string | null;
   credit_limit?: number;
   payment_terms_days?: number;
   account_id?: string | null;
