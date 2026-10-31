@@ -15,6 +15,7 @@ import { useAccounts, useIsCompanyWide } from "../../hooks/useAccounting";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import { useClients } from "../../hooks/useClients";
 import { useEmployees } from "../../hooks/useEmployees";
+import type { GetEmployeesParams } from "../../api/endpoints/employees";
 import { useOperatingUnits } from "../../hooks/usePartners";
 import { formatNumber, localDateIso } from "../../lib/utils/format";
 import { LEDGER_ERROR_MESSAGE, apiErrorMessage } from "../../api/endpoints/production";
@@ -63,9 +64,15 @@ export const TreasuryVoucherDialog: React.FC<TreasuryVoucherDialogProps> = ({
   const { data: clients = [] } = useClients();
   const { data: units = [] } = useOperatingUnits();
   // A company-wide caller picks the unit, so list that unit's employees (the advance belongs there).
-  const { data: employees = [] } = useEmployees(
-    isCompanyWide && operatingUnitId ? { operating_unit_id: operatingUnitId } : undefined,
-  );
+  // W5-02: a receipt may settle what a deleted employee still owes (the backend refuses only a
+  // debit to them, PARTY_EMPLOYEE_DELETED), so receipts list deleted employees too.
+  const employeeParams = useMemo(() => {
+    const params: GetEmployeesParams = {};
+    if (isCompanyWide && operatingUnitId) params.operating_unit_id = operatingUnitId;
+    if (kind === "receipt") params.with_trashed = 1;
+    return Object.keys(params).length > 0 ? params : undefined;
+  }, [isCompanyWide, operatingUnitId, kind]);
+  const { data: employees = [] } = useEmployees(employeeParams);
 
   const createMutation = useCreateTreasuryVoucher();
 
@@ -108,9 +115,12 @@ export const TreasuryVoucherDialog: React.FC<TreasuryVoucherDialogProps> = ({
   );
   const needsEmployee =
     counterMode === "account" && selectedAccountId !== null && advanceAccountIds.has(selectedAccountId);
-  const unitEmployees = isCompanyWide
-    ? employees.filter((emp) => emp.operating_unit_id === operatingUnitId)
-    : employees;
+  const unitEmployees = employees.filter(
+    (emp) =>
+      (!isCompanyWide || emp.operating_unit_id === operatingUnitId) &&
+      // A payment would charge a new advance, which a deleted employee cannot take.
+      (kind === "receipt" || !emp.deleted_at),
+  );
   const employee = unitEmployees.find((emp) => emp.id === employeeId) ?? null;
   // The backend looks the voucher's employee up under the pinned unit (X-Operating-Unit-ID), so a
   // company-wide caller can only name an employee of the unit pinned in the top bar. Until that
@@ -385,7 +395,7 @@ export const TreasuryVoucherDialog: React.FC<TreasuryVoucherDialogProps> = ({
                           }
                         }}
                         getOptionId={(emp) => emp.id}
-                        getOptionLabel={(emp) => emp.entity?.name ?? emp.id}
+                        getOptionLabel={(emp) => `${emp.entity?.name ?? emp.id}${emp.deleted_at ? " (محذوف)" : ""}`}
                         getOptionSubLabel={(emp) => emp.job_title || undefined}
                         getOptionSearchText={(emp) => `${emp.entity?.name ?? ""} ${emp.job_title ?? ""}`}
                         placeholder={

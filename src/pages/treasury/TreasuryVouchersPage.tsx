@@ -184,8 +184,15 @@ export const TreasuryVouchersPage: React.FC = () => {
           }
           if (v.counter_account) {
             return (
-              <span className="font-mono text-xs text-app-label-secondary">
-                {v.counter_account.code} — {v.counter_account.name}
+              <span className="flex flex-col">
+                <span className="font-mono text-xs text-app-label-secondary">
+                  {v.counter_account.code} — {v.counter_account.name}
+                </span>
+                {v.employee && (
+                  <span className="text-[11px] font-semibold text-app-label-primary">
+                    الموظف: {v.employee.name ?? v.employee.employee_number ?? v.employee.id.slice(0, 8)}
+                  </span>
+                )}
               </span>
             );
           }

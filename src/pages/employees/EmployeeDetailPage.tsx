@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, CalendarCheck, CalendarOff, FileText, History, Pencil, Receipt, UserCircle } from "lucide-react";
+import { ArrowRight, CalendarCheck, CalendarOff, FileText, HandCoins, History, Pencil, Receipt, UserCircle } from "lucide-react";
 import { useEmployee, useEmployeeAttendance, useEmployeePayslips } from "../../hooks/useEmployees";
-import { ATTENDANCE_STATUS_LABEL, PAYROLL_STATUS_LABEL } from "../../api/endpoints/hr";
+import { ATTENDANCE_STATUS_LABEL, PAYROLL_STATUS_LABEL, advanceRecovery } from "../../api/endpoints/hr";
 import { PAY_ROLES } from "../../api/endpoints/employees";
 import { usePermissions } from "../../hooks/usePermissions";
 import { formatDate } from "../../lib/utils/format";
@@ -10,6 +10,7 @@ import type { Employee, PayType } from "../../types/entities";
 import { EmployeeEditDialog, EMPLOYEE_STATUS_LABEL as STATUS_LABEL } from "./EmployeeEditDialog";
 import { EmployeeCompensationTab } from "./EmployeeCompensationTab";
 import { EmployeeLeaveTab } from "./EmployeeLeaveTab";
+import { EmployeeAdvancesPanel } from "../../components/hr/EmployeeAdvancesPanel";
 
 const PAY_TYPE_LABEL: Record<PayType, string> = {
   monthly: "راتب شهري",
@@ -19,7 +20,7 @@ const PAY_TYPE_LABEL: Record<PayType, string> = {
 
 const money = (v: string | number | null | undefined) => Number(v ?? 0).toLocaleString();
 
-type Tab = "attendance" | "payslips" | "leave" | "salary" | "contract";
+type Tab = "attendance" | "payslips" | "leave" | "advances" | "salary" | "contract";
 
 const Pager: React.FC<{ page: number; lastPage: number; onChange: (page: number) => void }> = ({ page, lastPage, onChange }) =>
   lastPage > 1 ? (
@@ -84,7 +85,7 @@ const ContractTab: React.FC<{ employee: Employee; showBank: boolean }> = ({ empl
   );
 };
 
-/** One employee: master data, attendance, payslips, leave, pay history and contract, with an edit dialog. */
+/** One employee: master data, attendance, payslips, leave, advances, pay history and contract, with an edit dialog. */
 export const EmployeeDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -168,11 +169,12 @@ export const EmployeeDetailPage: React.FC = () => {
         ))}
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {([
           ["attendance", "الدوام", CalendarCheck],
           ["payslips", "قسائم الراتب", Receipt],
           ["leave", "الإجازات", CalendarOff],
+          ["advances", "السلف والقروض", HandCoins],
           ["salary", "سجل الراتب", History],
           ["contract", "بيانات العقد", FileText],
         ] as const).map(([key, label, Icon]) => (
@@ -192,6 +194,10 @@ export const EmployeeDetailPage: React.FC = () => {
       <div className="bg-app-bg-primary rounded-2xl border border-app-separator shadow-sm overflow-hidden">
         {tab === "leave" ? (
           <EmployeeLeaveTab employeeId={employee.id} canEditEntitlement={canEditEntitlement} />
+        ) : tab === "advances" ? (
+          <div className="p-3">
+            <EmployeeAdvancesPanel employee={employee} />
+          </div>
         ) : tab === "salary" ? (
           <EmployeeCompensationTab employee={employee} canChangePay={holdsPayRole} />
         ) : tab === "contract" ? (
@@ -234,6 +240,7 @@ export const EmployeeDetailPage: React.FC = () => {
                   <th className={th}>الأساسي</th>
                   <th className={th}>أجر الدوام</th>
                   <th className={th}>الإجمالي</th>
+                  <th className={th}>استرداد السلف</th>
                   <th className={th}>الصافي</th>
                 </tr>
               </thead>
@@ -247,6 +254,9 @@ export const EmployeeDetailPage: React.FC = () => {
                     <td className={`${td} font-mono`}>{money(slip.base_pay)}</td>
                     <td className={`${td} font-mono`}>{money(slip.attendance_pay)}</td>
                     <td className={`${td} font-mono`}>{money(slip.gross_pay)}</td>
+                    <td className={`${td} font-mono`}>
+                      {advanceRecovery(slip.deductions) > 0 ? money(advanceRecovery(slip.deductions)) : "—"}
+                    </td>
                     <td className={`${td} font-mono font-bold`}>{money(slip.net_pay)}</td>
                   </tr>
                 ))}

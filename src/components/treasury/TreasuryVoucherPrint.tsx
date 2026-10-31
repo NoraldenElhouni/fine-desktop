@@ -25,10 +25,13 @@ export const TreasuryVoucherPrint: React.FC<TreasuryVoucherPrintProps> = ({
     (voucher.counter_account ? voucher.counter_account.name : "—");
   const isNonLyd = voucher.currency !== "LYD" && voucher.currency !== "د.ل";
 
+  // W5-02: an advances (1215) voucher names the employee.
+  const employeeName = voucher.employee ? (voucher.employee.name ?? voucher.employee.employee_number) : null;
+  const employeeSuffix = employeeName ? ` — الموظف: ${employeeName}` : "";
   const counterPartyDisplay = voucher.client
     ? `العميل: ${voucher.client.name}`
     : voucher.counter_account
-    ? `${voucher.counter_account.code} — ${voucher.counter_account.name}`
+    ? `${voucher.counter_account.code} — ${voucher.counter_account.name}${employeeSuffix}`
     : "—";
 
   return (
@@ -100,7 +103,7 @@ export const TreasuryVoucherPrint: React.FC<TreasuryVoucherPrintProps> = ({
               <span className="shrink-0 font-bold text-gray-700">الحساب المقابل:</span>
               <span className="font-mono text-gray-800">
                 {voucher.counter_account
-                  ? `${voucher.counter_account.code} — ${voucher.counter_account.name}`
+                  ? `${voucher.counter_account.code} — ${voucher.counter_account.name}${employeeSuffix}`
                   : (voucher.client?.name ?? "—")}
               </span>
             </div>

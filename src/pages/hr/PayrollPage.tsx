@@ -34,6 +34,8 @@ import { apiErrorMessage, apiErrorPayload } from "../../api/endpoints/production
 import { TreasurySelect } from "../../components/treasury/TreasurySelect";
 import {
   PAYROLL_STATUS_LABEL,
+  isAdvanceDeduction,
+  isLockedDeduction,
   type PayrollRun,
   type Payslip,
 } from "../../api/endpoints/hr";
@@ -68,7 +70,7 @@ const NEXT_ACTION: Partial<
 const RECALCULATE_ACTION = {
   action: "calculate" as const,
   label: "إعادة احتساب المسير",
-  desc: "تغيّرت أجور بعض الموظفين بعد احتساب هذا المسير؛ أعد احتسابه قبل إرساله للاعتماد.",
+  desc: "تغيّرت أجور بعض الموظفين أو صُرفت سلفة أو سُدِّدت نقداً بعد احتساب هذا المسير؛ أعد احتسابه قبل إرساله للاعتماد.",
 };
 
 function nextActionFor(run: PayrollRun) {
@@ -237,16 +239,17 @@ export const PayrollPage: React.FC = () => {
     );
   };
 
-  // Payslips of the run being recalculated that carry deductions (only known for the loaded run).
+  // Payslips of the run being recalculated that carry hand-entered deductions (only known
+  // for the loaded run). HR-12's locked advance lines are rebuilt from the schedule.
   const manualDeductionCount = useMemo(() => {
     if (!recalcRun || recalcRun.id !== activeRun?.id) return null;
-    return (payslips ?? []).filter((p) => (p.deductions ?? []).length > 0).length;
+    return (payslips ?? []).filter((p) => (p.deductions ?? []).some((d) => !isLockedDeduction(d))).length;
   }, [recalcRun, activeRun, payslips]);
 
   const recalcMessage = recalcRun
     ? [
         `إعادة احتساب مسير ${recalcRun.period} تحذف جميع القسائم الحالية وتبنيها من جديد على الأجور المحدّثة.`,
-        "تُحذف معها جميع الاستقطاعات المُدخلة على القسائم؛ أعد إدخالها بعد الاحتساب.",
+        "تُحذف معها جميع الاستقطاعات المُدخلة يدوياً على القسائم؛ أعد إدخالها بعد الاحتساب. أما استرداد السلف فيُعاد احتسابه آلياً من جداول أقساطها.",
         manualDeductionCount
           ? `عدد القسائم التي عليها استقطاعات: ${manualDeductionCount}.`
           : "",
@@ -310,12 +313,19 @@ export const PayrollPage: React.FC = () => {
     // Deductions breakdown
     const deductionsMap: Record<string, { type: string; amount: number; count: number }> = {};
     list.forEach((p) => {
+      const seen = new Set<string>();
       (p.deductions ?? []).forEach((d) => {
-        if (!deductionsMap[d.type]) {
-          deductionsMap[d.type] = { type: d.type, amount: 0, count: 0 };
+        // HR-12: every installment line of every advance shows as one advance-recovery tag,
+        // counted once per employee.
+        const type = isAdvanceDeduction(d) ? "استرداد السلف" : d.type;
+        if (!deductionsMap[type]) {
+          deductionsMap[type] = { type, amount: 0, count: 0 };
         }
-        deductionsMap[d.type].amount += Number(d.amount || 0);
-        deductionsMap[d.type].count += 1;
+        deductionsMap[type].amount += Number(d.amount || 0);
+        if (!seen.has(type)) {
+          seen.add(type);
+          deductionsMap[type].count += 1;
+        }
       });
     });
     const deductionsData = Object.values(deductionsMap);
@@ -538,7 +548,7 @@ export const PayrollPage: React.FC = () => {
                 <div className="flex items-start gap-2 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-xs text-rose-700 dark:text-rose-300">
                   <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                   <span>
-                    سُجّل تغيير أجر يمس شهر {activeRun.period} بعد احتساب هذا المسير، فالقسائم الحالية محسوبة على الأجور القديمة.
+                    سُجّل تغيير أجر أو صرف سلفة أو سداد نقدي لقسط يمس شهر {activeRun.period} بعد احتساب هذا المسير، فالقسائم الحالية لا تعكسه.
                     لا يمكن إرساله للاعتماد حتى يُعاد احتسابه. إعادة الاحتساب تحذف الاستقطاعات المُدخلة يدوياً على القسائم،
                     فأدخلها بعد الاحتساب لا قبله.
                   </span>

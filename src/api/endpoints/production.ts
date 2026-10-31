@@ -1,5 +1,6 @@
 import apiClient from "../client";
 import { StockLot } from "./inventory";
+import { formatNumber } from "../../lib/utils/format";
 
 export type ProductionBatchStatus =
   | "planned"
@@ -143,6 +144,16 @@ export interface ApiErrorPayload {
   shortfalls?: { inventory_item_id: string; code?: string | null; required: number; available: number }[];
   /** W5-00 PARTY_EMPLOYEE_REQUIRED on a manual entry: the untagged advance balance an untagged credit may still clear. */
   untagged_balance?: number;
+  /** W5-02 ADVANCE_LIMIT_EXCEEDED: the largest advance allowed and the monthly salary it is measured on. */
+  max_amount?: number;
+  monthly_salary?: number;
+  /** W5-02 ADVANCE_DEDUCTION_LIMIT: the monthly recovery cap and what the employee's other open advances already take. */
+  max_monthly?: number;
+  open_monthly?: number;
+  /** W5-02 ADVANCE_REPAYMENT_EXCEEDS: what is still left to recover in cash. */
+  available?: number;
+  /** W5-02 ADVANCE_USE_REPAY: the employee's 1215 balance outside the advance schedule. */
+  unscheduled_balance?: number;
 }
 
 /** Pull the JSON body out of a rejected axios request without reaching for `any`. */
@@ -228,13 +239,34 @@ export const LEDGER_ERROR_MESSAGE: Record<string, string> = {
   MATERIAL_NOT_RAW: "لا تُصرف لعملية الإسفنج إلا المواد الخام (الكيماويات).",
   EMPTY_CONTAINERS_MISSING: "إرجاع هذه الكمية يعيد تعبئة براميل فارغة لم تعد موجودة في مخزن اللوت، لذا لا يمكن إرجاعها.",
   BATCH_HAS_MATERIALS: "لا يمكن حذف دفعة صُرفت لها مواد كيماوية — أزل المواد المصروفة أولاً لتعود إلى لوتاتها.",
+  // W5-02 (HR-12): salary advances and loans. The receipt, manual-entry, reversal,
+  // payroll and employee-edit screens hit some of these too, so they live here.
+  ADVANCE_LIMIT_EXCEEDED: "مبلغ السلفة يتجاوز الحد المسموح (مضاعف الراتب الشهري الأساسي المحدد في إعدادات السلف).",
+  ADVANCE_DEDUCTION_LIMIT: "القسط الشهري مع أقساط سلف الموظف المفتوحة الأخرى يتجاوز نسبة الاستقطاع المسموحة من راتبه — زد عدد الأقساط أو خفّض المبلغ.",
+  ADVANCE_NO_MONTHLY_SALARY: "السلف والقروض للموظفين على راتب شهري فقط — ليس لهذا الموظف راتب شهري أساسي ساري.",
+  ADVANCE_EMPLOYEE_INACTIVE: "الموظف منتهي الخدمة أو محذوف — لا تُطلب له سلفة ولا تُعتمد ولا تُصرف.",
+  ADVANCE_START_PERIOD_PAST: "لا يبدأ الاسترداد في شهر مضى — اختر الشهر الحالي أو شهراً لاحقاً.",
+  ADVANCE_START_PERIOD_CLOSED: "مسير رواتب شهر بداية الاسترداد تجاوز المراجعة — ابدأ الاسترداد في شهر لاحق.",
+  ADVANCE_TREASURY_NOT_LYD: "تُصرف السلف وتُسدَّد بالدينار الليبي فقط — اختر خزينة بالدينار.",
+  ADVANCE_REPAYMENT_EXCEEDS: "مبلغ السداد يتجاوز المتبقي للاسترداد على هذه السلفة.",
+  ADVANCE_CANCEL_FORBIDDEN: "إلغاء سلفة معتمدة من صلاحية من يعتمد السلف فقط (المالك أو مدير الحسابات أو مدير الموارد البشرية).",
+  ADVANCE_RECALCULATE_REQUIRED: "تغيّر قسط سلفة في هذا المسير بعد احتسابه (سداد نقدي) — أعد احتساب المسير قبل ترحيله.",
+  ADVANCE_DEDUCTION_MANUAL: "استرداد السلف والقروض يُستقطع آلياً من جدول أقساطها (أو يُسدَّد نقداً على السلفة)، ولا يُدخل كاستقطاع يدوي.",
+  ADVANCE_USE_REPAY: "لدى الموظف سلفة قيد الاسترداد، فلا يُقبل هنا إلا رصيده خارج جدول الأقساط — سجّل النقد المُعاد كسداد على السلفة من صفحة السلف والقروض.",
+  ADVANCE_USE_ADVANCE_FLOW: "هذا القيد يخص سلفة موظف أو مسير رواتب استرد أقساط سلف، فلا يُعكس ولا يُلغى — ألغِ السلفة قبل صرفها، أو سجّل النقد المُعاد كسداد عليها.",
+  EMPLOYEE_HAS_OPEN_ADVANCE: "على الموظف سلفة أو قرض مفتوح — سدّده أو ألغه قبل نقله إلى وحدة تشغيلية أخرى.",
   LOT_STATUS_CHANGE_NOT_ALLOWED: "تتغير حالة اللوت هنا بين «متاح» و«حجر صحي» فقط — الحجز والاستهلاك يتمان من خلال أوامر التقطيع والمبيعات والجرد.",
 };
 
 /** The Arabic message for a known refusal code, else the server's message, else the fallback. */
 export const apiErrorMessage = (err: unknown, fallback: string): string => {
   const payload = apiErrorPayload(err);
-  return (payload?.code && LEDGER_ERROR_MESSAGE[payload.code]) || payload?.message || fallback;
+  const message = (payload?.code && LEDGER_ERROR_MESSAGE[payload.code]) || payload?.message || fallback;
+  // W5-02: say how much of the employee's balance a receipt or reversal may still clear.
+  if (payload?.code === "ADVANCE_USE_REPAY" && payload.unscheduled_balance != null) {
+    return `${message} الرصيد خارج الجدول: ${formatNumber(Number(payload.unscheduled_balance), { maximumFractionDigits: 4 })} د.ل`;
+  }
+  return message;
 };
 
 /** Blocks are keyed in from the completed sheet, so only these states accept them. */

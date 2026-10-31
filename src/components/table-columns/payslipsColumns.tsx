@@ -1,12 +1,29 @@
 import React, { useMemo, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { useSetDeductions } from "../../hooks/useHr";
-import { apiErrorPayload } from "../../api/endpoints/production";
-import { type PayrollRun, type Payslip } from "../../api/endpoints/hr";
+import { apiErrorMessage } from "../../api/endpoints/production";
+import {
+  isAdvanceDeduction,
+  isLockedDeduction,
+  type Deduction,
+  type PayrollRun,
+  type Payslip,
+} from "../../api/endpoints/hr";
 import { ColumnDef } from "../ui/DataTable";
 
 const fmt = (v: number | string) =>
   Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+/** HR-12: payroll's advance-recovery line — read-only, from the advance schedule. */
+const LockedDeduction: React.FC<{ d: Deduction }> = ({ d }) => (
+  <span
+    className="rounded bg-app-accent/10 px-1.5 py-0.5 text-app-accent"
+    title="يُستقطع آلياً من جدول أقساط السلفة ولا يُعدّل يدوياً"
+  >
+    {isAdvanceDeduction(d) ? "استرداد سلفة" : d.type}
+    {d.period ? ` (${d.period})` : ""}: {fmt(d.amount)}
+  </span>
+);
 
 const DeductionEditor: React.FC<{ payslip: Payslip; editable: boolean; onError: (m: string) => void }> = ({
   payslip,
@@ -14,18 +31,25 @@ const DeductionEditor: React.FC<{ payslip: Payslip; editable: boolean; onError: 
   onError,
 }) => {
   const [editing, setEditing] = useState(false);
-  const [items, setItems] = useState(payslip.deductions ?? []);
+  // HR-12: the locked advance lines stay out of the editor; the server keeps them
+  // and re-caps them against net pay after the manual lines.
+  const locked = (payslip.deductions ?? []).filter(isLockedDeduction);
+  const manual = (payslip.deductions ?? []).filter((d) => !isLockedDeduction(d));
+  const [items, setItems] = useState(manual);
   const setDeductions = useSetDeductions();
 
   if (!editing) {
     return (
       <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-app-label-secondary">
-        {(payslip.deductions ?? []).map((d, i) => (
+        {locked.map((d, i) => (
+          <LockedDeduction key={`locked-${d.installment_id ?? i}`} d={d} />
+        ))}
+        {manual.map((d, i) => (
           <span key={i}>{d.type}: {fmt(d.amount)}</span>
         ))}
         {editable && (
           <button
-            onClick={() => { setItems(payslip.deductions ?? []); setEditing(true); }}
+            onClick={() => { setItems(manual); setEditing(true); }}
             className="text-app-accent font-bold hover:opacity-80"
           >
             تعديل الاستقطاعات
@@ -37,6 +61,18 @@ const DeductionEditor: React.FC<{ payslip: Payslip; editable: boolean; onError: 
 
   return (
     <div className="space-y-1.5">
+      {locked.length > 0 && (
+        <div className="space-y-1 text-[10px] font-mono">
+          <div className="flex flex-wrap gap-1.5">
+            {locked.map((d, i) => (
+              <LockedDeduction key={`locked-${d.installment_id ?? i}`} d={d} />
+            ))}
+          </div>
+          <p className="font-sans text-app-label-tertiary">
+            استرداد السلف يُعاد حسابه آلياً على صافي الراتب بعد الاستقطاعات اليدوية.
+          </p>
+        </div>
+      )}
       {items.map((d, i) => (
         <div key={i} className="flex items-center gap-1.5">
           <input
@@ -67,7 +103,7 @@ const DeductionEditor: React.FC<{ payslip: Payslip; editable: boolean; onError: 
               { payslipId: payslip.id, deductions: items.filter((d) => d.type.trim() !== "") },
               {
                 onSuccess: () => setEditing(false),
-                onError: (err) => onError(apiErrorPayload(err)?.message ?? "تعذر حفظ الاستقطاعات."),
+                onError: (err) => onError(apiErrorMessage(err, "تعذر حفظ الاستقطاعات.")),
               },
             )
           }

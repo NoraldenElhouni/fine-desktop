@@ -124,6 +124,8 @@ export interface Employee {
   entity?: Entity;
   created_at?: string;
   updated_at?: string;
+  /** Set only on a deleted employee, listed through `with_trashed` (W5-02). */
+  deleted_at?: string | null;
 }
 
 export interface Client {

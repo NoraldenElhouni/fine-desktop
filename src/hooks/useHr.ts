@@ -157,7 +157,7 @@ export function useHrSettings() {
 export function useUpdateHrSettings() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: HrSettings) => hrApi.updateHrSettings(payload),
+    mutationFn: (payload: Partial<HrSettings>) => hrApi.updateHrSettings(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["hrSettings"] }),
   });
 }

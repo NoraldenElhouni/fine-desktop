@@ -63,7 +63,30 @@ export interface LaborRoleRate {
 export interface Deduction {
   type: string;
   amount: number;
+  /**
+   * HR-12: payroll's own advance-recovery lines are locked — calculated from the
+   * advance schedule and kept by the server whatever the editor sends.
+   */
+  locked?: boolean;
+  installment_id?: string | null;
+  employee_advance_id?: string;
+  /** The installment's period (YYYY-MM); earlier than the run when a shortfall carried forward. */
+  period?: string;
 }
+
+/** HR-12: the deduction line type payroll gives an advance installment. */
+export const ADVANCE_DEDUCTION_TYPE = "advance";
+
+/** An advance or loan installment payroll deducted (credits 1215, not 225). */
+export const isAdvanceDeduction = (d: Deduction): boolean =>
+  d.type === ADVANCE_DEDUCTION_TYPE && Boolean(d.installment_id);
+
+/** A line the deductions editor may not touch (the server keeps it as calculated). */
+export const isLockedDeduction = (d: Deduction): boolean => d.locked === true || Boolean(d.installment_id);
+
+/** The advance recovery on a payslip. */
+export const advanceRecovery = (deductions: Deduction[] | null | undefined): number =>
+  (deductions ?? []).filter(isAdvanceDeduction).reduce((sum, d) => sum + Number(d.amount || 0), 0);
 
 export interface Payslip {
   id: string;
@@ -98,6 +121,10 @@ export interface PayrollRun {
 export interface HrSettings {
   /** The annual leave entitlement the employee card's balance is measured against (default 30). */
   annual_leave_days: number;
+  /** HR-12: one advance is at most this multiple of the monthly base salary (default 1). */
+  advance_max_salary_multiple?: number;
+  /** HR-12: the monthly recovery is at most this percentage of the salary (default 50). */
+  advance_max_deduction_pct?: number;
 }
 
 export interface LeaveRequest {
@@ -198,5 +225,6 @@ export const hrApi = {
 
   getHrSettings: () => apiClient.get<HrSettings>("/hr-settings"),
 
-  updateHrSettings: (payload: HrSettings) => apiClient.put<HrSettings>("/hr-settings", payload),
+  /** Send only the settings being changed. */
+  updateHrSettings: (payload: Partial<HrSettings>) => apiClient.put<HrSettings>("/hr-settings", payload),
 };

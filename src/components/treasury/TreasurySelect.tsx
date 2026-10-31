@@ -11,7 +11,11 @@ interface TreasurySelectProps {
   kind?: CashAccountKind;
   required?: boolean;
   className?: string;
+  /** Only local-currency (LYD) treasuries, e.g. employee advances (HR-12). */
+  lydOnly?: boolean;
 }
+
+const isLydTreasury = (currency?: string | null): boolean => !currency || currency === "LYD" || currency === "د.ل";
 
 /**
  * The treasury or bank account money leaves from or goes into. Every cash
@@ -25,8 +29,10 @@ export const TreasurySelect: React.FC<TreasurySelectProps> = ({
   kind,
   required = true,
   className,
+  lydOnly = false,
 }) => {
-  const { data: treasuries = [], isLoading } = useTreasuryOptions(kind);
+  const { data: allTreasuries = [], isLoading } = useTreasuryOptions(kind);
+  const treasuries = lydOnly ? allTreasuries.filter((t) => isLydTreasury(t.currency)) : allTreasuries;
 
   return (
     <div className={className ?? "space-y-1"}>
@@ -42,7 +48,7 @@ export const TreasurySelect: React.FC<TreasurySelectProps> = ({
       >
         <option value="">{isLoading ? "جارٍ التحميل…" : "اختر…"}</option>
         {treasuries.map((t) => {
-          const isLyd = !t.currency || t.currency === "LYD" || t.currency === "د.ل";
+          const isLyd = isLydTreasury(t.currency);
           const label = isLyd ? `${t.name} — ${formatNumber(t.ledger_balance)}` : `${t.name} — ${t.account_code}`;
           return (
             <option key={t.id} value={t.id}>

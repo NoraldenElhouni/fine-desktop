@@ -8,6 +8,8 @@ import { formatDate } from "../../lib/utils/format";
 export interface GetEmployeesParams {
   operating_unit_id?: string;
   status?: string;
+  /** W5-02: include deleted employees (an advance they owe stays listed and repayable). */
+  with_trashed?: 1;
 }
 
 export const getEmployees = async (params?: GetEmployeesParams): Promise<Employee[]> => {

@@ -22,6 +22,13 @@ export interface TreasuryVoucher {
     id: string;
     name: string;
   } | null;
+  /** W5-02: the employee on an advances (1215) voucher. */
+  employee_id?: string | null;
+  employee?: {
+    id: string;
+    name: string | null;
+    employee_number: string | null;
+  } | null;
   amount: number;
   currency: string;
   fx_rate: number | null;
@@ -71,6 +78,8 @@ export interface TreasuryVoucherFilters {
   status?: string;
   cash_account_id?: string;
   client_id?: string;
+  /** W5-02: vouchers naming this employee. */
+  employee_id?: string;
   from?: string;
   to?: string;
   search?: string;
