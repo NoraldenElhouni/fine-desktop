@@ -25,12 +25,15 @@ import {
   useToggleReferenceLookupActive,
 } from "../../hooks/useReferenceLookups";
 import { toast } from "../../stores/toastStore";
+import { LEDGER_ERROR_MESSAGE } from "../../api/endpoints/production";
 import { isAxiosError } from "axios";
 
 /** Arabic text for delete refusals whose backend message is English. */
 const DELETE_REFUSAL_MESSAGE: Record<string, string> = {
   BASE_CURRENCY: "لا يمكن حذف العملة الأساسية للشركة.",
   CURRENCY_IN_USE: "العملة مستخدمة في حسابات أو مستندات ولا يمكن حذفها — يمكنك إيقاف تفعيلها بدلاً من ذلك.",
+  // W5-03: an allowance or deduction type used by employee pay items or adjustments (delete or code change).
+  PAY_CODE_IN_USE: LEDGER_ERROR_MESSAGE.PAY_CODE_IN_USE,
 };
 
 const getErrorMessage = (err: unknown, fallback: string): string => {

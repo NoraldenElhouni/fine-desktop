@@ -154,6 +154,16 @@ export interface ApiErrorPayload {
   available?: number;
   /** W5-02 ADVANCE_USE_REPAY: the employee's 1215 balance outside the advance schedule. */
   unscheduled_balance?: number;
+  /** W5-03 PAY_ITEM_PERIOD_CLOSED / PAY_PERIOD_CLOSED / PAY_ITEM_FROZEN: the last day of payroll that left review. */
+  frozen_until?: string;
+  /** W5-03 PAY_ITEM_FROZEN: the earliest end date the frozen item may take. */
+  earliest_end?: string;
+  /** W5-03 PAYROLL_DEDUCTIONS_EXCEED_GROSS: every employee whose standing and one-off deductions exceed gross. */
+  employees?: { employee_id: string; gross_pay: number; deductions: number }[];
+  /** W5-03 PAYROLL_ADJUSTMENT_UNPAID: the approved adjustments no payslip would carry. */
+  adjustment_ids?: string[];
+  /** W5-03 PAYROLL_ADJUSTMENT_UNPAID: the first employee those adjustments belong to. */
+  employee_id?: string;
 }
 
 /** Pull the JSON body out of a rejected axios request without reaching for `any`. */
@@ -254,6 +264,16 @@ export const LEDGER_ERROR_MESSAGE: Record<string, string> = {
   ADVANCE_DEDUCTION_MANUAL: "استرداد السلف والقروض يُستقطع آلياً من جدول أقساطها (أو يُسدَّد نقداً على السلفة)، ولا يُدخل كاستقطاع يدوي.",
   ADVANCE_USE_REPAY: "لدى الموظف سلفة قيد الاسترداد، فلا يُقبل هنا إلا رصيده خارج جدول الأقساط — سجّل النقد المُعاد كسداد على السلفة من صفحة السلف والقروض.",
   ADVANCE_USE_ADVANCE_FLOW: "هذا القيد يخص سلفة موظف أو مسير رواتب استرد أقساط سلف، فلا يُعكس ولا يُلغى — ألغِ السلفة قبل صرفها، أو سجّل النقد المُعاد كسداد عليها.",
+  // W5-03 (HR-13): rewards and deductions. The payroll, adjustments and reference-lookup
+  // screens hit these.
+  PAY_PERIOD_CLOSED:
+    "مسير رواتب هذا الشهر أو شهر لاحق تجاوز المراجعة — لا تُدخل له مكافآت أو جزاءات ولا تُعتمد، ولا يُحذف المعتمد منها.",
+  PAY_CODE_IN_USE:
+    "هذا النوع مستخدم في بدلات أو استقطاعات ثابتة أو مكافآت وجزاءات لموظفين، فلا يُحذف ولا يُغيَّر رمزه — أوقف تفعيله بدلاً من ذلك.",
+  PAYROLL_DEDUCTIONS_EXCEED_GROSS:
+    "الاستقطاعات الثابتة والجزاءات لبعض الموظفين تتجاوز إجمالي رواتبهم في هذا الشهر — خفّض الجزاء أو احذفه، أو أنهِ البند الثابت في آخر يوم من الشهر السابق وأعد إضافته من الشهر التالي (أو أوقفه لهذا الاحتساب)، ثم أعد الاحتساب.",
+  PAYROLL_ADJUSTMENT_UNPAID:
+    "توجد مكافآت أو جزاءات معتمدة لهذا الشهر لموظفين لا قسيمة لهم فيه (منتهي الخدمة أو بالقطعة أو بلا أجر) — احذفها أو أدخلها لشهر يُصرف لهم فيه، ثم أعد الاحتساب.",
   EMPLOYEE_HAS_OPEN_ADVANCE: "على الموظف سلفة أو قرض مفتوح — سدّده أو ألغه قبل نقله إلى وحدة تشغيلية أخرى.",
   LOT_STATUS_CHANGE_NOT_ALLOWED: "تتغير حالة اللوت هنا بين «متاح» و«حجر صحي» فقط — الحجز والاستهلاك يتمان من خلال أوامر التقطيع والمبيعات والجرد.",
 };

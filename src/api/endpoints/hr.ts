@@ -72,6 +72,30 @@ export interface Deduction {
   employee_advance_id?: string;
   /** The installment's period (YYYY-MM); earlier than the run when a shortfall carried forward. */
   period?: string;
+  /** HR-13: a standing pay item's or an approved one-off adjustment's line (locked too). */
+  source?: PayLineSource;
+  pay_item_id?: string;
+  adjustment_id?: string;
+  /** HR-13: liability credits 225, expense_reduction credits 57 (set by the server). */
+  account_role?: "liability" | "expense_reduction";
+  reason?: string;
+}
+
+/** HR-13: where payroll took an addition or a locked deduction line from. */
+export type PayLineSource = "pay_item" | "adjustment";
+
+/** HR-13: an allowance or bonus payroll added to gross pay (`type` is an allowance-types code). */
+export interface PayslipAddition {
+  type: string;
+  source: PayLineSource;
+  pay_item_id?: string;
+  adjustment_id?: string;
+  /** Standing items: fixed per period or a percentage of base + attendance pay. */
+  calc?: "fixed" | "percent_of_base";
+  value?: number;
+  /** One-off adjustments: why it was granted. */
+  reason?: string;
+  amount: number;
 }
 
 /** HR-12: the deduction line type payroll gives an advance installment. */
@@ -96,6 +120,9 @@ export interface Payslip {
   base_pay: string;
   attendance_pay: string;
   labor_log_pay: string;
+  /** HR-13: standing allowances and approved bonuses; gross = base + attendance + additions. */
+  additions?: PayslipAddition[] | null;
+  additions_pay?: string | null;
   gross_pay: string;
   deductions: Deduction[] | null;
   net_pay: string;

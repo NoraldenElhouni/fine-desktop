@@ -102,6 +102,12 @@ const CALCULATION_OPTIONS: LookupFieldOption[] = [
   { value: "percentage", label: "نسبة من الراتب الأساسي" },
 ];
 
+/** W5-03 (HR-13): a deduction type's account role (liability → 225, expense_reduction → 57). */
+const DEDUCTION_ROLE_OPTIONS: LookupFieldOption[] = [
+  { value: "liability", label: "استقطاع يُسدَّد لجهة (225)" },
+  { value: "expense_reduction", label: "خصم من مصروف الرواتب (57)" },
+];
+
 /** Reads as an amount or a percentage depending on the calculation method. */
 const VALUE_FIELD: Omit<LookupFieldConfig, "key"> = {
   label: "القيمة الافتراضية",
@@ -385,14 +391,17 @@ export const DEDUCTION_TYPES_LOOKUP: LookupConfig = {
   fields: [
     { key: "calculation", label: "طريقة الاحتساب", type: "select", chip: true, options: CALCULATION_OPTIONS },
     { key: "value", ...VALUE_FIELD },
+    // W5-03 (HR-13): where payroll credits this deduction. The first option is the
+    // default for a new type; DED-ADV has none (advance recovery credits 1215).
+    { key: "account_role", label: "القيد المحاسبي", type: "select", chip: true, options: DEDUCTION_ROLE_OPTIONS },
   ],
   seed: [
-    row("ded-ssf", "تأمين اجتماعي", "DED-SSF", { calculation: "percentage", value: "3.75" }, { notes: "حصة الموظف من الضمان الاجتماعي" }),
-    row("ded-tax", "ضريبة دخل", "DED-TAX", { calculation: "percentage", value: "5" }),
+    row("ded-ssf", "تأمين اجتماعي", "DED-SSF", { calculation: "percentage", value: "3.75", account_role: "liability" }, { notes: "حصة الموظف من الضمان الاجتماعي" }),
+    row("ded-tax", "ضريبة دخل", "DED-TAX", { calculation: "percentage", value: "5", account_role: "liability" }),
     row("ded-adv", "سلفة موظف", "DED-ADV", { calculation: "fixed", value: "0" }, { notes: "تُقسَّط حسب اتفاق السلفة" }),
-    row("ded-abs", "خصم غياب", "DED-ABS", { calculation: "fixed", value: "0" }),
-    row("ded-late", "خصم تأخير", "DED-LATE", { calculation: "fixed", value: "0" }),
-    row("ded-pen", "جزاء إداري", "DED-PEN", { calculation: "fixed", value: "0" }, { isActive: false }),
+    row("ded-abs", "خصم غياب", "DED-ABS", { calculation: "fixed", value: "0", account_role: "expense_reduction" }),
+    row("ded-late", "خصم تأخير", "DED-LATE", { calculation: "fixed", value: "0", account_role: "expense_reduction" }),
+    row("ded-pen", "جزاء إداري", "DED-PEN", { calculation: "fixed", value: "0", account_role: "expense_reduction" }, { isActive: false }),
   ],
 };
 

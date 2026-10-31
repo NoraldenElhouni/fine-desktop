@@ -1,8 +1,15 @@
 import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, CalendarCheck, CalendarOff, FileText, HandCoins, History, Pencil, Receipt, UserCircle } from "lucide-react";
+import { ArrowRight, CalendarCheck, CalendarOff, FileText, HandCoins, History, Pencil, Receipt, UserCircle, WalletCards } from "lucide-react";
 import { useEmployee, useEmployeeAttendance, useEmployeePayslips } from "../../hooks/useEmployees";
-import { ATTENDANCE_STATUS_LABEL, PAYROLL_STATUS_LABEL, advanceRecovery } from "../../api/endpoints/hr";
+import {
+  ATTENDANCE_STATUS_LABEL,
+  PAYROLL_STATUS_LABEL,
+  advanceRecovery,
+  isAdvanceDeduction,
+  type Deduction,
+} from "../../api/endpoints/hr";
+import { usePayCodes } from "../../hooks/usePayItems";
 import { PAY_ROLES } from "../../api/endpoints/employees";
 import { usePermissions } from "../../hooks/usePermissions";
 import { formatDate } from "../../lib/utils/format";
@@ -11,6 +18,7 @@ import { EmployeeEditDialog, EMPLOYEE_STATUS_LABEL as STATUS_LABEL } from "./Emp
 import { EmployeeCompensationTab } from "./EmployeeCompensationTab";
 import { EmployeeLeaveTab } from "./EmployeeLeaveTab";
 import { EmployeeAdvancesPanel } from "../../components/hr/EmployeeAdvancesPanel";
+import { EmployeePayItemsTab } from "./EmployeePayItemsTab";
 
 const PAY_TYPE_LABEL: Record<PayType, string> = {
   monthly: "راتب شهري",
@@ -20,7 +28,14 @@ const PAY_TYPE_LABEL: Record<PayType, string> = {
 
 const money = (v: string | number | null | undefined) => Number(v ?? 0).toLocaleString();
 
-type Tab = "attendance" | "payslips" | "leave" | "advances" | "salary" | "contract";
+/** Every deduction except advance recovery: HR-13 standing and one-off lines plus manual ones. */
+const otherDeductions = (deductions: Deduction[] | null | undefined): Deduction[] =>
+  (deductions ?? []).filter((d) => !isAdvanceDeduction(d));
+
+const sumDeductions = (deductions: Deduction[]): number =>
+  deductions.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+
+type Tab = "attendance" | "payslips" | "payItems" | "leave" | "advances" | "salary" | "contract";
 
 const Pager: React.FC<{ page: number; lastPage: number; onChange: (page: number) => void }> = ({ page, lastPage, onChange }) =>
   lastPage > 1 ? (
@@ -85,7 +100,10 @@ const ContractTab: React.FC<{ employee: Employee; showBank: boolean }> = ({ empl
   );
 };
 
-/** One employee: master data, attendance, payslips, leave, advances, pay history and contract, with an edit dialog. */
+/**
+ * One employee: master data, attendance, payslips, allowances and deductions, leave,
+ * advances, pay history and contract, with an edit dialog.
+ */
 export const EmployeeDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -100,6 +118,7 @@ export const EmployeeDetailPage: React.FC = () => {
   const { data: employee, isLoading, isError } = useEmployee(id);
   const attendance = useEmployeeAttendance(id, attendancePage);
   const payslips = useEmployeePayslips(id, payslipPage);
+  const { nameOf } = usePayCodes();
 
   if (isLoading) {
     return <div className="p-6 text-xs text-app-label-secondary" dir="rtl">جارٍ التحميل…</div>;
@@ -173,6 +192,7 @@ export const EmployeeDetailPage: React.FC = () => {
         {([
           ["attendance", "الدوام", CalendarCheck],
           ["payslips", "قسائم الراتب", Receipt],
+          ["payItems", "البدلات والاستقطاعات", WalletCards],
           ["leave", "الإجازات", CalendarOff],
           ["advances", "السلف والقروض", HandCoins],
           ["salary", "سجل الراتب", History],
@@ -192,7 +212,9 @@ export const EmployeeDetailPage: React.FC = () => {
       </div>
 
       <div className="bg-app-bg-primary rounded-2xl border border-app-separator shadow-sm overflow-hidden">
-        {tab === "leave" ? (
+        {tab === "payItems" ? (
+          <EmployeePayItemsTab employee={employee} canChangePay={holdsPayRole} />
+        ) : tab === "leave" ? (
           <EmployeeLeaveTab employeeId={employee.id} canEditEntitlement={canEditEntitlement} />
         ) : tab === "advances" ? (
           <div className="p-3">
@@ -239,7 +261,9 @@ export const EmployeeDetailPage: React.FC = () => {
                   <th className={th}>حالة المسير</th>
                   <th className={th}>الأساسي</th>
                   <th className={th}>أجر الدوام</th>
+                  <th className={th}>البدلات والمكافآت</th>
                   <th className={th}>الإجمالي</th>
+                  <th className={th}>الاستقطاعات</th>
                   <th className={th}>استرداد السلف</th>
                   <th className={th}>الصافي</th>
                 </tr>
@@ -253,7 +277,18 @@ export const EmployeeDetailPage: React.FC = () => {
                     </td>
                     <td className={`${td} font-mono`}>{money(slip.base_pay)}</td>
                     <td className={`${td} font-mono`}>{money(slip.attendance_pay)}</td>
+                    <td className={`${td} font-mono`}>{Number(slip.additions_pay ?? 0) > 0 ? money(slip.additions_pay) : "—"}</td>
                     <td className={`${td} font-mono`}>{money(slip.gross_pay)}</td>
+                    <td
+                      className={`${td} font-mono`}
+                      title={otherDeductions(slip.deductions)
+                        .map((d) => `${nameOf("deduction", d.type)}${d.source === "adjustment" ? " (لمرة واحدة)" : ""}: ${money(d.amount)}`)
+                        .join("\n")}
+                    >
+                      {sumDeductions(otherDeductions(slip.deductions)) > 0
+                        ? money(sumDeductions(otherDeductions(slip.deductions)))
+                        : "—"}
+                    </td>
                     <td className={`${td} font-mono`}>
                       {advanceRecovery(slip.deductions) > 0 ? money(advanceRecovery(slip.deductions)) : "—"}
                     </td>

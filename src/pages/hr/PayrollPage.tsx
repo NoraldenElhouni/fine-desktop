@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   Banknote,
   Plus,
@@ -40,6 +40,9 @@ import {
   type Payslip,
 } from "../../api/endpoints/hr";
 import { formatNumber } from "../../lib/utils/format";
+import { useEmployeesForParty } from "../../hooks/useEmployees";
+import { useIsCompanyWide } from "../../hooks/useAccounting";
+import { useOperatingUnits } from "../../hooks/usePartners";
 import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { usePayslipsColumns } from "../../components/table-columns/payslipsColumns";
@@ -70,7 +73,7 @@ const NEXT_ACTION: Partial<
 const RECALCULATE_ACTION = {
   action: "calculate" as const,
   label: "إعادة احتساب المسير",
-  desc: "تغيّرت أجور بعض الموظفين أو صُرفت سلفة أو سُدِّدت نقداً بعد احتساب هذا المسير؛ أعد احتسابه قبل إرساله للاعتماد.",
+  desc: "تغيّرت أجور بعض الموظفين أو بدلاتهم واستقطاعاتهم الثابتة، أو اعتُمدت مكافأة أو جزاء أو حُذف، أو صُرفت سلفة أو سُدِّدت نقداً بعد احتساب هذا المسير؛ أعد احتسابه قبل إرساله للاعتماد.",
 };
 
 function nextActionFor(run: PayrollRun) {
@@ -156,8 +159,29 @@ const PayslipsTable: React.FC<{
   );
 };
 
+/** An employee a calculation refusal names (HR-13), with the figures it gave when it gave them. */
+interface RefusedEmployee {
+  employee_id: string;
+  gross_pay?: number;
+  deductions?: number;
+}
+
+interface PayrollError {
+  text: string;
+  employees: RefusedEmployee[];
+  /** PAYROLL_ADJUSTMENT_UNPAID names only the first employee; this counts every unpaid adjustment. */
+  unpaidAdjustments?: number;
+}
+
+const REFUSED_NAMES_SHOWN = 10;
+
 export const PayrollPage: React.FC = () => {
-  const [error, setError] = useState<string | null>(null);
+  const [errorState, setErrorState] = useState<PayrollError | null>(null);
+  // Stable, as the useState setter it replaces was: the payslip columns memoize on it.
+  const setError = useCallback(
+    (text: string | null) => setErrorState(text ? { text, employees: [] } : null),
+    [],
+  );
   const currentMonthStr = useMemo(() => new Date().toISOString().slice(0, 7), []);
   const [selectedPeriod, setSelectedPeriod] = useState<string>(currentMonthStr);
   const [viewMode, setViewMode] = useState<"month" | "all">("month");
@@ -181,12 +205,58 @@ export const PayrollPage: React.FC = () => {
   // Fetch payslips for the active run
   const { data: payslips, isLoading: isPayslipsLoading } = usePayslips(activeRun?.id);
 
+  // HR-13: name the employees a calculation refusal lists. The run rolls back, so no payslip
+  // shows them; fetch the employee lists only once a refusal names someone.
+  const companyWide = useIsCompanyWide();
+  const { data: units = [] } = useOperatingUnits();
+  const namesNeeded = (errorState?.employees.length ?? 0) > 0;
+  const unitIds = useMemo(() => (namesNeeded ? units.map((u) => u.id) : []), [namesNeeded, units]);
+  const { data: partyEmployees } = useEmployeesForParty(companyWide, unitIds);
+  const error = ((): string | null => {
+    if (!errorState) return null;
+    if (errorState.employees.length === 0) return errorState.text;
+    const nameById = new Map(partyEmployees.map((e) => [e.id, e.entity?.name ?? e.employee_number ?? null]));
+    const money = (n: number) => formatNumber(Number(n), { maximumFractionDigits: 2 });
+    const nameOf = (id: string) => nameById.get(id) ?? `موظف (${id.slice(0, 8)})`;
+    // PAYROLL_ADJUSTMENT_UNPAID names only the first employee; the count covers every employee.
+    if (errorState.unpaidAdjustments !== undefined) {
+      const count = errorState.unpaidAdjustments > 0
+        ? ` عدد المكافآت والجزاءات المعتمدة غير المصروفة: ${errorState.unpaidAdjustments}.`
+        : "";
+      return `${errorState.text} أول موظف معني: ${nameOf(errorState.employees[0].employee_id)}.${count}`;
+    }
+    const parts = errorState.employees.slice(0, REFUSED_NAMES_SHOWN).map((e) => {
+      const name = nameOf(e.employee_id);
+      if (e.deductions != null && e.gross_pay != null) {
+        return `${name} (استقطاعات ${money(e.deductions)} مقابل إجمالي ${money(e.gross_pay)})`;
+      }
+      return name;
+    });
+    const more = errorState.employees.length - REFUSED_NAMES_SHOWN;
+    const list = parts.join("، ") + (more > 0 ? `، و${more} آخرون` : "");
+    return `${errorState.text} الموظفون: ${list}.`;
+  })();
+
   const fail = (err: unknown, fallback: string) => {
     const payload = apiErrorPayload(err);
     // HR-11: a pay change flagged the run after this page loaded it; the refusal is English.
     // usePayrollMutation refetches the runs on error, so the recalculate action appears.
     if (payload?.code === "INVALID_PAYROLL_TRANSITION" && /recalculate it before submitting/.test(payload.message ?? "")) {
       setError(RECALCULATE_ACTION.desc);
+      return;
+    }
+    // HR-13: name each employee whose standing and one-off deductions exceed their gross.
+    if (payload?.code === "PAYROLL_DEDUCTIONS_EXCEED_GROSS" && payload.employees?.length) {
+      setErrorState({ text: apiErrorMessage(err, fallback), employees: payload.employees });
+      return;
+    }
+    // HR-13: the refusal names the first employee left with unpaid approved adjustments.
+    if (payload?.code === "PAYROLL_ADJUSTMENT_UNPAID" && payload.employee_id) {
+      setErrorState({
+        text: apiErrorMessage(err, fallback),
+        employees: [{ employee_id: payload.employee_id }],
+        unpaidAdjustments: payload.adjustment_ids?.length ?? 0,
+      });
       return;
     }
     setError(apiErrorMessage(err, fallback));
@@ -240,7 +310,8 @@ export const PayrollPage: React.FC = () => {
   };
 
   // Payslips of the run being recalculated that carry hand-entered deductions (only known
-  // for the loaded run). HR-12's locked advance lines are rebuilt from the schedule.
+  // for the loaded run). The locked lines (HR-12 advances, HR-13 standing and one-off
+  // deductions) are rebuilt from their sources.
   const manualDeductionCount = useMemo(() => {
     if (!recalcRun || recalcRun.id !== activeRun?.id) return null;
     return (payslips ?? []).filter((p) => (p.deductions ?? []).some((d) => !isLockedDeduction(d))).length;
@@ -249,7 +320,7 @@ export const PayrollPage: React.FC = () => {
   const recalcMessage = recalcRun
     ? [
         `إعادة احتساب مسير ${recalcRun.period} تحذف جميع القسائم الحالية وتبنيها من جديد على الأجور المحدّثة.`,
-        "تُحذف معها جميع الاستقطاعات المُدخلة يدوياً على القسائم؛ أعد إدخالها بعد الاحتساب. أما استرداد السلف فيُعاد احتسابه آلياً من جداول أقساطها.",
+        "تُحذف معها جميع الاستقطاعات المُدخلة يدوياً على القسائم؛ أعد إدخالها بعد الاحتساب. أما البدلات والاستقطاعات الثابتة والمكافآت والجزاءات المعتمدة فتُعاد من مصادرها، واسترداد السلف يُعاد احتسابه آلياً من جداول أقساطها.",
         manualDeductionCount
           ? `عدد القسائم التي عليها استقطاعات: ${manualDeductionCount}.`
           : "",
@@ -284,6 +355,7 @@ export const PayrollPage: React.FC = () => {
     const baseTotal = list.reduce((sum, p) => sum + Number(p.base_pay || 0), 0);
     const attendanceTotal = list.reduce((sum, p) => sum + Number(p.attendance_pay || 0), 0);
     const laborLogTotal = list.reduce((sum, p) => sum + Number(p.labor_log_pay || 0), 0);
+    const additionsTotal = list.reduce((sum, p) => sum + Number(p.additions_pay || 0), 0);
     const grossTotal = Number(activeRun.total_gross || 0);
     const netTotal = Number(activeRun.total_net || 0);
     const deductionsTotal = Number(activeRun.total_deductions || 0);
@@ -294,6 +366,7 @@ export const PayrollPage: React.FC = () => {
       { name: "الأساسي", amount: baseTotal, fill: "#3b82f6" },
       { name: "الحضور", amount: attendanceTotal, fill: "#f59e0b" },
       { name: "الإنتاج", amount: laborLogTotal, fill: "#8b5cf6" },
+      { name: "البدلات والمكافآت", amount: additionsTotal, fill: "#10b981" },
       { name: "الاستقطاعات", amount: deductionsTotal, fill: "#ef4444" },
     ];
 
@@ -548,7 +621,7 @@ export const PayrollPage: React.FC = () => {
                 <div className="flex items-start gap-2 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-xs text-rose-700 dark:text-rose-300">
                   <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                   <span>
-                    سُجّل تغيير أجر أو صرف سلفة أو سداد نقدي لقسط يمس شهر {activeRun.period} بعد احتساب هذا المسير، فالقسائم الحالية لا تعكسه.
+                    سُجّل تغيير أجر أو بدل أو استقطاع ثابت، أو اعتماد مكافأة أو جزاء أو حذفه، أو صرف سلفة أو سداد نقدي لقسط يمس شهر {activeRun.period} بعد احتساب هذا المسير، فالقسائم الحالية لا تعكسه.
                     لا يمكن إرساله للاعتماد حتى يُعاد احتسابه. إعادة الاحتساب تحذف الاستقطاعات المُدخلة يدوياً على القسائم،
                     فأدخلها بعد الاحتساب لا قبله.
                   </span>
@@ -666,7 +739,7 @@ export const PayrollPage: React.FC = () => {
                         >
                           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(150,150,150,0.15)" />
                           <XAxis type="number" tickFormatter={(v) => formatNumber(v)} tick={{ fontSize: 11 }} />
-                          <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 11 }} />
+                          <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11 }} />
                           <Tooltip
                             formatter={(v: number | string | undefined) => [
                               `${formatNumber(v ?? 0)} د.ل`,

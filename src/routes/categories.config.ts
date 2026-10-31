@@ -87,10 +87,10 @@ export const categoryGroups: CategoryGroup[] = [
   {
     id: "hr",
     label: "الموارد البشرية",
-    description: "سجلات الحضور والانصراف، وأجور الأدوار التشغيلية، ومسير الرواتب وطلبات الإجازة والسلف والقروض",
+    description: "سجلات الحضور والانصراف، وأجور الأدوار التشغيلية، ومسير الرواتب وطلبات الإجازة والسلف والقروض والمكافآت والجزاءات",
     icon: UserCheck,
     path: "/hub/hr",
-    itemIds: ["attendance", "labor-rates", "payroll", "leave", "employee-advances"],
+    itemIds: ["attendance", "labor-rates", "payroll", "leave", "employee-advances", "employee-adjustments"],
     get items() {
       return findItems(this.itemIds);
     },
