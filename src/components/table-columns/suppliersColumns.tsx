@@ -1,14 +1,16 @@
 import { useMemo } from "react";
-import { Building, Building2, FileText, MapPin, Pencil } from "lucide-react";
+import { Building, Building2, FileText, GitMerge, MapPin, Pencil } from "lucide-react";
 import { ColumnDef } from "../ui/DataTable";
 import { Supplier } from "../../types/procurement";
 
 export interface UseSuppliersColumnsArgs {
   onEdit?: (supplier: Supplier) => void;
   onViewStatement?: (supplier: Supplier) => void;
+  /** W5-07: merge this supplier into another of its unit. */
+  onMerge?: (supplier: Supplier) => void;
 }
 
-export function useSuppliersColumns({ onEdit, onViewStatement }: UseSuppliersColumnsArgs = {}): ColumnDef<Supplier, unknown>[] {
+export function useSuppliersColumns({ onEdit, onViewStatement, onMerge }: UseSuppliersColumnsArgs = {}): ColumnDef<Supplier, unknown>[] {
   return useMemo<ColumnDef<Supplier, unknown>[]>(
     () => [
       {
@@ -34,6 +36,14 @@ export function useSuppliersColumns({ onEdit, onViewStatement }: UseSuppliersCol
             <Building2 className="h-3 w-3 shrink-0" />
             <span>{row.original.operating_unit?.name ?? "—"}</span>
           </div>
+        ),
+      },
+      {
+        id: "tax_number",
+        header: "الرقم الضريبي",
+        accessorFn: (sup) => sup.tax_number ?? "",
+        cell: ({ row }) => (
+          <span className="font-mono text-[11px] text-app-label-secondary">{row.original.tax_number || "—"}</span>
         ),
       },
       {
@@ -101,6 +111,20 @@ export function useSuppliersColumns({ onEdit, onViewStatement }: UseSuppliersCol
                 <FileText className="w-3.5 h-3.5 text-app-accent" />
                 <span>كشف حساب</span>
               </button>
+              {onMerge && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMerge(supplier);
+                  }}
+                  className="flex items-center gap-1 rounded-lg border border-app-separator px-2.5 py-1 text-xs font-semibold text-app-label-secondary hover:border-app-accent hover:text-app-accent hover:bg-app-accent-subtle transition-colors"
+                  title="دمج هذا المورد المكرر في مورد آخر"
+                >
+                  <GitMerge className="w-3.5 h-3.5" />
+                  <span>دمج</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={(e) => {
@@ -118,6 +142,6 @@ export function useSuppliersColumns({ onEdit, onViewStatement }: UseSuppliersCol
         },
       },
     ],
-    [onEdit, onViewStatement]
+    [onEdit, onViewStatement, onMerge]
   );
 }

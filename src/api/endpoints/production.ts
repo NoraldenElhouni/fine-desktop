@@ -168,6 +168,16 @@ export interface ApiErrorPayload {
   employee_ids?: string[];
   /** W5-06 CLIENT_GROUP_IN_USE: how many clients are still in the group. */
   clients_count?: number;
+  /** W5-07 SUPPLIER_DUPLICATE: the live suppliers of the unit that look like the same party. */
+  duplicates?: { id: string; name: string; tax_number: string | null; match: "entity" | "tax_number" | "name" }[];
+  /** W5-07 SUPPLIER_MERGE_ACCOUNTS: the two ledger accounts that both carry postings. */
+  source_account_code?: string;
+  target_account_code?: string;
+  /** W5-07 SUPPLIER_MERGE_OPEN_ORDERS: the purchase orders still part-way through. */
+  purchase_order_ids?: string[];
+  /** W5-07 SUPPLIER_TAX_NUMBER_CONFLICT: the tax number the shared entity keeps. */
+  entity_id?: string;
+  entity_tax_number?: string | null;
 }
 
 /** Pull the JSON body out of a rejected axios request without reaching for `any`. */
@@ -233,6 +243,7 @@ export const LEDGER_ERROR_MESSAGE: Record<string, string> = {
   CHEQUE_CURRENCY_UNSUPPORTED: "الشيكات بالدينار الليبي فقط حالياً.",
   CHEQUE_DEPOSIT_NOT_BANK: "يجب إيداع الشيك في حساب مصرفي.",
   CHEQUE_BANK_REQUIRED: "يجب اختيار الحساب المصرفي المسحوب عليه الشيك.",
+  SUPPLIER_NOT_FOUND: "المورد غير موجود أو يتبع وحدة تشغيلية أخرى.",
   SUPPLIER_NOT_LINKED: "المورد غير مربوط بحساب في دليل الحسابات.",
   CHEQUE_COUNTER_IS_TREASURY: "لا يمكن استخدام حساب خزينة كطرف مقابل.",
   TREASURY_INSUFFICIENT_BALANCE: "رصيد الحساب المصرفي لا يكفي لصرف الشيك.",

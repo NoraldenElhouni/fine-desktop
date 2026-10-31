@@ -156,7 +156,8 @@ export interface Client {
   updated_at?: string;
 }
 
-export type AuditAction = "created" | "updated" | "deleted" | "restored";
+/** "merged" is the row a supplier merge leaves on the surviving supplier (W5-07). */
+export type AuditAction = "created" | "updated" | "deleted" | "restored" | "merged";
 
 export interface AuditLogEntry {
   id: string;

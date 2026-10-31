@@ -56,7 +56,7 @@ export function useUnitBlueprint(id?: string) {
 export function useAuditLog(args: {
   table: string;
   recordId: string | undefined;
-  action?: "created" | "updated" | "deleted" | "restored";
+  action?: "created" | "updated" | "deleted" | "restored" | "merged";
   from?: string;
   to?: string;
 }) {

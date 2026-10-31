@@ -1,9 +1,14 @@
 import React, { useMemo, useState } from "react";
 import { Truck, Plus, RefreshCw, Building } from "lucide-react";
 import { isAxiosError } from "axios";
-import { CreateSupplierPayload, Supplier, UpdateSupplierPayload } from "../../types/procurement";
+import { CreateSupplierPayload, Supplier, SupplierDuplicate, UpdateSupplierPayload } from "../../types/procurement";
 import { useSuppliers, useCreateSupplier, useUpdateSupplier } from "../../hooks/useProcurement";
-import { useOperatingUnits } from "../../hooks/usePartners";
+import { useEntities, useOperatingUnits } from "../../hooks/usePartners";
+import { usePermissions } from "../../hooks/usePermissions";
+import { useIsCompanyWide } from "../../hooks/useAccounting";
+import { useAuthStore } from "../../stores/authStore";
+import { useServerConfigStore } from "../../stores/serverConfigStore";
+import { SUPPLIER_ERROR_MESSAGE, supplierErrorMessage } from "../../api/endpoints/procurement";
 import { useReferenceLookups } from "../../hooks/useReferenceLookups";
 import type { LookupEntry } from "../../config/referenceLookups";
 import { toast } from "../../stores/toastStore";
@@ -14,7 +19,14 @@ import { DataTable, useDataTable } from "../../components/ui/DataTable";
 import { useSuppliersColumns } from "../../components/table-columns/suppliersColumns";
 import { CoaAccountSelector } from "../../components/accounting/CoaAccountSelector";
 import { PartnerStatementDialog } from "../../components/accounting/PartnerStatementDialog";
-import type { CoaAction, NewCoaAccountPayload } from "../../types/entities";
+import type { CoaAction, Entity, NewCoaAccountPayload } from "../../types/entities";
+import {
+  SupplierDuplicateWarning,
+  SupplierPartyFields,
+  isLinkableSupplierEntity,
+  isPrivateSupplierEntity,
+} from "./SupplierPartyFields";
+import { SupplierMergeDialog } from "./SupplierMergeDialog";
 
 export const SuppliersPage: React.FC = () => {
   const { data: suppliers = [], isLoading, error: queryError, refetch } = useSuppliers();
@@ -22,6 +34,30 @@ export const SuppliersPage: React.FC = () => {
   const { data: currencies = [] } = useReferenceLookups("currencies", { isActive: true });
   const { data: cities = [] } = useReferenceLookups("cities", { isActive: true });
   const createSupplierMutation = useCreateSupplier();
+  const { data: allEntities = [], isLoading: entitiesLoading } = useEntities();
+  const companyWide = useIsCompanyWide();
+  const user = useAuthStore((s) => s.user);
+  const currentUnitId = useServerConfigStore((s) => s.operatingUnitId);
+  const { hasPermission } = usePermissions();
+  // A merge is a write (the API sends it through edit-procurement).
+  const canEdit = hasPermission("edit-procurement");
+
+  // W5-07: the API refuses a supplier in a unit the caller holds no role in
+  // (SUPPLIER_UNIT_FORBIDDEN), so the form offers only the caller's units, or
+  // every unit to a company-wide role.
+  const assignableUnits = useMemo(() => {
+    if (companyWide) return operatingUnits;
+    const roleUnitIds = new Set(
+      (user?.roles ?? []).map((r) => r.pivot?.operating_unit_id).filter((id): id is string => Boolean(id))
+    );
+    return operatingUnits.filter((u) => roleUnitIds.has(u.id));
+  }, [companyWide, operatingUnits, user]);
+  const defaultUnitId = assignableUnits.find((u) => u.id === currentUnitId)?.id ?? assignableUnits[0]?.id ?? "";
+  const unitName = (id: string | null | undefined): string =>
+    (id && operatingUnits.find((u) => u.id === id)?.name) || "وحدة أخرى";
+
+  // W5-07: clients and suppliers that a supplier can be linked to as its party.
+  const linkableEntities = useMemo(() => allEntities.filter(isLinkableSupplierEntity), [allEntities]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUnitId, setSelectedUnitId] = useState("");
@@ -30,6 +66,9 @@ export const SuppliersPage: React.FC = () => {
   const [defaultCurrency, setDefaultCurrency] = useState("USD");
   const [city, setCity] = useState("");
   const [address, setAddress] = useState("");
+  const [entityId, setEntityId] = useState<string | null>(null);
+  const [taxNumber, setTaxNumber] = useState("");
+  const [createDuplicates, setCreateDuplicates] = useState<SupplierDuplicate[]>([]);
   const [coaAction, setCoaAction] = useState<CoaAction>("create_new");
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [newAccount, setNewAccount] = useState<NewCoaAccountPayload>({
@@ -48,6 +87,13 @@ export const SuppliersPage: React.FC = () => {
   const [editContact, setEditContact] = useState("");
   const [editDefaultCurrency, setEditDefaultCurrency] = useState("USD");
   const [editAddress, setEditAddress] = useState("");
+  const [editEntityId, setEditEntityId] = useState<string | null>(null);
+  const [editTaxNumber, setEditTaxNumber] = useState("");
+  const [editDuplicates, setEditDuplicates] = useState<SupplierDuplicate[]>([]);
+
+  // W5-07: merge dialog (source = the duplicate that disappears).
+  const [mergeSource, setMergeSource] = useState<Supplier | null>(null);
+  const [mergeTargetId, setMergeTargetId] = useState<string | null>(null);
   const [editCoaAction, setEditCoaAction] = useState<CoaAction>("none");
   const [editSelectedAccountId, setEditSelectedAccountId] = useState<string | null>(null);
   const [editNewAccount, setEditNewAccount] = useState<NewCoaAccountPayload>({
@@ -58,10 +104,14 @@ export const SuppliersPage: React.FC = () => {
   });
 
   const resetForm = () => {
+    setSelectedUnitId("");
     setName("");
     setContact("");
     setCity("");
     setAddress("");
+    setEntityId(null);
+    setTaxNumber("");
+    setCreateDuplicates([]);
     setDefaultCurrency("USD");
     setCoaAction("create_new");
     setSelectedAccountId(null);
@@ -73,9 +123,22 @@ export const SuppliersPage: React.FC = () => {
     });
   };
 
-  const handleCreateSupplier = async (e: React.FormEvent) => {
+  // Linking an entity brings its tax number (locked when it has one) and, on an empty form, its name.
+  const handleCreateEntityChange = (entity: Entity | null) => {
+    const previous = linkableEntities.find((x) => x.id === entityId);
+    setEntityId(entity?.id ?? null);
+    setTaxNumber(entity?.tax_number ?? (previous?.tax_number ? "" : taxNumber));
+    if (entity && !name.trim()) setName(entity.name);
+    setCreateDuplicates([]);
+  };
+
+  const handleCreateSupplier = (e: React.FormEvent) => {
     e.preventDefault();
-    const unitId = selectedUnitId || operatingUnits[0]?.id;
+    submitCreate(false);
+  };
+
+  const submitCreate = (force: boolean) => {
+    const unitId = selectedUnitId || defaultUnitId;
     if (!name.trim() || !unitId) {
       toast.error("يرجى تعبئة اسم المورد والوحدة التشغيلية");
       return;
@@ -109,6 +172,9 @@ export const SuppliersPage: React.FC = () => {
       contact: contact.trim() || undefined,
       default_currency: defaultCurrency,
       address: fullAddress || undefined,
+      entity_id: entityId ?? undefined,
+      tax_number: taxNumber.trim() || undefined,
+      force: force || undefined,
       coa_action: coaAction,
       account_id: coaAction === "link_existing" ? selectedAccountId : undefined,
       new_account:
@@ -130,8 +196,12 @@ export const SuppliersPage: React.FC = () => {
       },
       onError: (err: unknown) => {
         const payloadErr = apiErrorPayload(err);
-        const message = payloadErr?.message || (isAxiosError(err) ? err.response?.data?.message : null);
-        toast.error(message || "حدث خطأ أثناء حفظ بيانات المورد");
+        if (payloadErr?.code === "SUPPLIER_DUPLICATE" && payloadErr.duplicates?.length) {
+          setCreateDuplicates(payloadErr.duplicates);
+          toast.warning(SUPPLIER_ERROR_MESSAGE.SUPPLIER_DUPLICATE);
+          return;
+        }
+        toast.error(supplierErrorMessage(err, "حدث خطأ أثناء حفظ بيانات المورد"));
       },
     });
   };
@@ -143,6 +213,9 @@ export const SuppliersPage: React.FC = () => {
     setEditContact(supplier.contact || "");
     setEditDefaultCurrency(supplier.default_currency || "USD");
     setEditAddress(supplier.address || "");
+    setEditEntityId(supplier.entity_id ?? null);
+    setEditTaxNumber(supplier.tax_number ?? "");
+    setEditDuplicates([]);
     setEditCoaAction(supplier.account_id ? "link_existing" : "none");
     setEditSelectedAccountId(supplier.account_id || null);
     setEditNewAccount({
@@ -154,8 +227,34 @@ export const SuppliersPage: React.FC = () => {
     setIsEditModalOpen(true);
   };
 
-  const handleUpdateSupplier = async (e: React.FormEvent) => {
+  // The supplier's own private entity (no other role, unit or supplier): its tax number is the supplier's.
+  const editPrivateEntityId =
+    editingSupplier &&
+    isPrivateSupplierEntity(
+      linkableEntities.find((x) => x.id === editingSupplier.entity_id),
+      editingSupplier.operating_unit_id,
+      suppliers.some((s) => s.id !== editingSupplier.id && s.entity_id === editingSupplier.entity_id)
+    )
+      ? editingSupplier.entity_id
+      : null;
+
+  const handleEditEntityChange = (entity: Entity | null) => {
+    if (!entity) return;
+    // A newly linked entity keeps its own tax number. Without one, the current tax number carries over
+    // (the backend fills it in), unless it belonged to a previously linked shared party.
+    const previous = linkableEntities.find((x) => x.id === editEntityId);
+    const previousOwnsTax = Boolean(previous?.tax_number) && previous?.id !== editPrivateEntityId;
+    setEditEntityId(entity.id);
+    setEditTaxNumber(entity.tax_number ?? (previousOwnsTax ? "" : editTaxNumber));
+    setEditDuplicates([]);
+  };
+
+  const handleUpdateSupplier = (e: React.FormEvent) => {
     e.preventDefault();
+    submitUpdate(false);
+  };
+
+  const submitUpdate = (force: boolean) => {
     if (!editingSupplier) return;
 
     const unitId = editUnitId || editingSupplier.operating_unit_id;
@@ -184,7 +283,19 @@ export const SuppliersPage: React.FC = () => {
       return;
     }
 
+    // W5-07: send the link and the tax number only when they change.
+    const entityChanged = Boolean(editEntityId) && editEntityId !== editingSupplier.entity_id;
+    const tax = editTaxNumber.trim();
+    const originalTax = (editingSupplier.tax_number ?? "").trim();
+    let taxPayload: string | null | undefined;
+    if (entityChanged) taxPayload = tax || undefined;
+    else if (tax !== originalTax) taxPayload = tax || null;
+
     const payload: UpdateSupplierPayload = {
+      record_version: editingSupplier.record_version,
+      ...(entityChanged && editEntityId ? { entity_id: editEntityId } : {}),
+      ...(taxPayload !== undefined ? { tax_number: taxPayload } : {}),
+      ...(force ? { force: true } : {}),
       operating_unit_id: unitId,
       name: editName.trim(),
       contact: editContact.trim() || undefined,
@@ -213,10 +324,18 @@ export const SuppliersPage: React.FC = () => {
         },
         onError: (err: unknown) => {
           const payloadErr = apiErrorPayload(err);
-          const message =
-            payloadErr?.message ||
-            (isAxiosError(err) ? err.response?.data?.message : null);
-          toast.error(message || "تعذر تحديث بيانات المورد");
+          if (payloadErr?.code === "SUPPLIER_DUPLICATE" && payloadErr.duplicates?.length) {
+            setEditDuplicates(payloadErr.duplicates);
+            toast.warning(SUPPLIER_ERROR_MESSAGE.SUPPLIER_DUPLICATE);
+            return;
+          }
+          toast.error(supplierErrorMessage(err, "تعذر تحديث بيانات المورد"));
+          if (payloadErr?.code === "OPTIMISTIC_LOCK_CONFLICT") {
+            // The dialog holds the old record_version; close it so the supplier is reopened fresh.
+            setIsEditModalOpen(false);
+            setEditingSupplier(null);
+            refetch();
+          }
         },
       }
     );
@@ -230,9 +349,31 @@ export const SuppliersPage: React.FC = () => {
     setStatementOpen(true);
   };
 
+  // The edit form keeps the supplier's current unit even when the caller could not choose it.
+  const editUnitOptions = useMemo(() => {
+    if (!editingSupplier || assignableUnits.some((u) => u.id === editingSupplier.operating_unit_id)) return assignableUnits;
+    const current = operatingUnits.find((u) => u.id === editingSupplier.operating_unit_id) ?? editingSupplier.operating_unit;
+    return current ? [current, ...assignableUnits] : assignableUnits;
+  }, [assignableUnits, editingSupplier, operatingUnits]);
+
+  const handleOpenMerge = (supplier: Supplier, targetId: string | null = null) => {
+    setMergeTargetId(targetId);
+    setMergeSource(supplier);
+  };
+
+  // From the edit form's duplicate warning: merge the supplier being edited into the match.
+  const handleMergeFromEdit = (duplicate: SupplierDuplicate) => {
+    if (!editingSupplier) return;
+    const source = editingSupplier;
+    setIsEditModalOpen(false);
+    setEditingSupplier(null);
+    handleOpenMerge(source, duplicate.id);
+  };
+
   const columns = useSuppliersColumns({
     onEdit: handleOpenEditModal,
     onViewStatement: handleOpenStatement,
+    onMerge: canEdit ? (supplier) => handleOpenMerge(supplier) : undefined,
   });
   const tableData = useMemo(() => suppliers, [suppliers]);
   const suppliersTable = useDataTable({
@@ -317,11 +458,14 @@ export const SuppliersPage: React.FC = () => {
               الوحدة التشغيلية <span className="text-app-status-danger">*</span>
             </label>
             <SearchableSelect<{ id: string; name: string }>
-              options={operatingUnits}
+              options={assignableUnits}
               value={
-                operatingUnits.find((u) => u.id === selectedUnitId) ?? null
+                assignableUnits.find((u) => u.id === (selectedUnitId || defaultUnitId)) ?? null
               }
-              onChange={(u) => setSelectedUnitId(u ? u.id : "")}
+              onChange={(u) => {
+                setSelectedUnitId(u ? u.id : "");
+                setCreateDuplicates([]);
+              }}
               getOptionId={(u) => u.id}
               getOptionLabel={(u) => u.name}
               placeholder="-- اختر الوحدة --"
@@ -337,11 +481,27 @@ export const SuppliersPage: React.FC = () => {
               type="text"
               required
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                setCreateDuplicates([]);
+              }}
               placeholder="مثال: Global Steel Trading Corp"
               className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
             />
           </div>
+
+          <SupplierPartyFields
+            entities={linkableEntities}
+            entitiesLoading={entitiesLoading}
+            entityId={entityId}
+            onEntityChange={handleCreateEntityChange}
+            taxNumber={taxNumber}
+            onTaxNumberChange={(value) => {
+              setTaxNumber(value);
+              setCreateDuplicates([]);
+            }}
+            unitName={unitName}
+          />
 
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -417,6 +577,13 @@ export const SuppliersPage: React.FC = () => {
             useEntityNameDirectly
           />
 
+          {createDuplicates.length > 0 && (
+            <SupplierDuplicateWarning
+              duplicates={createDuplicates}
+              saving={createSupplierMutation.isPending}
+              onForce={() => submitCreate(true)}
+            />
+          )}
         </form>
           </DialogBody>
           <DialogFooter>
@@ -453,9 +620,12 @@ export const SuppliersPage: React.FC = () => {
                   الوحدة التشغيلية <span className="text-app-status-danger">*</span>
                 </label>
                 <SearchableSelect<{ id: string; name: string }>
-                  options={operatingUnits}
-                  value={operatingUnits.find((u) => u.id === editUnitId) ?? null}
-                  onChange={(u) => setEditUnitId(u ? u.id : "")}
+                  options={editUnitOptions}
+                  value={editUnitOptions.find((u) => u.id === editUnitId) ?? null}
+                  onChange={(u) => {
+                    setEditUnitId(u ? u.id : "");
+                    setEditDuplicates([]);
+                  }}
                   getOptionId={(u) => u.id}
                   getOptionLabel={(u) => u.name}
                   placeholder="-- اختر الوحدة التشغيلية --"
@@ -471,11 +641,29 @@ export const SuppliersPage: React.FC = () => {
                   type="text"
                   required
                   value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
+                  onChange={(e) => {
+                    setEditName(e.target.value);
+                    setEditDuplicates([]);
+                  }}
                   placeholder="مثال: Istanbul Chemical Traders"
                   className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
                 />
               </div>
+
+              <SupplierPartyFields
+                entities={linkableEntities}
+                entitiesLoading={entitiesLoading}
+                entityId={editEntityId}
+                onEntityChange={handleEditEntityChange}
+                clearable={false}
+                privateEntityId={editPrivateEntityId}
+                taxNumber={editTaxNumber}
+                onTaxNumberChange={(value) => {
+                  setEditTaxNumber(value);
+                  setEditDuplicates([]);
+                }}
+                unitName={unitName}
+              />
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -538,6 +726,20 @@ export const SuppliersPage: React.FC = () => {
                 preferredParentCode="21"
                 useEntityNameDirectly
               />
+
+              {/* A merge needs both suppliers in one unit; after a unit change the check ran on the new unit. */}
+              {editDuplicates.length > 0 && (
+                <SupplierDuplicateWarning
+                  duplicates={editDuplicates}
+                  saving={updateSupplierMutation.isPending}
+                  onForce={() => submitUpdate(true)}
+                  onMerge={
+                    editingSupplier && (editUnitId || editingSupplier.operating_unit_id) === editingSupplier.operating_unit_id
+                      ? handleMergeFromEdit
+                      : undefined
+                  }
+                />
+              )}
             </form>
           </DialogBody>
           <DialogFooter>
@@ -562,6 +764,17 @@ export const SuppliersPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* W5-07: Merge a duplicate supplier */}
+      <SupplierMergeDialog
+        source={mergeSource}
+        initialTargetId={mergeTargetId}
+        suppliers={suppliers}
+        onClose={() => {
+          setMergeSource(null);
+          setMergeTargetId(null);
+        }}
+      />
 
       {/* Statement of Account Dialog */}
       {statementSupplier && (

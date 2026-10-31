@@ -3,6 +3,7 @@ import {
   getSuppliers,
   createSupplier,
   updateSupplier,
+  mergeSupplier,
   getPurchaseOrders,
   getPurchaseOrder,
   createPurchaseOrder,
@@ -60,6 +61,29 @@ export function useUpdateSupplier() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["suppliers"] });
       qc.invalidateQueries({ queryKey: ["entities"] });
+    },
+  });
+}
+
+/** W5-07: merge a duplicate supplier into another; its orders, cheques and account move to the target. */
+export function useMergeSupplier() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, targetId }: { id: string; targetId: string }) => mergeSupplier(id, targetId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["suppliers"] });
+      qc.invalidateQueries({ queryKey: ["entities"] });
+      qc.invalidateQueries({ queryKey: ["importOrders"] });
+      qc.invalidateQueries({ queryKey: ["importOrder"] });
+      qc.invalidateQueries({ queryKey: ["cheques"] });
+      qc.invalidateQueries({ queryKey: ["cheque"] });
+      qc.invalidateQueries({ queryKey: ["partnerBalances"] });
+      qc.invalidateQueries({ queryKey: ["partnerStatement"] });
+      // Payment requests embed their order's supplier; the source's account and settlements can move too.
+      qc.invalidateQueries({ queryKey: ["paymentRequests"] });
+      qc.invalidateQueries({ queryKey: ["payableOutstanding"] });
+      qc.invalidateQueries({ queryKey: ["payableSettlements"] });
+      qc.invalidateQueries({ queryKey: ["auditLog"] });
     },
   });
 }

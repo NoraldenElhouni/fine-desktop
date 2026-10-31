@@ -1,4 +1,5 @@
 import apiClient from "../client";
+import { apiErrorMessage, apiErrorPayload } from "./production";
 import type { AccountLedgerParams, AccountStatement } from "./accounting";
 import {
   Supplier,
@@ -6,6 +7,7 @@ import {
   CashAccountKind,
   CreateSupplierPayload,
   UpdateSupplierPayload,
+  MergeSupplierResult,
   PurchaseOrder,
   CreatePurchaseOrderPayload,
   UpdatePurchaseOrderPayload,
@@ -41,6 +43,54 @@ export const createSupplier = async (payload: CreateSupplierPayload): Promise<Su
 export const updateSupplier = async (id: string, payload: UpdateSupplierPayload): Promise<Supplier> => {
   const response = await apiClient.put<{ data: Supplier }>(`/suppliers/${id}`, payload);
   return response.data.data;
+};
+
+/** W5-07: merges supplier {id} into targetId; the source is soft-deleted. */
+export const mergeSupplier = async (id: string, targetId: string): Promise<MergeSupplierResult> => {
+  const response = await apiClient.post<MergeSupplierResult>(`/suppliers/${id}/merge`, { target_id: targetId });
+  return response.data;
+};
+
+/** W5-07: the supplier refusals, in Arabic. */
+export const SUPPLIER_ERROR_MESSAGE: Record<string, string> = {
+  SUPPLIER_DUPLICATE: "يوجد مورد مشابه في هذه الوحدة (بالاسم أو الرقم الضريبي أو الجهة نفسها).",
+  SUPPLIER_MERGE_SAME: "لا يُدمج المورد في نفسه — اختر مورداً آخر.",
+  SUPPLIER_MERGE_UNIT_MISMATCH: "لا يُدمج إلا موردان من الوحدة التشغيلية نفسها.",
+  SUPPLIER_MERGE_ACCOUNTS:
+    "لكل من الموردين حساب أستاذ خاص عليه حركات مرحّلة، ولا يُدمج دفتران دون تعديل قيود مرحّلة — لا يمكن دمج هذين الموردين؛ أبقِ المكرر وأوقف التعامل معه.",
+  SUPPLIER_MERGE_OPEN_ORDERS:
+    "بعض أوامر الشراء في منتصف الطريق (مدفوعة ولم تُستلم، أو مستلمة ولم تُدفع) وستُسوّى على حساب مختلف بعد الدمج — أكملها أولاً.",
+  SUPPLIER_NOT_FOUND: "المورد غير موجود أو يتبع وحدة تشغيلية أخرى.",
+  SUPPLIER_NOT_LINKED: "المورد غير مربوط بحساب في دليل الحسابات.",
+  SUPPLIER_TAX_NUMBER_CONFLICT:
+    "هذه الجهة مشتركة (عميل أو موظف أو مورد لوحدة أخرى) ولها رقم ضريبي مختلف — يُعدَّل رقمها من بطاقة الجهة نفسها لا من المورد.",
+  SUPPLIER_UNIT_FORBIDDEN: "ليس لديك دور في هذه الوحدة التشغيلية — اختر وحدة تعمل فيها.",
+  OPTIMISTIC_LOCK_CONFLICT: "عدّل مستخدم آخر هذا المورد للتو — أعد فتحه وحاول مرة أخرى.",
+  ACCESS_DENIED: "لا تملك صلاحية تعديل المشتريات.",
+};
+
+/** A supplier refusal in Arabic: a known code (with its details), else a missing record, else the first field error, else the server message. */
+export const supplierErrorMessage = (err: unknown, fallback: string): string => {
+  const payload = apiErrorPayload(err);
+  const status = (err as { response?: { status?: number } } | undefined)?.response?.status;
+  const known = payload?.code ? SUPPLIER_ERROR_MESSAGE[payload.code] : undefined;
+  if (known) {
+    if (payload?.code === "SUPPLIER_MERGE_ACCOUNTS" && payload.source_account_code && payload.target_account_code) {
+      return `${known} (الحسابان: ${payload.source_account_code} و ${payload.target_account_code})`;
+    }
+    if (payload?.code === "SUPPLIER_MERGE_OPEN_ORDERS" && payload.purchase_order_ids?.length) {
+      return `${known} (عدد الأوامر: ${payload.purchase_order_ids.length})`;
+    }
+    if (payload?.code === "SUPPLIER_TAX_NUMBER_CONFLICT" && payload.entity_tax_number) {
+      return `${known} (رقم الجهة: ${payload.entity_tax_number})`;
+    }
+    return known;
+  }
+  if (status === 404) return SUPPLIER_ERROR_MESSAGE.SUPPLIER_NOT_FOUND;
+  // The merge refuses the supplier itself as a target with a field error, before the service's code.
+  if (payload?.errors?.target_id) return SUPPLIER_ERROR_MESSAGE.SUPPLIER_MERGE_SAME;
+  const fieldError = payload?.errors ? Object.values(payload.errors)[0]?.[0] : undefined;
+  return fieldError || apiErrorMessage(err, fallback);
 };
 
 // Import Orders API

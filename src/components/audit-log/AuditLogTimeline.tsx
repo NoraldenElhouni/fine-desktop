@@ -9,6 +9,7 @@ const ACTION_LABEL: Record<AuditAction, string> = {
   updated: "تعديل",
   deleted: "حذف",
   restored: "استعادة",
+  merged: "دمج",
 };
 
 const ACTION_CHIP: Record<AuditAction, string> = {
@@ -16,6 +17,7 @@ const ACTION_CHIP: Record<AuditAction, string> = {
   updated: "bg-app-status-warning/15 text-app-status-warning",
   deleted: "bg-app-status-danger/15 text-app-status-danger",
   restored: "bg-app-accent/15 text-app-accent",
+  merged: "bg-app-accent/15 text-app-accent",
 };
 
 const formatDateTime = (iso?: string): string => {

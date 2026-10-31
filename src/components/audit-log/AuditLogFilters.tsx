@@ -14,6 +14,7 @@ const ACTION_OPTIONS: Array<{ value: "" | AuditAction; label: string }> = [
   { value: "updated", label: "تعديل" },
   { value: "deleted", label: "حذف" },
   { value: "restored", label: "استعادة" },
+  { value: "merged", label: "دمج" },
 ];
 
 export const AuditLogFiltersBar: React.FC<AuditLogFiltersProps> = ({

@@ -45,8 +45,36 @@ export interface Supplier {
   contact?: string | null;
   default_currency: string;
   address?: string | null;
+  /** W5-07: the supplier's party on the shared entities table (vendor role). */
+  entity_id?: string | null;
+  /** W5-07: read from the entity; a shared entity keeps its own tax number. */
+  tax_number?: string | null;
+  record_version?: number;
   created_at?: string;
   updated_at?: string;
+}
+
+/** W5-07: why SUPPLIER_DUPLICATE thinks two suppliers are the same party. */
+export type SupplierDuplicateMatch = "entity" | "tax_number" | "name";
+
+/** W5-07: one live supplier of the unit returned with SUPPLIER_DUPLICATE. */
+export interface SupplierDuplicate {
+  id: string;
+  name: string;
+  tax_number: string | null;
+  match: SupplierDuplicateMatch;
+}
+
+/** W5-07: POST /suppliers/{id}/merge — the surviving supplier and what moved to it. */
+export interface MergeSupplierResult {
+  data: Supplier;
+  moved: {
+    purchase_orders: number;
+    cheques: number;
+    payment_requests: number;
+    payable_settlements: number;
+  };
+  merged_supplier_id: string;
 }
 
 export interface BankHold {
@@ -274,6 +302,11 @@ export interface CreateSupplierPayload {
   account_id?: string | null;
   coa_action?: CoaAction;
   new_account?: NewCoaAccountPayload | null;
+  /** W5-07: link an existing entity (a client's) instead of creating one. */
+  entity_id?: string | null;
+  tax_number?: string | null;
+  /** W5-07: save despite SUPPLIER_DUPLICATE. */
+  force?: boolean;
 }
 
 export interface UpdateSupplierPayload {
@@ -285,6 +318,11 @@ export interface UpdateSupplierPayload {
   account_id?: string | null;
   coa_action?: CoaAction;
   new_account?: NewCoaAccountPayload | null;
+  /** W5-07: relink the supplier to another entity. */
+  entity_id?: string;
+  tax_number?: string | null;
+  force?: boolean;
+  record_version?: number;
 }
 
 export interface CreatePurchaseOrderPayload {
