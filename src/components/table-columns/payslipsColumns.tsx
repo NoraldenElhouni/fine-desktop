@@ -254,6 +254,19 @@ export function usePayslipsColumns({ run, onError }: UsePayslipsColumnsArgs): Co
         cell: ({ row }) => fmt(row.original.attendance_pay),
       },
       {
+        id: "overtime",
+        header: "إضافي",
+        accessorFn: (p) => Number(p.overtime_pay ?? 0),
+        meta: { align: "end", className: "font-mono" },
+        // HR-14: overtime pay is its own figure inside gross.
+        cell: ({ row }) =>
+          Number(row.original.overtime_pay ?? 0) > 0 ? (
+            fmt(row.original.overtime_pay ?? 0)
+          ) : (
+            <span className="text-app-label-tertiary">—</span>
+          ),
+      },
+      {
         accessorKey: "labor_log_pay",
         header: "إنتاج",
         meta: { align: "end", className: "font-mono" },

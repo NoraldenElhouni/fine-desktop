@@ -1,11 +1,13 @@
 import { useMemo } from "react";
-import { ATTENDANCE_STATUS_LABEL, type AttendanceStatus } from "../../api/endpoints/hr";
+import { ATTENDANCE_STATUS_LABEL, isPayableAttendance, type AttendanceStatus } from "../../api/endpoints/hr";
 import { Employee } from "../../types/entities";
 import { ColumnDef } from "../ui/DataTable";
 
 export interface RowState {
   status: AttendanceStatus;
   hours: string;
+  /** HR-14: overtime hours on top of the hours worked. */
+  overtime: string;
 }
 
 export interface UseAttendanceColumnsArgs {
@@ -57,7 +59,7 @@ export function useAttendanceColumns({ rowFor, onPatch, rows }: UseAttendanceCol
         cell: ({ row }) => {
           const employee = row.original;
           const rowState = rowFor(employee.id);
-          const payable = rowState.status === "present" || rowState.status === "half_day";
+          const payable = isPayableAttendance(rowState.status);
           return (
             <input
               type="number" step="0.5" min="0" max="24"
@@ -65,6 +67,30 @@ export function useAttendanceColumns({ rowFor, onPatch, rows }: UseAttendanceCol
               disabled={!payable}
               onChange={(e) => onPatch(employee.id, { hours: e.target.value })}
               className="w-20 rounded-lg border border-app-separator bg-app-bg-secondary px-2 py-1.5 text-xs font-mono focus:border-app-accent focus:outline-none disabled:opacity-40"
+            />
+          );
+        },
+      },
+      {
+        id: "overtime",
+        header: "إضافي",
+        enableSorting: false,
+        cell: ({ row }) => {
+          const employee = row.original;
+          const rowState = rowFor(employee.id);
+          // HR-14: overtime only on a day at work, and hours + overtime ≤ 24.
+          const payable = isPayableAttendance(rowState.status);
+          const overLimit = payable && (Number(rowState.hours) || 0) + (Number(rowState.overtime) || 0) > 24;
+          return (
+            <input
+              type="number" step="0.5" min="0" max="24"
+              value={payable ? rowState.overtime : "0"}
+              disabled={!payable}
+              title={overLimit ? "مجموع ساعات العمل والإضافي لا يتجاوز 24 ساعة" : "ساعات إضافية فوق ساعات العمل"}
+              onChange={(e) => onPatch(employee.id, { overtime: e.target.value })}
+              className={`w-20 rounded-lg border bg-app-bg-secondary px-2 py-1.5 text-xs font-mono focus:border-app-accent focus:outline-none disabled:opacity-40 ${
+                overLimit ? "border-app-status-danger" : "border-app-separator"
+              }`}
             />
           );
         },

@@ -61,6 +61,8 @@ export function useEmployeesColumns(): ColumnDef<Employee, unknown>[] {
             ? "راتب شهري"
             : row.original.pay_type === "hourly"
             ? "أجر بالساعة"
+            : row.original.pay_type === "daily"
+            ? "أجر يومي"
             : "إنتاج/قطعة",
       },
       {
@@ -74,6 +76,8 @@ export function useEmployeesColumns(): ColumnDef<Employee, unknown>[] {
             ? `${formatNumber(emp.monthly_salary)} د.ل / شهر`
             : emp.pay_type === "hourly" && emp.hourly_rate
             ? `${formatNumber(emp.hourly_rate)} د.ل / ساعة`
+            : emp.pay_type === "daily" && emp.daily_rate
+            ? `${formatNumber(emp.daily_rate)} د.ل / يوم`
             : "حسب الإنتاج";
         },
       },

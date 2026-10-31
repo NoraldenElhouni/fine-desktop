@@ -23,6 +23,7 @@ import { EmployeePayItemsTab } from "./EmployeePayItemsTab";
 const PAY_TYPE_LABEL: Record<PayType, string> = {
   monthly: "راتب شهري",
   hourly: "بالساعة",
+  daily: "يومي",
   piece_rate: "بالقطعة",
 };
 
@@ -68,6 +69,7 @@ const ContractTab: React.FC<{ employee: Employee; showBank: boolean }> = ({ empl
   const rows: { label: string; value: React.ReactNode }[] = [
     { label: "الرقم الوظيفي", value: employee.employee_number || "—" },
     { label: "تاريخ التعيين", value: dateOrDash(employee.hire_date) },
+    { label: "الوردية", value: employee.work_shift?.name ?? "بدون وردية (إعدادات الشركة)" },
     { label: "بداية العقد", value: dateOrDash(employee.contract_start) },
     { label: "نهاية العقد", value: dateOrDash(employee.contract_end) },
     { label: "نهاية فترة التجربة", value: dateOrDash(employee.probation_end) },
@@ -142,7 +144,9 @@ export const EmployeeDetailPage: React.FC = () => {
       ? `${money(employee.monthly_salary)} د.ل / شهر`
       : employee.pay_type === "hourly"
         ? `${money(employee.hourly_rate)} د.ل / ساعة`
-        : "—";
+        : employee.pay_type === "daily"
+          ? `${money(employee.daily_rate)} د.ل / يوم`
+          : "—";
 
   return (
     <div className="space-y-6" dir="rtl">
@@ -232,6 +236,7 @@ export const EmployeeDetailPage: React.FC = () => {
                   <th className={th}>التاريخ</th>
                   <th className={th}>الحالة</th>
                   <th className={th}>الساعات</th>
+                  <th className={th}>إضافي</th>
                   <th className={th}>ملاحظات</th>
                 </tr>
               </thead>
@@ -241,6 +246,9 @@ export const EmployeeDetailPage: React.FC = () => {
                     <td className={td}>{formatDate(row.work_date)}</td>
                     <td className={td}>{ATTENDANCE_STATUS_LABEL[row.status] ?? row.status}</td>
                     <td className={`${td} font-mono`}>{Number(row.hours_worked).toLocaleString()}</td>
+                    <td className={`${td} font-mono`}>
+                      {Number(row.overtime_hours ?? 0) > 0 ? Number(row.overtime_hours).toLocaleString() : "—"}
+                    </td>
                     <td className={td}>{row.notes || "—"}</td>
                   </tr>
                 ))}
@@ -261,6 +269,7 @@ export const EmployeeDetailPage: React.FC = () => {
                   <th className={th}>حالة المسير</th>
                   <th className={th}>الأساسي</th>
                   <th className={th}>أجر الدوام</th>
+                  <th className={th}>الإضافي</th>
                   <th className={th}>البدلات والمكافآت</th>
                   <th className={th}>الإجمالي</th>
                   <th className={th}>الاستقطاعات</th>
@@ -277,6 +286,7 @@ export const EmployeeDetailPage: React.FC = () => {
                     </td>
                     <td className={`${td} font-mono`}>{money(slip.base_pay)}</td>
                     <td className={`${td} font-mono`}>{money(slip.attendance_pay)}</td>
+                    <td className={`${td} font-mono`}>{Number(slip.overtime_pay ?? 0) > 0 ? money(slip.overtime_pay) : "—"}</td>
                     <td className={`${td} font-mono`}>{Number(slip.additions_pay ?? 0) > 0 ? money(slip.additions_pay) : "—"}</td>
                     <td className={`${td} font-mono`}>{money(slip.gross_pay)}</td>
                     <td
@@ -311,6 +321,7 @@ export const EmployeeDetailPage: React.FC = () => {
         open={isEditOpen}
         onOpenChange={setIsEditOpen}
         canEditBank={holdsPayRole}
+        canAssignShift={holdsPayRole}
       />
     </div>
   );

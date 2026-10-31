@@ -164,6 +164,8 @@ export interface ApiErrorPayload {
   adjustment_ids?: string[];
   /** W5-03 PAYROLL_ADJUSTMENT_UNPAID: the first employee those adjustments belong to. */
   employee_id?: string;
+  /** W5-04 WORK_SHIFT_IN_USE: the employees still on the shift. */
+  employee_ids?: string[];
 }
 
 /** Pull the JSON body out of a rejected axios request without reaching for `any`. */
@@ -274,6 +276,10 @@ export const LEDGER_ERROR_MESSAGE: Record<string, string> = {
     "الاستقطاعات الثابتة والجزاءات لبعض الموظفين تتجاوز إجمالي رواتبهم في هذا الشهر — خفّض الجزاء أو احذفه، أو أنهِ البند الثابت في آخر يوم من الشهر السابق وأعد إضافته من الشهر التالي (أو أوقفه لهذا الاحتساب)، ثم أعد الاحتساب.",
   PAYROLL_ADJUSTMENT_UNPAID:
     "توجد مكافآت أو جزاءات معتمدة لهذا الشهر لموظفين لا قسيمة لهم فيه (منتهي الخدمة أو بالقطعة أو بلا أجر) — احذفها أو أدخلها لشهر يُصرف لهم فيه، ثم أعد الاحتساب.",
+  // W5-04 (HR-14): work shifts. The shifts page and the employee forms hit these.
+  WORK_SHIFT_FORBIDDEN:
+    "الورديات وتعيينها للموظفين من صلاحية مدير الموارد البشرية أو مدير الحسابات أو المالك فقط، لأنها تحدد أجر الساعات الإضافية.",
+  WORK_SHIFT_IN_USE: "هذه الوردية معيّنة لموظفين — انقلهم إلى وردية أخرى أولاً ثم احذفها.",
   EMPLOYEE_HAS_OPEN_ADVANCE: "على الموظف سلفة أو قرض مفتوح — سدّده أو ألغه قبل نقله إلى وحدة تشغيلية أخرى.",
   LOT_STATUS_CHANGE_NOT_ALLOWED: "تتغير حالة اللوت هنا بين «متاح» و«حجر صحي» فقط — الحجز والاستهلاك يتمان من خلال أوامر التقطيع والمبيعات والجرد.",
 };

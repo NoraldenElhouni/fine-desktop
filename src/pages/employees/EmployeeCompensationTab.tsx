@@ -3,7 +3,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { useCreateCompensation, useDeleteCompensation, useEmployeeCompensations } from "../../hooks/useEmployees";
-import { employeeErrorMessage, type EmployeeCompensation } from "../../api/endpoints/employees";
+import { employeeErrorMessage, type CreateCompensationPayload, type EmployeeCompensation } from "../../api/endpoints/employees";
 import { formatDate, formatNumber, localDateIso } from "../../lib/utils/format";
 import { toast } from "../../stores/toastStore";
 import type { Employee } from "../../types/entities";
@@ -11,8 +11,11 @@ import type { Employee } from "../../types/entities";
 const PAY_TYPE_LABEL: Record<EmployeeCompensation["pay_type"], string> = {
   monthly: "راتب شهري",
   hourly: "بالساعة",
+  daily: "يومي",
   piece_rate: "بالقطعة",
 };
+
+type ChangePayType = CreateCompensationPayload["pay_type"];
 
 const th = "px-3 py-2 text-start text-[11px] font-semibold text-app-label-secondary";
 const td = "px-3 py-2 text-xs text-app-label-primary";
@@ -81,6 +84,7 @@ export const EmployeeCompensationTab: React.FC<Props> = ({ employee, canChangePa
             <th className={th}>نوع الأجر</th>
             <th className={th}>الراتب الشهري</th>
             <th className={th}>أجر الساعة</th>
+            <th className={th}>الأجر اليومي</th>
             <th className={th}>السبب</th>
             <th className={th}>سجّله</th>
             {canChangePay && <th className={th} />}
@@ -116,6 +120,7 @@ export const EmployeeCompensationTab: React.FC<Props> = ({ employee, canChangePa
                     money(version.hourly_rate)
                   )}
                 </td>
+                <td className={`${td} font-mono`}>{money(version.daily_rate ?? null)}</td>
                 <td className={td}>{version.reason || "—"}</td>
                 <td className={td}>
                   <div>{version.creator?.name ?? "—"}</div>
@@ -187,9 +192,12 @@ const ChangeForm: React.FC<{
 }> = ({ employee, current, history, onDone }) => {
   const create = useCreateCompensation();
   const [error, setError] = useState<string | null>(null);
-  const [payType, setPayType] = useState<"monthly" | "hourly">(current?.pay_type === "hourly" ? "hourly" : "monthly");
+  const [payType, setPayType] = useState<ChangePayType>(
+    current?.pay_type === "hourly" || current?.pay_type === "daily" ? current.pay_type : "monthly",
+  );
   const [monthlySalary, setMonthlySalary] = useState(current?.monthly_salary != null ? String(current.monthly_salary) : "");
   const [hourlyRate, setHourlyRate] = useState(current?.hourly_rate != null ? String(current.hourly_rate) : "");
+  const [dailyRate, setDailyRate] = useState(current?.daily_rate != null ? String(current.daily_rate) : "");
   const [effectiveFrom, setEffectiveFrom] = useState(localDateIso());
   const [reason, setReason] = useState("");
 
@@ -226,6 +234,10 @@ const ChangeForm: React.FC<{
       setError("موظف بالساعة بلا دور عمالي يحتاج أجر ساعة شخصياً.");
       return;
     }
+    if (payType === "daily" && dailyRate.trim() === "") {
+      setError("أدخل الأجر اليومي.");
+      return;
+    }
     create.mutate(
       {
         employeeId: employee.id,
@@ -233,6 +245,7 @@ const ChangeForm: React.FC<{
           pay_type: payType,
           monthly_salary: payType === "monthly" ? Number(monthlySalary) : null,
           hourly_rate: payType === "hourly" && hourlyRate.trim() !== "" ? Number(hourlyRate) : null,
+          daily_rate: payType === "daily" ? Number(dailyRate) : null,
           effective_from: effectiveFrom,
           reason: reason.trim() || null,
         },
@@ -259,9 +272,10 @@ const ChangeForm: React.FC<{
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={label}>نوع الأجر</label>
-              <select className={input} value={payType} onChange={(e) => setPayType(e.target.value as "monthly" | "hourly")}>
+              <select className={input} value={payType} onChange={(e) => setPayType(e.target.value as ChangePayType)}>
                 <option value="monthly">راتب شهري ثابت</option>
                 <option value="hourly">أجر بالساعة</option>
+                <option value="daily">أجر يومي</option>
               </select>
             </div>
             <div>
@@ -284,6 +298,22 @@ const ChangeForm: React.FC<{
                   onChange={(e) => setMonthlySalary(e.target.value)}
                   required
                 />
+              </div>
+            ) : payType === "daily" ? (
+              <div>
+                <label className={label}>
+                  الأجر اليومي (د.ل) <span className="text-app-status-danger">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className={`${input} font-mono`}
+                  value={dailyRate}
+                  onChange={(e) => setDailyRate(e.target.value)}
+                  required
+                />
+                <p className="mt-1 text-[10px] text-app-label-tertiary">يوم الحضور بأجر يوم كامل، ونصف اليوم بنصفه.</p>
               </div>
             ) : (
               <div>

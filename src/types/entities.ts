@@ -2,8 +2,11 @@ export type EntityType = 'individual' | 'organization';
 
 export type EntityRoleType = 'employee' | 'client' | 'vendor';
 
-/** piece_rate stays only for legacy rows: payroll does not support it and the API refuses it (W5-01). */
-export type PayType = 'hourly' | 'monthly' | 'piece_rate';
+/**
+ * piece_rate stays only for legacy rows: payroll does not support it and the API refuses it (W5-01).
+ * daily (W5-04, HR-14): paid per attended day (half a day for a half day) at the daily rate.
+ */
+export type PayType = 'hourly' | 'monthly' | 'daily' | 'piece_rate';
 
 export type EmployeeStatus = 'active' | 'terminated' | 'on_leave';
 
@@ -110,6 +113,11 @@ export interface Employee {
   pay_type: PayType;
   monthly_salary?: string | number | null;
   hourly_rate?: string | number | null;
+  /** HR-14: the daily rate of daily pay terms. */
+  daily_rate?: string | number | null;
+  /** HR-14: the employee's work shift (overtime multiplier, standard hours); null = company defaults. */
+  work_shift_id?: string | null;
+  work_shift?: { id: string; name: string; standard_hours: number; overtime_multiplier: number } | null;
   hire_date: string;
   employee_number?: string | null;
   contract_start?: string | null;
@@ -213,6 +221,10 @@ export interface CreateEmployeePayload {
   pay_type: PayType;
   monthly_salary?: number | null;
   hourly_rate?: number | null;
+  /** HR-14: required for daily pay. */
+  daily_rate?: number | null;
+  /** HR-14: only the pay roles may send one (WORK_SHIFT_FORBIDDEN). */
+  work_shift_id?: string | null;
   hire_date: string;
   employee_number?: string | null;
   contract_start?: string | null;
@@ -232,6 +244,8 @@ export interface UpdateEmployeePayload {
   employee_number?: string | null;
   job_title?: string;
   labor_role?: string | null;
+  /** HR-14: only the pay roles may change it (WORK_SHIFT_FORBIDDEN); sending back the stored value is not a change. */
+  work_shift_id?: string | null;
   hire_date?: string;
   contract_start?: string | null;
   contract_end?: string | null;

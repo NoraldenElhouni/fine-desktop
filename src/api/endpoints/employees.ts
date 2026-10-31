@@ -58,9 +58,11 @@ export const PAY_ROLES = ["owner", "hr-manager", "accounting-manager"];
 export interface EmployeeCompensation {
   id: string;
   employee_id: string;
-  pay_type: "monthly" | "hourly" | "piece_rate";
+  pay_type: "monthly" | "hourly" | "daily" | "piece_rate";
   monthly_salary: number | null;
   hourly_rate: number | null;
+  /** HR-14: the daily rate of daily pay terms. */
+  daily_rate?: number | null;
   effective_from: string;
   reason: string | null;
   created_by: string | null;
@@ -69,9 +71,11 @@ export interface EmployeeCompensation {
 }
 
 export interface CreateCompensationPayload {
-  pay_type: "monthly" | "hourly";
+  pay_type: "monthly" | "hourly" | "daily";
   monthly_salary?: number | null;
   hourly_rate?: number | null;
+  /** HR-14: required for daily pay. */
+  daily_rate?: number | null;
   effective_from: string;
   reason?: string | null;
 }
@@ -160,5 +164,11 @@ export const employeeErrorMessage = (err: unknown, fallback: string): string => 
     return "الرقم الوظيفي مستخدم لموظف آخر.";
   }
   const known = payload?.code ? EMPLOYEE_ERROR_MESSAGE[payload.code] : undefined;
-  return known ?? apiErrorMessage(err, fallback);
+  if (known) return known;
+  // HR-14: the shift was deleted after the picker loaded (EmployeeController::lockAssignableShift
+  // or the Rule::exists check); the 422 carries no code and an English message.
+  if (!payload?.code && payload?.errors?.work_shift_id) {
+    return "الوردية المختارة حُذفت — اختر وردية أخرى.";
+  }
+  return apiErrorMessage(err, fallback);
 };

@@ -6,6 +6,7 @@ import { PayrollPage } from "../pages/hr/PayrollPage";
 import { LeaveRequestsPage } from "../pages/hr/LeaveRequestsPage";
 import { EmployeeAdvancesPage } from "../pages/hr/EmployeeAdvancesPage";
 import { EmployeeAdjustmentsPage } from "../pages/hr/EmployeeAdjustmentsPage";
+import { WorkShiftsPage } from "../pages/hr/WorkShiftsPage";
 
 import { AuthorizedRoute } from "../components/AuthorizedRoute";
 
@@ -58,6 +59,14 @@ export const HrRoutes: React.FC = () => {
         element={
           <AuthorizedRoute allowedRoles={["owner", "admin", "hr-manager", "accounting-manager", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"]}>
             <EmployeeAdjustmentsPage />
+          </AuthorizedRoute>
+        }
+      />
+      <Route
+        path="shifts"
+        element={
+          <AuthorizedRoute allowedRoles={["owner", "admin", "hr-manager", "accounting-manager", "unit_manager", "manager", "foam-manager", "cutter-manager", "furniture-manager", "store-manager", "procurement-manager"]}>
+            <WorkShiftsPage />
           </AuthorizedRoute>
         }
       />

@@ -5,6 +5,11 @@ import { isAxiosError } from "axios";
 import { PayType, EmployeeStatus, Employee } from "../../types/entities";
 import { useEmployees, useCreateEmployee } from "../../hooks/useEmployees";
 import { useEntities, useOperatingUnits } from "../../hooks/usePartners";
+import { useWorkShifts } from "../../hooks/useHr";
+import { usePermissions } from "../../hooks/usePermissions";
+import { PAY_ROLES, employeeErrorMessage } from "../../api/endpoints/employees";
+import type { WorkShift } from "../../api/endpoints/hr";
+import { formatNumber } from "../../lib/utils/format";
 import { useReferenceLookups } from "../../hooks/useReferenceLookups";
 import type { LookupEntry } from "../../config/referenceLookups";
 import { useServerConfigStore } from "../../stores/serverConfigStore";
@@ -30,6 +35,10 @@ export const EmployeesPage: React.FC = () => {
   const { data: operatingUnits = [] } = useOperatingUnits();
   const { data: employeeCategories = [] } = useReferenceLookups("employee-categories", { isActive: true });
   const createEmployeeMutation = useCreateEmployee();
+  const { roleSlugs } = usePermissions();
+  // HR-14: only the pay roles assign a shift (WORK_SHIFT_FORBIDDEN); the controller checks the exact slugs.
+  const canAssignShift = roleSlugs.some((s) => PAY_ROLES.includes(s));
+  const { data: workShifts = [] } = useWorkShifts();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [entityMode, setEntityMode] = useState<"auto" | "existing">("auto");
@@ -42,6 +51,8 @@ export const EmployeesPage: React.FC = () => {
   const [payType, setPayType] = useState<PayType>("monthly");
   const [monthlySalary, setMonthlySalary] = useState<string>("");
   const [hourlyRate, setHourlyRate] = useState<string>("");
+  const [dailyRate, setDailyRate] = useState<string>("");
+  const [workShiftId, setWorkShiftId] = useState("");
   const [hireDate, setHireDate] = useState(new Date().toISOString().split("T")[0]);
 
   const resetForm = () => {
@@ -53,6 +64,8 @@ export const EmployeesPage: React.FC = () => {
     setLaborRole("");
     setMonthlySalary("");
     setHourlyRate("");
+    setDailyRate("");
+    setWorkShiftId("");
     setEntityMode("auto");
   };
 
@@ -84,6 +97,10 @@ export const EmployeesPage: React.FC = () => {
       toast.error("موظف بالساعة بلا دور عمالي يحتاج أجر ساعة شخصياً.");
       return;
     }
+    if (payType === "daily" && dailyRate.trim() === "") {
+      toast.error("أدخل الأجر اليومي للموظف بأجر يومي.");
+      return;
+    }
 
     const payload = {
       operating_unit_id: unitId,
@@ -92,6 +109,8 @@ export const EmployeesPage: React.FC = () => {
       pay_type: payType,
       monthly_salary: payType === "monthly" && monthlySalary ? Number(monthlySalary) : undefined,
       hourly_rate: payType === "hourly" && hourlyRate ? Number(hourlyRate) : undefined,
+      daily_rate: payType === "daily" && dailyRate ? Number(dailyRate) : undefined,
+      work_shift_id: canAssignShift && workShiftId ? workShiftId : undefined,
       hire_date: hireDate,
       status: "active" as EmployeeStatus,
       ...(entityMode === "existing"
@@ -105,11 +124,7 @@ export const EmployeesPage: React.FC = () => {
         setIsModalOpen(false);
         resetForm();
       },
-      onError: (err: unknown) => {
-        const payloadErr = apiErrorPayload(err);
-        const message = payloadErr?.message || (isAxiosError(err) ? err.response?.data?.message : null);
-        toast.error(message || "خطأ أثناء إضافة الموظف");
-      },
+      onError: (err: unknown) => toast.error(employeeErrorMessage(err, "خطأ أثناء إضافة الموظف")),
     });
   };
 
@@ -394,6 +409,7 @@ export const EmployeesPage: React.FC = () => {
               >
                 <option value="monthly">راتب شهري ثابت</option>
                 <option value="hourly">أجر بالساعة</option>
+                <option value="daily">أجر يومي</option>
               </select>
             </div>
 
@@ -433,8 +449,42 @@ export const EmployeesPage: React.FC = () => {
                   />
                 </div>
               )}
+              {payType === "daily" && (
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                    الأجر اليومي (LYD) <span className="text-app-status-danger">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="مثال: 60"
+                    required
+                    value={dailyRate}
+                    onChange={(e) => setDailyRate(e.target.value)}
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:outline-none"
+                  />
+                </div>
+              )}
             </div>
           </div>
+
+          {canAssignShift && (
+            <div>
+              <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                الوردية (لاحتساب الساعات الإضافية)
+              </label>
+              <SearchableSelect<WorkShift>
+                options={workShifts}
+                value={workShifts.find((w) => w.id === workShiftId) ?? null}
+                onChange={(w) => setWorkShiftId(w ? w.id : "")}
+                getOptionId={(w) => w.id}
+                getOptionLabel={(w) => w.name}
+                getOptionSubLabel={(w) => `${formatNumber(w.standard_hours)} س · إضافي × ${formatNumber(w.overtime_multiplier)}`}
+                placeholder="بدون وردية (إعدادات الشركة الافتراضية)"
+              />
+            </div>
+          )}
 
         </form>
           </DialogBody>

@@ -21,9 +21,11 @@ import {
   useDeleteAttendance,
 } from "../../hooks/useHr";
 import { getEmployees } from "../../api/endpoints/employees";
-import { apiErrorPayload } from "../../api/endpoints/production";
 import {
   ATTENDANCE_STATUS_LABEL,
+  attendanceDayError,
+  attendanceErrorMessage,
+  isPayableAttendance,
   type Attendance,
   type AttendanceStatus,
 } from "../../api/endpoints/hr";
@@ -41,7 +43,7 @@ import {
   DialogFooter,
 } from "../../components/ui/Dialog";
 
-const DEFAULT_ROW: RowState = { status: "present", hours: "8" };
+const DEFAULT_ROW: RowState = { status: "present", hours: "8", overtime: "0" };
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
@@ -85,11 +87,13 @@ export const AttendancePage: React.FC = () => {
   const [addWorkDate, setAddWorkDate] = useState(todayIso());
   const [addStatus, setAddStatus] = useState<AttendanceStatus>("present");
   const [addHours, setAddHours] = useState("8");
+  const [addOvertime, setAddOvertime] = useState("0");
   const [addNotes, setAddNotes] = useState("");
 
   // Form states for Edit Record
   const [editStatus, setEditStatus] = useState<AttendanceStatus>("present");
   const [editHours, setEditHours] = useState("8");
+  const [editOvertime, setEditOvertime] = useState("0");
   const [editNotes, setEditNotes] = useState("");
 
   // Queries
@@ -115,8 +119,12 @@ export const AttendancePage: React.FC = () => {
   const {
     data: dailyAttendance,
     isLoading: dailyLoading,
+    isSuccess: dailyLoaded,
   } = useAttendance({
     work_date: sheetWorkDate,
+    // The whole day: the sheet lists every employee, and a row past the default page of 50
+    // would be re-saved from DEFAULT_ROW (status, hours and overtime reset).
+    per_page: 1000,
   });
 
   // Mutations
@@ -133,11 +141,16 @@ export const AttendancePage: React.FC = () => {
       seeded[record.employee_id] = {
         status: record.status,
         hours: String(Number(record.hours_worked)),
+        overtime: String(Number(record.overtime_hours ?? 0)),
       };
     }
     setSheetRows(seeded);
     setSheetSaved(false);
   }, [dailyAttendance]);
+
+  // The sheet is saved only once the selected day's records have loaded: every entry sends
+  // overtime_hours, so saving earlier would write defaults over that day's recorded hours and overtime.
+  const sheetReady = dailyLoaded && dailyAttendance !== undefined;
 
   const sheetRowFor = (employeeId: string): RowState => sheetRows[employeeId] ?? DEFAULT_ROW;
 
@@ -147,7 +160,9 @@ export const AttendancePage: React.FC = () => {
   const markAllPresent = () => {
     const next: Record<string, RowState> = {};
     for (const emp of employees ?? []) {
-      next[emp.id] = { status: "present", hours: "8" };
+      // Overtime already entered on a day at work stays; a hidden value on an absence or leave does not come back.
+      const prev = sheetRows[emp.id];
+      next[emp.id] = { status: "present", hours: "8", overtime: prev && isPayableAttendance(prev.status) ? prev.overtime : "0" };
     }
     setSheetRows(next);
   };
@@ -177,6 +192,7 @@ export const AttendancePage: React.FC = () => {
     let absentCount = 0;
     let otherCount = 0;
     let totalHours = 0;
+    let totalOvertime = 0;
 
     for (const record of list) {
       if (record.status === "present") presentCount++;
@@ -184,6 +200,7 @@ export const AttendancePage: React.FC = () => {
       else otherCount++;
 
       totalHours += Number(record.hours_worked) || 0;
+      totalOvertime += Number(record.overtime_hours) || 0;
     }
 
     return {
@@ -192,6 +209,7 @@ export const AttendancePage: React.FC = () => {
       absentCount,
       otherCount,
       totalHours: Math.round(totalHours * 10) / 10,
+      totalOvertime: Math.round(totalOvertime * 10) / 10,
     };
   }, [attendanceListData]);
 
@@ -200,6 +218,7 @@ export const AttendancePage: React.FC = () => {
     setSelectedRecord(record);
     setEditStatus(record.status);
     setEditHours(String(Number(record.hours_worked) || 0));
+    setEditOvertime(String(Number(record.overtime_hours) || 0));
     setEditNotes(record.notes || "");
     setError(null);
     setEditDialogOpen(true);
@@ -215,7 +234,15 @@ export const AttendancePage: React.FC = () => {
     if (!selectedRecord) return;
     setError(null);
 
-    const hours = editStatus === "present" || editStatus === "half_day" ? Number(editHours) || 0 : 0;
+    const payable = isPayableAttendance(editStatus);
+    const hours = payable ? Number(editHours) || 0 : 0;
+    // HR-14: an absence or leave carries no overtime; sending 0 lets the server accept the change.
+    const overtime = payable ? Number(editOvertime) || 0 : 0;
+    const dayError = attendanceDayError(editStatus, hours, overtime);
+    if (dayError) {
+      setError(dayError);
+      return;
+    }
 
     updateMutation.mutate(
       {
@@ -223,6 +250,7 @@ export const AttendancePage: React.FC = () => {
         payload: {
           status: editStatus,
           hours_worked: hours,
+          overtime_hours: overtime,
           notes: editNotes || undefined,
         },
       },
@@ -231,7 +259,7 @@ export const AttendancePage: React.FC = () => {
           setEditDialogOpen(false);
           setSelectedRecord(null);
         },
-        onError: (err) => setError(apiErrorPayload(err)?.message ?? "تعذر تعديل السجل."),
+        onError: (err) => setError(attendanceErrorMessage(err, "تعذر تعديل السجل.")),
       },
     );
   };
@@ -245,7 +273,7 @@ export const AttendancePage: React.FC = () => {
         setDeleteDialogOpen(false);
         setSelectedRecord(null);
       },
-      onError: (err) => setError(apiErrorPayload(err)?.message ?? "تعذر حذف السجل."),
+      onError: (err) => setError(attendanceErrorMessage(err, "تعذر حذف السجل.")),
     });
   };
 
@@ -256,7 +284,14 @@ export const AttendancePage: React.FC = () => {
     }
     setError(null);
 
-    const hours = addStatus === "present" || addStatus === "half_day" ? Number(addHours) || 0 : 0;
+    const payable = isPayableAttendance(addStatus);
+    const hours = payable ? Number(addHours) || 0 : 0;
+    const overtime = payable ? Number(addOvertime) || 0 : 0;
+    const dayError = attendanceDayError(addStatus, hours, overtime);
+    if (dayError) {
+      setError(dayError);
+      return;
+    }
 
     createMutation.mutate(
       {
@@ -264,36 +299,48 @@ export const AttendancePage: React.FC = () => {
         work_date: addWorkDate,
         status: addStatus,
         hours_worked: hours,
+        overtime_hours: overtime,
         notes: addNotes || undefined,
       },
       {
         onSuccess: () => {
           setAddDialogOpen(false);
           setAddNotes("");
+          setAddOvertime("0");
         },
-        onError: (err) => setError(apiErrorPayload(err)?.message ?? "تعذر إضافة السجل."),
+        onError: (err) => setError(attendanceErrorMessage(err, "تعذر إضافة السجل.")),
       },
     );
   };
 
   const handleSaveSheet = () => {
+    if (!sheetReady) return;
     setError(null);
     setSheetSaved(false);
+    const entries = (employees ?? []).map((e) => {
+      const row = sheetRowFor(e.id);
+      const payable = isPayableAttendance(row.status);
+      return {
+        employee_id: e.id,
+        status: row.status,
+        hours_worked: payable ? Number(row.hours) || 0 : 0,
+        // HR-14: overtime only on a day at work.
+        overtime_hours: payable ? Number(row.overtime) || 0 : 0,
+      };
+    });
+    for (const [i, entry] of entries.entries()) {
+      const dayError = attendanceDayError(entry.status, entry.hours_worked, entry.overtime_hours);
+      if (dayError) {
+        const emp = (employees ?? [])[i];
+        setError(`${emp?.entity?.name ?? emp?.job_title ?? ""}: ${dayError}`);
+        return;
+      }
+    }
     saveSheetMutation.mutate(
-      {
-        work_date: sheetWorkDate,
-        entries: (employees ?? []).map((e) => ({
-          employee_id: e.id,
-          status: sheetRowFor(e.id).status,
-          hours_worked:
-            sheetRowFor(e.id).status === "present" || sheetRowFor(e.id).status === "half_day"
-              ? Number(sheetRowFor(e.id).hours) || 0
-              : 0,
-        })),
-      },
+      { work_date: sheetWorkDate, entries },
       {
         onSuccess: () => setSheetSaved(true),
-        onError: (err) => setError(apiErrorPayload(err)?.message ?? "تعذر حفظ الكشف."),
+        onError: (err) => setError(attendanceErrorMessage(err, "تعذر حفظ الكشف.")),
       },
     );
   };
@@ -456,6 +503,11 @@ export const AttendancePage: React.FC = () => {
               <span className="text-xl font-bold font-mono text-app-accent">
                 {metrics.totalHours} <span className="text-xs font-normal">ساعة</span>
               </span>
+              {metrics.totalOvertime > 0 && (
+                <span className="block text-[11px] font-mono text-app-label-secondary mt-0.5">
+                  + {metrics.totalOvertime} <span className="font-sans">ساعة إضافية</span>
+                </span>
+              )}
             </div>
           </div>
 
@@ -614,7 +666,7 @@ export const AttendancePage: React.FC = () => {
                 كشف التحضير السريع لكافة الموظفين
               </h2>
               <p className="text-xs text-app-label-secondary mt-0.5">
-                اختر التاريخ، ثم حدد حالة الحضور وساعات العمل لكل موظف، ثم احفظ الكشف.
+                اختر التاريخ، ثم حدد حالة الحضور وساعات العمل والساعات الإضافية لكل موظف، ثم احفظ الكشف.
               </p>
             </div>
 
@@ -638,7 +690,8 @@ export const AttendancePage: React.FC = () => {
               <button
                 type="button"
                 onClick={markAllPresent}
-                className="mt-4 flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1 transition-colors"
+                disabled={!sheetReady}
+                className="mt-4 flex items-center gap-1.5 rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-semibold text-app-label-primary hover:bg-app-fill-f1 disabled:opacity-50 transition-colors"
               >
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 تحضير الكل كحاضر (8س)
@@ -647,7 +700,7 @@ export const AttendancePage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleSaveSheet}
-                disabled={saveSheetMutation.isPending || !employees?.length}
+                disabled={saveSheetMutation.isPending || !employees?.length || !sheetReady}
                 className="mt-4 flex items-center gap-1.5 rounded-xl bg-app-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
               >
                 <Save className="w-4 h-4" />
@@ -734,7 +787,10 @@ export const AttendancePage: React.FC = () => {
                       setAddStatus(next);
                       if (next === "present") setAddHours("8");
                       else if (next === "half_day") setAddHours("4");
-                      else setAddHours("0");
+                      else {
+                        setAddHours("0");
+                        setAddOvertime("0");
+                      }
                     }}
                     className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
                   >
@@ -747,20 +803,37 @@ export const AttendancePage: React.FC = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-app-label-secondary mb-1">
-                  ساعات العمل
-                </label>
-                <input
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  max="24"
-                  disabled={addStatus === "absent" || addStatus === "leave"}
-                  value={addHours}
-                  onChange={(e) => setAddHours(e.target.value)}
-                  className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono text-app-label-primary focus:border-app-accent focus:outline-none disabled:opacity-40"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                    ساعات العمل
+                  </label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    max="24"
+                    disabled={addStatus === "absent" || addStatus === "leave"}
+                    value={addHours}
+                    onChange={(e) => setAddHours(e.target.value)}
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono text-app-label-primary focus:border-app-accent focus:outline-none disabled:opacity-40"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                    ساعات إضافية
+                  </label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    max="24"
+                    disabled={!isPayableAttendance(addStatus)}
+                    value={addOvertime}
+                    onChange={(e) => setAddOvertime(e.target.value)}
+                    className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono text-app-label-primary focus:border-app-accent focus:outline-none disabled:opacity-40"
+                  />
+                </div>
               </div>
 
               <div>
@@ -837,7 +910,10 @@ export const AttendancePage: React.FC = () => {
                         setEditStatus(next);
                         if (next === "present" && Number(editHours) <= 0) setEditHours("8");
                         else if (next === "half_day" && Number(editHours) <= 0) setEditHours("4");
-                        else if (next === "absent" || next === "leave") setEditHours("0");
+                        else if (next === "absent" || next === "leave") {
+                          setEditHours("0");
+                          setEditOvertime("0");
+                        }
                       }}
                       className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs text-app-label-primary focus:border-app-accent focus:outline-none"
                     >
@@ -861,6 +937,22 @@ export const AttendancePage: React.FC = () => {
                       disabled={editStatus === "absent" || editStatus === "leave"}
                       value={editHours}
                       onChange={(e) => setEditHours(e.target.value)}
+                      className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono text-app-label-primary focus:border-app-accent focus:outline-none disabled:opacity-40"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-app-label-secondary mb-1">
+                      ساعات إضافية
+                    </label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      max="24"
+                      disabled={!isPayableAttendance(editStatus)}
+                      value={editOvertime}
+                      onChange={(e) => setEditOvertime(e.target.value)}
                       className="w-full rounded-xl border border-app-separator bg-app-bg-secondary px-3 py-2 text-xs font-mono text-app-label-primary focus:border-app-accent focus:outline-none disabled:opacity-40"
                     />
                   </div>

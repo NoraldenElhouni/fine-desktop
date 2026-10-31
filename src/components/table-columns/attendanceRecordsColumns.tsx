@@ -74,6 +74,16 @@ export function useAttendanceRecordsColumns({
         },
       },
       {
+        id: "overtime_hours",
+        header: "إضافي",
+        accessorFn: (a) => Number(a.overtime_hours ?? 0),
+        meta: { className: "font-mono" },
+        cell: ({ row }) => {
+          const overtime = Number(row.original.overtime_hours ?? 0);
+          return overtime > 0 ? `${overtime} س` : "—";
+        },
+      },
+      {
         id: "notes",
         accessorKey: "notes",
         header: "الملاحظات",

@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogBody, DialogFooter } from "../../components/ui/Dialog";
 import { useEmployeeCompensations, useUpdateEmployee } from "../../hooks/useEmployees";
+import { useWorkShifts } from "../../hooks/useHr";
 import { employeeErrorMessage } from "../../api/endpoints/employees";
-import { formatDate, localDateIso } from "../../lib/utils/format";
+import { formatDate, formatNumber, localDateIso } from "../../lib/utils/format";
 import { toast } from "../../stores/toastStore";
 import type { Employee, EmployeeStatus, UpdateEmployeePayload } from "../../types/entities";
 
@@ -52,13 +53,15 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   /** The caller holds a pay role, so the card carries the bank details and may change them. */
   canEditBank: boolean;
+  /** HR-14: the caller holds a pay role, so may assign or change the work shift (WORK_SHIFT_FORBIDDEN otherwise). */
+  canAssignShift: boolean;
 }
 
 /**
  * Edits the employee card (PUT /employees/{id}). Pay type and rates are not here:
  * they change through a dated pay change in the «سجل الراتب» tab (HR-11).
  */
-export const EmployeeEditDialog: React.FC<Props> = ({ employee, open, onOpenChange, canEditBank }) => {
+export const EmployeeEditDialog: React.FC<Props> = ({ employee, open, onOpenChange, canEditBank, canAssignShift }) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="2xl">
@@ -67,15 +70,23 @@ export const EmployeeEditDialog: React.FC<Props> = ({ employee, open, onOpenChan
           <DialogClose />
         </DialogHeader>
         {/* Remounts on each open so the form starts from the current card. */}
-        {open && <EditForm employee={employee} canEditBank={canEditBank} onDone={() => onOpenChange(false)} />}
+        {open && (
+          <EditForm
+            employee={employee}
+            canEditBank={canEditBank}
+            canAssignShift={canAssignShift}
+            onDone={() => onOpenChange(false)}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
 };
 
-const EditForm: React.FC<{ employee: Employee; canEditBank: boolean; onDone: () => void }> = ({
+const EditForm: React.FC<{ employee: Employee; canEditBank: boolean; canAssignShift: boolean; onDone: () => void }> = ({
   employee,
   canEditBank,
+  canAssignShift,
   onDone,
 }) => {
   const update = useUpdateEmployee();
@@ -97,6 +108,8 @@ const EditForm: React.FC<{ employee: Employee; canEditBank: boolean; onDone: () 
   const [terminationDate, setTerminationDate] = useState(day(employee.termination_date));
   const [bankName, setBankName] = useState(employee.bank_name ?? "");
   const [bankAccount, setBankAccount] = useState(employee.bank_account ?? "");
+  const [workShiftId, setWorkShiftId] = useState(employee.work_shift_id ?? "");
+  const { data: workShifts = [], isSuccess: shiftsLoaded } = useWorkShifts();
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -153,6 +166,8 @@ const EditForm: React.FC<{ employee: Employee; canEditBank: boolean; onDone: () 
       // Bank details are sent only by the roles that see them; anyone else would
       // be sending a blank over the stored value (BANK_DETAILS_FORBIDDEN).
       ...(canEditBank ? { bank_name: orNull(bankName), bank_account: orNull(bankAccount) } : {}),
+      // HR-14: only the pay roles move an employee to another shift.
+      ...(canAssignShift ? { work_shift_id: workShiftId || null } : {}),
     };
     update.mutate(
       { id: employee.id, payload },
@@ -242,6 +257,35 @@ const EditForm: React.FC<{ employee: Employee; canEditBank: boolean; onDone: () 
             <p className="text-[11px] text-app-label-tertiary">
               تصحيح تاريخ التعيين ينقل بداية سجل الراتب معه، ويُرفض إن غيّر قسيمة في مسير تجاوز المراجعة.
             </p>
+          </div>
+
+          <div>
+            <label className={label}>الوردية (لاحتساب الساعات الإضافية)</label>
+            {canAssignShift ? (
+              <select className={input} value={workShiftId} onChange={(e) => setWorkShiftId(e.target.value)}>
+                <option value="">بدون وردية (إعدادات الشركة الافتراضية)</option>
+                {/* The stored shift stays selectable while the list loads, and if it was deleted since
+                    (sending it back is not a change), so the form never clears it by accident. */}
+                {employee.work_shift_id && !workShifts.some((w) => w.id === employee.work_shift_id) && (
+                  <option value={employee.work_shift_id}>
+                    {employee.work_shift?.name ?? "الوردية الحالية"}
+                    {shiftsLoaded ? " (محذوفة)" : ""}
+                  </option>
+                )}
+                {workShifts.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name} — {formatNumber(w.standard_hours)} س · إضافي × {formatNumber(w.overtime_multiplier)}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className={`${input} opacity-70`}>{employee.work_shift?.name ?? "بدون وردية"}</div>
+            )}
+            {!canAssignShift && (
+              <p className="mt-1 text-[11px] text-app-label-tertiary">
+                تعيين الوردية من صلاحية مدير الموارد البشرية أو مدير الحسابات أو المالك.
+              </p>
+            )}
           </div>
 
           {canEditBank && (

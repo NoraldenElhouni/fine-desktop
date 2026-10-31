@@ -74,6 +74,10 @@ export function useCreateEmployee() {
       qc.invalidateQueries({ queryKey: ["employees"] });
       qc.invalidateQueries({ queryKey: ["entities"] });
     },
+    // HR-14: the chosen shift was deleted meanwhile; refetch so the picker drops it.
+    onError: (err) => {
+      if (apiErrorPayload(err)?.errors?.work_shift_id) qc.invalidateQueries({ queryKey: ["workShifts"] });
+    },
   });
 }
 
@@ -99,10 +103,13 @@ export function useUpdateEmployee() {
       return qc.invalidateQueries({ queryKey: ["employee", id] });
     },
     onError: (err, { id }) => {
-      if (apiErrorPayload(err)?.code === "OPTIMISTIC_LOCK_CONFLICT") {
+      const payload = apiErrorPayload(err);
+      if (payload?.code === "OPTIMISTIC_LOCK_CONFLICT") {
         qc.invalidateQueries({ queryKey: ["employee", id] });
         qc.invalidateQueries({ queryKey: ["employees"] });
       }
+      // HR-14: the chosen shift was deleted meanwhile; refetch so the picker drops it.
+      if (payload?.errors?.work_shift_id) qc.invalidateQueries({ queryKey: ["workShifts"] });
     },
   });
 }

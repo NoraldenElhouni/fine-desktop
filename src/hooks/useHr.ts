@@ -1,5 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { hrApi, type Deduction, type AttendanceStatus, type LeaveType, type HrSettings } from "../api/endpoints/hr";
+import {
+  hrApi,
+  type Deduction,
+  type AttendanceStatus,
+  type LeaveType,
+  type HrSettings,
+  type WorkShiftPayload,
+} from "../api/endpoints/hr";
+import { apiErrorPayload } from "../api/endpoints/production";
 
 export function useAttendance(params?: {
   work_date?: string;
@@ -22,7 +30,7 @@ export function useSaveAttendance() {
   return useMutation({
     mutationFn: (payload: {
       work_date: string;
-      entries: { employee_id: string; status: AttendanceStatus; hours_worked?: number; notes?: string }[];
+      entries: { employee_id: string; status: AttendanceStatus; hours_worked?: number; overtime_hours?: number; notes?: string }[];
     }) => hrApi.saveAttendance(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance"] }),
   });
@@ -39,7 +47,13 @@ export function useCreateAttendance() {
 export function useUpdateAttendance() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: { status?: AttendanceStatus; hours_worked?: number; notes?: string } }) =>
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: { status?: AttendanceStatus; hours_worked?: number; overtime_hours?: number; notes?: string };
+    }) =>
       hrApi.updateAttendance(id, payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance"] }),
   });
@@ -158,8 +172,56 @@ export function useUpdateHrSettings() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: Partial<HrSettings>) => hrApi.updateHrSettings(payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["hrSettings"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["hrSettings"] });
+      // HR-14: changing the overtime settings flags calculated runs with overtime (needs_recalculation).
+      qc.invalidateQueries({ queryKey: ["payrollRuns"] });
+    },
   });
+}
+
+/** HR-14: the company's work shifts. */
+export function useWorkShifts() {
+  return useQuery({
+    queryKey: ["workShifts"],
+    queryFn: async () => (await hrApi.getWorkShifts()).data.data,
+  });
+}
+
+/**
+ * A shift change can flag calculated runs (needs_recalculation), so runs refetch too.
+ * A 409 optimistic-lock conflict refetches the list, so a reopened edit form reads
+ * the new record_version instead of conflicting again.
+ */
+function useWorkShiftMutation<TArgs>(fn: (args: TArgs) => Promise<unknown>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["workShifts"] });
+      qc.invalidateQueries({ queryKey: ["payrollRuns"] });
+    },
+    onError: (err) => {
+      if (apiErrorPayload(err)?.code === "OPTIMISTIC_LOCK_CONFLICT") {
+        qc.invalidateQueries({ queryKey: ["workShifts"] });
+      }
+    },
+  });
+}
+
+export function useCreateWorkShift() {
+  return useWorkShiftMutation((payload: WorkShiftPayload) => hrApi.createWorkShift(payload));
+}
+
+export function useUpdateWorkShift() {
+  return useWorkShiftMutation(
+    ({ id, payload }: { id: string; payload: Partial<WorkShiftPayload> & { record_version: number } }) =>
+      hrApi.updateWorkShift(id, payload),
+  );
+}
+
+export function useDeleteWorkShift() {
+  return useWorkShiftMutation((id: string) => hrApi.deleteWorkShift(id));
 }
 
 export function useCreateLeaveRequest() {

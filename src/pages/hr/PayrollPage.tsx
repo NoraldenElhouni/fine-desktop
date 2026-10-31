@@ -354,6 +354,7 @@ export const PayrollPage: React.FC = () => {
     const list = payslips ?? [];
     const baseTotal = list.reduce((sum, p) => sum + Number(p.base_pay || 0), 0);
     const attendanceTotal = list.reduce((sum, p) => sum + Number(p.attendance_pay || 0), 0);
+    const overtimeTotal = list.reduce((sum, p) => sum + Number(p.overtime_pay || 0), 0);
     const laborLogTotal = list.reduce((sum, p) => sum + Number(p.labor_log_pay || 0), 0);
     const additionsTotal = list.reduce((sum, p) => sum + Number(p.additions_pay || 0), 0);
     const grossTotal = Number(activeRun.total_gross || 0);
@@ -365,6 +366,7 @@ export const PayrollPage: React.FC = () => {
     const compositionData = [
       { name: "الأساسي", amount: baseTotal, fill: "#3b82f6" },
       { name: "الحضور", amount: attendanceTotal, fill: "#f59e0b" },
+      { name: "الإضافي", amount: overtimeTotal, fill: "#f97316" },
       { name: "الإنتاج", amount: laborLogTotal, fill: "#8b5cf6" },
       { name: "البدلات والمكافآت", amount: additionsTotal, fill: "#10b981" },
       { name: "الاستقطاعات", amount: deductionsTotal, fill: "#ef4444" },
@@ -621,7 +623,7 @@ export const PayrollPage: React.FC = () => {
                 <div className="flex items-start gap-2 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-xs text-rose-700 dark:text-rose-300">
                   <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                   <span>
-                    سُجّل تغيير أجر أو بدل أو استقطاع ثابت، أو اعتماد مكافأة أو جزاء أو حذفه، أو صرف سلفة أو سداد نقدي لقسط يمس شهر {activeRun.period} بعد احتساب هذا المسير، فالقسائم الحالية لا تعكسه.
+                    سُجّل تغيير أجر أو بدل أو استقطاع ثابت، أو اعتماد مكافأة أو جزاء أو حذفه، أو صرف سلفة أو سداد نقدي لقسط، أو تعديل وردية أو نقل موظف إلى وردية أخرى أو تغيير إعدادات العمل الإضافي، يمس شهر {activeRun.period} بعد احتساب هذا المسير، فالقسائم الحالية لا تعكسه.
                     لا يمكن إرساله للاعتماد حتى يُعاد احتسابه. إعادة الاحتساب تحذف الاستقطاعات المُدخلة يدوياً على القسائم،
                     فأدخلها بعد الاحتساب لا قبله.
                   </span>
